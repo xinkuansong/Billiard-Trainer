@@ -55,4 +55,6 @@ python3 scripts/local_test_lifecycle.py run --task my-validation -- \
 
 工具只删除自己新建且登记的 `work/`，不接管历史目录。删除前检查目录身份、符号链接边界、挂载点、完整进程参数、打开文件和证据哈希。进程仍以 work 为工作目录也会阻止删除。登记写入和回收使用锁，启动记录原子发布；保留标记可以在运行中写入。绕过入口的任意外部进程不受锁约束，复用前应先 protect。
 
+原生iOS-on-Mac的应用包装目录可能拒绝重复chmod，即使目录已经可写。权限准备仅对缺少owner读写/搜索权限的目录执行；只读快照仍先恢复目录权限。没有修改OS保护或绕过删除失败，其他清理护栏保持。
+
 `make -f scripts/Makefile test-work-check` 执行边界测试。真实 Makefile/CLI 测试只替换 Xcode/格式化器，不启动模拟器；另有真实进程 cwd 占用及实际删除验证，见 `output/local-test-lifecycle-20261020/`。本轮未运行 iOS 功能测试。

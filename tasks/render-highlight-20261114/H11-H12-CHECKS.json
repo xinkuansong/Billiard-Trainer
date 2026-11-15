@@ -1,0 +1,73 @@
+{
+  "runs": [
+    {
+      "runID": "de14dbc53c9f4a96b90e5ca30b71922c",
+      "exitCode": 0,
+      "state": "reclaimed",
+      "verifiedEvidenceFiles": 213
+    },
+    {
+      "runID": "919855bbf732464da6903c47a223ba60",
+      "exitCode": 0,
+      "state": "reclaimed",
+      "verifiedEvidenceFiles": 213
+    },
+    {
+      "runID": "464d9e4928bc4d08a24314cafcacc109",
+      "exitCode": 0,
+      "state": "reclaimed",
+      "verifiedEvidenceFiles": 213
+    },
+    {
+      "runID": "e70a79c43b4f41ae8993b890c04faa6a",
+      "exitCode": 0,
+      "state": "reclaimed",
+      "verifiedEvidenceFiles": 370
+    },
+    {
+      "runID": "e5b9d71a784546d6b81621ec518e04b1",
+      "exitCode": 0,
+      "state": "reclaimed",
+      "verifiedEvidenceFiles": 316
+    },
+    {
+      "runID": "b8a327a8c3164511b6ee9c5e0c0b3f49",
+      "exitCode": 0,
+      "state": "reclaimed",
+      "verifiedEvidenceFiles": 172
+    }
+  ],
+  "productionSourceAndAssetsStillMatch": {
+    "QiuJi/Core/Scene/StaticClothIrradiance.swift": "d5da3e35434c19cc25d6df544f911ccba2c852d0533ae11727c7aca5658913a3",
+    "QiuJi/Core/Scene/MobileReferenceLighting.swift": "a3e8e9cd4232fd6347b2462a2136b017edc3dc2af9e1995667f82ba00912f55a",
+    "QiuJi/Core/Scene/MobileTableRendering.swift": "69da3baccd3d8e1518e69ea25d9261ece816ca3dc854bbb3f998b015f20e002f",
+    "QiuJi/Resources/StaticClothIrradiance-v1.bin": "bc7509c3ebe99b0f823fd9722264f67503e006f976abc32ac54fdf050ad0b096",
+    "QiuJi/Core/Scene/BakedTrainingRoom.swift": "63254acc95bcbdee290a63a2f736599a3c89c9623f8fbad70c674aa7a17b2218",
+    "QiuJi/Resources/TrainingRoom/TrainingCarpet.jpg": "eea5501e1a5280895b54513bc46da62ab5b55497ab95644d2db92dadee81e90b",
+    "QiuJi/Resources/TrainingRoom/Carpet_tournament.png": "c563290fce68ead080ada7c0623ef30037d1ea1b6d5bf165988d6e67b6fee61b",
+    "QiuJi/Resources/TrainingRoom/Room_tournament_floor.usdz": "80870bf42fb38e3c4bd5732b98713777ebc808d5e72d0fee4711b0b3c78bca57",
+    "QiuJi/Resources/TrainingRoom/tournament_floor.png": "cab735b208d5aa1441bd2b82436e3ff974ab2ebb4420c2d59c34344a1862bcd9",
+    "QiuJi/Resources/TrainingRoom/Room_tournament_perimeter.usdz": "771e2a4a7579c67ccb516b75b91a23c68616f8373833d78160bfcd02b98d5d0d",
+    "QiuJi/Resources/TrainingRoom/tournament_perimeter.png": "edede5521787034b75ac9abe6043561a65de3ee9ddd6167bb8bed31e28799511",
+    "QiuJi/Resources/TrainingRoom/Carpet_walnut.png": "f2a2272a94ed6644e5e9793c20b6b7aa591dd6022b2877750e027ec94796b1aa",
+    "QiuJi/Resources/TrainingRoom/Room_walnut_floor.usdz": "d7b5a62f9ba671fdb768bab1ed0b35252297562a4b667ab03d4372096666bc04",
+    "QiuJi/Resources/TrainingRoom/walnut_floor.png": "504f18ca599368a74c13d62e6e6db9295749504669ce3459cb5b4a24df23c573",
+    "QiuJi/Resources/TrainingRoom/Room_walnut_perimeter.usdz": "d92a9f2dafb174b87185384398ddb526e9efdf1f220d7dc9892677f58afa6aae",
+    "QiuJi/Resources/TrainingRoom/walnut_perimeter.png": "ae3890e7978d48c946b82807fa5ed83fd1aa25bfe97e9c2247a3209c36086726",
+    "QiuJi/Resources/TrainingRoom/Carpet_eastern.png": "c64b5b4b046db44c047151965d0067745fd290dc2e992211d5e864495052a92f",
+    "QiuJi/Resources/TrainingRoom/Room_eastern_floor.usdz": "ffb255fad8962d702c9fa27ed6081a7e122b92691414b5de6f8a5c9dad132b09",
+    "QiuJi/Resources/TrainingRoom/eastern_floor.png": "e025ac03fc3509adb55409b7f208e2edc25be8f66cc7ba4b3a9dd4f3556e61f8",
+    "QiuJi/Resources/TrainingRoom/Room_eastern_perimeter.usdz": "1417375e1ecd75775981ef9de3b68e9d4ef8151af2df1ce98da4b7760613a483",
+    "QiuJi/Resources/TrainingRoom/eastern_perimeter.png": "11e96790dbb38eecd0740ae6e54cd2175aa6eb007210e21b5cbf255a1eb0bef2"
+  },
+  "pythonSyntax": "passed",
+  "summaryRawHashesAndVisualCounts": "passed",
+  "fullAppOrPhoneTestsThisBatch": false,
+  "verifyGate": {
+    "exitCode": 0,
+    "log": "output/render-highlight-20261114/h11-h12-verification/verify-gate.log",
+    "sha256": "803a41ce88001e7d4df059465aa5f6a232eb2ee151c21c933f590793faea70ff"
+  },
+  "verifyDocSize": "passed: PROGRESS 100 KB / 10 current items; hub 58 KB / 10 recent items",
+  "diffCheck": "passed for touched tracked progress and existing production diffs"
+}

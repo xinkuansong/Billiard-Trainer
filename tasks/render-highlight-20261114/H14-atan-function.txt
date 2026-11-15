@@ -1,0 +1,16 @@
+float h14PositiveAtan2(float y,float x) {
+    float ax=abs(x);float t=min(y,ax)/max(y,ax);float u=t*t;
+    float value=-0.0017437011702;
+    value=fma(value,u,0.0106807192788);
+    value=fma(value,u,-0.0307175088674);
+    value=fma(value,u,0.0574635565281);
+    value=fma(value,u,-0.083720639348);
+    value=fma(value,u,0.109401986003);
+    value=fma(value,u,-0.142615735531);
+    value=fma(value,u,0.199982300401);
+    value=fma(value,u,-0.333332836628);
+    value=fma(value,u,1);
+    float angle=t*value;
+    angle=y>ax ? 1.5707963267948966-angle : angle;
+    return x<0.0 ? 3.141592653589793-angle : angle;
+}

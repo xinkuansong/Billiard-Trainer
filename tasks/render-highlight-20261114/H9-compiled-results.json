@@ -1,0 +1,87 @@
+{
+  "runID": "5ccbc38c30c94924a2266f5a6e148d29",
+  "shaderObservations": {
+    "source": "Manual transcription of Xcode accessibility UI; raw CSV exported by Xcode",
+    "hardware": "Apple M5 Pro",
+    "OS": "macOS 27.2",
+    "profile": "Full",
+    "execution": "Overlapping",
+    "performanceState": "Medium",
+    "scope": "1400x800 native material; not phone, complete app, energy or balanced replay timing",
+    "draw": {
+      "commandBuffer": 3,
+      "renderEncoder": 2,
+      "APICall": 27,
+      "indexCount": 58830,
+      "indexType": "UInt32",
+      "primitive": "Triangle",
+      "bindings": [
+        "contactUniforms",
+        "bakedRailAO",
+        "temporalField0",
+        "temporalField1",
+        "u_normalTexture",
+        "u_roughnessTexture"
+      ]
+    },
+    "variants": {
+      "baseline": {
+        "fragment": "commonprofile_frag",
+        "pipeline": 2,
+        "costPercent": 86.43,
+        "SIMDGroups": 37094,
+        "allocatedRegisters": 252,
+        "highRegister": 252,
+        "spilledBytes": 272,
+        "unbalancedReplayMilliseconds": 1.2
+      },
+      "h9": {
+        "fragment": "commonprofile_frag (5)",
+        "pipeline": 7,
+        "costPercent": 88.36,
+        "SIMDGroups": 37094,
+        "allocatedRegisters": 252,
+        "highRegister": 252,
+        "spilledBytes": 0,
+        "unbalancedReplayMilliseconds": 1.12
+      }
+    }
+  },
+  "mainEncoderCounters": {
+    "baseline": {
+      "FS ALU Instructions": 3025750384.0,
+      "FS Invocations": 1132864.0,
+      "FS Occupancy": 20.22,
+      "F32 Limiter": 73.25,
+      "Instruction Throughput Limiter": 65.55,
+      "Stack L1 Read Bandwidth": 105.9,
+      "Stack L1 Write Bandwidth": 253.85,
+      "L1 Stack Residency": 51.7,
+      "Register Pressure Influence": 0.0,
+      "L1 Cache Pressure Influence": 0.0,
+      "Memory Request Stalls Influence": 0.0
+    },
+    "h9": {
+      "FS ALU Instructions": 2933399824.0,
+      "FS Invocations": 1132896.0,
+      "FS Occupancy": 69.41,
+      "F32 Limiter": 79.07,
+      "Instruction Throughput Limiter": 73.04,
+      "Stack L1 Read Bandwidth": 6.85,
+      "Stack L1 Write Bandwidth": 9.35,
+      "L1 Stack Residency": 4.78,
+      "Register Pressure Influence": 0.0,
+      "L1 Cache Pressure Influence": 0.0,
+      "Memory Request Stalls Influence": 0.0
+    }
+  },
+  "FSALUChangePercent": -3.052153954547754,
+  "limits": "Encoder includes table materials; stack bandwidth CSV has no unit; replay times are not AB performance evidence",
+  "sourceSHA256": {
+    "baseline-counters.csv": "206c731f3991f61c4e6d76a20d55699878092c97f1428bd76132b2eb98f87328",
+    "h9-counters.csv": "a4b9b7ddb96c094b21db0d98b1f5feec4ac9c3d107c492bd94b24bd8dd6ffcd1",
+    "xcode-observations.json": "753f6cc27370ac1c5b4464392ba23b32c33ed97bb51b7105769b5af0bd24853a",
+    "baseline.surface": "56fde5864ef300c78e7026f890f58c753710fce194bcee9c6dcd778117552d83",
+    "constant-lamp.surface": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+  }
+}

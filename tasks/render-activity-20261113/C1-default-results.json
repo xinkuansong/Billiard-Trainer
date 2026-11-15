@@ -1,0 +1,103 @@
+{
+  "scope": "C1 default integration, Debug and Release Swift paths enabled; no phone installation or new performance claim",
+  "nonDebugIOSBuild": {
+    "buildSucceeded": true,
+    "codesignVerified": true,
+    "bundleAssetExact": true,
+    "assetBytes": 1048576,
+    "binarySHA256": "aada804cefb3cf148cdb7913a6839b3414e2ceda278984718a92459a1b548ded",
+    "sourceSHA256": {
+      "QiuJi/Core/Scene/StaticClothIrradiance.swift": "100c9085302e0d5fccc9e39e5d9ca7a33be48238209309bc5af0ced12d38a7ed",
+      "QiuJi/Core/Scene/MobileReferenceLighting.swift": "7cc15b3ded410d705cca462ecb4394a60b49448cb60e0f24ee3e404c14d949f1",
+      "QiuJi/Core/Scene/AngleTrainingScene.swift": "6223a677a40afb1d20440223d78f434120bf5a48741ac3281fa1cc82355fd6f2",
+      "QiuJi.xcodeproj/project.pbxproj": "32a556abe3f3455cd856f88248b3606eb490070509bc501a67b2e5269d069ca1",
+      "QiuJi/Resources/StaticClothIrradiance-v1.bin": "bc7509c3ebe99b0f823fd9722264f67503e006f976abc32ac54fdf050ad0b096"
+    },
+    "phoneInstalled": false,
+    "scope": "Debug configuration with non-DEBUG Swift branches; not full Release or phone validation"
+  },
+  "verifiedAppSwiftCommandsWithoutDEBUG": 3,
+  "nativeContracts": {
+    "debug": {
+      "valid": {
+        "allocatedBytes": 1081344,
+        "lastOwnerReleased": true,
+        "launchPolicyPassed": true,
+        "mode": "valid",
+        "prepareMS": 0.9692499879747629,
+        "runtimeGenerationMS": 0,
+        "shaderExact": true,
+        "shared": true,
+        "supports32BitFloatFiltering": true,
+        "textureBytesExact": true
+      },
+      "missing": {
+        "error": "resource(\"missing field asset\")",
+        "launchPolicyPassed": true,
+        "mode": "missing",
+        "recoveredAfterFailure": true,
+        "rejected": true,
+        "supports32BitFloatFiltering": true
+      },
+      "corrupt": {
+        "error": "resource(\"field asset identity\")",
+        "launchPolicyPassed": true,
+        "mode": "corrupt",
+        "recoveredAfterFailure": true,
+        "rejected": true,
+        "supports32BitFloatFiltering": true
+      },
+      "truncated": {
+        "error": "resource(\"field asset identity\")",
+        "launchPolicyPassed": true,
+        "mode": "truncated",
+        "recoveredAfterFailure": true,
+        "rejected": true,
+        "supports32BitFloatFiltering": true
+      }
+    },
+    "nondebug": {
+      "valid": {
+        "allocatedBytes": 1081344,
+        "lastOwnerReleased": true,
+        "launchPolicyPassed": true,
+        "mode": "valid",
+        "prepareMS": 0.9309167508035898,
+        "runtimeGenerationMS": 0,
+        "shaderExact": true,
+        "shared": true,
+        "supports32BitFloatFiltering": true,
+        "textureBytesExact": true
+      },
+      "missing": {
+        "error": "resource(\"missing field asset\")",
+        "launchPolicyPassed": true,
+        "mode": "missing",
+        "recoveredAfterFailure": true,
+        "rejected": true,
+        "supports32BitFloatFiltering": true
+      },
+      "corrupt": {
+        "error": "resource(\"field asset identity\")",
+        "launchPolicyPassed": true,
+        "mode": "corrupt",
+        "recoveredAfterFailure": true,
+        "rejected": true,
+        "supports32BitFloatFiltering": true
+      },
+      "truncated": {
+        "error": "resource(\"field asset identity\")",
+        "launchPolicyPassed": true,
+        "mode": "truncated",
+        "recoveredAfterFailure": true,
+        "rejected": true,
+        "supports32BitFloatFiltering": true
+      }
+    }
+  },
+  "debugIOSBuildRun": "8134cb3baf6942c6858b6f373f449b49",
+  "nonDebugIOSBuildRun": "6fd2a159964647b9be503d154def772d",
+  "fullReleaseConfigurationVerified": false,
+  "verifyGateLog": "output/render-activity-20261113/c1-default-integration/verify-gate.log",
+  "sourceUnchangedSinceBuild": true
+}

@@ -1,0 +1,3589 @@
+{
+  "source": "/Users/song/projects/13.billiard_trainer/output/local-test-runs/0c5bc995f5b64368ba5e2c4eb5701b71/evidence/attachments/F26D8C67-668A-45DA-B48E-48336A5B4DA5.json",
+  "completed": true,
+  "scope": "Native current production scene; independent shader arithmetic candidates: solid-cull; original clipping and per-pixel shading retained; maximum added image difference 1/255; no page/phone claim",
+  "inventory": [
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "materialRasterState": {
+        "balls": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_14_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_7_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_6_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_1_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_9_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_3_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_12_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_13_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_10_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_15_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_11_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_5_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_4_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_8_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6040_002",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_2_001",
+            "transparency": 1
+          }
+        ],
+        "cloth": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "TaiNi",
+            "transparency": 1
+          }
+        ],
+        "leather": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Leather",
+            "transparency": 1
+          }
+        ],
+        "legs": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "MG_Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "MG_Gold",
+            "transparency": 1
+          }
+        ],
+        "other": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "WeiBian",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Black",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White_Wood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "black_2",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "PiTou",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "copp",
+            "transparency": 1
+          }
+        ],
+        "room": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_perimeter_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_floor_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "room_ceiling_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_practice",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_calm",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_again",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_next",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_control",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_enjoy",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_angle",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_route",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          }
+        ],
+        "wood": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "BlackWood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Wood",
+            "transparency": 1
+          }
+        ]
+      },
+      "pose": "low",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    },
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "materialRasterState": {
+        "balls": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_14_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_7_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_6_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_1_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_9_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_3_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_12_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_13_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_10_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_15_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_11_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_5_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_4_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_8_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6040_002",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_2_001",
+            "transparency": 1
+          }
+        ],
+        "cloth": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "TaiNi",
+            "transparency": 1
+          }
+        ],
+        "leather": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Leather",
+            "transparency": 1
+          }
+        ],
+        "legs": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "MG_Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "MG_Gold",
+            "transparency": 1
+          }
+        ],
+        "other": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "WeiBian",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Black",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White_Wood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "black_2",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "PiTou",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "copp",
+            "transparency": 1
+          }
+        ],
+        "room": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_perimeter_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_floor_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "room_ceiling_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_practice",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_calm",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_again",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_next",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_control",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_enjoy",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_angle",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_route",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          }
+        ],
+        "wood": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "BlackWood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Wood",
+            "transparency": 1
+          }
+        ]
+      },
+      "pose": "near",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    },
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1",
+        "_2",
+        "_3",
+        "_4",
+        "_5",
+        "_6",
+        "_7",
+        "_8",
+        "_9",
+        "_10",
+        "_11",
+        "_12",
+        "_13",
+        "_14",
+        "_15"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "materialRasterState": {
+        "balls": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_14_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_7_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_6_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_1_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_9_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_3_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_12_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_13_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_10_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_15_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_11_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_5_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_4_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_8_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6040_002",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_2_001",
+            "transparency": 1
+          }
+        ],
+        "cloth": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "TaiNi",
+            "transparency": 1
+          }
+        ],
+        "leather": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Leather",
+            "transparency": 1
+          }
+        ],
+        "legs": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "MG_Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "MG_Gold",
+            "transparency": 1
+          }
+        ],
+        "other": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "WeiBian",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Black",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White_Wood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "black_2",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "PiTou",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "copp",
+            "transparency": 1
+          }
+        ],
+        "room": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_perimeter_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_floor_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "room_ceiling_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_practice",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_calm",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_again",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_next",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_control",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_enjoy",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_angle",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_route",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          }
+        ],
+        "wood": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "BlackWood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Wood",
+            "transparency": 1
+          }
+        ]
+      },
+      "pose": "overview",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    }
+  ],
+  "materials": [
+    {
+      "aaMaximum": 0,
+      "changedPixels": 328,
+      "group": "solid-cull",
+      "materials": 4,
+      "maximumChannelDifference": 1,
+      "pose": "low",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "solid-cull",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.6087603978812695,
+                "bMS": 0.6074271126029392,
+                "savedMS": 0.0013332852783302096,
+                "savedPercent": 0.21901642796912835
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.6175330005741367,
+                "bMS": 0.6160381987380484,
+                "savedMS": 0.0014948018360882998,
+                "savedPercent": 0.2420602355985094
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.6098941084928811,
+                "bMS": 0.5913073061189303,
+                "savedMS": 0.018586802373950717,
+                "savedPercent": 3.047545814121874
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.6080763705540448,
+                "bMS": 0.606689223786816,
+                "savedMS": 0.0013871467672288418,
+                "savedPercent": 0.22812048525499387
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.6195294942396382,
+                "bMS": 0.6122205037778864,
+                "savedMS": 0.007308990461751819,
+                "savedPercent": 1.1797647294778595
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.5858003181250145,
+                "bMS": 0.591904497317349,
+                "savedMS": -0.0061041791923344135,
+                "savedPercent": -1.0420238780122568
+              }
+            ],
+            "meanA_MS": 0.6082656149778308,
+            "meanB_MS": 0.6042644737236615,
+            "meanSavedMS": 0.004001141254169245,
+            "meanSavedPercent": 0.6457473024016847,
+            "rangeSavedPercent": [
+              -1.0420238780122568,
+              3.047545814121874
+            ],
+            "positiveCycles": 5,
+            "meanPercentCI95": [
+              -0.7950726082335557,
+              2.086567213036925
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.5962343420833349,
+                "bMS": 0.5802760715596378,
+                "savedMS": 0.015958270523697138,
+                "savedPercent": 2.676509787734882
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.6038524346270909,
+                "bMS": 0.5818906453593323,
+                "savedMS": 0.021961789267758602,
+                "savedPercent": 3.6369463810013625
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.5926059481377403,
+                "bMS": 0.563996514150252,
+                "savedMS": 0.028609433987488275,
+                "savedPercent": 4.8277331804368835
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.6092309195082635,
+                "bMS": 0.5759548318261901,
+                "savedMS": 0.03327608768207335,
+                "savedPercent": 5.461982741935015
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.5855781394833078,
+                "bMS": 0.5596093542408198,
+                "savedMS": 0.025968785242488024,
+                "savedPercent": 4.43472587030006
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.60731076519005,
+                "bMS": 0.574057271781688,
+                "savedMS": 0.033253493408362034,
+                "savedPercent": 5.475531690592671
+              }
+            ],
+            "meanA_MS": 0.5991354248382978,
+            "meanB_MS": 0.57263078148632,
+            "meanSavedMS": 0.026504643351977903,
+            "meanSavedPercent": 4.418904942000146,
+            "rangeSavedPercent": [
+              2.676509787734882,
+              5.475531690592671
+            ],
+            "positiveCycles": 6,
+            "meanPercentCI95": [
+              3.2672746418793412,
+              5.57053524212095
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.08497916860505939,
+                "bMS": 0.08443230763077736,
+                "savedMS": 0.0005468609742820263,
+                "savedPercent": 0.6435235637848638
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.08563365554437041,
+                "bMS": 0.08556076985162993,
+                "savedMS": 7.288569274048473e-05,
+                "savedPercent": 0.08511337309747284
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08441147898944716,
+                "bMS": 0.0848749865933011,
+                "savedMS": -0.00046350760385394096,
+                "savedPercent": -0.5491049433121378
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.08702255824270348,
+                "bMS": 0.08419795388666292,
+                "savedMS": 0.0028246043560405665,
+                "savedPercent": 3.2458300618591607
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.08502430864609778,
+                "bMS": 0.08667532044152419,
+                "savedMS": -0.001651011795426413,
+                "savedPercent": -1.9418114909919786
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.0840694410726428,
+                "bMS": 0.08407292383102079,
+                "savedMS": -3.4827583779845073e-06,
+                "savedPercent": -0.004142716227856353
+              }
+            ],
+            "meanA_MS": 0.0851901018500535,
+            "meanB_MS": 0.08496904370581938,
+            "meanSavedMS": 0.00022105814423412315,
+            "meanSavedPercent": 0.24656797470158742,
+            "rangeSavedPercent": [
+              -1.9418114909919786,
+              3.2458300618591607
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -1.550937399193045,
+              2.04407334859622
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.08451042231172323,
+                "bMS": 0.08442534211402138,
+                "savedMS": 8.508019770185615e-05,
+                "savedPercent": 0.1006742072451505
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.08424479165114462,
+                "bMS": 0.08456771805261572,
+                "savedMS": -0.00032292640147109364,
+                "savedPercent": -0.3833191288647529
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08478470651122431,
+                "bMS": 0.0867135434721907,
+                "savedMS": -0.0019288369609663791,
+                "savedPercent": -2.27498217583737
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.08273611698920529,
+                "bMS": 0.09081598060826461,
+                "savedMS": -0.008079863619059324,
+                "savedPercent": -9.765824059779742
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.08606945630162954,
+                "bMS": 0.09839060173059504,
+                "savedMS": -0.012321145428965494,
+                "savedPercent": -14.315351761705296
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08464758866466582,
+                "bMS": 0.08484547530921797,
+                "savedMS": -0.000197886644552156,
+                "savedPercent": -0.23377706048555072
+              }
+            ],
+            "meanA_MS": 0.0844988470715988,
+            "meanB_MS": 0.08829311021448423,
+            "meanSavedMS": -0.0037942631428854318,
+            "meanSavedPercent": -4.478763329904593,
+            "rangeSavedPercent": [
+              -14.315351761705296,
+              0.1006742072451505
+            ],
+            "positiveCycles": 1,
+            "meanPercentCI95": [
+              -10.868994980740425,
+              1.9114683209312382
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8556666822793583,
+                "bMS": 0.8631146047264338,
+                "savedMS": -0.0074479224470754835,
+                "savedPercent": -0.8704233320427316
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8673958072904497,
+                "bMS": 0.8689166764573505,
+                "savedMS": -0.0015208691669007512,
+                "savedPercent": -0.1753373897035087
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8585034811403602,
+                "bMS": 0.8407881929694364,
+                "savedMS": 0.017715288170923826,
+                "savedPercent": 2.0635080183242125
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8716336936534693,
+                "bMS": 0.8503906331801167,
+                "savedMS": 0.02124306047335267,
+                "savedPercent": 2.437154578583576
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8773246469597021,
+                "bMS": 0.8655433678844323,
+                "savedMS": 0.011781279075269824,
+                "savedPercent": 1.3428642539676614
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8281927148345858,
+                "bMS": 0.8347465191036463,
+                "savedMS": -0.0065538042690604925,
+                "savedPercent": -0.7913380728505295
+              }
+            ],
+            "meanA_MS": 0.8597861710263209,
+            "meanB_MS": 0.853916665720236,
+            "meanSavedMS": 0.005869505306084932,
+            "meanSavedPercent": 0.66773800937978,
+            "rangeSavedPercent": [
+              -0.8704233320427316,
+              2.437154578583576
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -0.8706013741463541,
+              2.206077392905914
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8407117760119339,
+                "bMS": 0.8264096977654845,
+                "savedMS": 0.014302078246449468,
+                "savedPercent": 1.7011868579138887
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.853848944340522,
+                "bMS": 0.8385382243432105,
+                "savedMS": 0.015310719997311595,
+                "savedPercent": 1.7931415268232214
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8305920055136085,
+                "bMS": 0.8074583408112327,
+                "savedMS": 0.023133664702375767,
+                "savedPercent": 2.7852019461794284
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8409044918759415,
+                "bMS": 0.8188541784572104,
+                "savedMS": 0.022050313418731093,
+                "savedPercent": 2.622213774781949
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8232951707517108,
+                "bMS": 0.8140347005488971,
+                "savedMS": 0.00926047020281362,
+                "savedPercent": 1.1248056021461095
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8622170037900408,
+                "bMS": 0.8288246560065696,
+                "savedMS": 0.03339234778347122,
+                "savedPercent": 3.8728472805208813
+              }
+            ],
+            "meanA_MS": 0.841928232047293,
+            "meanB_MS": 0.8223532996554341,
+            "meanSavedMS": 0.019574932391858795,
+            "meanSavedPercent": 2.31656616472758,
+            "rangeSavedPercent": [
+              1.1248056021461095,
+              3.8728472805208813
+            ],
+            "positiveCycles": 6,
+            "meanPercentCI95": [
+              1.2873085421460158,
+              3.3458237873091443
+            ]
+          }
+        }
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 0,
+      "group": "solid-cull",
+      "materials": 4,
+      "maximumChannelDifference": 0,
+      "pose": "near",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "solid-cull",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.9874583532412847,
+                "bMS": 0.8801145886536688,
+                "savedMS": 0.10734376458761596,
+                "savedPercent": 10.870713102508597
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.884850713191554,
+                "bMS": 0.89071179778936,
+                "savedMS": -0.005861084597806099,
+                "savedPercent": -0.6623811802858638
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.904803794886296,
+                "bMS": 0.8971198015691092,
+                "savedMS": 0.007683993317186832,
+                "savedPercent": 0.8492441522255614
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8894721977412701,
+                "bMS": 0.8555538467286775,
+                "savedMS": 0.03391835101259255,
+                "savedPercent": 3.8133121078685734
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8955989615060389,
+                "bMS": 0.8900364531048884,
+                "savedMS": 0.005562508401150468,
+                "savedPercent": 0.6210936635965449
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8561163461611917,
+                "bMS": 0.8853159379214048,
+                "savedMS": -0.02919959176021314,
+                "savedPercent": -3.4107036842765024
+              }
+            ],
+            "meanA_MS": 0.9030500611212726,
+            "meanB_MS": 0.8831420709611848,
+            "meanSavedMS": 0.019907990160087763,
+            "meanSavedPercent": 2.0135463602728185,
+            "rangeSavedPercent": [
+              -3.4107036842765024,
+              10.870713102508597
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -3.1618998493094157,
+              7.188992569855053
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8737204868036011,
+                "bMS": 0.8907187633061161,
+                "savedMS": -0.016998276502514953,
+                "savedPercent": -1.9455050853507
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8893715663968275,
+                "bMS": 0.8503836579620838,
+                "savedMS": 0.038987908434743646,
+                "savedPercent": 4.383759264162003
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8811649555961291,
+                "bMS": 0.8730937649185458,
+                "savedMS": 0.008071190677583218,
+                "savedPercent": 0.9159681880588255
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.9115937573369592,
+                "bMS": 0.8494444482494146,
+                "savedMS": 0.06214930908754468,
+                "savedPercent": 6.817654090688553
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8907152902490149,
+                "bMS": 0.8712969138287008,
+                "savedMS": 0.019418376420314076,
+                "savedPercent": 2.180087917305802
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.879510393133387,
+                "bMS": 0.8771822807223847,
+                "savedMS": 0.002328112411002281,
+                "savedPercent": 0.2647055031047482
+              }
+            ],
+            "meanA_MS": 0.8876794082526531,
+            "meanB_MS": 0.868686638164541,
+            "meanSavedMS": 0.01899277008811216,
+            "meanSavedPercent": 2.102778312994872,
+            "rangeSavedPercent": [
+              -1.9455050853507,
+              6.817654090688553
+            ],
+            "positiveCycles": 5,
+            "meanPercentCI95": [
+              -1.1700596781737547,
+              5.375616304163499
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.08028819380948941,
+                "bMS": 0.07999130563500027,
+                "savedMS": 0.0002968881744891405,
+                "savedPercent": 0.3697781210443057
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.0856180558912456,
+                "bMS": 0.07973437701972823,
+                "savedMS": 0.0058836788715173755,
+                "savedPercent": 6.872007090409744
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.07777083859158058,
+                "bMS": 0.0781440952171882,
+                "savedMS": -0.00037325662560760975,
+                "savedPercent": -0.47994419549439993
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.07870314099515478,
+                "bMS": 0.0779305410105735,
+                "savedMS": 0.0007725999845812764,
+                "savedPercent": 0.9816634696051587
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.07741840090602636,
+                "bMS": 0.07812850526534021,
+                "savedMS": -0.0007101043593138456,
+                "savedPercent": -0.9172294325425289
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.07952427646766107,
+                "bMS": 0.07723610421332221,
+                "savedMS": 0.0022881722543388605,
+                "savedPercent": 2.877325460822466
+              }
+            ],
+            "meanA_MS": 0.07988715111019297,
+            "meanB_MS": 0.07852748806019211,
+            "meanSavedMS": 0.0013596630500008662,
+            "meanSavedPercent": 1.6172667523074575,
+            "rangeSavedPercent": [
+              -0.9172294325425289,
+              6.872007090409744
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -1.424137795693389,
+              4.6586713003083045
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.07690796822619934,
+                "bMS": 0.0768385361880064,
+                "savedMS": 6.943203819294308e-05,
+                "savedPercent": 0.09027938170038728
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.07637845313486953,
+                "bMS": 0.07789414181994896,
+                "savedMS": -0.0015156886850794249,
+                "savedPercent": -1.9844453806926579
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.07613713387399912,
+                "bMS": 0.07652605806166927,
+                "savedMS": -0.000388924187670156,
+                "savedPercent": -0.5108206309864441
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.08290625798205535,
+                "bMS": 0.0824687595013529,
+                "savedMS": 0.00043749848070244457,
+                "savedPercent": 0.5277026021330488
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.09136108565144241,
+                "bMS": 0.09479170936780672,
+                "savedMS": -0.003430623716364309,
+                "savedPercent": -3.755016363808004
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.09522396915902694,
+                "bMS": 0.08515624601083498,
+                "savedMS": 0.01006772314819196,
+                "savedPercent": 10.572677485621874
+              }
+            ],
+            "meanA_MS": 0.08315247800459878,
+            "meanB_MS": 0.08227924182493654,
+            "meanSavedMS": 0.0008732361796622429,
+            "meanSavedPercent": 0.823396182328034,
+            "rangeSavedPercent": [
+              -3.755016363808004,
+              10.572677485621874
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -4.451841217597412,
+              6.0986335822534805
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.2380885406552504,
+                "bMS": 1.125642341018344,
+                "savedMS": 0.11244619963690639,
+                "savedPercent": 9.082242177719774
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.1289236135780811,
+                "bMS": 1.1364132224116474,
+                "savedMS": -0.007489608833566308,
+                "savedPercent": -0.6634291942772171
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.1519149411469698,
+                "bMS": 1.1367951519787312,
+                "savedMS": 0.01511978916823864,
+                "savedPercent": 1.3125786139368727
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.1383871315047145,
+                "bMS": 1.0965295174779992,
+                "savedMS": 0.041857614026715284,
+                "savedPercent": 3.6769226274886027
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.1352690829274554,
+                "bMS": 1.1287743400316685,
+                "savedMS": 0.006494742895786887,
+                "savedPercent": 0.5720884144082611
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.1040833099589993,
+                "bMS": 1.1311423634955038,
+                "savedMS": -0.027059053536504507,
+                "savedPercent": -2.4508162828318962
+              }
+            ],
+            "meanA_MS": 1.1494444366285785,
+            "meanB_MS": 1.125882822735649,
+            "meanSavedMS": 0.023561613892929396,
+            "meanSavedPercent": 1.9215977260740662,
+            "rangeSavedPercent": [
+              -2.4508162828318962,
+              9.082242177719774
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -2.3380054703349247,
+              6.181200922483057
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.1206718724376212,
+                "bMS": 1.136248242498065,
+                "savedMS": -0.015576370060443878,
+                "savedPercent": -1.389913537007318
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.133868043931822,
+                "bMS": 1.0949670589373757,
+                "savedMS": 0.038900984994446386,
+                "savedPercent": 3.430821179116452
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.1180381989106536,
+                "bMS": 1.1194722222474713,
+                "savedMS": -0.0014340233368177469,
+                "savedPercent": -0.12826246350213877
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.1652205042385806,
+                "bMS": 1.0884010310595233,
+                "savedMS": 0.07681947317905724,
+                "savedPercent": 6.592698369074386
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.1409340077079833,
+                "bMS": 1.1194375401828438,
+                "savedMS": 0.02149646752513945,
+                "savedPercent": 1.8841113841740593
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.1353489535395056,
+                "bMS": 1.1174878551779936,
+                "savedMS": 0.01786109836151195,
+                "savedPercent": 1.5731813823255931
+              }
+            ],
+            "meanA_MS": 1.1356802634610277,
+            "meanB_MS": 1.1126689916838788,
+            "meanSavedMS": 0.0230112717771489,
+            "meanSavedPercent": 1.9937727190301722,
+            "rangeSavedPercent": [
+              -1.389913537007318,
+              6.592698369074386
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -0.9509863075255174,
+              4.938531745585862
+            ]
+          }
+        }
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 13,
+      "group": "solid-cull",
+      "materials": 4,
+      "maximumChannelDifference": 1,
+      "pose": "overview",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "solid-cull",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.6826597091276199,
+                "bMS": 0.6672465242445469,
+                "savedMS": 0.015413184883072972,
+                "savedPercent": 2.257813765334077
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.6667257111985236,
+                "bMS": 0.6515850642851243,
+                "savedMS": 0.015140646913399336,
+                "savedPercent": 2.2708959110309563
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.6702795314292113,
+                "bMS": 0.6771909635669241,
+                "savedMS": -0.006911432137712836,
+                "savedPercent": -1.0311268379292227
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.6697621720377356,
+                "bMS": 0.6838142386792848,
+                "savedMS": -0.014052066641549232,
+                "savedPercent": -2.0980681245099513
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.664491313121592,
+                "bMS": 0.6698558863718063,
+                "savedMS": -0.005364573250214222,
+                "savedPercent": -0.8073202981409908
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.6579704640898854,
+                "bMS": 0.6842430254134039,
+                "savedMS": -0.026272561323518517,
+                "savedPercent": -3.992969708732917
+              }
+            ],
+            "meanA_MS": 0.668648150167428,
+            "meanB_MS": 0.672322617093515,
+            "meanSavedMS": -0.0036744669260870833,
+            "meanSavedPercent": -0.566795882158008,
+            "rangeSavedPercent": [
+              -3.992969708732917,
+              2.2708959110309563
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -3.154361090937521,
+              2.020769326621505
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.6787933913680414,
+                "bMS": 0.6338541570585221,
+                "savedMS": 0.044939234309519294,
+                "savedPercent": 6.620458431239096
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.6648871640209109,
+                "bMS": 0.6457534618675709,
+                "savedMS": 0.019133702153339982,
+                "savedPercent": 2.8777367331967656
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.6629514003482958,
+                "bMS": 0.6405086799835166,
+                "savedMS": 0.022442720364779234,
+                "savedPercent": 3.3852738455622036
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.661779505511125,
+                "bMS": 0.6134739378467202,
+                "savedMS": 0.04830556766440475,
+                "savedPercent": 7.299344760925465
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.6484565771340082,
+                "bMS": 0.6140625337138772,
+                "savedMS": 0.03439404342013097,
+                "savedPercent": 5.303985591778985
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.6449982562723259,
+                "bMS": 0.6223454838618636,
+                "savedMS": 0.022652772410462263,
+                "savedPercent": 3.512067232767525
+              }
+            ],
+            "meanA_MS": 0.6603110491091179,
+            "meanB_MS": 0.6283330423886784,
+            "meanSavedMS": 0.03197800672043941,
+            "meanSavedPercent": 4.83314443257834,
+            "rangeSavedPercent": [
+              2.8777367331967656,
+              7.299344760925465
+            ],
+            "positiveCycles": 6,
+            "meanPercentCI95": [
+              2.8884801716167514,
+              6.777808693539929
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.11139584239572287,
+                "bMS": 0.11002605121272306,
+                "savedMS": 0.001369791182999805,
+                "savedPercent": 1.229660958201434
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.10990278678946197,
+                "bMS": 0.11124998369875054,
+                "savedMS": -0.00134719690928857,
+                "savedPercent": -1.2258077785319144
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.11482468107715249,
+                "bMS": 0.12100346308822434,
+                "savedMS": -0.0061787820110718455,
+                "savedPercent": -5.3810574112722565
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.10992184979841113,
+                "bMS": 0.11058506788685918,
+                "savedMS": -0.0006632180884480476,
+                "savedPercent": -0.603354191786567
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.11043923829371731,
+                "bMS": 0.11008333725233872,
+                "savedMS": 0.0003559010413785868,
+                "savedPercent": 0.32225959439529506
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.10939409063818555,
+                "bMS": 0.10943404049612582,
+                "savedMS": -3.994985794027184e-05,
+                "savedPercent": -0.03651921023083744
+              }
+            ],
+            "meanA_MS": 0.11097974816544189,
+            "meanB_MS": 0.11206365727250361,
+            "meanSavedMS": -0.001083909107061724,
+            "meanSavedPercent": -0.9491363398708077,
+            "rangeSavedPercent": [
+              -5.3810574112722565,
+              1.229660958201434
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -3.3897594381214335,
+              1.4914867583798181
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.10920313070528209,
+                "bMS": 0.108661469615375,
+                "savedMS": 0.0005416610899070945,
+                "savedPercent": 0.4960124186997275
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.10885068331845105,
+                "bMS": 0.10901388789837559,
+                "savedMS": -0.00016320457992453907,
+                "savedPercent": -0.1499343641666185
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.1090885295222203,
+                "bMS": 0.1088697948337843,
+                "savedMS": 0.00021873468843600086,
+                "savedPercent": 0.2005111714256325
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.1093402582531174,
+                "bMS": 0.10859547182917595,
+                "savedMS": 0.0007447864239414487,
+                "savedPercent": 0.6811639517233481
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.1090243070696791,
+                "bMS": 0.10870316570314269,
+                "savedMS": 0.00032114136653640935,
+                "savedPercent": 0.29455941997518315
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.10965971159748733,
+                "bMS": 0.10879511440483232,
+                "savedMS": 0.0008645971926550117,
+                "savedPercent": 0.7884365005705728
+              }
+            ],
+            "meanA_MS": 0.10919443674437287,
+            "meanB_MS": 0.10877315071411431,
+            "meanSavedMS": 0.000421286030258571,
+            "meanSavedPercent": 0.3851248497046409,
+            "rangeSavedPercent": [
+              -0.1499343641666185,
+              0.7884365005705728
+            ],
+            "positiveCycles": 5,
+            "meanPercentCI95": [
+              0.024216469041969557,
+              0.7460332303673123
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.9674514197589209,
+                "bMS": 0.943371521619459,
+                "savedMS": 0.024079898139461875,
+                "savedPercent": 2.4890033388407597
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.9473211927494655,
+                "bMS": 0.9382048350137969,
+                "savedMS": 0.009116357735668545,
+                "savedPercent": 0.9623301796098965
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.9381406610676398,
+                "bMS": 0.9248211863450706,
+                "savedMS": 0.013319474722569224,
+                "savedPercent": 1.419773737065309
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.9047482550765077,
+                "bMS": 0.9236840220789114,
+                "savedMS": -0.018935767002403736,
+                "savedPercent": -2.092932138432528
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.9094757163741937,
+                "bMS": 0.9186927345581353,
+                "savedMS": -0.009217018183941605,
+                "savedPercent": -1.0134430219519315
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.9287013672292233,
+                "bMS": 0.9663524300170442,
+                "savedMS": -0.03765106278782093,
+                "savedPercent": -4.05416252375645
+              }
+            ],
+            "meanA_MS": 0.9326397687093251,
+            "meanB_MS": 0.9358544549387362,
+            "meanSavedMS": -0.0032146862294111047,
+            "meanSavedPercent": -0.3815717381041573,
+            "rangeSavedPercent": [
+              -4.05416252375645,
+              2.4890033388407597
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -2.957155086972728,
+              2.194011610764413
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.961725697076569,
+                "bMS": 0.9203038353007287,
+                "savedMS": 0.041421861775840285,
+                "savedPercent": 4.307034937483055
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.946677066773797,
+                "bMS": 0.9217673893241832,
+                "savedMS": 0.02490967744961381,
+                "savedPercent": 2.6312750486820264
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.9448940594059726,
+                "bMS": 0.921807261571909,
+                "savedMS": 0.023086797834063644,
+                "savedPercent": 2.4433213019222113
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.9400954489440968,
+                "bMS": 0.8858142149013778,
+                "savedMS": 0.05428123404271901,
+                "savedPercent": 5.774013064703908
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.9213541731393585,
+                "bMS": 0.8917812859484305,
+                "savedMS": 0.029572887190927988,
+                "savedPercent": 3.2097197856241726
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.920638907700777,
+                "bMS": 0.9055034606717527,
+                "savedMS": 0.015135447029024363,
+                "savedPercent": 1.6440155746647669
+              }
+            ],
+            "meanA_MS": 0.9392308921734285,
+            "meanB_MS": 0.9078295746197304,
+            "meanSavedMS": 0.03140131755369818,
+            "meanSavedPercent": 3.33489661884669,
+            "rangeSavedPercent": [
+              1.6440155746647669,
+              5.774013064703908
+            ],
+            "positiveCycles": 6,
+            "meanPercentCI95": [
+              1.7739036594091646,
+              4.895889578284216
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "cpu": [
+    {
+      "callsPerGroup": 240,
+      "pose": "low",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.0022221063166701547,
+        "median": 0.0021524305338971317,
+        "p95": 0.0025593753283222518,
+        "min": 0.0020487845176830888,
+        "max": 0.0025593753283222518
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.0001724248351011839,
+        "median": 0.00017239556958278018,
+        "p95": 0.0001739584452783068,
+        "min": 0.00017117999959737062,
+        "max": 0.0001739584452783068
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "low",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.6012148490602461,
+          "median": 0.5795625038444996,
+          "p95": 0.7517500780522823,
+          "min": 0.559541629627347,
+          "max": 1.1592500377446413
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.0937326331040822,
+          "median": 0.08712487760931253,
+          "p95": 0.12345821596682072,
+          "min": 0.07962482050061226,
+          "max": 0.27125002816319466
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.8631562426065406,
+          "median": 0.8365624817088246,
+          "p95": 1.0439998004585505,
+          "min": 0.7987916469573975,
+          "max": 1.4170417562127113
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.0014939335718130071,
+          "median": 0.001312466338276863,
+          "p95": 0.0021667219698429108,
+          "min": 0.0010416842997074127,
+          "max": 0.008083414286375046
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.013687073078472167,
+          "median": 0.01320824958384037,
+          "p95": 0.016291625797748566,
+          "min": 0.011958181858062744,
+          "max": 0.02804165706038475
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "low",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.5997751626030853,
+          "median": 0.5784375825896859,
+          "p95": 0.7464583031833172,
+          "min": 0.557291554287076,
+          "max": 1.3164998963475227
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.10973785295694445,
+          "median": 0.10775006376206875,
+          "p95": 0.1280417200177908,
+          "min": 0.08737505413591862,
+          "max": 0.15849992632865906
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.8768120605964214,
+          "median": 0.8521458366885781,
+          "p95": 0.9995000436902046,
+          "min": 0.8183333557099104,
+          "max": 1.599333481863141
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.007292532245628536,
+          "median": 0.006583402864634991,
+          "p95": 0.012166565284132957,
+          "min": 0.0011664815247058868,
+          "max": 0.026833266019821167
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.012971354105199376,
+          "median": 0.01268752384930849,
+          "p95": 0.015166820958256721,
+          "min": 0.012041768059134483,
+          "max": 0.01583341509103775
+        }
+      }
+    },
+    {
+      "callsPerGroup": 240,
+      "pose": "near",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.002359013483833729,
+        "median": 0.0023507813845450682,
+        "p95": 0.0027493059557552138,
+        "min": 0.0020749993079031506,
+        "max": 0.0027493059557552138
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.00016642055319001278,
+        "median": 0.00016788205054278174,
+        "p95": 0.0001755203508461515,
+        "min": 0.00015677069313824177,
+        "max": 0.0001755203508461515
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "near",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.9123354878587028,
+          "median": 0.8566457545384765,
+          "p95": 1.2279166840016842,
+          "min": 0.8516665548086166,
+          "max": 1.44912488758564
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.08119836275000125,
+          "median": 0.0785833690315485,
+          "p95": 0.09812484495341778,
+          "min": 0.07641664706170559,
+          "max": 0.1596666406840086
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 1.1778480984503403,
+          "median": 1.1062291450798512,
+          "p95": 1.6382916364818811,
+          "min": 1.0731250513345003,
+          "max": 2.0412083249539137
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.0012986056390218437,
+          "median": 0.001250067725777626,
+          "p95": 0.0014998950064182281,
+          "min": 0.0010833609849214554,
+          "max": 0.0033332034945487976
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.012639779015444219,
+          "median": 0.012375181540846825,
+          "p95": 0.013875076547265053,
+          "min": 0.011958414688706398,
+          "max": 0.019291648641228676
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "near",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.8860169279311473,
+          "median": 0.8597916457802057,
+          "p95": 1.0798750445246696,
+          "min": 0.8531250059604645,
+          "max": 1.3717501424252987
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.1012326538329944,
+          "median": 0.09943742770701647,
+          "p95": 0.11591683141887188,
+          "min": 0.07779151201248169,
+          "max": 0.1377500593662262
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 1.1441484457463957,
+          "median": 1.1157917324453592,
+          "p95": 1.3242082204669714,
+          "min": 1.1002917308360338,
+          "max": 1.6032082494348288
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.006264330295380205,
+          "median": 0.005791662260890007,
+          "p95": 0.009791692718863487,
+          "min": 0.0012081582099199295,
+          "max": 0.02033333294093609
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.013201381079852581,
+          "median": 0.01320824958384037,
+          "p95": 0.015083467587828636,
+          "min": 0.011833151802420616,
+          "max": 0.016291625797748566
+        }
+      }
+    },
+    {
+      "callsPerGroup": 240,
+      "pose": "overview",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.0022354889855099223,
+        "median": 0.0020729164437701306,
+        "p95": 0.0028144092842315636,
+        "min": 0.001959375610264639,
+        "max": 0.0028144092842315636
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.00016918404273585312,
+        "median": 0.00016935761474693817,
+        "p95": 0.00017500036240865788,
+        "min": 0.00015781261026859283,
+        "max": 0.00017500036240865788
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "overview",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.6751649198122323,
+          "median": 0.647250097244978,
+          "p95": 0.8280414622277021,
+          "min": 0.6111250258982182,
+          "max": 1.2214584276080132
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.11443272281515722,
+          "median": 0.11089583858847618,
+          "p95": 0.1330834347754717,
+          "min": 0.10458333417773247,
+          "max": 0.18945825286209583
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.9848528619234761,
+          "median": 0.932354130782187,
+          "p95": 1.4900416135787964,
+          "min": 0.8890414610505104,
+          "max": 1.578666502609849
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.001822486713839074,
+          "median": 0.0017082784324884415,
+          "p95": 0.0023331958800554276,
+          "min": 0.0015415716916322708,
+          "max": 0.006666639819741249
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.012664934426235655,
+          "median": 0.012416625395417213,
+          "p95": 0.014249933883547783,
+          "min": 0.011875061318278313,
+          "max": 0.018625054508447647
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "overview",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.6534704977336029,
+          "median": 0.6396875251084566,
+          "p95": 0.6983750499784946,
+          "min": 0.6033750250935555,
+          "max": 1.1973748914897442
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.13509854034055024,
+          "median": 0.13375002890825272,
+          "p95": 0.1479999627918005,
+          "min": 0.1102082896977663,
+          "max": 0.1702082809060812
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.9574466360694108,
+          "median": 0.9355833753943443,
+          "p95": 1.0560418013483286,
+          "min": 0.8907502051442862,
+          "max": 1.5036251861602068
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.007731320996147891,
+          "median": 0.007250113412737846,
+          "p95": 0.010791700333356857,
+          "min": 0.0017499551177024841,
+          "max": 0.023458385840058327
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.012440973174913475,
+          "median": 0.012312433682382107,
+          "p95": 0.013583339750766754,
+          "min": 0.01183338463306427,
+          "max": 0.016249949112534523
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,241 @@
+{
+  "status": "integrated-and-local-checks-passed",
+  "quality": {
+    "cases": 74,
+    "maximumChannelDifference": 0,
+    "AAChangedPixels": 0
+  },
+  "productionContracts": [
+    {
+      "actualSharedRefresh": true,
+      "cases": [
+        {
+          "c1": true,
+          "capacity": 16,
+          "h9": false,
+          "pbr": true,
+          "sha256": "56fde5864ef300c78e7026f890f58c753710fce194bcee9c6dcd778117552d83"
+        },
+        {
+          "c1": false,
+          "capacity": 32,
+          "h9": false,
+          "pbr": true,
+          "sha256": "abe32d8128516f93309fc934b8da5954c22e4bf94f8638e94dc7ea46f2a90f2e"
+        }
+      ],
+      "expectsH9": false,
+      "invalidSourcesRejected": 5,
+      "mode": "c1"
+    },
+    {
+      "actualSharedRefresh": true,
+      "cases": [
+        {
+          "c1": false,
+          "capacity": 16,
+          "h9": true,
+          "pbr": true,
+          "sha256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        },
+        {
+          "c1": false,
+          "capacity": 32,
+          "h9": false,
+          "pbr": true,
+          "sha256": "abe32d8128516f93309fc934b8da5954c22e4bf94f8638e94dc7ea46f2a90f2e"
+        }
+      ],
+      "expectsH9": true,
+      "invalidSourcesRejected": 5,
+      "mode": "default"
+    },
+    {
+      "actualSharedRefresh": true,
+      "cases": [
+        {
+          "c1": false,
+          "capacity": 16,
+          "h9": false,
+          "pbr": true,
+          "sha256": "ca5acc70043f0da620e2c6501188063c78027c8e26b62233d128ced01f81aabd"
+        },
+        {
+          "c1": false,
+          "capacity": 32,
+          "h9": false,
+          "pbr": true,
+          "sha256": "abe32d8128516f93309fc934b8da5954c22e4bf94f8638e94dc7ea46f2a90f2e"
+        }
+      ],
+      "expectsH9": false,
+      "invalidSourcesRejected": 5,
+      "mode": "no-field"
+    },
+    {
+      "actualSharedRefresh": true,
+      "cases": [
+        {
+          "c1": false,
+          "capacity": 16,
+          "h9": false,
+          "pbr": true,
+          "sha256": "9495698875cd01a4ecd8d00708ce88bf9989c6e118805620f99a11d03dcca390"
+        },
+        {
+          "c1": false,
+          "capacity": 32,
+          "h9": false,
+          "pbr": true,
+          "sha256": "abe32d8128516f93309fc934b8da5954c22e4bf94f8638e94dc7ea46f2a90f2e"
+        }
+      ],
+      "expectsH9": false,
+      "invalidSourcesRejected": 5,
+      "mode": "original"
+    },
+    {
+      "actualSharedRefresh": true,
+      "cases": [
+        {
+          "c1": false,
+          "capacity": 16,
+          "h9": true,
+          "pbr": true,
+          "sha256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        },
+        {
+          "c1": false,
+          "capacity": 32,
+          "h9": false,
+          "pbr": true,
+          "sha256": "abe32d8128516f93309fc934b8da5954c22e4bf94f8638e94dc7ea46f2a90f2e"
+        }
+      ],
+      "expectsH9": true,
+      "invalidSourcesRejected": 5,
+      "mode": "c1"
+    },
+    {
+      "actualSharedRefresh": true,
+      "cases": [
+        {
+          "c1": false,
+          "capacity": 16,
+          "h9": true,
+          "pbr": true,
+          "sha256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        },
+        {
+          "c1": false,
+          "capacity": 32,
+          "h9": false,
+          "pbr": true,
+          "sha256": "abe32d8128516f93309fc934b8da5954c22e4bf94f8638e94dc7ea46f2a90f2e"
+        }
+      ],
+      "expectsH9": true,
+      "invalidSourcesRejected": 5,
+      "mode": "default"
+    },
+    {
+      "actualSharedRefresh": true,
+      "cases": [
+        {
+          "c1": false,
+          "capacity": 16,
+          "h9": true,
+          "pbr": true,
+          "sha256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        },
+        {
+          "c1": false,
+          "capacity": 32,
+          "h9": false,
+          "pbr": true,
+          "sha256": "abe32d8128516f93309fc934b8da5954c22e4bf94f8638e94dc7ea46f2a90f2e"
+        }
+      ],
+      "expectsH9": true,
+      "invalidSourcesRejected": 5,
+      "mode": "no-field"
+    },
+    {
+      "actualSharedRefresh": true,
+      "cases": [
+        {
+          "c1": false,
+          "capacity": 16,
+          "h9": true,
+          "pbr": true,
+          "sha256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        },
+        {
+          "c1": false,
+          "capacity": 32,
+          "h9": false,
+          "pbr": true,
+          "sha256": "abe32d8128516f93309fc934b8da5954c22e4bf94f8638e94dc7ea46f2a90f2e"
+        }
+      ],
+      "expectsH9": true,
+      "invalidSourcesRejected": 5,
+      "mode": "original"
+    }
+  ],
+  "iOSBuild": {
+    "buildSucceeded": true,
+    "codesignVerified": true,
+    "bundleAssetExact": true,
+    "assetBytes": 1048576,
+    "binarySHA256": "3585fa666da22f945562675fedb29ae7a7117b40687312e0ae216b356cb1c063",
+    "sourceSHA256": {
+      "QiuJi/Core/Scene/StaticClothIrradiance.swift": "d5da3e35434c19cc25d6df544f911ccba2c852d0533ae11727c7aca5658913a3",
+      "QiuJi/Core/Scene/MobileReferenceLighting.swift": "a3e8e9cd4232fd6347b2462a2136b017edc3dc2af9e1995667f82ba00912f55a",
+      "QiuJi/Core/Scene/AngleTrainingScene.swift": "6223a677a40afb1d20440223d78f434120bf5a48741ac3281fa1cc82355fd6f2",
+      "QiuJi.xcodeproj/project.pbxproj": "32a556abe3f3455cd856f88248b3606eb490070509bc501a67b2e5269d069ca1",
+      "QiuJi/Resources/StaticClothIrradiance-v1.bin": "bc7509c3ebe99b0f823fd9722264f67503e006f976abc32ac54fdf050ad0b096"
+    },
+    "phoneInstalled": false,
+    "scope": "Debug configuration with non-DEBUG Swift branches; not full Release or phone validation"
+  },
+  "runs": {
+    "e20798afc1d24a04a6a908a8a51c23bf": {
+      "exitCode": 0,
+      "state": "reclaimed",
+      "cleanupDeferred": null,
+      "verifiedTextEvidenceFiles": 8
+    },
+    "ed3af66384c0418ea87e5fc20fbff591": {
+      "exitCode": 0,
+      "state": "reclaimed",
+      "cleanupDeferred": null,
+      "verifiedTextEvidenceFiles": 28
+    },
+    "2414749fdf1e475f844de025fd381d93": {
+      "exitCode": 0,
+      "state": "reclaimed",
+      "cleanupDeferred": null,
+      "verifiedTextEvidenceFiles": 9
+    },
+    "5ccbc38c30c94924a2266f5a6e148d29": {
+      "exitCode": 0,
+      "state": "complete",
+      "cleanupDeferred": "Workspace still referenced by a process/open file",
+      "verifiedTextEvidenceFiles": 13
+    }
+  },
+  "gates": {
+    "verifyGateExit": 0,
+    "log": "output/render-highlight-20261114/h9-integration/verify-gate.log",
+    "logSHA256": "803a41ce88001e7d4df059465aa5f6a232eb2ee151c21c933f590793faea70ff",
+    "docSizePassed": true,
+    "scopedDiffCheckPassed": true,
+    "pythonSyntaxPassed": true
+  },
+  "limitations": [
+    "Native M5 Pro material timing; not full app or phone energy",
+    "Non-DEBUG Swift in Debug iOS configuration; not formal Release archive",
+    "H8/H9 Xcode retained handles defer work-directory cleanup"
+  ]
+}

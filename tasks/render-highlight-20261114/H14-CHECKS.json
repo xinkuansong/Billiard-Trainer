@@ -1,0 +1,64 @@
+{
+  "passed": true,
+  "unchangedCurrentProductionInputs": 3414,
+  "lastResearchSourceMatchesBuild": true,
+  "actualNativeSelectorsPassed": 4,
+  "totalPairedTimedFrames": 11520,
+  "allAAAndRestoreImagesExact": true,
+  "runs": [
+    {
+      "round": 1,
+      "run": "ae6d211920e042adb6499dcf379b5c5c",
+      "study": "H14-bounded-shader-primitives",
+      "device": "Apple M5 Pro",
+      "rawReport": "output/local-test-runs/ae6d211920e042adb6499dcf379b5c5c/evidence/attachments/7A5B327F-180D-45DF-A8EA-5631EC91DC84.json",
+      "timedFrames": 3456,
+      "qualityRejected": [],
+      "testCount": 1,
+      "workReclaimed": true,
+      "actualFreeSpaceDeltaBytes": 2241007616
+    },
+    {
+      "round": 2,
+      "run": "55862b0d598d48b98ee66458543c1474",
+      "study": "H14-wood-unscaled",
+      "device": "Apple M5 Pro",
+      "rawReport": "output/local-test-runs/55862b0d598d48b98ee66458543c1474/evidence/attachments/C5AE0450-E67F-425C-85B6-709B3E6D23AA.json",
+      "timedFrames": 1728,
+      "qualityRejected": [],
+      "testCount": 1,
+      "workReclaimed": true,
+      "actualFreeSpaceDeltaBytes": 2239799296
+    },
+    {
+      "round": 3,
+      "run": "fd6af33e62414eac8819cdadb3c046fb",
+      "study": "H14-wood-cull+legs-cull+cloth-cull",
+      "device": "Apple M5 Pro",
+      "rawReport": "output/local-test-runs/fd6af33e62414eac8819cdadb3c046fb/evidence/attachments/EF08A7F8-F41D-43C6-B824-9C84222D06C8.json",
+      "timedFrames": 4608,
+      "qualityRejected": [
+        [
+          "overview",
+          "cloth-cull",
+          2
+        ]
+      ],
+      "testCount": 1,
+      "workReclaimed": true,
+      "actualFreeSpaceDeltaBytes": 2231549952
+    },
+    {
+      "round": 4,
+      "run": "0c5bc995f5b64368ba5e2c4eb5701b71",
+      "study": "H14-solid-cull",
+      "device": "Apple M5 Pro",
+      "rawReport": "output/local-test-runs/0c5bc995f5b64368ba5e2c4eb5701b71/evidence/attachments/F26D8C67-668A-45DA-B48E-48336A5B4DA5.json",
+      "timedFrames": 1728,
+      "qualityRejected": [],
+      "testCount": 1,
+      "workReclaimed": true,
+      "actualFreeSpaceDeltaBytes": 2230693888
+    }
+  ]
+}

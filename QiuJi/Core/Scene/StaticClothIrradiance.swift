@@ -1,14 +1,14 @@
-#if DEBUG
 import CryptoKit
 import Foundation
 import Metal
 import SceneKit
 
-/// C1 research candidate: a fixed-lamp vector integral, independent of balls,
+/// Shared fixed-lamp vector integral, independent of balls,
 /// camera, colour and normal. Trilinear interpolation is explicitly approximate.
-/// Never loaded by Release or an ordinary Debug launch.
+/// Enabled by default in Debug and Release; unsupported setups keep the analytic path.
 final class StaticClothIrradiance {
     static let launchArgument = "-rendering.staticClothField"
+    static let disableArgument = "-rendering.noStaticClothField"
     static let identity = "rectangle-vector-64x32x16-f32-v1"
     static let expectedEmitterSHA256 = "65c4665f3e1221ee507eefe9fd4e3e6513de2581fa9818a253e67e190ef3db42"
     static let expectedRadiance = 12.96944123374527
@@ -18,12 +18,15 @@ final class StaticClothIrradiance {
     static let arguments = "#pragma arguments\ntexture3d<float> temporalField0;\ntexture3d<float> temporalField1;\n"
 
     static func requested(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
-        arguments.contains(launchArgument) && !arguments.contains("-rendering.referenceCloth")
+        #if DEBUG
+        !arguments.contains(disableArgument) && !arguments.contains("-rendering.referenceCloth")
+        #else
+        true
+        #endif
     }
 
     private static let lock = NSLock()
     private static weak var cached: StaticClothIrradiance?
-    private static var failedIdentity: String?
     private let cacheKey: String
     let fields: [MTLTexture]
     let preparationMilliseconds: Double
@@ -31,7 +34,7 @@ final class StaticClothIrradiance {
     let generationMilliseconds = 0.0
     var allocatedBytes: Int { fields.reduce(0) { $0 + $1.allocatedSize } }
 
-    enum Failure: Error { case unsupportedRig, resource(String), previousFailure }
+    enum Failure: Error { case unsupportedRig, resource(String) }
 
     /// Called at scene/material preparation, never in a frame callback. The
     /// owning scene retains this object; the process cache does not retain it.
@@ -43,15 +46,11 @@ final class StaticClothIrradiance {
         let key = "\(identity):\(device.registryID):\(hash):\(radiance)"
         lock.lock(); defer { lock.unlock() }
         if let cached, cached.cacheKey == key { return cached }
-        guard failedIdentity != key else { throw Failure.previousFailure }
-        do {
-            let value = try StaticClothIrradiance(device: device, key: key, assetURL: assetURL)
-            cached = value
-            return value
-        } catch {
-            failedIdentity = key
-            throw error
-        }
+        // A failed preparation keeps the original shader for this refresh.
+        // Retry at the next scene/material preparation, never in a frame loop.
+        let value = try StaticClothIrradiance(device: device, key: key, assetURL: assetURL)
+        cached = value
+        return value
     }
 
     private init(device: MTLDevice, key: String, assetURL: URL?) throws {
@@ -139,4 +138,65 @@ final class StaticClothIrradiance {
     }
     """
 }
-#endif
+
+/// Preserve the validated C1 lighting while avoiding a dynamically indexed
+/// per-fragment ball array and retaining the existing per-lamp blocker masks.
+/// CPU uniform bytes, sample counts and BRDF arithmetic remain unchanged.
+enum ClothShadowProgram {
+    static let identity = "constant-balls-per-lamp-mask-v1"
+    static let disableArgument = "-rendering.noConstantClothBalls"
+    static let inputSHA256 = "56fde5864ef300c78e7026f890f58c753710fce194bcee9c6dcd778117552d83"
+    static let outputSHA256 = "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+
+    static func requested(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
+        #if DEBUG
+        !arguments.contains(disableArgument) && !arguments.contains("-rendering.referenceCloth")
+        #else
+        true
+        #endif
+    }
+
+    /// Preparation only. Unknown source/ABI variants retain the caller's C1
+    /// program; never apply a partially matched rewrite to a new shader recipe.
+    static func replacingLocalBalls(in source: String) -> String? {
+        guard sha256(source) == inputSHA256 else { return nil }
+        var result = source
+        let replacements = [
+            ("bool diagnosticGlobalQuality=shadowPossible && !diagnosticConeEligible;",
+             "uint2 nearLampMasks=(shadowPossible && !diagnosticConeEligible) ? uint2(shadowMask):uint2(0u);"),
+            ("bool diagnosticHighQuality=false;", ""),
+            ("diagnosticHighQuality=true;", "nearLampMasks[panel]=shadowMask;"),
+            ("diagnosticHighQuality=diagnosticHighQuality || diagnosticInside;",
+             "if(diagnosticInside){nearLampMasks[panel] |= (1u<<diagnosticIndex);}"),
+            ("diagnosticGlobalQuality=diagnosticGlobalQuality || diagnosticHighQuality;", ""),
+            ("if(diagnosticGlobalQuality) {", "if(nearLampMasks[panel]!=0u) {"),
+            ("uint remainingShadowBalls=shadowMask;", "uint remainingShadowBalls=nearLampMasks[panel];"),
+            ("float4x4 contactGroup0;\nfloat4x4 contactGroup1;\nfloat4x4 contactGroup2;\nfloat4x4 contactGroup3;",
+             "float4 contactBalls[16];"),
+            ("float4 shadowBalls[16]={" + (0..<16).map { "contactBall\($0)" }.joined(separator: ",") + "};",
+             "// H9: read original ball data directly from constant memory.")
+        ]
+        for (anchor, replacement) in replacements {
+            guard result.components(separatedBy: anchor).count == 2 else { return nil }
+            result = result.replacingOccurrences(of: anchor, with: replacement)
+        }
+        // Four column-major float4x4 values and sixteen float4 values have the
+        // same 256-byte layout. The CPU producer continues to send that buffer.
+        for index in 0..<16 {
+            let anchor = "contactUniforms.contactGroup\(index / 4)[\(index % 4)]"
+            guard result.components(separatedBy: anchor).count == 2 else { return nil }
+            result = result.replacingOccurrences(of: anchor, with: "contactUniforms.contactBalls[\(index)]")
+        }
+        result = result.replacingOccurrences(of: "shadowBalls[", with: "contactUniforms.contactBalls[")
+            .replacingOccurrences(of: "legacyConeDomain(float3 p,thread const float4 *balls)",
+                                  with: "legacyConeDomain(float3 p,constant float4 *balls)")
+            .replacingOccurrences(of: "legacyConeDomain(p,shadowBalls)",
+                                  with: "legacyConeDomain(p,contactUniforms.contactBalls)")
+        guard sha256(result) == outputSHA256 else { return nil }
+        return result
+    }
+
+    private static func sha256(_ source: String) -> String {
+        SHA256.hash(data: Data(source.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+}

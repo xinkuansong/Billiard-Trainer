@@ -1,0 +1,283 @@
+{
+  "date": "2026-11-15",
+  "decision": "Enable joint culling for liveReference; accept reviewed sparse silhouette differences, not lossless pixel equivalence",
+  "source": {
+    "productionInputsCompared": 3414,
+    "changedProductionFiles": [
+      "QiuJi/Core/Scene/MobileReferenceLighting.swift"
+    ],
+    "finalProductionMatchesFrozenInputs": true,
+    "finalResearchSourceMatchesFrozenInputs": true,
+    "fileSHA256": "d32a8fd0f0e7c5f6f2b7d6746dafa96b42928431b59217aa1a2620faee3c5ae2",
+    "addedProductionLines": 10,
+    "configurationGuard": "liveReference recipe only; no DEBUG condition"
+  },
+  "quality": {
+    "candidateRun": "a6dc0551c3884d53b6c245bac3d5023d",
+    "candidatePairs": 744,
+    "candidateStrictEquivalent": 402,
+    "candidateStrictRejected": 342,
+    "defaultRun": "88f7a62106534ed59eacf5aed4529649",
+    "defaultPairs": 180,
+    "defaultStrictEquivalent": 58,
+    "defaultStrictRejected": 122,
+    "defaultSelectorOverall": "Failed at later cache zero-byte guard, preserved",
+    "maxChannelDifference": 47,
+    "maxPixelsAboveOne": 140,
+    "maxPixelsAboveThree": 10,
+    "maxComponentMinDimension": 1,
+    "review": "H15-QUALITY.md; max cases and original images inspected; no claim for continuous camera/phone"
+  },
+  "finalValidation": {
+    "run": "45049dd5c729464480350e8c347598a8",
+    "build": "Debug -O native iOS-on-Mac",
+    "test": {
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0
+    },
+    "reuse": {
+      "activeScenesAfterRelease": 0,
+      "allFiveThemeCopiesPreserveCulling": true,
+      "completed": true,
+      "doubleSidedFreshToReusedMaximumDifference": 8,
+      "doubleSidedFreshToReusedMeanDifference": 0.07069754464285714,
+      "freshCullingMaximum": 1,
+      "freshToReusedMaximumDifference": 8,
+      "freshToReusedMeanDifference": 0.07069754464285714,
+      "incrementalResidualMaximum": 0,
+      "legacyOfflineRemainsDoubleSided": true,
+      "liveMaterialContainersIndependent": true,
+      "reusedCullingMaximum": 1,
+      "sameTableIdentityReused": true,
+      "study": "H15-default-reuse-contract"
+    },
+    "explicitLegacyMobileDoubleSidedAsserted": true
+  },
+  "gates": {
+    "verify-gate": 0,
+    "verify-doc-size": 0,
+    "scoped-git-diff-check": 0,
+    "logs": "output/render-highlight-20261114/h15-verification"
+  },
+  "runs": [
+    {
+      "id": "9b421191770441118d214e27799caefe",
+      "workReclaimed": true,
+      "result": {
+        "status": "failed",
+        "snapshotID": "5e64080a7e855880ff9baca27faa846b692f4bf3cbce4d0382301a197f40fcb8",
+        "error": "CalledProcessError(2, ['make', '-f', '/Users/song/projects/13.billiard_trainer/output/local-test-runs/9b421191770441118d214e27799caefe/work/source/scripts/Makefile', 'test', 'TEST_ACTION=build-for-testing', 'TEST_CONFIGURATION=Debug', 'BUILD_DIR=/Users/song/projects/13.billiard_trainer/output/local-test-runs/9b421191770441118d214e27799caefe/work/build', 'DERIVED_DATA=/Users/song/projects/13.billiard_trainer/output/local-test-runs/9b421191770441118d214e27799caefe/work/build/DerivedData', 'TEST_LOG=/Users/song/projects/13.billiard_trainer/output/local-test-runs/9b421191770441118d214e27799caefe/evidence/build.log', 'TEST_JUNIT=/Users/song/projects/13.billiard_trainer/output/local-test-runs/9b421191770441118d214e27799caefe/evidence/build.xml', 'TEST_RESULT_BUNDLE=/Users/song/projects/13.billiard_trainer/output/local-test-runs/9b421191770441118d214e27799caefe/evidence/build.xcresult', 'TEST_DESTINATION=platform=macOS,arch=arm64,variant=Designed for iPad,id=00006050-0015294102F9401C', 'TEST_CODE_COVERAGE=NO', 'TEST_SELECTOR=-only-testing:QiuJiTests/ClothSupportPerformanceResearchTests/testNativeSolidCullingExtendedQuality', 'TEST_BUILD_SETTINGS=ARCHS=arm64 SWIFT_OPTIMIZATION_LEVEL=-O -jobs 4', 'SIM_TEST_GUARD='])"
+      }
+    },
+    {
+      "id": "3b6484ea0100496194f5d349cb38cb42",
+      "workReclaimed": true,
+      "result": {
+        "status": "failed",
+        "snapshotID": "82c2b03770df6f1dcf35ef5304c6bb2f413dd366530944496bb6cb430eed61d9",
+        "error": "CalledProcessError(2, ['make', '-f', '/Users/song/projects/13.billiard_trainer/output/local-test-runs/3b6484ea0100496194f5d349cb38cb42/work/source/scripts/Makefile', 'test', 'TEST_ACTION=test-without-building', 'TEST_CONFIGURATION=Debug', 'BUILD_DIR=/Users/song/projects/13.billiard_trainer/output/local-test-runs/3b6484ea0100496194f5d349cb38cb42/work/build', 'DERIVED_DATA=/Users/song/projects/13.billiard_trainer/output/local-test-runs/3b6484ea0100496194f5d349cb38cb42/work/build/DerivedData', 'TEST_LOG=/Users/song/projects/13.billiard_trainer/output/local-test-runs/3b6484ea0100496194f5d349cb38cb42/evidence/tests.log', 'TEST_JUNIT=/Users/song/projects/13.billiard_trainer/output/local-test-runs/3b6484ea0100496194f5d349cb38cb42/evidence/tests.xml', 'TEST_RESULT_BUNDLE=/Users/song/projects/13.billiard_trainer/output/local-test-runs/3b6484ea0100496194f5d349cb38cb42/evidence/tests.xcresult', 'TEST_DESTINATION=platform=macOS,arch=arm64,variant=Designed for iPad,id=00006050-0015294102F9401C', 'TEST_CODE_COVERAGE=NO', 'TEST_SELECTOR=-only-testing:QiuJiTests/ClothSupportPerformanceResearchTests/testNativeSolidCullingExtendedQuality', 'TEST_BUILD_SETTINGS=ARCHS=arm64 SWIFT_OPTIMIZATION_LEVEL=-O -jobs 4', 'SIM_TEST_GUARD='])"
+      }
+    },
+    {
+      "id": "1d8c332f942e46a2bdb3465667fd2fe9",
+      "workReclaimed": true,
+      "result": {
+        "status": "failed",
+        "snapshotID": "ba349bdee66f7a855dd940ee0c85fec72c0bed6b1ae2598578c81b17c638be82",
+        "error": "CalledProcessError(2, ['make', '-f', '/Users/song/projects/13.billiard_trainer/output/local-test-runs/1d8c332f942e46a2bdb3465667fd2fe9/work/source/scripts/Makefile', 'test', 'TEST_ACTION=test-without-building', 'TEST_CONFIGURATION=Debug', 'BUILD_DIR=/Users/song/projects/13.billiard_trainer/output/local-test-runs/1d8c332f942e46a2bdb3465667fd2fe9/work/build', 'DERIVED_DATA=/Users/song/projects/13.billiard_trainer/output/local-test-runs/1d8c332f942e46a2bdb3465667fd2fe9/work/build/DerivedData', 'TEST_LOG=/Users/song/projects/13.billiard_trainer/output/local-test-runs/1d8c332f942e46a2bdb3465667fd2fe9/evidence/tests.log', 'TEST_JUNIT=/Users/song/projects/13.billiard_trainer/output/local-test-runs/1d8c332f942e46a2bdb3465667fd2fe9/evidence/tests.xml', 'TEST_RESULT_BUNDLE=/Users/song/projects/13.billiard_trainer/output/local-test-runs/1d8c332f942e46a2bdb3465667fd2fe9/evidence/tests.xcresult', 'TEST_DESTINATION=platform=macOS,arch=arm64,variant=Designed for iPad,id=00006050-0015294102F9401C', 'TEST_CODE_COVERAGE=NO', 'TEST_SELECTOR=-only-testing:QiuJiTests/ClothSupportPerformanceResearchTests/testNativeSolidCullingExtendedQuality', 'TEST_BUILD_SETTINGS=ARCHS=arm64 SWIFT_OPTIMIZATION_LEVEL=-O -jobs 4', 'SIM_TEST_GUARD='])"
+      }
+    },
+    {
+      "id": "6c419a0d8bc344e4adee6ed1b5b9f914",
+      "workReclaimed": true,
+      "result": {
+        "status": "failed",
+        "snapshotID": "50150764f46600e50989ce141a8010de12dab4a27a9f58c19bc48b6b47c0690f",
+        "error": "CalledProcessError(2, ['make', '-f', '/Users/song/projects/13.billiard_trainer/output/local-test-runs/6c419a0d8bc344e4adee6ed1b5b9f914/work/source/scripts/Makefile', 'test', 'TEST_ACTION=test-without-building', 'TEST_CONFIGURATION=Debug', 'BUILD_DIR=/Users/song/projects/13.billiard_trainer/output/local-test-runs/6c419a0d8bc344e4adee6ed1b5b9f914/work/build', 'DERIVED_DATA=/Users/song/projects/13.billiard_trainer/output/local-test-runs/6c419a0d8bc344e4adee6ed1b5b9f914/work/build/DerivedData', 'TEST_LOG=/Users/song/projects/13.billiard_trainer/output/local-test-runs/6c419a0d8bc344e4adee6ed1b5b9f914/evidence/tests.log', 'TEST_JUNIT=/Users/song/projects/13.billiard_trainer/output/local-test-runs/6c419a0d8bc344e4adee6ed1b5b9f914/evidence/tests.xml', 'TEST_RESULT_BUNDLE=/Users/song/projects/13.billiard_trainer/output/local-test-runs/6c419a0d8bc344e4adee6ed1b5b9f914/evidence/tests.xcresult', 'TEST_DESTINATION=platform=macOS,arch=arm64,variant=Designed for iPad,id=00006050-0015294102F9401C', 'TEST_CODE_COVERAGE=NO', 'TEST_SELECTOR=-only-testing:QiuJiTests/ClothSupportPerformanceResearchTests/testNativeSolidCullingExtendedQuality', 'TEST_BUILD_SETTINGS=ARCHS=arm64 SWIFT_OPTIMIZATION_LEVEL=-O -jobs 4', 'SIM_TEST_GUARD='])"
+      }
+    },
+    {
+      "id": "a6dc0551c3884d53b6c245bac3d5023d",
+      "workReclaimed": true,
+      "result": {
+        "status": "succeeded",
+        "snapshotID": "e25be1e78d941af2db0448e3fd21dd6f1c8050e94da96e1bcd2112011f291dd3"
+      }
+    },
+    {
+      "id": "88f7a62106534ed59eacf5aed4529649",
+      "workReclaimed": true,
+      "result": {
+        "status": "failed",
+        "snapshotID": "c36ea29625f92ea32703c10ce43d27379d826db1d6ba03f35642fa14642ccbd8",
+        "error": "CalledProcessError(2, ['make', '-f', '/Users/song/projects/13.billiard_trainer/output/local-test-runs/88f7a62106534ed59eacf5aed4529649/work/source/scripts/Makefile', 'test', 'TEST_ACTION=test-without-building', 'TEST_CONFIGURATION=Debug', 'BUILD_DIR=/Users/song/projects/13.billiard_trainer/output/local-test-runs/88f7a62106534ed59eacf5aed4529649/work/build', 'DERIVED_DATA=/Users/song/projects/13.billiard_trainer/output/local-test-runs/88f7a62106534ed59eacf5aed4529649/work/build/DerivedData', 'TEST_LOG=/Users/song/projects/13.billiard_trainer/output/local-test-runs/88f7a62106534ed59eacf5aed4529649/evidence/tests.log', 'TEST_JUNIT=/Users/song/projects/13.billiard_trainer/output/local-test-runs/88f7a62106534ed59eacf5aed4529649/evidence/tests.xml', 'TEST_RESULT_BUNDLE=/Users/song/projects/13.billiard_trainer/output/local-test-runs/88f7a62106534ed59eacf5aed4529649/evidence/tests.xcresult', 'TEST_DESTINATION=platform=macOS,arch=arm64,variant=Designed for iPad,id=00006050-0015294102F9401C', 'TEST_CODE_COVERAGE=NO', 'TEST_SELECTOR=-only-testing:QiuJiTests/ClothSupportPerformanceResearchTests/testNativeDefaultSolidCullingQuality', 'TEST_BUILD_SETTINGS=ARCHS=arm64 SWIFT_OPTIMIZATION_LEVEL=-O -jobs 4', 'SIM_TEST_GUARD='])"
+      }
+    },
+    {
+      "id": "30ef44578bc24b73b1a90400dfce2398",
+      "workReclaimed": true,
+      "result": {
+        "status": "succeeded",
+        "snapshotID": "c40a7420e1a86f7cc7a7030c5e9c4e2538bff6f763d67a0fad5acbb2aa5ec0e1"
+      }
+    },
+    {
+      "id": "45049dd5c729464480350e8c347598a8",
+      "workReclaimed": true,
+      "result": {
+        "status": "succeeded",
+        "snapshotID": "ece26501fb6470fc706e651b5c2e5d13a017e8278e93f478c31a0044b05d9760"
+      }
+    }
+  ],
+  "sharedEntryReferences": [
+    {
+      "file": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+      "line": 88,
+      "text": "func configureReferenceTableRendering() {"
+    },
+    {
+      "file": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+      "line": 97,
+      "text": "if recipe == .liveReference { configureReferenceTableRendering() }"
+    },
+    {
+      "file": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+      "line": 114,
+      "text": "func configureDailyClearanceRendering(asynchronousReflection: Bool = false) {"
+    },
+    {
+      "file": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+      "line": 116,
+      "text": "configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Core/Scene/DrillSceneView.swift",
+      "line": 117,
+      "text": "scene.setupScene(recipe: .liveReference)"
+    },
+    {
+      "file": "QiuJi/Features/AccuracyPractice/AccuracyPracticeViewModel.swift",
+      "line": 270,
+      "text": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/AngleTraining/ViewModels/AngleDynamicViewModel.swift",
+      "line": 152,
+      "text": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift",
+      "line": 289,
+      "text": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/AngleTraining/ViewModels/CushionEnglishAtlasViewModel.swift",
+      "line": 94,
+      "text": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift",
+      "line": 266,
+      "text": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/AngleTraining/ViewModels/SeparationAngleAtlasViewModel.swift",
+      "line": 85,
+      "text": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift",
+      "line": 106,
+      "text": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift",
+      "line": 154,
+      "text": "vm.scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/BallExtraction/ViewModels/BallExtractionViewModel.swift",
+      "line": 298,
+      "text": "scene.setupScene(recipe: .liveReference)"
+    },
+    {
+      "file": "QiuJi/Features/BankPractice/BankPracticeViewModel.swift",
+      "line": 270,
+      "text": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift",
+      "line": 369,
+      "text": "composer.scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/DefensePractice/DefensePracticeViewModel.swift",
+      "line": 280,
+      "text": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/KBallPractice/KBallPracticeViewModel.swift",
+      "line": 252,
+      "text": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/KickPractice/KickPracticeViewModel.swift",
+      "line": 260,
+      "text": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/PocketTolerance/PocketToleranceViewModel.swift",
+      "line": 40,
+      "text": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift",
+      "line": 481,
+      "text": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift",
+      "line": 258,
+      "text": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+      "line": 573,
+      "text": "if isDailyClearance { vm.scene.configureDailyClearanceRendering(asynchronousReflection: true) }"
+    },
+    {
+      "file": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+      "line": 576,
+      "text": "vm.scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/Profile/Views/AppearanceCombinationPreview.swift",
+      "line": 16,
+      "text": "scene.setupScene(recipe: .liveReference)"
+    },
+    {
+      "file": "QiuJi/Features/Profile/Views/OnboardingStyleLab.swift",
+      "line": 214,
+      "text": "scene.setupScene(recipe: .liveReference, roomStyle: .tournament)"
+    },
+    {
+      "file": "QiuJi/Features/SeparationPractice/SeparationPracticeViewModel.swift",
+      "line": 285,
+      "text": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/ThreeBallPractice/ThreeBallPracticeViewModel.swift",
+      "line": 284,
+      "text": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "file": "QiuJi/Features/TwoBallPractice/TwoBallPracticeViewModel.swift",
+      "line": 320,
+      "text": "builtScene = true; scene.configureReferenceTableRendering()"
+    }
+  ],
+  "performance": "H14-R4 unchanged; low 4.4189%, overview 4.8331% native GPU span; no new phone/energy claim"
+}

@@ -11,6 +11,963 @@ import Combine
 /// GPU command span is neither displayed FPS nor a complete SwiftUI-page/thermal measurement.
 @MainActor
 final class ClothSupportPerformanceResearchTests: XCTestCase {
+    // H13 measures the current production consumer, not the earlier cloth-only export.
+    #if DEBUG
+    private final class StageCostDelegate: FrameDelegate, @unchecked Sendable {
+        private let costLock = NSLock()
+        private var applied: [Double] = []
+        private var finished: [Double] = []
+        override func renderer(_ renderer: SCNSceneRenderer, didApplyAnimationsAtTime time: TimeInterval) {
+            let start = CACurrentMediaTime()
+            super.renderer(renderer, didApplyAnimationsAtTime: time)
+            let elapsed = (CACurrentMediaTime() - start) * 1000
+            costLock.lock(); applied.append(elapsed); costLock.unlock()
+        }
+        override func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
+            let start = CACurrentMediaTime()
+            super.renderer(renderer, didRenderScene: scene, atTime: time)
+            let elapsed = (CACurrentMediaTime() - start) * 1000
+            costLock.lock(); finished.append(elapsed); costLock.unlock()
+        }
+        func take() -> [String: [Double]] {
+            costLock.lock(); defer { costLock.unlock() }
+            let result = ["contactUpdateMS": applied, "postRenderMaintenanceMS": finished]
+            applied.removeAll(keepingCapacity: true); finished.removeAll(keepingCapacity: true)
+            return result
+        }
+    }
+
+    func testNativeCurrentMaterialAndCPUCost() throws {
+        try runNativeMaterialStudy(vertexDiffuse: false)
+    }
+
+    func testNativeVertexDiffuseAndCurrentCPUCost() throws {
+        try runNativeMaterialStudy(vertexDiffuse: true)
+    }
+
+    func testNativeStreamingDiffuseCost() throws {
+        try runNativeMaterialStudy(vertexDiffuse: true, streamingDiffuse: true)
+    }
+
+    func testNativeBoundedShaderPrimitives() throws {
+        try runNativeMaterialStudy(vertexDiffuse: true, primitiveCandidates: ["wood-atan", "cloth-half-gf"])
+    }
+
+    func testNativeUnscaledDiffuseEdges() throws {
+        try runNativeMaterialStudy(vertexDiffuse: true, primitiveCandidates: ["wood-unscaled"])
+    }
+
+    func testNativeOpaqueBackfaceCulling() throws {
+        try runNativeMaterialStudy(vertexDiffuse: true,
+                                   primitiveCandidates: ["wood-cull", "legs-cull", "cloth-cull"])
+    }
+
+    func testNativeCombinedSolidCulling() throws {
+        try runNativeMaterialStudy(vertexDiffuse: true, primitiveCandidates: ["solid-cull"])
+    }
+
+    func testNativeGroupedClothSamples() throws {
+        try runNativeMaterialStudy(vertexDiffuse: true, primitiveCandidates: ["cloth-batch2", "cloth-batch4"])
+    }
+
+    func testNativeClothStripMasks() throws {
+        try runNativeMaterialStudy(vertexDiffuse: true, primitiveCandidates: ["cloth-strip1", "cloth-strip2"])
+    }
+
+    func testNativePackedClothStripMasks() throws {
+        try runNativeMaterialStudy(vertexDiffuse: true, primitiveCandidates: ["cloth-strip-packed"])
+    }
+
+    func testNativeSolidCullingExtendedQuality() throws {
+        try solidCullingQuality(integrated: true, extended: true)
+    }
+
+    func testNativeDefaultSolidCullingQuality() async throws {
+        try solidCullingQuality(integrated: true)
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+        try await solidCullingReuseContract()
+    }
+
+    func testNativeDefaultSolidCullingReuse() async throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("H15 reuse requires the authorized native Mac")
+        #else
+        guard ProcessInfo.processInfo.isiOSAppOnMac else { throw XCTSkip("H15 native Mac only") }
+        try await solidCullingReuseContract()
+        #endif
+    }
+
+    private func solidCullingQuality(integrated: Bool, extended: Bool = false) throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("H15 requires the authorized native Mac")
+        #else
+        guard ProcessInfo.processInfo.isiOSAppOnMac else { throw XCTSkip("H15 native Mac only") }
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        var rows: [[String: Any]] = []
+        var complete = false, savedPairs = 0
+        var savedCases = Set<String>()
+        defer {
+            attachStrictReport(["study": integrated ? "H15-default-culling-quality" : "H15-candidate-culling-quality",
+                "device": device.name, "completed": complete && testRun?.totalFailureCount == 0, "rows": rows,
+                "qualityAcceptance": "Separate review required; completion records acquisition, not pixel equivalence",
+                "scope": "Native production scene image comparison, all table/cloth colors, opposing cameras, portrait/landscape/high-resolution, three rooms, 2D return and changed balls; no new performance/phone claim"],
+                name: integrated ? "h15-default-quality.json" : "h15-candidate-quality.json")
+        }
+        let targetNames: Set<String> = ["Wood", "BlackWood", "MG_Gold"]
+        let poses: [(String, SIMD3<Float>)] = [
+            ("low-front", SIMD3(0, 1.05, 1.8)), ("low-back", SIMD3(0, 1.05, -1.8)),
+            ("low-right", SIMD3(3.1, 1.02, 0)), ("low-left", SIMD3(-3.1, 1.02, 0)),
+            ("oblique-front", SIMD3(1.8, 1.05, 1.4)), ("oblique-back", SIMD3(-1.8, 1.05, -1.4)),
+            ("overview", SIMD3(1.8, 2.7, 2.1)), ("near", SIMD3(0.16, 1.15, 0.3))]
+        let scopes: [(RoomStyle, CGSize, Bool)] = !extended
+            ? [(.eastern, CGSize(width: 1400, height: 800), false),
+               (.tournament, CGSize(width: 1920, height: 1080), false),
+               (.tournament, CGSize(width: 1400, height: 800), false)] : [
+            (.tournament, CGSize(width: 1400, height: 800), true),
+            (.tournament, CGSize(width: 800, height: 1400), true),
+            (.tournament, CGSize(width: 1920, height: 1080), false),
+            (.walnut, CGSize(width: 1400, height: 800), false),
+            (.eastern, CGSize(width: 1400, height: 800), false)]
+        for (room, size, exhaustive) in scopes {
+            try autoreleasepool {
+                let scene = AngleTrainingScene()
+                scene.configureReferenceTableRendering()
+                scene.setupScene(recipe: .liveReference, roomStyle: room)
+                let rig = try XCTUnwrap(scene.cameraRig)
+                rig.configurePlayerCameraControls(daily: true); rig.viewportSize = size
+                scene.setCameraMode(.perspective3D, animated: false)
+                for _ in 0..<180 { rig.update(deltaTime: 1 / 60) }
+                let target = try RenderTarget(device: device, scene: scene, size: size)
+                let camera = try XCTUnwrap(scene.cameraNode)
+                @MainActor func configure(_ pose: (String, SIMD3<Float>)) throws {
+                    SCNTransaction.begin(); SCNTransaction.disableActions = true
+                    defer { SCNTransaction.commit() }
+                    scene.setCameraMode(.perspective3D, animated: false)
+                    camera.camera?.usesOrthographicProjection = false
+                    let offset = pose.1 - SIMD3(0, scene.surfaceY, 0)
+                    let view = TwoViewCamera.Pose.looking(eye: pose.1, yaw: atan2(offset.z, offset.x),
+                        pitch: -atan2(offset.y, hypot(offset.x, offset.z)), fov: 50)
+                    camera.simdTransform = view.transform
+                    camera.camera?.fieldOfView = 50
+                    try require(abs(camera.simdWorldTransform.columns.0.y) < 0.00001, "H15 inspection camera must keep the production horizontal horizon")
+                    try require(simd_length(view.forward - simd_normalize(-offset)) < 0.00001, "H15 inspection camera must face its declared target")
+                }
+                var appearances: [(TableStyle, ClothColor)] = []
+                if exhaustive {
+                    for style in TableStyle.allCases { for cloth in ClothColor.allCases { appearances.append((style, cloth)) } }
+                } else {
+                    for (i, cloth) in ClothColor.allCases.enumerated() { appearances.append((TableStyle.allCases[i % TableStyle.allCases.count], cloth)) }
+                }
+                @MainActor func compare(_ name: String, style: TableStyle, cloth: ClothColor, balls: Int, save: Bool = false) throws {
+                    var materials: [SCNMaterial] = [], seen = Set<ObjectIdentifier>()
+                    scene.rootNode.enumerateChildNodes { node, _ in
+                        for material in node.geometry?.materials ?? [] where seen.insert(ObjectIdentifier(material)).inserted {
+                            materials.append(material)
+                        }
+                    }
+                    var solids: [SCNMaterial] = [], solidIDs = Set<ObjectIdentifier>()
+                    scene.tableNode?.enumerateChildNodes { node, _ in
+                        for m in node.geometry?.materials ?? [] where targetNames.contains(m.name ?? "") && solidIDs.insert(ObjectIdentifier(m)).inserted { solids.append(m) }
+                    }
+                    try require(Set(solids.compactMap(\.name)) == targetNames, "H15 all target slots required")
+                    try require(solids.allSatisfy { $0.isDoubleSided == !integrated && $0.cullMode == .back }, "H15 actual default raster policy drift")
+                    let original = materials.map { ($0.shaderModifiers, $0.lightingModel, $0.isDoubleSided, $0.cullMode) }
+                    let clothMaterial = try XCTUnwrap(materials.first { $0.name == "TaiNi" })
+                    try require(clothMaterial.isDoubleSided && ClothResearchShaders.sha256(clothMaterial.shaderModifiers?[.surface] ?? "") ==
+                        "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f", "H15 preserve actual C1/H9 cloth")
+                    @MainActor func apply(_ culled: Bool) {
+                        for m in solids { m.isDoubleSided = !culled; m.cullMode = .back }
+                        SCNTransaction.flush()
+                    }
+                    defer { apply(integrated) }
+                    apply(false); _ = try target.render(frames: 4); let a = try target.readback()
+                    _ = try target.render(frames: 1); let aa = try target.readback()
+                    apply(true); _ = try target.render(frames: 4); let b = try target.readback()
+                    apply(false); _ = try target.render(frames: 4); let restored = try target.readback()
+                    let noise = difference(a, aa), delta = difference(a, b), reset = difference(a, restored)
+                    let stable = noise.maximum == 0 && reset.maximum == 0
+                    let aColors = a.uniqueColors, bColors = b.uniqueColors
+                    let aMagenta = a.magentaPixels, bMagenta = b.magentaPixels
+                    let spatial = solidCullingPixelFootprint(a, b)
+                    apply(integrated)
+                    for (i, m) in materials.enumerated() {
+                        try require(m.shaderModifiers == original[i].0 && m.lightingModel == original[i].1 &&
+                            m.isDoubleSided == original[i].2 && m.cullMode == original[i].3, "H15 non-target state or restoration changed")
+                    }
+                    let label = "h15-\(room.rawValue)-\(Int(size.width))x\(Int(size.height))-\(style.rawValue)-\(cloth.rawValue)-\(name)"
+                    let saveKey = "\(room.rawValue)-\(size)-\(style.rawValue)-\(name)"
+                    let saveChangedBalls = !name.hasPrefix("changed-balls-") || ["changed-balls-0", "changed-balls-6", "changed-balls-11"].contains(name)
+                    if savedPairs < 160 && saveChangedBalls && (save || delta.maximum > 1 || !stable || aColors <= 128 || bColors <= 128)
+                        && savedCases.insert(saveKey).inserted {
+                        attach(a, label + "-reference"); attach(b, label + "-culled"); savedPairs += 1
+                        if !stable { attach(aa, label + "-aa"); attach(restored, label + "-restored") }
+                    }
+                    rows.append(["case": label, "room": room.rawValue, "width": Int(size.width), "height": Int(size.height),
+                        "table": style.rawValue, "cloth": cloth.rawValue, "pose": name, "balls": balls,
+                        "targetMaterials": solids.count, "maximumDifference": delta.maximum, "changedPixels": delta.changedPixels,
+                        "aaMaximum": noise.maximum, "restoreMaximum": reset.maximum,
+                        "referenceColors": aColors, "candidateColors": bColors, "referenceMagentaPixels": aMagenta,
+                        "candidateMagentaPixels": bMagenta, "pixelFootprint": spatial,
+                        "cameraMatrix": matrixValues(camera.presentation.worldTransform), "passed": stable && delta.maximum <= 1,
+                        "strictPixelEquivalent": stable && delta.maximum <= 1])
+                }
+                let keys = ["cueBall"] + (1...15).map { "_\($0)" }
+                for (appearanceIndex, appearance) in appearances.enumerated() {
+                    let (style, cloth) = appearance
+                    try require(scene.applyTableStyle(style) && scene.applyClothColor(cloth), "H15 appearance installation failed")
+                    scene.hideAllBalls()
+                    let ballCount = [0, 2, 16][appearanceIndex % 3]
+                    for (i, key) in keys.prefix(ballCount).enumerated() {
+                        scene.showBall(key: key, scenePosition: SCNVector3(Float(i / 4) * 0.6 - 0.9,
+                            scene.surfaceY + AngleSceneCalculator.ballRadius, Float(i % 4) * 0.3 - 0.45))
+                        try require(abs(scene.visualCenter(of: scene.allBallNodes[key]!).y - scene.surfaceY - AngleSceneCalculator.ballRadius) < 0.0001, "H15 sphere height")
+                    }
+                    for pose in poses {
+                        try configure(pose)
+                        try compare(pose.0, style: style, cloth: cloth, balls: ballCount,
+                                    save: appearanceIndex == 0 || appearanceIndex % 6 == 0 && pose.0 == "oblique-front")
+                    }
+                    if exhaustive {
+                        SCNTransaction.begin(); SCNTransaction.disableActions = true
+                        scene.setCameraMode(.topDown2D, animated: false)
+                        for _ in 0..<180 { rig.update(deltaTime: 1 / 60) }
+                        SCNTransaction.commit(); SCNTransaction.flush()
+                        try compare("2d-return", style: style, cloth: cloth, balls: ballCount)
+                    }
+                }
+                // Same scene, restore the initial style/color and exercise direct changing sphere state.
+                try require(scene.applyTableStyle(.charcoal) && scene.applyClothColor(.green), "H15 appearance return")
+                try configure(poses[4]); scene.hideAllBalls()
+                for frame in 0..<12 {
+                    SCNTransaction.begin(); SCNTransaction.disableActions = true
+                    for (i, key) in keys.enumerated() {
+                        scene.showBall(key: key, scenePosition: SCNVector3(Float(i / 4) * 0.5 - 0.75 + Float(frame) * 0.01,
+                            scene.surfaceY + AngleSceneCalculator.ballRadius, Float(i % 4) * 0.26 - 0.39))
+                    }
+                    SCNTransaction.commit(); SCNTransaction.flush()
+                    try compare("changed-balls-\(frame)", style: .charcoal, cloth: .green, balls: 16)
+                }
+                print("[H15] \(room.rawValue) \(size) complete; \(rows.count) pairs")
+            }
+        }
+        let rejected = rows.filter { ($0["passed"] as? Bool) != true }
+        print("[H15] strict pixel-equivalence rejected \(rejected.count) of \(rows.count); separate visual review required")
+        // Keep the original strict result in every row. Complete acquisition even
+        // when it rejects, so a review can distinguish seams from isolated edge pixels.
+        try require(rows.allSatisfy { ($0["referenceColors"] as? Int ?? 0) > 1 &&
+            ($0["candidateColors"] as? Int ?? 0) > 1 && ($0["referenceMagentaPixels"] as? Int) == 0 &&
+            ($0["candidateMagentaPixels"] as? Int) == 0 }, "H15 empty or shader-error frame; inspect retained originals")
+        complete = true
+        #endif
+    }
+
+    private func solidCullingPixelFootprint(_ a: Frame, _ b: Frame) -> [String: Any] {
+        let width = a.image.cgImage!.width, height = a.image.cgImage!.height
+        var hot = Set<Int>(), aboveThree = 0, aboveTen = 0, sum = 0
+        for i in 0..<a.pixelCount {
+            var maximum = 0
+            for c in 0..<3 {
+                let d = abs(Int(a.bgra[i * 4 + c]) - Int(b.bgra[i * 4 + c]))
+                maximum = max(maximum, d); sum += d
+            }
+            if maximum > 1 { hot.insert(i) }
+            if maximum > 3 { aboveThree += 1 }
+            if maximum > 10 { aboveTen += 1 }
+        }
+        let aboveOne = hot.count
+        var components: [[String: Any]] = []
+        while let start = hot.first {
+            hot.remove(start)
+            var queue = [start], head = 0, xmin = width, xmax = 0, ymin = height, ymax = 0
+            while head < queue.count {
+                let p = queue[head]; head += 1
+                let x = p % width, y = p / width
+                xmin = min(xmin, x); xmax = max(xmax, x); ymin = min(ymin, y); ymax = max(ymax, y)
+                for dy in -1...1 { for dx in -1...1 {
+                    let nx = x + dx, ny = y + dy
+                    if nx >= 0 && nx < width && ny >= 0 && ny < height,
+                       hot.remove(ny * width + nx) != nil { queue.append(ny * width + nx) }
+                } }
+            }
+            components.append(["pixels": queue.count, "bounds": [xmin, ymin, xmax, ymax]])
+        }
+        return ["pixelsAboveOne": aboveOne, "pixelsAboveThree": aboveThree, "pixelsAboveTen": aboveTen,
+            "meanAbsoluteRGBByteDifference": Double(sum) / Double(a.pixelCount * 3),
+            "largestComponentAboveOne": components.compactMap { $0["pixels"] as? Int }.max() ?? 0,
+            "componentsAboveOne": components]
+    }
+
+    private func solidCullingReuseContract() async throws {
+        let cache = TableResourceCache.shared
+        try require(cache.activeScenes == 0, "H15 quality scenes must release before reuse checks")
+        cache.purge(); defer { cache.purge() }
+        let names: Set<String> = ["Wood", "BlackWood", "MG_Gold"]
+        @MainActor func solids(_ scene: AngleTrainingScene) -> [SCNMaterial] {
+            var result: [SCNMaterial] = [], seen = Set<ObjectIdentifier>()
+            scene.tableNode?.enumerateChildNodes { node, _ in
+                for m in node.geometry?.materials ?? [] where names.contains(m.name ?? "") && seen.insert(ObjectIdentifier(m)).inserted { result.append(m) }
+            }
+            return result
+        }
+        @MainActor func check(_ scene: AngleTrainingScene, culled: Bool) throws {
+            let values = solids(scene)
+            try require(Set(values.compactMap(\.name)) == names && values.allSatisfy {
+                $0.isDoubleSided == !culled && $0.cullMode == .back
+            }, "H15 material policy did not survive consumer lifecycle")
+        }
+        @MainActor func capture(_ scene: AngleTrainingScene) throws -> (culled: Frame, doubleSided: Frame, camera: [String: Any]) {
+            try require(scene.applyTableStyle(.charcoal) && scene.applyClothColor(.green), "H15 reused appearance reset")
+            scene.setCameraMode(.perspective3D, animated: false)
+            scene.cameraNode.camera?.usesOrthographicProjection = false
+            let eye = SIMD3<Float>(0, 1.05, 1.8), offset = eye - SIMD3(0, scene.surfaceY, 0)
+            scene.cameraNode.simdTransform = TwoViewCamera.Pose.looking(eye: eye,
+                yaw: atan2(offset.z, offset.x), pitch: -atan2(offset.y, hypot(offset.x, offset.z)), fov: 50).transform
+            scene.cameraNode.camera?.fieldOfView = 50
+            scene.hideAllBalls()
+            scene.showBall(key: "cueBall", scenePosition: SCNVector3(0, scene.surfaceY + AngleSceneCalculator.ballRadius, 0))
+            let target = try RenderTarget(device: XCTUnwrap(MTLCreateSystemDefaultDevice()), scene: scene,
+                                          size: CGSize(width: 1400, height: 800))
+            defer { target.renderer.scene = nil; target.renderer.delegate = nil; target.renderer.pointOfView = nil }
+            SCNTransaction.flush(); _ = try target.render(frames: 4)
+            let culled = try target.readback()
+            var metadata = cameraMetadata(scene.cameraNode.camera!)
+            metadata["worldTransform"] = matrixValues(scene.cameraNode.presentation.worldTransform)
+            let materials = solids(scene)
+            for m in materials { m.isDoubleSided = true }
+            defer { for m in materials { m.isDoubleSided = false }; SCNTransaction.flush() }
+            SCNTransaction.flush(); _ = try target.render(frames: 4)
+            return (culled, try target.readback(), metadata)
+        }
+        var reference: (culled: Frame, doubleSided: Frame, camera: [String: Any])?, firstTable: ObjectIdentifier?
+        weak var releasedScene: AngleTrainingScene?
+        try autoreleasepool {
+            let scene = AngleTrainingScene(); releasedScene = scene
+            scene.configureReferenceTableRendering(); scene.setupScene(recipe: .liveReference, roomStyle: .tournament)
+            _ = scene.addPocketMarkers()
+            firstTable = ObjectIdentifier(try XCTUnwrap(scene.tableNode))
+            try check(scene, culled: true); reference = try capture(scene)
+            for style in TableStyle.allCases {
+                try require(scene.applyTableStyle(style), "H15 theme change failed"); try check(scene, culled: true)
+            }
+            try require(scene.applyTableStyle(.ivory) && scene.applyClothColor(.burgundy), "H15 final theme before release")
+        }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+        try require(releasedScene == nil && cache.activeScenes == 0, "H15 scene ownership did not release")
+        try require(cache.idleTable.map { ObjectIdentifier($0.node) } == firstTable, "H15 idle cache did not own the tested table")
+        var maxDifference = 0, referenceMaxDifference = 0, incrementalResidual = 0
+        var freshCullingDifference = 0, reusedCullingDifference = 0
+        var meanDifference = 0.0, referenceMeanDifference = 0.0
+        try autoreleasepool {
+            let scene = AngleTrainingScene()
+            scene.configureDailyClearanceRendering(asynchronousReflection: false)
+            scene.setupScene(recipe: .liveReference, roomStyle: .tournament)
+            try require(ObjectIdentifier(try XCTUnwrap(scene.tableNode)) == firstTable, "H15 must consume exact cached table")
+            _ = scene.addPocketMarkers(); try check(scene, culled: true)
+            let image = try capture(scene), a = try XCTUnwrap(reference)
+            try require(NSDictionary(dictionary: a.camera).isEqual(to: image.camera), "H15 reuse compared different cameras")
+            maxDifference = difference(a.culled, image.culled).maximum
+            referenceMaxDifference = difference(a.doubleSided, image.doubleSided).maximum
+            freshCullingDifference = difference(a.culled, a.doubleSided).maximum
+            reusedCullingDifference = difference(image.culled, image.doubleSided).maximum
+            var sum = 0, referenceSum = 0
+            for i in a.culled.bgra.indices {
+                let current = Int(a.culled.bgra[i]) - Int(image.culled.bgra[i])
+                let old = Int(a.doubleSided.bgra[i]) - Int(image.doubleSided.bgra[i])
+                sum += abs(current); referenceSum += abs(old)
+                incrementalResidual = max(incrementalResidual, abs(current - old))
+            }
+            meanDifference = Double(sum) / Double(a.culled.bgra.count)
+            referenceMeanDifference = Double(referenceSum) / Double(a.culled.bgra.count)
+            attach(a.culled, "h15-default-fresh"); attach(image.culled, "h15-default-cache-reused")
+            attach(a.doubleSided, "h15-double-sided-fresh"); attach(image.doubleSided, "h15-double-sided-cache-reused")
+            attachStrictReport(["study": "H15-reuse-paired-images", "culledMaximum": maxDifference,
+                "doubleSidedMaximum": referenceMaxDifference, "culledMean": meanDifference,
+                "doubleSidedMean": referenceMeanDifference, "incrementalResidualMaximum": incrementalResidual,
+                "freshCullingMaximum": freshCullingDifference, "reusedCullingMaximum": reusedCullingDifference,
+                "sameCamera": a.camera], name: "h15-reuse-paired-images.json")
+            // The established cross-renderer reuse test uses mean < 0.5, not
+            // byte identity. Each matched renderer must retain the original
+            // <=1-code culling bound; their drift residual is then bounded by 2.
+            try require(meanDifference < 0.5 && referenceMeanDifference < 0.5 &&
+                        freshCullingDifference <= 1 && reusedCullingDifference <= 1 && incrementalResidual <= 2,
+                        "H15 culling adds cached appearance drift beyond the old rendering path")
+            let independent = AngleTrainingScene()
+            independent.configureReferenceTableRendering(); independent.setupScene(recipe: .liveReference, roomStyle: .tournament)
+            try check(independent, culled: true)
+            let firstMaterials = Set(solids(scene).map(ObjectIdentifier.init))
+            try require(firstMaterials.isDisjoint(with: solids(independent).map(ObjectIdentifier.init)), "H15 live scenes share mutable material containers")
+            let first = try XCTUnwrap(solids(scene).first)
+            first.isDoubleSided = true; defer { first.isDoubleSided = false }
+            try check(independent, culled: true)
+            let legacy = AngleTrainingScene()
+            legacy.setupScene(enhancedRendering: false, mobileRendering: false, roomStyle: .tournament)
+            try check(legacy, culled: false)
+            let legacyMobile = AngleTrainingScene()
+            legacyMobile.setupScene(recipe: .legacyMobile, roomStyle: .tournament)
+            try check(legacyMobile, culled: false)
+        }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+        try require(cache.activeScenes == 0, "H15 integration scenes leaked")
+        attachStrictReport(["study": "H15-default-reuse-contract", "completed": true,
+            "freshToReusedMaximumDifference": maxDifference, "sameTableIdentityReused": true,
+            "doubleSidedFreshToReusedMaximumDifference": referenceMaxDifference,
+            "incrementalResidualMaximum": incrementalResidual,
+            "freshCullingMaximum": freshCullingDifference, "reusedCullingMaximum": reusedCullingDifference,
+            "freshToReusedMeanDifference": meanDifference, "doubleSidedFreshToReusedMeanDifference": referenceMeanDifference,
+            "allFiveThemeCopiesPreserveCulling": true, "liveMaterialContainersIndependent": true,
+            "legacyOfflineRemainsDoubleSided": true, "activeScenesAfterRelease": cache.activeScenes],
+            name: "h15-reuse-contract.json")
+    }
+
+    private func boundedPrimitive(_ source: String, group: String) throws -> String {
+        if group == "cloth-strip-packed" { return try packedStripClothSamples(source) }
+        if group.hasPrefix("cloth-strip") {
+            return try stripClothSamples(source, width: group == "cloth-strip1" ? 1 : 2)
+        }
+        if group.hasPrefix("cloth-batch") {
+            return try groupedClothSamples(source, width: group == "cloth-batch2" ? 2 : 4)
+        }
+        func replaceOnce(_ input: String, _ before: String, _ after: String) throws -> String {
+            try require(input.components(separatedBy: before).count == 2, "H14 exact unique shader anchor")
+            return input.replacingOccurrences(of: before, with: after)
+        }
+        if group == "wood-unscaled" {
+            let raw = try replaceOnce(source,
+                "float3 a=normalize(clipped[i]),b=normalize(clipped[(i+1)%count]);",
+                "float3 a=clipped[i],b=clipped[(i+1)%count];")
+            return try replaceOnce(raw,
+                "float3 c=cross(a,b);float lengthC=length(c);\n        if(lengthC>0.0000001) integral+=atan2(lengthC,dot(a,b))*dot(c,n)/lengthC;",
+                "float3 c=cross(a,b);float c2=dot(c,c);\n        if(c2>0.00000000000001*dot(a,a)*dot(b,b)) {float lengthC=sqrt(c2);integral+=atan2(lengthC,dot(a,b))*dot(c,n)/lengthC;}")
+        }
+        if group == "wood-atan" {
+            // Independently generated by fit_atan.py; Float32/FMA angular error < 3e-7 radians.
+            let function = """
+            float h14PositiveAtan2(float y,float x) {
+                float ax=abs(x);float t=min(y,ax)/max(y,ax);float u=t*t;
+                float value=-0.0017437011702;
+                value=fma(value,u,0.0106807192788);
+                value=fma(value,u,-0.0307175088674);
+                value=fma(value,u,0.0574635565281);
+                value=fma(value,u,-0.083720639348);
+                value=fma(value,u,0.109401986003);
+                value=fma(value,u,-0.142615735531);
+                value=fma(value,u,0.199982300401);
+                value=fma(value,u,-0.333332836628);
+                value=fma(value,u,1.0);
+                float angle=t*value;
+                angle=y>ax ? 1.5707963267948966-angle : angle;
+                return x<0.0 ? 3.141592653589793-angle : angle;
+            }
+
+            """
+            let withFunction = try replaceOnce(source, "float v62RectIrradiance(", function + "float v62RectIrradiance(")
+            return try replaceOnce(withFunction, "atan2(lengthC,dot(a,b))", "h14PositiveAtan2(lengthC,dot(a,b))")
+        }
+        try require(group == "cloth-half-gf", "H14 unknown candidate")
+        // Keep geometry, D (including its small denominator), visibility and all accumulation Float32.
+        let withConstants = try replaceOnce(source, "float a2=alpha*alpha;",
+            "float a2=alpha*alpha;half h14a2=half(a2),h14nv=half(nv);")
+        let withG = try replaceOnce(withConstants,
+            "float G=2.0*nv/(nv+sqrt(a2+(1.0-a2)*nv*nv))*2.0*nl/(nl+sqrt(a2+(1.0-a2)*nl*nl));",
+            "half h14nl=half(nl);half h14G=half(2)*h14nv/(h14nv+sqrt(h14a2+(half(1)-h14a2)*h14nv*h14nv))*half(2)*h14nl/(h14nl+sqrt(h14a2+(half(1)-h14a2)*h14nl*h14nl));float G=float(h14G);")
+        return try replaceOnce(withG, "float F=0.012+0.988*pow(1.0-vh,5.0);",
+            "half h14F=half(0.012)+half(0.988)*pow(half(1)-half(vh),half(5));float F=float(h14F);")
+    }
+
+    private func streamedDiffuse(_ source: String) throws -> String {
+        let begin = try XCTUnwrap(source.range(of: "float v62RectIrradiance("))
+        let end = try XCTUnwrap(source.range(of: "float3 v62PanelDiffuse(", range: begin.upperBound..<source.endIndex))
+        var program = """
+        float h13RectEdge(float3 a,float3 b,float3 n) {
+            a=normalize(a);b=normalize(b);
+            float3 c=cross(a,b);float lengthC=length(c);
+            return lengthC>0.0000001 ? atan2(lengthC,dot(a,b))*dot(c,n)/lengthC : 0.0;
+        }
+        float v62RectIrradiance(float3 p,float3 n,int panel) {
+            float3 c=v62EmitterCenter(panel)-p,u=v62EmitterU(panel),w=v62EmitterV(panel);
+            if(dot(v62EmitterNormal(panel),-c)<=0.0) return 0.0;
+            float integral=0.0;float3 entry=float3(0.0),exitPoint=float3(0.0);bool crossed=false;
+
+        """
+        let corners = ["c-u-w", "c-u+w", "c+u+w", "c+u-w"]
+        for i in 0..<4 {
+            program += """
+            {
+                float3 a=\(corners[i]),b=\(corners[(i+1)%4]);
+                float da=dot(a,n),db=dot(b,n);
+                if(da>=0.0) {
+                    if(db>=0.0) integral+=h13RectEdge(a,b,n);
+                    else {
+                        exitPoint=a+(b-a)*(da/(da-db));crossed=true;
+                        integral+=h13RectEdge(a,exitPoint,n);
+                    }
+                } else if(db>=0.0) {
+                    entry=a+(b-a)*(da/(da-db));
+                    integral+=h13RectEdge(entry,b,n);
+                }
+            }
+
+            """
+        }
+        program += """
+            if(crossed) integral+=h13RectEdge(exitPoint,entry,n);
+            return abs(integral)*0.5;
+        }
+
+        """
+        var result = source
+        result.replaceSubrange(begin.lowerBound..<end.lowerBound, with: program)
+        return result
+    }
+
+    /// H16 research only: transpose adjacent emitter samples into vector lanes.
+    /// Keep sample count, ball order and final RGB accumulation order unchanged.
+    private func groupedClothSamples(_ source: String, width: Int) throws -> String {
+        try require([2, 4].contains(width) &&
+            ClothResearchShaders.sha256(source) == ClothShadowProgram.outputSHA256,
+            "H16 requires current production C1/H9 source")
+        let begin = try XCTUnwrap(source.range(of: "for(int ix=0;ix<samplesX;++ix) {"))
+        let end = try XCTUnwrap(source.range(of: "E=temporalFieldDiffuse", range: begin.upperBound..<source.endIndex))
+        let old = String(source[begin.lowerBound..<end.lowerBound])
+        try require(old.contains("uint remainingShadowBalls=nearLampMasks[panel];") &&
+                    old.contains("float4 shadowBall=contactUniforms.contactBalls[shadowIndex];"),
+                    "H16 requires original ascending per-lamp blocker mask")
+        let weightedStart = try XCTUnwrap(old.range(of: "float3 weighted="))
+        let weightedEnd = try XCTUnwrap(old.range(of: ";\n", range: weightedStart.upperBound..<old.endIndex))
+        let originalWeighted = String(old[weightedStart.lowerBound...weightedEnd.lowerBound])
+        let vector = "float\(width)"
+        let offsets = (0..<width).map { "\(Double($0) + 0.5)" }.joined(separator: ",")
+        var body = """
+        // H16: independent sample lanes; no cross-lane reduction.
+        for(int ix=0;ix<samplesX;++ix) {
+         for(int iz=0;iz<samplesZ;iz+=\(width)) {
+          float h16U=2.0*(float(ix)+0.5)/float(samplesX)-1.0;
+          \(vector) h16V=2.0*(float(iz)+\(vector)(\(offsets)))/float(samplesZ)-1.0;
+          float3 h16C=v62EmitterCenter(panel),h16EU=v62EmitterU(panel),h16EV=v62EmitterV(panel);
+          \(vector) dx=h16C.x+h16EU.x*h16U+h16EV.x*h16V-p.x;
+          \(vector) dy=h16C.y+h16EU.y*h16U+h16EV.y*h16V-p.y;
+          \(vector) dz=h16C.z+h16EU.z*h16U+h16EV.z*h16V-p.z;
+          \(vector) h16R2=dx*dx+dy*dy+dz*dz;
+          \(vector) h16R=sqrt(h16R2);
+          \(vector) lx=dx/h16R,ly=dy/h16R,lz=dz/h16R;
+          \(vector) h16Visibility=1.0;
+          if(nearLampMasks[panel]!=0u) {
+           uint remainingShadowBalls=nearLampMasks[panel];
+           while(remainingShadowBalls!=0u) {
+            uint shadowIndex=ctz(remainingShadowBalls);
+            remainingShadowBalls &= remainingShadowBalls-1u;
+            float4 shadowBall=contactUniforms.contactBalls[shadowIndex];
+            if(shadowBall.w>0.0) {
+             float3 toCenter=float3(shadowBall.x,0.8+shadowBall.z,shadowBall.y)-p;
+             \(vector) t=toCenter.x*lx+toCenter.y*ly+toCenter.z*lz;
+             \(vector) perpendicular2=dot(toCenter,toCenter)-t*t;
+             \(vector) filterRadius=max(\(vector)(0.000001),lightCellRadius*t/h16R);
+             \(vector) distanceToRay=sqrt(max(\(vector)(0.0),perpendicular2));
+             \(vector) blocked=1.0-smoothstep(0.028575-filterRadius,0.028575+filterRadius,distanceToRay);
+             \(vector) transmission=1.0-min(1.0,shadowBall.w/0.85)*blocked;
+             h16Visibility *= select(\(vector)(1.0),transmission,(t>0.0) & (t*t<h16R2));
+            }
+           }
+          }
+          \(vector) h16NL=max(\(vector)(0.001),n.x*lx+n.y*ly+n.z*lz);
+          \(vector) hx=lx+v.x,hy=ly+v.y,hz=lz+v.z;
+          \(vector) h16InverseH=rsqrt(hx*hx+hy*hy+hz*hz);
+          hx*=h16InverseH;hy*=h16InverseH;hz*=h16InverseH;
+          \(vector) nh=max(\(vector)(0.0),n.x*hx+n.y*hy+n.z*hz);
+          \(vector) vh=max(\(vector)(0.0),v.x*hx+v.y*hy+v.z*hz);
+          \(vector) denom=nh*nh*(a2-1.0)+1.0;
+          \(vector) h16D=a2/(3.14159265*denom*denom);
+          \(vector) h16G=2.0*nv/(nv+sqrt(a2+(1.0-a2)*nv*nv))*2.0*h16NL/(h16NL+sqrt(a2+(1.0-a2)*h16NL*h16NL));
+          \(vector) h16F=0.012+0.988*pow(1.0-vh,\(vector)(5.0));
+
+        """
+        for lane in 0..<width {
+            body += """
+              if(iz+\(lane)<samplesZ) {
+               float3 l=float3(lx[\(lane)],ly[\(lane)],lz[\(lane)]);
+               float r2=h16R2[\(lane)],visibility=h16Visibility[\(lane)],nl=h16NL[\(lane)];
+               float D=h16D[\(lane)],G=h16G[\(lane)],F=h16F[\(lane)];
+               \(originalWeighted)
+               unoccludedE+=weighted; E+=weighted*visibility; S+=weighted*visibility*D*G*F/(4.0*nv*nl);
+              }
+
+            """
+        }
+        body += " }\n}\n}\n"
+        var result = source
+        result.replaceSubrange(begin.lowerBound..<end.lowerBound, with: body)
+        return result
+    }
+
+    /// H16 R2 research: reject blockers outside a filtered emitter strip.
+    /// World XZ / Y up; the frozen rig has U on X and V on Z.
+    private func stripClothSamples(_ source: String, width: Int) throws -> String {
+        try require([1, 2].contains(width) &&
+                    ClothResearchShaders.sha256(source) == ClothShadowProgram.outputSHA256,
+                    "H16 strip requires the frozen production rig and source")
+        let anchor = "for(int ix=0;ix<samplesX;++ix) {"
+        try require(source.components(separatedBy: anchor).count == 2 &&
+                    source.components(separatedBy: "uint remainingShadowBalls=nearLampMasks[panel];").count == 2,
+                    "H16 strip source anchors")
+        let predicate = width == 1
+            ? "abs(dot(h16Plane0,h16Delta))<=h16Radius"
+            : "dot(h16Plane0,h16Delta)<=h16Radius && dot(h16Plane1,h16Delta)<=h16Radius"
+        let planes = width == 1
+            ? "float3 h16Plane0=normalize(float3(h16H,-h16X0,0.0));"
+            : """
+              float h16X1=h16Light.x+v62EmitterU(panel).x*(2.0*(float(ix+1)+0.5)/float(samplesX)-1.0)-p.x;
+              float3 h16Plane0=normalize(float3(-h16H,h16X0,0.0));
+              float3 h16Plane1=normalize(float3(h16H,-h16X1,0.0));
+              """
+        let replacement = """
+        uint h16StripMask=nearLampMasks[panel];
+        for(int ix=0;ix<samplesX;++ix) {
+         if(ix%\(width)==0) {
+          h16StripMask=nearLampMasks[panel];
+          if(diagnosticConeEligible && h16StripMask!=0u) {
+           float3 h16Light=v62EmitterCenter(panel);
+           float h16H=h16Light.y-p.y;
+           if(h16H>lightCellRadius) {
+            float h16X0=h16Light.x+v62EmitterU(panel).x*(2.0*(float(ix)+0.5)/float(samplesX)-1.0)-p.x;
+            \(planes)
+            uint h16Remaining=h16StripMask;h16StripMask=0u;
+            while(h16Remaining!=0u) {
+             uint h16Index=ctz(h16Remaining);h16Remaining &= h16Remaining-1u;
+             float4 h16Ball=contactUniforms.contactBalls[h16Index];
+             float3 h16Center=float3(h16Ball.x,0.8+h16Ball.z,h16Ball.y);
+             float3 h16Delta=h16Center-p;
+             float h16U=clamp((h16Delta.y+0.028575+0.000001)/(h16H-lightCellRadius),0.0,1.0);
+             float h16Scale=max(1.0,max(length(p),max(length(h16Center),length(h16Light))));
+             float h16Radius=0.028575+0.000001+lightCellRadius*h16U+64.0*1.1920928955078125e-7*h16Scale;
+             if(\(predicate)) h16StripMask |= 1u<<h16Index;
+            }
+           }
+          }
+         }
+        """
+        return source.replacingOccurrences(of: anchor, with: replacement)
+            .replacingOccurrences(of: "uint remainingShadowBalls=nearLampMasks[panel];",
+                                  with: "uint remainingShadowBalls=h16StripMask;")
+    }
+
+    /// H16 R3: form four two-row masks in a single ascending ball traversal.
+    private func packedStripClothSamples(_ source: String) throws -> String {
+        try require(ClothResearchShaders.sha256(source) == ClothShadowProgram.outputSHA256,
+                    "H16 packed strip requires current source and fixed axis-aligned rig")
+        let anchor = "for(int ix=0;ix<samplesX;++ix) {"
+        try require(source.components(separatedBy: anchor).count == 2 &&
+                    source.components(separatedBy: "uint remainingShadowBalls=nearLampMasks[panel];").count == 2,
+                    "H16 packed strip anchors")
+        let replacement = """
+        uint4 h16StripMasks=uint4(nearLampMasks[panel]);
+        if(diagnosticConeEligible && nearLampMasks[panel]!=0u) {
+         float3 h16Light=v62EmitterCenter(panel);
+         float h16H=h16Light.y-p.y;
+         if(h16H>lightCellRadius) {
+          float4 h16X0=h16Light.x+v62EmitterU(panel).x*(2.0*float4(0.5,2.5,4.5,6.5)/float(samplesX)-1.0)-p.x;
+          float4 h16X1=h16Light.x+v62EmitterU(panel).x*(2.0*float4(1.5,3.5,5.5,7.5)/float(samplesX)-1.0)-p.x;
+          float4 h16Inv0=rsqrt(h16H*h16H+h16X0*h16X0);
+          float4 h16Inv1=rsqrt(h16H*h16H+h16X1*h16X1);
+          float4 h16NX0=-h16H*h16Inv0,h16NY0=h16X0*h16Inv0;
+          float4 h16NX1=h16H*h16Inv1,h16NY1=-h16X1*h16Inv1;
+          uint h16Remaining=nearLampMasks[panel];h16StripMasks=uint4(0u);
+          while(h16Remaining!=0u) {
+           uint h16Index=ctz(h16Remaining);h16Remaining &= h16Remaining-1u;
+           float4 h16Ball=contactUniforms.contactBalls[h16Index];
+           float3 h16Center=float3(h16Ball.x,0.8+h16Ball.z,h16Ball.y),h16Delta=h16Center-p;
+           float h16U=clamp((h16Delta.y+0.028575+0.000001)/(h16H-lightCellRadius),0.0,1.0);
+           float h16Scale=max(1.0,max(length(p),max(length(h16Center),length(h16Light))));
+           float h16Radius=0.028575+0.000001+lightCellRadius*h16U+64.0*1.1920928955078125e-7*h16Scale;
+           bool4 h16Inside=(h16NX0*h16Delta.x+h16NY0*h16Delta.y<=h16Radius) &
+                           (h16NX1*h16Delta.x+h16NY1*h16Delta.y<=h16Radius);
+           h16StripMasks |= select(uint4(0u),uint4(1u<<h16Index),h16Inside);
+          }
+         }
+        }
+        for(int ix=0;ix<samplesX;++ix) {
+        """
+        return source.replacingOccurrences(of: anchor, with: replacement)
+            .replacingOccurrences(of: "uint remainingShadowBalls=nearLampMasks[panel];",
+                                  with: "uint remainingShadowBalls=h16StripMasks[ix/2];")
+    }
+
+    private func runNativeMaterialStudy(vertexDiffuse: Bool, streamingDiffuse: Bool = false,
+                                        primitiveCandidates: [String] = []) throws {
+        let primitiveStudy = !primitiveCandidates.isEmpty
+        let groupedStudy = primitiveCandidates.contains { $0.hasPrefix("cloth-batch") || $0.hasPrefix("cloth-strip") }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("H13 requires native Designed for iPad execution")
+        #else
+        guard ProcessInfo.processInfo.isiOSAppOnMac else {
+            throw XCTSkip("H13 is restricted to the authorized native Mac")
+        }
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        var rows: [[String: Any]] = [], cpuRows: [[String: Any]] = [], inventory: [[String: Any]] = []
+        var complete = false
+        defer {
+            attachStrictReport(["study": primitiveStudy ? "\(groupedStudy ? "H16" : "H14")-\(primitiveCandidates.joined(separator: "+"))" : streamingDiffuse ? "H13-streaming-diffuse-candidate" :
+                (vertexDiffuse ? "H13-vertex-diffuse-candidate" : "H13-current-production-cost"), "device": device.name,
+                "completed": complete && testRun?.totalFailureCount == 0,
+                "rows": rows, "cpuRows": cpuRows, "inventory": inventory,
+                "scope": primitiveStudy ? "Native current production scene; independent shader arithmetic candidates: \(primitiveCandidates.joined(separator: ",")); original clipping and per-pixel shading retained; maximum added image difference 1/255; no page/phone claim" : streamingDiffuse ? "Native current scene; streaming exact clipped rectangle edges; per-pixel normal and all original shading retained; no page/phone claim" : vertexDiffuse
+                    ? "Native current scene; vertex diffuse approximation; maximum new image error 1/255 before timing; no full page or phone claim"
+                    : "Native iOS production scene, no SwiftUI page/physical shot/phone; diagnostic cheap shaders are intentionally not equivalent; deltas are nonadditive",
+                "timing": "6 AA/AB groups; alternating ABBA/BAAB; 24 frames per arm per group; raw per-frame timestamps; no trimmed samples"],
+                name: primitiveStudy ? "\(groupedStudy ? "h16" : "h14")-\(primitiveCandidates.joined(separator: "-" )).json" : streamingDiffuse ? "h13-streaming-diffuse.json" :
+                    (vertexDiffuse ? "h13-vertex-diffuse-cpu.json" : "h13-current-material-cpu.json"))
+        }
+        let size = CGSize(width: 1400, height: 800)
+        for pose in ["low", "near", "overview"] {
+            try autoreleasepool {
+                let scene = AngleTrainingScene()
+                scene.configureDailyClearanceRendering(asynchronousReflection: false)
+                scene.setupScene(recipe: .liveReference, roomStyle: .tournament)
+                try require(scene.applyClothColor(.green) && scene.applyTableStyle(.charcoal), "H13 appearance missing")
+                scene.hideAllBalls()
+                let keys = ["cueBall"] + (1...15).map { "_\($0)" }
+                let activeKeys = Array(keys.prefix(pose == "overview" ? 16 : 2))
+                for (i, key) in activeKeys.enumerated() {
+                    let x = pose == "overview" ? Float(i / 4) * 0.6 - 0.9 : Float(i) * 0.05715
+                    let z = pose == "overview" ? Float(i % 4) * 0.3 - 0.45 : 0
+                    scene.showBall(key: key, scenePosition: SCNVector3(x, scene.surfaceY + AngleSceneCalculator.ballRadius, z))
+                }
+                for key in activeKeys {
+                    let node = try XCTUnwrap(scene.allBallNodes[key])
+                    try require(abs(scene.visualCenter(of: node).y - scene.surfaceY - AngleSceneCalculator.ballRadius) < 0.0001,
+                                "H13 production ball center height")
+                }
+                let rig = try XCTUnwrap(scene.cameraRig)
+                if vertexDiffuse { rig.configurePlayerCameraControls(daily: true) }
+                rig.viewportSize = size
+                scene.setCameraMode(.perspective3D, animated: false)
+                try require(rig.observeWholeTable(yaw: .pi / 2), "H13 camera controller setup")
+                for _ in 0..<180 { rig.update(deltaTime: 1 / 60) }
+                if vertexDiffuse { try require(rig.usesTwoViewPoseControl, "H13 CPU must enter current camera policy") }
+                // Measure actual stable maintenance without adding a live display link.
+                let window = UIWindow(frame: CGRect(origin: .zero, size: size))
+                let view = SCNView(frame: window.bounds)
+                window.addSubview(view)
+                let coordinator = AngleSceneView.Coordinator(scene: scene, cameraMode: .perspective3D,
+                                                             interactionMode: .cameraControl)
+                coordinator.scnView = view
+                coordinator.twoViewReadableFrameInWindow = window.bounds.insetBy(dx: 24, dy: 30)
+                coordinator.updateViewport(size)
+                var cameraTimes: [Double] = [], viewportTimes: [Double] = []
+                for _ in 0..<12 {
+                    var start = CACurrentMediaTime()
+                    for _ in 0..<240 { rig.update(deltaTime: 1 / 60) }
+                    cameraTimes.append((CACurrentMediaTime() - start) * 1000 / 240)
+                    start = CACurrentMediaTime()
+                    for _ in 0..<240 { coordinator.updateViewport(size) }
+                    viewportTimes.append((CACurrentMediaTime() - start) * 1000 / 240)
+                }
+                cpuRows.append(["pose": pose, "stableCameraUpdateMS": cameraTimes,
+                                "stableViewportUpdateMS": viewportTimes, "callsPerGroup": 240,
+                                "usesTwoViewPoseControl": rig.usesTwoViewPoseControl])
+                coordinator.scnView = nil
+                let camera = try XCTUnwrap(scene.cameraNode)
+                camera.simdPosition = pose == "near" ? SIMD3(0.16, 1.15, 0.3)
+                    : (pose == "low" ? SIMD3(0, 1.05, 1.8) : SIMD3(1.8, 2.7, 2.1))
+                if groupedStudy {
+                    let eye = camera.simdPosition, offset = eye - SIMD3(0, scene.surfaceY, 0)
+                    let view = TwoViewCamera.Pose.looking(eye: eye, yaw: atan2(offset.z, offset.x),
+                        pitch: -atan2(offset.y, hypot(offset.x, offset.z)), fov: 50)
+                    camera.simdTransform = view.transform
+                    try require(abs(camera.simdWorldTransform.columns.0.y) < 0.00001 &&
+                                simd_length(view.forward - simd_normalize(-offset)) < 0.00001,
+                                "H16 must use a verified horizontal production camera transform")
+                } else { camera.simdLook(at: SIMD3(0, scene.surfaceY, 0)) }
+                camera.camera?.fieldOfView = 50
+                let balls = Set(scene.allBallNodes.values.map(ObjectIdentifier.init))
+                var groups: [String: [SCNMaterial]] = [:], seen: [ObjectIdentifier: String] = [:]
+                var slotCounts: [String: Int] = [:]
+                @MainActor func visit(_ node: SCNNode, owner inherited: String?) throws {
+                    let owner = balls.contains(ObjectIdentifier(node)) ? "balls"
+                        : (node.name == "reference_room" ? "room" : inherited)
+                    for material in node.geometry?.materials ?? [] {
+                        let group = owner ?? (["TaiNi": "cloth", "Wood": "wood", "BlackWood": "wood",
+                                               "Leather": "leather", "MG_Gold": "legs"][material.name ?? ""] ?? "other")
+                        slotCounts[group, default: 0] += 1
+                        let id = ObjectIdentifier(material)
+                        if let previous = seen[id] {
+                            try require(previous == group, "Material shared across diagnostic groups")
+                        } else {
+                            seen[id] = group
+                            groups[group, default: []].append(material)
+                        }
+                    }
+                    for child in node.childNodes { try visit(child, owner: owner) }
+                }
+                try visit(scene.rootNode, owner: nil)
+                let cloth = try XCTUnwrap(groups["cloth"]?.first)
+                inventory.append(["pose": pose, "materialCounts": groups.mapValues(\.count), "geometryMaterialSlots": slotCounts,
+                    "clothSHA256": ClothResearchShaders.sha256(cloth.shaderModifiers?[.surface] ?? ""),
+                    "surfaceSHAs": groups.mapValues { $0.map { ClothResearchShaders.sha256($0.shaderModifiers?[.surface] ?? "") } },
+                    "materialRasterState": groups.mapValues { $0.map { ["name": $0.name ?? "", "doubleSided": $0.isDoubleSided,
+                        "cullMode": $0.cullMode.rawValue, "depthRead": $0.readsFromDepthBuffer,
+                        "depthWrite": $0.writesToDepthBuffer, "transparency": $0.transparency] as [String: Any] } },
+                    "activeBalls": activeKeys, "hdr": camera.camera?.wantsHDR ?? false])
+                try require(ClothResearchShaders.sha256(cloth.shaderModifiers?[.surface] ?? "") ==
+                            "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+                            "H13 must use installed current C1/H9")
+                if groupedStudy {
+                    try require(((groups["wood"] ?? []) + (groups["legs"] ?? [])).allSatisfy {
+                        !$0.isDoubleSided && $0.cullMode == .back
+                    }, "H16 baseline must include the accepted H15 culling")
+                }
+                for m in groups["balls"] ?? [] {
+                    let program = m.shaderModifiers?[.surface] ?? ""
+                    try require(program.contains("float3 spec=v2FilteredReflection(filteredRoom,") &&
+                                program.contains("reflectionResponse.sample(responseSampler,") &&
+                                m.value(forKey: "filteredRoom") != nil && m.value(forKey: "reflectionResponse") != nil,
+                                "H13 requires actual R ball installation and bound resources")
+                }
+                for group in ["wood", "leather", "legs"] {
+                    let materials = groups[group] ?? []
+                    try require(!materials.isEmpty && materials.allSatisfy { $0.lightingModel == .constant },
+                                "Missing current production finish: \(group)")
+                }
+                let target = try RenderTarget(device: device, scene: scene, size: size)
+                let delegate = StageCostDelegate(); delegate.contact = scene.contactOcclusion
+                target.renderer.delegate = delegate
+                SCNTransaction.flush()
+                try require(target.renderer.prepare(scene, shouldAbortBlock: nil), "H13 prepare failed")
+                _ = try target.render(frames: 6)
+                attach(try target.readback(), "h13-\(pose)-production-baseline")
+                // Actual callback costs, with and without changed ball positions.
+                for changing in [false, true] {
+                    _ = delegate.take()
+                    var frames: [[String: Any]] = []
+                    let initial = activeKeys.map { scene.allBallNodes[$0]!.simdPosition }
+                    for frame in 0..<96 {
+                        if changing {
+                            SCNTransaction.begin(); SCNTransaction.disableActions = true
+                            for (i, key) in activeKeys.enumerated() {
+                                scene.allBallNodes[key]!.simdPosition = initial[i] + SIMD3(Float(frame % 6) * 0.002, 0, 0)
+                            }
+                            SCNTransaction.commit(); SCNTransaction.flush()
+                        }
+                        frames += try target.render(frames: 1, includeNativeTiming: true).perFrameTiming
+                    }
+                    cpuRows.append(["pose": pose, "changingBallState": changing, "frames": frames, "callbacks": delegate.take()])
+                    for (i, key) in activeKeys.enumerated() { scene.allBallNodes[key]!.simdPosition = initial[i] }
+                    SCNTransaction.flush(); _ = try target.render(frames: 3)
+                }
+                for group in primitiveStudy ? primitiveCandidates : streamingDiffuse ? ["wood-legs"] : vertexDiffuse ? ["legs", "wood"] : ["cloth", "balls", "wood", "leather", "legs", "room"] {
+                    let culling = group.hasSuffix("-cull")
+                    let materials = group == "solid-cull" ? (groups["wood"] ?? []) + (groups["legs"] ?? [])
+                        : culling ? (groups[String(group.dropLast(5))] ?? [])
+                        : streamingDiffuse || group.hasPrefix("wood-") ? (groups["legs"] ?? []) + (groups["wood"] ?? []) : (groups[primitiveStudy ? "cloth" : group] ?? [])
+                    let originals = materials.map { ($0.shaderModifiers, $0.lightingModel, $0.isDoubleSided, $0.cullMode) }
+                    if culling { try require(!materials.isEmpty && originals.allSatisfy { $0.2 }, "H14 culling must change actual production raster state") }
+                    let streamingPrograms = try (streamingDiffuse || primitiveStudy) && !culling ? originals.map { original -> [SCNShaderModifierEntryPoint: String] in
+                        var program = original.0 ?? [:]
+                        let surface = try XCTUnwrap(program[.surface])
+                        program[.surface] = try primitiveStudy ? boundedPrimitive(surface, group: group) : streamedDiffuse(surface)
+                        return program
+                    } : []
+                    let vertexProgram = """
+                    #pragma varyings
+                    float3 h13PanelDiffuseValue;
+                    #pragma declaration
+                    """ + "\n" + MobileReferenceLighting.analyticPanelDiffuse.replacingOccurrences(of: "v62", with: "h13") + """
+
+                    #pragma body
+                    float3 h13P=(scn_node.modelTransform*_geometry.position).xyz;
+                    float3 h13N=normalize((scn_frame.inverseViewTransform*scn_node.normalTransform*float4(_geometry.normal,0.0)).xyz);
+                    out.h13PanelDiffuseValue=h13PanelDiffuse(h13P,h13N);
+                    """
+                    if vertexDiffuse && !primitiveStudy {
+                        for original in originals {
+                            try require(original.0?[.geometry] == nil &&
+                                original.0?[.surface]?.contains("v62PanelDiffuse(p,n)") == true,
+                                "H13 vertex candidate requires exact original consumer")
+                        }
+                    }
+                    func apply(_ cheap: Bool) {
+                        for (i, material) in materials.enumerated() {
+                            if culling {
+                                material.isDoubleSided = cheap ? false : originals[i].2
+                                material.cullMode = cheap ? .back : originals[i].3
+                                continue
+                            }
+                            if vertexDiffuse {
+                                var program = originals[i].0 ?? [:]
+                                if cheap {
+                                    if streamingDiffuse || primitiveStudy { program = streamingPrograms[i] }
+                                    else {
+                                        program[.geometry] = vertexProgram
+                                        program[.surface] = program[.surface]!.replacingOccurrences(
+                                            of: "v62PanelDiffuse(p,n)", with: "in.h13PanelDiffuseValue")
+                                    }
+                                }
+                                material.shaderModifiers = program
+                                continue
+                            }
+                            material.lightingModel = cheap ? .constant : originals[i].1
+                            material.shaderModifiers = cheap
+                                ? [.fragment: "#pragma body\n_output.color=float4(0.3,0.05,0.3,1.0);"]
+                                : originals[i].0
+                        }
+                        SCNTransaction.flush()
+                    }
+                    defer { apply(false) }
+                    apply(false); _ = try target.render(frames: 4); let a = try target.readback()
+                    _ = try target.render(frames: 1); let aa = try target.readback()
+                    apply(true); _ = try target.render(frames: 4); let b = try target.readback()
+                    apply(false); _ = try target.render(frames: 4); let restored = try target.readback()
+                    let noise = difference(a, aa), delta = difference(a, b), restoration = difference(a, restored)
+                    if groupedStudy {
+                        try require(a.magentaPixels == 0 && b.magentaPixels == 0 && a.uniqueColors > 16 && b.uniqueColors > 16,
+                                    "H16 requires actual visible shader output without SceneKit errors")
+                    }
+                    try require(noise.maximum == 0 && restoration.maximum == 0, "H13 AA/restoration drift")
+                    attach(b, "h13-\(pose)-\(group)-cheap-diagnostic")
+                    var times: [[String: Any]] = []
+                    var warmups: [[String: Any]] = []
+                    if vertexDiffuse ? delta.maximum <= 1 : delta.changedPixels > 0 {
+                        for kind in ["AA", "AB"] {
+                            if group == "cloth-strip-packed" {
+                                apply(false)
+                                let warmup = try target.render(frames: 120, includeNativeTiming: true)
+                                warmups.append(["kind": kind, "frames": warmup.perFrameTiming])
+                                _ = delegate.take()
+                            }
+                            for cycle in 0..<6 {
+                                for arm in cycle % 2 == 0 ? [false, true, true, false] : [true, false, false, true] {
+                                    try require(ProcessInfo.processInfo.thermalState != .serious &&
+                                                ProcessInfo.processInfo.thermalState != .critical, "H13 thermal limit")
+                                    apply(kind == "AB" && arm)
+                                    _ = try target.render(frames: 3); _ = delegate.take()
+                                    let timing = try target.render(frames: 12, includeNativeTiming: true)
+                                    times.append(["kind": kind, "cycle": cycle, "arm": arm ? "B" : "A",
+                                                  "frames": timing.perFrameTiming, "callbacks": delegate.take()])
+                                }
+                            }
+                        }
+                    }
+                    rows.append(["pose": pose, "group": group, "materials": materials.count,
+                                 "variant": primitiveStudy ? group : streamingDiffuse ? "streaming-diffuse" : (vertexDiffuse ? "vertex-diffuse" : "cheap-diagnostic"),
+                                 "qualityPassed": !vertexDiffuse || delta.maximum <= 1,
+                                 "changedPixels": delta.changedPixels, "maximumChannelDifference": delta.maximum,
+                                 "aaMaximum": noise.maximum, "restoreMaximum": restoration.maximum, "times": times,
+                                 "fixedWarmupFramesBeforeEachKind": group == "cloth-strip-packed" ? 120 : 0,
+                                 "warmups": warmups])
+                    print("[H13] \(pose) \(group) visiblePixels=\(delta.changedPixels) complete")
+                }
+            }
+        }
+        complete = true
+        #endif
+    }
+    #endif
+
     func testProductionSceneHeightSafeSupportGPUComparison() throws {
         try compareProductionScene(installedGuard: nil)
     }

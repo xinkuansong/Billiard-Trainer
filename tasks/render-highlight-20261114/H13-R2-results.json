@@ -1,0 +1,1512 @@
+{
+  "source": "/Users/song/projects/13.billiard_trainer/output/local-test-runs/aecf5d903f124f18a4a3d7f01f0c60aa/evidence/attachments/46A8BD4E-77AF-484F-A9D6-B3D0C32C79AA.json",
+  "completed": true,
+  "scope": "Native current scene; vertex diffuse approximation; maximum new image error 1/255 before timing; no full page or phone claim",
+  "inventory": [
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "pose": "low",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    },
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "pose": "near",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    },
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1",
+        "_2",
+        "_3",
+        "_4",
+        "_5",
+        "_6",
+        "_7",
+        "_8",
+        "_9",
+        "_10",
+        "_11",
+        "_12",
+        "_13",
+        "_14",
+        "_15"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "pose": "overview",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    }
+  ],
+  "materials": [
+    {
+      "aaMaximum": 0,
+      "changedPixels": 35501,
+      "group": "legs",
+      "materials": 2,
+      "maximumChannelDifference": 11,
+      "pose": "low",
+      "qualityPassed": false,
+      "restoreMaximum": 0,
+      "variant": "vertex-diffuse",
+      "metrics": {}
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 47052,
+      "group": "wood",
+      "materials": 2,
+      "maximumChannelDifference": 14,
+      "pose": "low",
+      "qualityPassed": false,
+      "restoreMaximum": 0,
+      "variant": "vertex-diffuse",
+      "metrics": {}
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 0,
+      "group": "legs",
+      "materials": 2,
+      "maximumChannelDifference": 0,
+      "pose": "near",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "vertex-diffuse",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.9796510372931758,
+                "bMS": 0.8815677429083735,
+                "savedMS": 0.09808329438480234,
+                "savedPercent": 10.01206456697186
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8842621367269506,
+                "bMS": 0.8864982810337096,
+                "savedMS": -0.0022361443067590026,
+                "savedPercent": -0.2528825123097515
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.9013524007362624,
+                "bMS": 0.8746319508645684,
+                "savedMS": 0.026720449871694085,
+                "savedPercent": 2.964484240555381
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8913559140637517,
+                "bMS": 0.8561475745712718,
+                "savedMS": 0.03520833949247992,
+                "savedPercent": 3.949975418008137
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8551562301969776,
+                "bMS": 0.8747968531679362,
+                "savedMS": -0.019640622970958588,
+                "savedPercent": -2.296729214781555
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8749149080055455,
+                "bMS": 0.8781336946412921,
+                "savedMS": -0.0032187866357465955,
+                "savedPercent": -0.36789710705514617
+              }
+            ],
+            "meanA_MS": 0.8977821045037773,
+            "meanB_MS": 0.8752960161978586,
+            "meanSavedMS": 0.022486088305918694,
+            "meanSavedPercent": 2.3348358985648208,
+            "rangeSavedPercent": [
+              -2.296729214781555,
+              10.01206456697186
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -2.2976614198342427,
+              6.967333216963884
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8677951506494234,
+                "bMS": 0.899836818765228,
+                "savedMS": -0.03204166811580467,
+                "savedPercent": -3.6923078092595882
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8759618018909047,
+                "bMS": 0.9124739735852927,
+                "savedMS": -0.03651217169438803,
+                "savedPercent": -4.168237886123644
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8792152899938325,
+                "bMS": 0.908439241660138,
+                "savedMS": -0.029223951666305537,
+                "savedPercent": -3.323867544035834
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8771701250225306,
+                "bMS": 0.8965000063957026,
+                "savedMS": -0.019329881373172042,
+                "savedPercent": -2.2036638984570462
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.887602431854854,
+                "bMS": 0.8915763852807382,
+                "savedMS": -0.003973953425884247,
+                "savedPercent": -0.4477177262324233
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8787048573140055,
+                "bMS": 0.9199774164396027,
+                "savedMS": -0.04127255912559724,
+                "savedPercent": -4.696976326244259
+              }
+            ],
+            "meanA_MS": 0.8777416094542584,
+            "meanB_MS": 0.9048006403544504,
+            "meanSavedMS": -0.02705903090019196,
+            "meanSavedPercent": -3.0887951983921327,
+            "rangeSavedPercent": [
+              -4.696976326244259,
+              -0.4477177262324233
+            ],
+            "positiveCycles": 0,
+            "meanPercentCI95": [
+              -4.710066872035043,
+              -1.4675235247492229
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.08505555645873149,
+                "bMS": 0.08573091084448,
+                "savedMS": -0.0006753543857485056,
+                "savedPercent": -0.7940155985884167
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.082034714675198,
+                "bMS": 0.0841024254138271,
+                "savedMS": -0.0020677107386291027,
+                "savedPercent": -2.520531395538875
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.0816440733615309,
+                "bMS": 0.08530729489090542,
+                "savedMS": -0.0036632215293745246,
+                "savedPercent": -4.486818673479566
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.0801684024433295,
+                "bMS": 0.07955037290230393,
+                "savedMS": 0.0006180295410255637,
+                "savedPercent": 0.7709141284965041
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.08094964626555641,
+                "bMS": 0.08324999362230301,
+                "savedMS": -0.0023003473567465987,
+                "savedPercent": -2.8417015550633513
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08218402702671786,
+                "bMS": 0.08198092109523714,
+                "savedMS": 0.00020310593148072098,
+                "savedPercent": 0.24713553086744175
+              }
+            ],
+            "meanA_MS": 0.0820060700385107,
+            "meanB_MS": 0.08332031979484276,
+            "meanSavedMS": -0.0013142497563320744,
+            "meanSavedPercent": -1.6041695938843772,
+            "rangeSavedPercent": [
+              -4.486818673479566,
+              0.7709141284965041
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -3.7245600713813287,
+              0.5162208836125746
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.08007983948724966,
+                "bMS": 0.08143405041967829,
+                "savedMS": -0.0013542109324286289,
+                "savedPercent": -1.6910759825439545
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.0800607764783005,
+                "bMS": 0.08275173604488373,
+                "savedMS": -0.0026909595665832314,
+                "savedPercent": -3.361145975535952
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08050520167065163,
+                "bMS": 0.08264933906806012,
+                "savedMS": -0.0021441373974084854,
+                "savedPercent": -2.66335261935023
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.0808506835407267,
+                "bMS": 0.08061804692260921,
+                "savedMS": 0.00023263661811749603,
+                "savedPercent": 0.2877361179022198
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.08139582738901179,
+                "bMS": 0.0871979088212053,
+                "savedMS": -0.005802081432193518,
+                "savedPercent": -7.128229564476155
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08034722607893248,
+                "bMS": 0.0824375116887192,
+                "savedMS": -0.0020902856097867184,
+                "savedPercent": -2.601565370450049
+              }
+            ],
+            "meanA_MS": 0.08053992577414545,
+            "meanB_MS": 0.08284809882752597,
+            "meanSavedMS": -0.002308173053380514,
+            "meanSavedPercent": -2.8596055657423536,
+            "rangeSavedPercent": [
+              -7.128229564476155,
+              0.2877361179022198
+            ],
+            "positiveCycles": 1,
+            "meanPercentCI95": [
+              -5.424127682539308,
+              -0.29508344894539906
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.2274183973204345,
+                "bMS": 1.1265104306706537,
+                "savedMS": 0.10090796664978074,
+                "savedPercent": 8.22115481323011
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.12494965045092,
+                "bMS": 1.1328159501620878,
+                "savedMS": -0.007866299711167812,
+                "savedPercent": -0.6992579363898391
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.1491128243505955,
+                "bMS": 1.1231302244899173,
+                "savedMS": 0.02598259986067819,
+                "savedPercent": 2.261100851899541
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.1368819298998762,
+                "bMS": 1.1087309200471889,
+                "savedMS": 0.02815100985268737,
+                "savedPercent": 2.4761594948709047
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.1014895668874185,
+                "bMS": 1.1234791697158168,
+                "savedMS": -0.021989602828398347,
+                "savedPercent": -1.99635143985398
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.11528816826952,
+                "bMS": 1.118079856193314,
+                "savedMS": -0.0027916879237941394,
+                "savedPercent": -0.25031090647412857
+              }
+            ],
+            "meanA_MS": 1.1425234228631274,
+            "meanB_MS": 1.122124425213163,
+            "meanSavedMS": 0.020398997649964334,
+            "meanSavedPercent": 1.6687491462137678,
+            "rangeSavedPercent": [
+              -1.99635143985398,
+              8.22115481323011
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -2.163680403331728,
+              5.501178695759263
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.1019982436361413,
+                "bMS": 1.1424392675204824,
+                "savedMS": -0.04044102388434112,
+                "savedPercent": -3.6697902304183683
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.1209617950953543,
+                "bMS": 1.1575382086448371,
+                "savedMS": -0.03657641354948282,
+                "savedPercent": -3.262949166467485
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.1165676987729967,
+                "bMS": 1.1529149293589096,
+                "savedMS": -0.03634723058591294,
+                "savedPercent": -3.2552643808212562
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.1217500044343371,
+                "bMS": 1.1335850673882912,
+                "savedMS": -0.01183506295395409,
+                "savedPercent": -1.0550535241515007
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.127046833668525,
+                "bMS": 1.1484791854551684,
+                "savedMS": -0.021432351786643267,
+                "savedPercent": -1.90163808161203
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.1252256808802485,
+                "bMS": 1.1668663161496322,
+                "savedMS": -0.04164063526938366,
+                "savedPercent": -3.7006474325051637
+              }
+            ],
+            "meanA_MS": 1.1189250427479338,
+            "meanB_MS": 1.1503038290862202,
+            "meanSavedMS": -0.031378786338286314,
+            "meanSavedPercent": -2.8075571359959675,
+            "rangeSavedPercent": [
+              -3.7006474325051637,
+              -1.0550535241515007
+            ],
+            "positiveCycles": 0,
+            "meanPercentCI95": [
+              -3.941990612345653,
+              -1.6731236596462817
+            ]
+          }
+        }
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 0,
+      "group": "wood",
+      "materials": 2,
+      "maximumChannelDifference": 0,
+      "pose": "near",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "vertex-diffuse",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.9309236096063008,
+                "bMS": 0.872215285198763,
+                "savedMS": 0.058708324407537815,
+                "savedPercent": 6.3064599287976275
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8795416409460207,
+                "bMS": 0.8713663749707242,
+                "savedMS": 0.008175265975296497,
+                "savedPercent": 0.9294916345863186
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.9129184084789207,
+                "bMS": 0.8793177160744866,
+                "savedMS": 0.033600692404434085,
+                "savedPercent": 3.68058000499942
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8554965121826777,
+                "bMS": 0.8876944484654814,
+                "savedMS": -0.03219793628280365,
+                "savedPercent": -3.7636548862899737
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.877392371573175,
+                "bMS": 0.8657951451217135,
+                "savedMS": 0.01159722645146144,
+                "savedPercent": 1.3217833693570271
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8667725972676029,
+                "bMS": 0.8592621694939832,
+                "savedMS": 0.0075104277736197655,
+                "savedPercent": 0.8664819120142344
+              }
+            ],
+            "meanA_MS": 0.8871741900091163,
+            "meanB_MS": 0.8726085232208587,
+            "meanSavedMS": 0.014565666788257658,
+            "meanSavedPercent": 1.5568569939107757,
+            "rangeSavedPercent": [
+              -3.7636548862899737,
+              6.3064599287976275
+            ],
+            "positiveCycles": 5,
+            "meanPercentCI95": [
+              -1.9652640848352014,
+              5.078978072656753
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8595242882923534,
+                "bMS": 0.9020069555845112,
+                "savedMS": -0.04248266729215777,
+                "savedPercent": -4.942579037127566
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8895937644410878,
+                "bMS": 0.9001874811171243,
+                "savedMS": -0.01059371667603648,
+                "savedPercent": -1.1908488008222808
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8942551891474674,
+                "bMS": 0.8806823073731115,
+                "savedMS": 0.013572881774355894,
+                "savedPercent": 1.517786191131361
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8688229524220029,
+                "bMS": 0.8813489597135534,
+                "savedMS": -0.012526007291550512,
+                "savedPercent": -1.4417214987969615
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8903107664082199,
+                "bMS": 0.8594340276128302,
+                "savedMS": 0.03087673879538977,
+                "savedPercent": 3.468085522536785
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.871826351309816,
+                "bMS": 0.8936458131453643,
+                "savedMS": -0.02181946183554828,
+                "savedPercent": -2.5027302515881886
+              }
+            ],
+            "meanA_MS": 0.8790555520034913,
+            "meanB_MS": 0.8862175907577492,
+            "meanSavedMS": -0.007162038754257897,
+            "meanSavedPercent": -0.8486679791111419,
+            "rangeSavedPercent": [
+              -4.942579037127566,
+              3.468085522536785
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -3.969347174663699,
+              2.2720112164414155
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.08171530013593535,
+                "bMS": 0.08485591388307512,
+                "savedMS": -0.003140613747139767,
+                "savedPercent": -3.8433607193699113
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.0862117837338398,
+                "bMS": 0.09029515786096454,
+                "savedMS": -0.004083374127124742,
+                "savedPercent": -4.736445472154102
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08452775849339862,
+                "bMS": 0.0819201619985203,
+                "savedMS": 0.0026075964948783226,
+                "savedPercent": 3.0848996132814386
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.08052604001325865,
+                "bMS": 0.08044096951683362,
+                "savedMS": 8.507049642503262e-05,
+                "savedPercent": 0.10564346192986233
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.07988019691159327,
+                "bMS": 0.08023265399970114,
+                "savedMS": -0.0003524570881078687,
+                "savedPercent": -0.44123212227174097
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08005033790444334,
+                "bMS": 0.08056772639974952,
+                "savedMS": -0.0005173884953061786,
+                "savedPercent": -0.6463289335815033
+              }
+            ],
+            "meanA_MS": 0.0821519028654115,
+            "meanB_MS": 0.08305209727647404,
+            "meanSavedMS": -0.0009001944110625335,
+            "meanSavedPercent": -1.079470695360993,
+            "rangeSavedPercent": [
+              -4.736445472154102,
+              3.0848996132814386
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -4.06131306965734,
+              1.9023716789353537
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.07916839482883613,
+                "bMS": 0.08007987829235692,
+                "savedMS": -0.0009114834635207958,
+                "savedPercent": -1.15132240017174
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.08214061381295323,
+                "bMS": 0.08162154699675739,
+                "savedMS": 0.0005190668161958456,
+                "savedPercent": 0.6319246863407185
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08134371212994058,
+                "bMS": 0.08265626577970882,
+                "savedMS": -0.0013125536497682333,
+                "savedPercent": -1.613589563839336
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.08266667524973552,
+                "bMS": 0.08994097394558291,
+                "savedMS": -0.007274298695847392,
+                "savedPercent": -8.79955396037373
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.09570137869256239,
+                "bMS": 0.08269096724689007,
+                "savedMS": 0.013010411445672318,
+                "savedPercent": 13.594800433824311
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08427775658977528,
+                "bMS": 0.09076218702830374,
+                "savedMS": -0.006484430438528463,
+                "savedPercent": -7.694118473147832
+              }
+            ],
+            "meanA_MS": 0.08421642188396719,
+            "meanB_MS": 0.0846253032149333,
+            "meanSavedMS": -0.00040888133096612006,
+            "meanSavedPercent": -0.8386432128946014,
+            "rangeSavedPercent": [
+              -8.79955396037373,
+              13.594800433824311
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -9.255921001792668,
+              7.5786345760034655
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.1771684027432154,
+                "bMS": 1.119841996114701,
+                "savedMS": 0.057326406628514404,
+                "savedPercent": 4.8698560456536
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.1302777760041256,
+                "bMS": 1.1251354202007253,
+                "savedMS": 0.005142355803400278,
+                "savedPercent": 0.45496389582922386
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.1531840039727588,
+                "bMS": 1.1188368371222168,
+                "savedMS": 0.034347166850541955,
+                "savedPercent": 2.9784636911555116
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.1018056053823482,
+                "bMS": 1.1254861019551754,
+                "savedMS": -0.023680496572827225,
+                "savedPercent": -2.1492445180118347
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.1212516983505338,
+                "bMS": 1.1048003507312387,
+                "savedMS": 0.01645134761929512,
+                "savedPercent": 1.4672305641540246
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.107671841358145,
+                "bMS": 1.0983368071417015,
+                "savedMS": 0.00933503421644355,
+                "savedPercent": 0.8427617158704354
+              }
+            ],
+            "meanA_MS": 1.1318932213018544,
+            "meanB_MS": 1.1154062522109598,
+            "meanSavedMS": 0.01648696909089468,
+            "meanSavedPercent": 1.4106718991084934,
+            "rangeSavedPercent": [
+              -2.1492445180118347,
+              4.8698560456536
+            ],
+            "positiveCycles": 5,
+            "meanPercentCI95": [
+              -1.0880098698373686,
+              3.9093536680543552
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.0938263828090082,
+                "bMS": 1.1439271038398147,
+                "savedMS": -0.05010072103080643,
+                "savedPercent": -4.580317481659652
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.1262274153220158,
+                "bMS": 1.1399236488311242,
+                "savedMS": -0.013696233509108424,
+                "savedPercent": -1.2161161522774988
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.1394322791602463,
+                "bMS": 1.1242604135380436,
+                "savedMS": 0.01517186562220263,
+                "savedPercent": 1.3315285076340113
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.1075312407532085,
+                "bMS": 1.1383559127959113,
+                "savedMS": -0.030824672042702783,
+                "savedPercent": -2.7831875895202356
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.1409861132657777,
+                "bMS": 1.0927760352691014,
+                "savedMS": 0.048210077996676315,
+                "savedPercent": 4.225299277191677
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.1052795064946015,
+                "bMS": 1.1368385360886653,
+                "savedMS": -0.03155902959406376,
+                "savedPercent": -2.855298538389927
+              }
+            ],
+            "meanA_MS": 1.1188804896341429,
+            "meanB_MS": 1.12934694172711,
+            "meanSavedMS": -0.010466452092967074,
+            "meanSavedPercent": -0.9796819961702707,
+            "rangeSavedPercent": [
+              -4.580317481659652,
+              4.225299277191677
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -4.37186199747592,
+              2.4124980051353786
+            ]
+          }
+        }
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 4938,
+      "group": "legs",
+      "materials": 2,
+      "maximumChannelDifference": 26,
+      "pose": "overview",
+      "qualityPassed": false,
+      "restoreMaximum": 0,
+      "variant": "vertex-diffuse",
+      "metrics": {}
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 21112,
+      "group": "wood",
+      "materials": 2,
+      "maximumChannelDifference": 62,
+      "pose": "overview",
+      "qualityPassed": false,
+      "restoreMaximum": 0,
+      "variant": "vertex-diffuse",
+      "metrics": {}
+    }
+  ],
+  "cpu": [
+    {
+      "callsPerGroup": 240,
+      "pose": "low",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.002238498159891201,
+        "median": 0.002206336648669094,
+        "p95": 0.0024970485052714744,
+        "min": 0.0020440968607241907,
+        "max": 0.0024970485052714744
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.0001731047329182426,
+        "median": 0.0001707463525235653,
+        "p95": 0.00018420202347139517,
+        "min": 0.00016822887118905783,
+        "max": 0.00018420202347139517
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "low",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.6217825478718927,
+          "median": 0.5813749739900231,
+          "p95": 0.8178749121725559,
+          "min": 0.5642499309033155,
+          "max": 1.0833751875907183
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.10037587101881702,
+          "median": 0.09329163003712893,
+          "p95": 0.1449999399483204,
+          "min": 0.08420832455158234,
+          "max": 0.25104149244725704
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.8825303739286028,
+          "median": 0.8416040800511837,
+          "p95": 1.083833398297429,
+          "min": 0.7997502107173204,
+          "max": 1.3357915449887514
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.0015794333497372766,
+          "median": 0.001375097781419754,
+          "p95": 0.002916669473052025,
+          "min": 0.00100000761449337,
+          "max": 0.006499933078885078
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.014245662896428257,
+          "median": 0.013625016435980797,
+          "p95": 0.01850002445280552,
+          "min": 0.012208474799990654,
+          "max": 0.028916634619235992
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "low",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.5884978260534505,
+          "median": 0.5792499287053943,
+          "p95": 0.6164168007671833,
+          "min": 0.5598750431090593,
+          "max": 0.8550002239644527
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.1136796975818773,
+          "median": 0.10941666550934315,
+          "p95": 0.13520848006010056,
+          "min": 0.09012501686811447,
+          "max": 0.16875006258487701
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.8605212642578408,
+          "median": 0.8471041219308972,
+          "p95": 0.9177499450743198,
+          "min": 0.7954584434628487,
+          "max": 1.130708260461688
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.0074735216912813485,
+          "median": 0.006624963134527206,
+          "p95": 0.012874836102128029,
+          "min": 0.0012917444109916687,
+          "max": 0.029875198379158974
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.01339322867958496,
+          "median": 0.012875068932771683,
+          "p95": 0.01637497916817665,
+          "min": 0.012208474799990654,
+          "max": 0.019416678696870804
+        }
+      }
+    },
+    {
+      "callsPerGroup": 240,
+      "pose": "near",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.0023219906627976647,
+        "median": 0.0023461805540136993,
+        "p95": 0.0025701388949528337,
+        "min": 0.00193819481258591,
+        "max": 0.0025701388949528337
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.00017048619661687149,
+        "median": 0.00016996539973964295,
+        "p95": 0.00017916706080238023,
+        "min": 0.0001602427801117301,
+        "max": 0.00017916706080238023
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "near",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.9257717004705531,
+          "median": 0.8573123486712575,
+          "p95": 1.386166550219059,
+          "min": 0.8499999530613422,
+          "max": 1.4992083888500929
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.08846441050991416,
+          "median": 0.08187501225620508,
+          "p95": 0.12337509542703629,
+          "min": 0.07529160939157009,
+          "max": 0.2279167529195547
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 1.1848867410056603,
+          "median": 1.1101458221673965,
+          "p95": 1.6488749533891678,
+          "min": 1.0755418334156275,
+          "max": 1.7462498508393764
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.0015260544993604224,
+          "median": 0.001312466338276863,
+          "p95": 0.0025832559913396835,
+          "min": 0.0011664815247058868,
+          "max": 0.007083173841238022
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.01385807991027832,
+          "median": 0.01310417428612709,
+          "p95": 0.018041813746094704,
+          "min": 0.012375181540846825,
+          "max": 0.028749927878379822
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "near",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.8859097142703831,
+          "median": 0.858645886182785,
+          "p95": 1.1226250790059566,
+          "min": 0.8495415095239878,
+          "max": 1.1694582644850016
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.11009158576295401,
+          "median": 0.10435411240905523,
+          "p95": 0.13491674326360226,
+          "min": 0.085500068962574,
+          "max": 0.25212508626282215
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 1.1546171881491318,
+          "median": 1.1311665875837207,
+          "p95": 1.3982499949634075,
+          "min": 1.099541550502181,
+          "max": 1.4301249757409096
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.007984810508787632,
+          "median": 0.006895861588418484,
+          "p95": 0.01283339224755764,
+          "min": 0.001375097781419754,
+          "max": 0.029583461582660675
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.01350001790948833,
+          "median": 0.013062614016234875,
+          "p95": 0.01566670835018158,
+          "min": 0.012041768059134483,
+          "max": 0.02070819027721882
+        }
+      }
+    },
+    {
+      "callsPerGroup": 240,
+      "pose": "overview",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.002304340240597311,
+        "median": 0.0022811635669010384,
+        "p95": 0.0026289926609024405,
+        "min": 0.0021319438625747957,
+        "max": 0.0026289926609024405
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.00016921298487836288,
+        "median": 0.0001680552183339993,
+        "p95": 0.0001741320981333653,
+        "min": 0.0001677079126238823,
+        "max": 0.0001741320981333653
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "overview",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.7076961677133417,
+          "median": 0.6628957344219089,
+          "p95": 0.9420833084732294,
+          "min": 0.6227081175893545,
+          "max": 1.3973333407193422
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.12886458716820925,
+          "median": 0.11627085041254759,
+          "p95": 0.19637495279312134,
+          "min": 0.10329182259738445,
+          "max": 0.3227498382329941
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 1.0011176394376282,
+          "median": 0.9453125530853868,
+          "p95": 1.263458514586091,
+          "min": 0.8550833445042372,
+          "max": 1.7705417703837156
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.002151476413321992,
+          "median": 0.0018333084881305695,
+          "p95": 0.004291534423828125,
+          "min": 0.0013331882655620575,
+          "max": 0.006958143785595894
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.01483073477478077,
+          "median": 0.013249926269054413,
+          "p95": 0.02087489701807499,
+          "min": 0.011999858543276787,
+          "max": 0.050625065341591835
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "overview",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.6662504407965267,
+          "median": 0.6501666503027081,
+          "p95": 0.7124582771211863,
+          "min": 0.6220834329724312,
+          "max": 0.9345416910946369
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.15801995565804342,
+          "median": 0.1466250978410244,
+          "p95": 0.208583427593112,
+          "min": 0.1335416454821825,
+          "max": 0.29191654175519943
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.9936124018471068,
+          "median": 0.9756668005138636,
+          "p95": 1.1642083991318941,
+          "min": 0.9252082090824842,
+          "max": 1.2637083418667316
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.009603313325593868,
+          "median": 0.008291681297123432,
+          "p95": 0.016291625797748566,
+          "min": 0.00200001522898674,
+          "max": 0.032958341762423515
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.014336820944057157,
+          "median": 0.013895798474550247,
+          "p95": 0.01804158091545105,
+          "min": 0.011916738003492355,
+          "max": 0.020916573703289032
+        }
+      }
+    }
+  ]
+}

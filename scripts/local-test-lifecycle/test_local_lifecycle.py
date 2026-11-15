@@ -60,6 +60,23 @@ class LocalLifecycleTests(unittest.TestCase):
         self.assertFalse((run/'work').exists())
         self.assertEqual(lifecycle.record(run)['exit_code'], 7)
 
+    def test_writable_native_wrapper_needs_no_chmod(self):
+        _, run = self.run_task(hold='review')
+        wrapper = run/'work/Wrapper.app'
+        wrapper.mkdir(); (wrapper/'binary').write_text('generated')
+        with patch.object(Path, 'chmod', side_effect=PermissionError('native wrapper chmod denied')):
+            lifecycle.change(run, 'complete', 'review finished')
+        self.assertEqual(lifecycle.record(run)['state'], 'reclaimed')
+        self.assertFalse((run/'work').exists())
+
+    def test_readonly_snapshot_directories_still_reclaimed(self):
+        _, run = self.run_task(hold='review')
+        snapshot = run/'work/snapshot'
+        snapshot.mkdir(); (snapshot/'source').write_text('sealed')
+        (snapshot/'source').chmod(0o444); snapshot.chmod(0o555)
+        lifecycle.change(run, 'complete', 'review finished')
+        self.assertEqual(lifecycle.record(run)['state'], 'reclaimed')
+
     def test_hold_survives_next_success_then_completion_cleans(self):
         _, held = self.run_task(hold='review')
         self.run_task()

@@ -1,0 +1,28 @@
+{
+  "seed": 131403,
+  "precision": "Python double; GPU Float checked separately by native image comparison",
+  "checked": 24084,
+  "clippedVertexCounts": {
+    "5": 2296,
+    "4": 14515,
+    "0": 4942,
+    "3": 2331
+  },
+  "maxAbsoluteDifference": 2.220446049250313e-16,
+  "worst": {
+    "p": [
+      -0.08345702067317862,
+      0.7626751037067664,
+      0.11576264955904092
+    ],
+    "n": [
+      0.11868603662668244,
+      0.946606224046327,
+      -0.2997503649816039
+    ],
+    "offset": 0.635,
+    "reference": 0.599333948876891,
+    "candidate": 0.5993339488768907
+  },
+  "passed": true
+}

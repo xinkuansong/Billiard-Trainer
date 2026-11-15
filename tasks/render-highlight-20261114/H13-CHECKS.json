@@ -1,0 +1,74 @@
+{
+  "runs": [
+    {
+      "id": "aa80eb2c84564bfd81e93a0de757cbbb",
+      "testsPassed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "state": "reclaimed",
+      "rawReport": "output/local-test-runs/aa80eb2c84564bfd81e93a0de757cbbb/evidence/attachments/D8814641-13F5-473E-A650-CCD628298B7E.json",
+      "rawSHA256": "48552a8880cd93fffe085af3359d1330faf23147fbcf276f753917983cb06026",
+      "diagnosticConditions": 18,
+      "allAAAndRestorationZero": true,
+      "pairedTimedFrames": 9216,
+      "allCallbackWindowsReceived96Frames": true,
+      "currentCameraBranchCovered": false,
+      "freeSpaceDeltaBytes": 2613067776,
+      "frozenSourceIntact": true
+    },
+    {
+      "id": "aecf5d903f124f18a4a3d7f01f0c60aa",
+      "testsPassed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "state": "reclaimed",
+      "rawReport": "output/local-test-runs/aecf5d903f124f18a4a3d7f01f0c60aa/evidence/attachments/46A8BD4E-77AF-484F-A9D6-B3D0C32C79AA.json",
+      "rawSHA256": "184a7aa6d57b41dfd2474722283575110c97e55995da34e735f7eccedd7300ee",
+      "diagnosticConditions": 6,
+      "allAAAndRestorationZero": true,
+      "pairedTimedFrames": 1152,
+      "allCallbackWindowsReceived96Frames": true,
+      "currentCameraBranchCovered": true,
+      "freeSpaceDeltaBytes": 2614796288,
+      "frozenSourceIntact": true
+    },
+    {
+      "id": "6c0c45bc9152444392e5af82fd396c1b",
+      "testsPassed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "state": "reclaimed",
+      "rawReport": "output/local-test-runs/6c0c45bc9152444392e5af82fd396c1b/evidence/attachments/D4AC8DF1-37FD-4615-BC22-C923DF917627.json",
+      "rawSHA256": "3946454e54514f79aba23dda4be94a5df2d5fcf155d1f7085207d8b7171566d4",
+      "diagnosticConditions": 3,
+      "allAAAndRestorationZero": true,
+      "pairedTimedFrames": 1728,
+      "allCallbackWindowsReceived96Frames": true,
+      "currentCameraBranchCovered": true,
+      "freeSpaceDeltaBytes": 2610491392,
+      "frozenSourceIntact": true
+    }
+  ],
+  "nativeScope": "Designed for iPad on Apple M5 Pro; not displayed FPS/full page/phone/power",
+  "productionRenderingChangedThisStage": false,
+  "currentProductionFilesUnchanged": 3414,
+  "newResearchSourceMatchesLastBuilt": true,
+  "pythonAST": {
+    "scripts/research/scene_cost_20261114/run.py": true,
+    "scripts/research/scene_cost_20261114/check_rect_edges.py": true,
+    "scripts/research/scene_cost_20261114/analyze.py": true,
+    "scripts/local_test_lifecycle.py": true,
+    "scripts/local-test-lifecycle/test_local_lifecycle.py": true
+  },
+  "lifecycleTests": {
+    "passed": 19,
+    "log": "output/render-highlight-20261114/h13-verification/lifecycle-check.log",
+    "sha256": "09b2a46ac20d01d2d974da78676d4c030d09220c4c0eb9506314d2d3525c6a45"
+  },
+  "verifyGate": {
+    "passed": true,
+    "log": "output/render-highlight-20261114/h13-verification/verify-gate.log",
+    "sha256": "803a41ce88001e7d4df059465aa5f6a232eb2ee151c21c933f590793faea70ff"
+  },
+  "validRunReclaimedGiB": 7.300037384033203
+}

@@ -1,0 +1,181 @@
+{
+  "date": "2026-11-14",
+  "method": "Xcode UI readback; shader table and bound-resource view manually transcribed; counters exported by Xcode",
+  "device": "Apple M5 Pro",
+  "os": "macOS 27.2",
+  "resolution": [
+    1400,
+    800
+  ],
+  "profilerMode": "Full",
+  "executionMode": "Overlapping",
+  "performanceState": "Medium",
+  "captureRun": "211530f53393439b8f21ed7fce1e6c41",
+  "inspectionRun": "d8ecaf31957e4ba48c6c810dbeb7c101",
+  "variants": [
+    {
+      "name": "baseline",
+      "draw": {
+        "commandBuffer": 3,
+        "renderEncoder": 2,
+        "apiCall": 27,
+        "primitive": "Triangle",
+        "indexCount": 58830,
+        "indexType": "UInt32",
+        "pipeline": 2,
+        "boundClothIdentifiers": [
+          "contactUniforms",
+          "bakedRailAO",
+          "temporalField0",
+          "temporalField1",
+          "u_normalTexture",
+          "u_roughnessTexture"
+        ]
+      },
+      "fragment": {
+        "function": "commonprofile_frag",
+        "shaderCostPercent": 86.47,
+        "SIMDGroups": 37094,
+        "allocatedRegisters": 252,
+        "highRegister": 252,
+        "spilledBytes": 272
+      },
+      "replayGPUTimeMS_notAnABMeasurement": 1.2,
+      "mainRenderEncoderCounters": {
+        "FS ALU Instructions": 3037562416.0,
+        "FS Invocations": 1132800.0,
+        "FS Occupancy": 20.85,
+        "F32 Limiter": 75.48,
+        "F32 Utilization": 68.51,
+        "Instruction Throughput Limiter": 67.68,
+        "Control Flow Limiter": 14.64,
+        "Register Pressure Influence": 0.0,
+        "L1 Cache Pressure Influence": 0.0,
+        "Memory Request Stalls Influence": 0.0,
+        "Stack L1 Read Bandwidth": 110.09,
+        "Stack L1 Write Bandwidth": 263.87,
+        "L1 Stack Residency": 53.45,
+        "Fragment Shader Launch Limiter": 6.3,
+        "Texture Filtering Limiter": 20.31
+      },
+      "mainEncoderInstructionChangePercent": 0.0,
+      "instructionsPerFragmentInvocation": 2681.4639971751412,
+      "mainEncoderNormalizedInstructionChangePercent": 0.0
+    },
+    {
+      "name": "lamp-mask",
+      "draw": {
+        "commandBuffer": 3,
+        "renderEncoder": 2,
+        "apiCall": 27,
+        "primitive": "Triangle",
+        "indexCount": 58830,
+        "indexType": "UInt32",
+        "pipeline": 7,
+        "boundClothIdentifiers": [
+          "contactUniforms",
+          "bakedRailAO",
+          "temporalField0",
+          "temporalField1",
+          "u_normalTexture",
+          "u_roughnessTexture"
+        ]
+      },
+      "fragment": {
+        "function": "commonprofile_frag (5)",
+        "shaderCostPercent": 87.12,
+        "SIMDGroups": 37094,
+        "allocatedRegisters": 252,
+        "highRegister": 252,
+        "spilledBytes": 272
+      },
+      "replayGPUTimeMS_notAnABMeasurement": 3.33,
+      "mainRenderEncoderCounters": {
+        "FS ALU Instructions": 2936570496.0,
+        "FS Invocations": 1132832.0,
+        "FS Occupancy": 19.55,
+        "F32 Limiter": 71.26,
+        "F32 Utilization": 64.28,
+        "Instruction Throughput Limiter": 63.88,
+        "Control Flow Limiter": 13.41,
+        "Register Pressure Influence": 0.0,
+        "L1 Cache Pressure Influence": 0.0,
+        "Memory Request Stalls Influence": 0.0,
+        "Stack L1 Read Bandwidth": 79.06,
+        "Stack L1 Write Bandwidth": 258.16,
+        "L1 Stack Residency": 49.35,
+        "Fragment Shader Launch Limiter": 6.3,
+        "Texture Filtering Limiter": 20.61
+      },
+      "mainEncoderInstructionChangePercent": -3.3247685534966154,
+      "instructionsPerFragmentInvocation": 2592.238298353154,
+      "mainEncoderNormalizedInstructionChangePercent": -3.3274994150950588
+    },
+    {
+      "name": "squared",
+      "draw": {
+        "commandBuffer": 3,
+        "renderEncoder": 2,
+        "apiCall": 27,
+        "primitive": "Triangle",
+        "indexCount": 58830,
+        "indexType": "UInt32",
+        "pipeline": 7,
+        "boundClothIdentifiers": [
+          "contactUniforms",
+          "bakedRailAO",
+          "temporalField0",
+          "temporalField1",
+          "u_normalTexture",
+          "u_roughnessTexture"
+        ]
+      },
+      "fragment": {
+        "function": "commonprofile_frag (5)",
+        "shaderCostPercent": 88.81,
+        "SIMDGroups": 37134,
+        "allocatedRegisters": 230,
+        "highRegister": 230,
+        "spilledBytes": 512
+      },
+      "replayGPUTimeMS_notAnABMeasurement": 2.3,
+      "mainRenderEncoderCounters": {
+        "FS ALU Instructions": 3512643888.0,
+        "FS Invocations": 1132864.0,
+        "FS Occupancy": 18.47,
+        "F32 Limiter": 66.09,
+        "F32 Utilization": 55.17,
+        "Instruction Throughput Limiter": 63.4,
+        "Control Flow Limiter": 11.42,
+        "Register Pressure Influence": 0.0,
+        "L1 Cache Pressure Influence": 0.0,
+        "Memory Request Stalls Influence": 0.0,
+        "Stack L1 Read Bandwidth": 462.24,
+        "Stack L1 Write Bandwidth": 965.03,
+        "L1 Stack Residency": 60.74,
+        "Fragment Shader Launch Limiter": 6.06,
+        "Texture Filtering Limiter": 17.24
+      },
+      "mainEncoderInstructionChangePercent": 15.640220905340563,
+      "instructionsPerFragmentInvocation": 3100.675710411841,
+      "mainEncoderNormalizedInstructionChangePercent": 15.63368792862143
+    }
+  ],
+  "evidenceSHA256": {
+    "xcode-observations.json": "708d72697d501838701836ad2c60d7b57227ff1da7179ddcd1221a011da83162",
+    "baseline-counters.csv": "f8fe782b2a9437c3b7dde948125d06d4b5d2e5bf8878796121fb1abc6421f840",
+    "lamp-mask-counters.csv": "d194074cf508a649443170a8ce273397836e6774b39ce27f6180b049d9300337",
+    "squared-counters.csv": "413146a4a6b53081448affda8e5c7c4918318c95c23d0c03801ee5b8c3051791"
+  },
+  "limitations": [
+    "One captured native Mac near-view workload per variant; Xcode replays internally for profiling.",
+    "CSV counters cover all table draws in the main render encoder, not exclusively cloth.",
+    "Shader Cost is the Xcode profiler attribution, not energy or an additive wall-time breakdown.",
+    "No balanced AA/AB timing here; replay GPU time must not rank candidates or replace H6/H7 timings.",
+    "Limiter, utilization, occupancy and residency have different denominators and must not be summed.",
+    "CSV does not include bandwidth units; preserve raw fields without assigning unverified units.",
+    "Register Pressure Influence is zero in all three exports; spills alone do not prove occupancy limitation.",
+    "No per-source-line attribution for the array or full H6 grouped-BRDF candidates was established.",
+    "No phone, full-app or thermal validation in H8."
+  ]
+}

@@ -1,0 +1,5334 @@
+{
+  "runID": "e70a79c43b4f41ae8993b890c04faa6a",
+  "resultsSHA256": "21980c81fb5613a3c839a4bc3b322f397988d49b0d261b100fc96285a57c6cb8",
+  "visualPairs": 90,
+  "timing": "6 AA/AB groups, alternating ABBA/BAAB, 48 frames per arm per group; cycle means then median paired percent change; no discarded samples",
+  "scope": "Native diagnostic fixture, not phone or full App; consult round report for included objects",
+  "rows": [
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 0,
+      "pose": "single-low",
+      "tolerance": 1,
+      "variant": "reload2048",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": -1.431402696746642,
+            "meanA_ms": 0.2854770047835902,
+            "meanB_ms": 0.2812061526735003,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.28325088108734536,
+                "B_ms": 0.28592708501188707,
+                "changePercent": 0.9448175109882273
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.293428820441477,
+                "B_ms": 0.2795233983003224,
+                "changePercent": -4.73894218033295
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.2807934021499629,
+                "B_ms": 0.2756571096445744,
+                "changePercent": -1.8292069778211406
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.28203735322070617,
+                "B_ms": 0.28508418957547593,
+                "changePercent": 1.0802953296705553
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.28889845513428253,
+                "B_ms": 0.2795321197481826,
+                "changePercent": -3.2420856600795522
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.28445311666776735,
+                "B_ms": 0.28151301376055926,
+                "changePercent": -1.0335984156721434
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.5447057273575084,
+            "meanA_ms": 0.2819505251762975,
+            "meanB_ms": 0.2834947946313251,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.27644529958100367,
+                "B_ms": 0.28336717999385047,
+                "changePercent": 2.5038879023582705
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.2838576619978994,
+                "B_ms": 0.28013280340625596,
+                "changePercent": -1.3122276021814816
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.27681859501171857,
+                "B_ms": 0.285489591381823,
+                "changePercent": 3.1323749655391975
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.28160589378482354,
+                "B_ms": 0.2875642482346545,
+                "changePercent": 2.1158486314863056
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.290495649096556,
+                "B_ms": 0.2875138937573259,
+                "changePercent": -1.0264371767712888
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.28248005158578354,
+                "B_ms": 0.2769010510140409,
+                "changePercent": -1.975006921877609
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": -2.9752932188974235,
+            "meanA_ms": 0.053588841789557286,
+            "meanB_ms": 0.05240305957462018,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.054302082086602844,
+                "B_ms": 0.05290538441234579,
+                "changePercent": -2.572088620892199
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.055200522183440626,
+                "B_ms": 0.051789897649238505,
+                "changePercent": -6.178609185739292
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.05272918497212231,
+                "B_ms": 0.049717879543701805,
+                "changePercent": -5.710889386992369
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.054334207864788674,
+                "B_ms": 0.05645571703401705,
+                "changePercent": 3.9045552564376695
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.054881093092262745,
+                "B_ms": 0.05302693656024834,
+                "changePercent": -3.378497816902648
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.05008596053812653,
+                "B_ms": 0.05052254224816958,
+                "changePercent": 0.8716648445041164
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.3404508806235329,
+            "meanA_ms": 0.049304691654267825,
+            "meanB_ms": 0.04979426497205471,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.04976213676854968,
+                "B_ms": 0.051585938005397715,
+                "changePercent": 3.665038029477663
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.04897831725732734,
+                "B_ms": 0.0508489659599339,
+                "changePercent": 3.8193404905651374
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.0493758658800895,
+                "B_ms": 0.04948004304120938,
+                "changePercent": 0.21098801866659134
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.05004861547301213,
+                "B_ms": 0.049696172936819494,
+                "changePercent": -0.7042003717019574
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.04964236965558181,
+                "B_ms": 0.048907968448475,
+                "changePercent": -1.4793838654400981
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.04802084489104649,
+                "B_ms": 0.04824650144049277,
+                "changePercent": 0.46991374258047447
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": -1.0367774868854818,
+            "meanA_ms": 0.4937870528212645,
+            "meanB_ms": 0.48808391471134704,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.485588563606143,
+                "B_ms": 0.49094272253569216,
+                "changePercent": 1.1026122381852188
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5044470502374073,
+                "B_ms": 0.48591840216734755,
+                "changePercent": -3.6730610400714347
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.4874913429375738,
+                "B_ms": 0.481879324070178,
+                "changePercent": -1.151203800580003
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.48583161454492557,
+                "B_ms": 0.490370662494873,
+                "changePercent": 0.9342841869603546
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5024435959057882,
+                "B_ms": 0.4870555761347835,
+                "changePercent": -3.062636263332952
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.4969201496957491,
+                "B_ms": 0.4923368008652081,
+                "changePercent": -0.9223511731909606
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.0372667460999454,
+            "meanA_ms": 0.4941095273049238,
+            "meanB_ms": 0.4939836419200421,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.49192795995622873,
+                "B_ms": 0.49329859515031177,
+                "changePercent": 0.2786251861359945
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.4994236126852532,
+                "B_ms": 0.4949557138994957,
+                "changePercent": -0.894611042064053
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.483674491988495,
+                "B_ms": 0.489525162265636,
+                "changePercent": 1.2096296939471785
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.4947083458925287,
+                "B_ms": 0.49486371184078354,
+                "changePercent": 0.031405564418873766
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5016449722461402,
+                "B_ms": 0.4985034611308947,
+                "changePercent": -0.6262419218873605
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.4932777810608968,
+                "B_ms": 0.49275520723313093,
+                "changePercent": -0.10593905661876457
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": true
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 0,
+      "pose": "single-near",
+      "tolerance": 1,
+      "variant": "reload2048",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": -1.2994888584982656,
+            "meanA_ms": 0.39609592204215005,
+            "meanB_ms": 0.3958098968723789,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.39357118657790124,
+                "B_ms": 0.40575173625256866,
+                "changePercent": 3.094878408294366
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.38775694944585365,
+                "B_ms": 0.4002908050703506,
+                "changePercent": 3.2323999975781614
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.4007109285642703,
+                "B_ms": 0.39504861827784526,
+                "changePercent": -1.4130660989738586
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.39503819425590336,
+                "B_ms": 0.3849487790527443,
+                "changePercent": -2.554035369203611
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.3976805552762623,
+                "B_ms": 0.39296441536862403,
+                "changePercent": -1.1859116180226725
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.40181771813270944,
+                "B_ms": 0.39585502721214044,
+                "changePercent": -1.4839293170739842
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -1.767466419335867,
+            "meanA_ms": 0.3972411707056583,
+            "meanB_ms": 0.38926981748469797,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.402020833765467,
+                "B_ms": 0.38609636734084535,
+                "changePercent": -3.961104770483548
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.39846962317824364,
+                "B_ms": 0.38510501326527447,
+                "changePercent": -3.3539846290844832
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.3933116337672497,
+                "B_ms": 0.3903281030943617,
+                "changePercent": -0.7585665962409727
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.3956093763311704,
+                "B_ms": 0.3890642353023092,
+                "changePercent": -1.6544453747683985
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.3988775812710325,
+                "B_ms": 0.3913767383589099,
+                "changePercent": -1.8804874639033353
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.39515797592078644,
+                "B_ms": 0.39364844754648703,
+                "changePercent": -0.38200630286708837
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": -0.3684946574023962,
+            "meanA_ms": 0.05116522435047147,
+            "meanB_ms": 0.05140378844872531,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05213888653088361,
+                "B_ms": 0.057644113743056856,
+                "changePercent": 10.558774033105433
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.05205902562011033,
+                "B_ms": 0.051814247854053974,
+                "changePercent": -0.4701927535919914
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.05108508048579097,
+                "B_ms": 0.050948787247762084,
+                "changePercent": -0.26679656121280093
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.051170121878385544,
+                "B_ms": 0.04865103013192614,
+                "changePercent": -4.922973903494798
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.050730047708687685,
+                "B_ms": 0.049646672171851,
+                "changePercent": -2.135569718084751
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.049808183878970645,
+                "B_ms": 0.049717879543701805,
+                "changePercent": -0.18130421195093893
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 1.2163641798698,
+            "meanA_ms": 0.051759704042019114,
+            "meanB_ms": 0.053664062256252185,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05116409253484259,
+                "B_ms": 0.05035675712861121,
+                "changePercent": -1.5779335980240172
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.051311634403343,
+                "B_ms": 0.052203142937893666,
+                "changePercent": 1.7374393642245467
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.04994011154243102,
+                "B_ms": 0.050287339642333485,
+                "changePercent": 0.6952889955150532
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.04928212729282677,
+                "B_ms": 0.05052430302991221,
+                "changePercent": 2.520540011807171
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.049475711421109736,
+                "B_ms": 0.049467867938801646,
+                "changePercent": -0.015853197625259607
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.059384547057561576,
+                "B_ms": 0.0691449628599609,
+                "changePercent": 16.43595225697103
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": -0.394585398577868,
+            "meanA_ms": 0.6032677952639965,
+            "meanB_ms": 0.6038854205851547,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5998932077394178,
+                "B_ms": 0.6160460034152493,
+                "changePercent": 2.692611862818084
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.597796014820536,
+                "B_ms": 0.6104288477217779,
+                "changePercent": 2.113234713522538
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.6065486134806027,
+                "B_ms": 0.6037691249124085,
+                "changePercent": -0.4582466279569042
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.6036796936920533,
+                "B_ms": 0.5881197915490096,
+                "changePercent": -2.5775096140605136
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.6018081524719795,
+                "B_ms": 0.5970859104612222,
+                "changePercent": -0.7846756464431892
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.6098810893793901,
+                "B_ms": 0.6078628454512606,
+                "changePercent": -0.33092416919883183
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -1.1793985201463186,
+            "meanA_ms": 0.6092028391625112,
+            "meanB_ms": 0.6026847444849813,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.6142422062112018,
+                "B_ms": 0.5946831515757367,
+                "changePercent": -3.184257681690461
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.6070156135441115,
+                "B_ms": 0.5976406343203658,
+                "changePercent": -1.5444379048191292
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.6080078261826808,
+                "B_ms": 0.5998428775152812,
+                "changePercent": -1.342901902868987
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.6055668345652521,
+                "B_ms": 0.5994149105390534,
+                "changePercent": -1.0158951374236502
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.6107370039292922,
+                "B_ms": 0.6057569456364339,
+                "changePercent": -0.8154178084540775
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.6096475505425284,
+                "B_ms": 0.6187699473230168,
+                "changePercent": 1.4963394460242307
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": true
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 0,
+      "pose": "scatter-overview",
+      "tolerance": 1,
+      "variant": "reload2048",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": -1.5747829684449322,
+            "meanA_ms": 0.29783102703125525,
+            "meanB_ms": 0.29882826493121684,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.3043177130166441,
+                "B_ms": 0.29677517401675385,
+                "changePercent": -2.47850804513563
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.2896840402778859,
+                "B_ms": 0.30628039288179326,
+                "changePercent": 5.729122180147361
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.30169185386815417,
+                "B_ms": 0.29429770559848595,
+                "changePercent": -2.450894240220225
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.29862934510068345,
+                "B_ms": 0.29416927524531883,
+                "changePercent": -1.4935135908565544
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.2918411628343165,
+                "B_ms": 0.30560676532331854,
+                "changePercent": 4.716813199108949
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.30082204708984744,
+                "B_ms": 0.2958402765216306,
+                "changePercent": -1.6560523460333099
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.12795699323307486,
+            "meanA_ms": 0.29585213714098146,
+            "meanB_ms": 0.2959123287130044,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.3038619615836069,
+                "B_ms": 0.30591060931328684,
+                "changePercent": 0.674203417566055
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.30810847723235685,
+                "B_ms": 0.295322053716518,
+                "changePercent": -4.149974590344074
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.28871527562538785,
+                "B_ms": 0.29748088369766873,
+                "changePercent": 3.036073534139705
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.2905963434992979,
+                "B_ms": 0.2987934130942449,
+                "changePercent": 2.820775201862369
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.2924904741424446,
+                "B_ms": 0.2897699693373094,
+                "changePercent": -0.9301174040322047
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.2913402907627945,
+                "B_ms": 0.2881970431189984,
+                "changePercent": -1.0788921901486281
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": 0.7146463700350547,
+            "meanA_ms": 0.04969256487028259,
+            "meanB_ms": 0.050412180523077645,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05043921798157195,
+                "B_ms": 0.05426823433178166,
+                "changePercent": 7.591347573248752
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.049802076925213136,
+                "B_ms": 0.05052430302991221,
+                "changePercent": 1.45019274152689
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.04994532597872118,
+                "B_ms": 0.049934887404864035,
+                "changePercent": -0.020900001456780615
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.049155394663102925,
+                "B_ms": 0.04845920678538581,
+                "changePercent": -1.4163000470011289
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.04811977851204574,
+                "B_ms": 0.05019184512396654,
+                "changePercent": 4.306060160692748
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.050693595161040626,
+                "B_ms": 0.049094606462555625,
+                "changePercent": -3.1542223300703442
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 1.583196036885659,
+            "meanA_ms": 0.049826684213864304,
+            "meanB_ms": 0.05090754712000489,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.052449662083139025,
+                "B_ms": 0.05411716604915758,
+                "changePercent": 3.1792463474318744
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.05147482443135232,
+                "B_ms": 0.05376564028362433,
+                "changePercent": 4.450361662383284
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.050050352001562715,
+                "B_ms": 0.050466134174106024,
+                "changePercent": 0.830727768968198
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.0491701551557829,
+                "B_ms": 0.0497630195847402,
+                "changePercent": 1.20574040712087
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.047689255249376096,
+                "B_ms": 0.048305553112489484,
+                "changePercent": 1.2923201670704376
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.04812585636197279,
+                "B_ms": 0.049027769515911736,
+                "changePercent": 1.8740719067008804
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": 0.9680494978584253,
+            "meanA_ms": 0.5063763035448371,
+            "meanB_ms": 0.5125669938732043,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5059192723516995,
+                "B_ms": 0.49838543539711583,
+                "changePercent": -1.4891381622138322
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.503736965280647,
+                "B_ms": 0.5151119839865714,
+                "changePercent": 2.258126659334403
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.5118576518725604,
+                "B_ms": 0.5022048765871053,
+                "changePercent": -1.885831978899155
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5032135474417979,
+                "B_ms": 0.5306788467957327,
+                "changePercent": 5.457980909608051
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5035130016040057,
+                "B_ms": 0.5206458348159989,
+                "changePercent": 3.4026595455160846
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5100173827183122,
+                "B_ms": 0.508374985656701,
+                "changePercent": -0.3220276636175523
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.732969812651646,
+            "meanA_ms": 0.5145319737493992,
+            "meanB_ms": 0.5107984632357128,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5151276078928883,
+                "B_ms": 0.5142413234959046,
+                "changePercent": -0.17205142636579351
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5303628519565488,
+                "B_ms": 0.5151423586842915,
+                "changePercent": -2.8698264247029592
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.4982725658919662,
+                "B_ms": 0.5060017332046604,
+                "changePercent": 1.5511926286485345
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5150277769037833,
+                "B_ms": 0.5081041648130243,
+                "changePercent": -1.3443181904444046
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5203437758609653,
+                "B_ms": 0.5136111091511945,
+                "changePercent": -1.2938881989374984
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5080572639902433,
+                "B_ms": 0.5076900900652012,
+                "changePercent": -0.07227018508866312
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": true
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8199,
+            "changedPixels": 7763,
+            "maximumChannelDifference": 1
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8194,
+            "changedPixels": 7756,
+            "maximumChannelDifference": 1
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8188,
+            "changedPixels": 7747,
+            "maximumChannelDifference": 1
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8194,
+            "changedPixels": 7744,
+            "maximumChannelDifference": 1
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8203,
+            "changedPixels": 7750,
+            "maximumChannelDifference": 1
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8206,
+            "changedPixels": 7755,
+            "maximumChannelDifference": 1
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 1,
+      "pose": "single-low",
+      "tolerance": 1,
+      "variant": "maps1024",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": 2.225545165935172,
+            "meanA_ms": 0.27653761046369457,
+            "meanB_ms": 0.28314120653602814,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.27645051886793226,
+                "B_ms": 0.2793081706234564,
+                "changePercent": 1.033693757286569
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.2821571154830356,
+                "B_ms": 0.27372657010952633,
+                "changePercent": -2.987890402507376
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.27283331534514826,
+                "B_ms": 0.2885173841301973,
+                "changePercent": 5.748590037550172
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.2750208368524909,
+                "B_ms": 0.2932829859976967,
+                "changePercent": 6.640278370980601
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.2788897497036184,
+                "B_ms": 0.2807786368066445,
+                "changePercent": 0.6772881057957258
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.273874126529942,
+                "B_ms": 0.28323349154864746,
+                "changePercent": 3.4173965745837753
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 2.1592331190169567,
+            "meanA_ms": 0.2778339031566348,
+            "meanB_ms": 0.2816334009468038,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.2749591755370299,
+                "B_ms": 0.283049472879308,
+                "changePercent": 2.942363107714696
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.27332727040629834,
+                "B_ms": 0.2850755457378303,
+                "changePercent": 4.298244852797972
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.273205732810311,
+                "B_ms": 0.2774253662209958,
+                "changePercent": 1.5444893367645651
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.29017532263727236,
+                "B_ms": 0.281071193361034,
+                "changePercent": -3.1374581385815503
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.27287411406481016,
+                "B_ms": 0.28044357895851135,
+                "changePercent": 2.7739769012693483
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.28246180348408717,
+                "B_ms": 0.2827352485231434,
+                "changePercent": 0.09680779336653789
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": 1.6300924214665835,
+            "meanA_ms": 0.05176736885914579,
+            "meanB_ms": 0.05244314363355645,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05286720503742496,
+                "B_ms": 0.05501997657120228,
+                "changePercent": 4.072035834414467
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.054689235791253545,
+                "B_ms": 0.05409981531556696,
+                "changePercent": -1.0777632328533127
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.05111460147115091,
+                "B_ms": 0.049783867628624044,
+                "changePercent": -2.6034319044391574
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.05251995268433044,
+                "B_ms": 0.05212675023358315,
+                "changePercent": -0.7486725152069718
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.05051997140981257,
+                "B_ms": 0.052775144771051906,
+                "changePercent": 4.4639244605774175
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.04889324676090231,
+                "B_ms": 0.05085330728131036,
+                "changePercent": 4.008857358140139
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 1.068838701129371,
+            "meanA_ms": 0.04801245166971865,
+            "meanB_ms": 0.04875651211477816,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.04914670231907318,
+                "B_ms": 0.05170225631445646,
+                "changePercent": 5.199848361731307
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.04739324989107748,
+                "B_ms": 0.049606775670933224,
+                "changePercent": 4.670550732315304
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.047394108454075955,
+                "B_ms": 0.04786374726487944,
+                "changePercent": 0.9909223448280713
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.04845918738283217,
+                "B_ms": 0.047554674286705755,
+                "changePercent": -1.8665461494033697
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.047388054857340954,
+                "B_ms": 0.04696440494929751,
+                "changePercent": -0.8940014721406486
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.0482934071139122,
+                "B_ms": 0.04884721420239657,
+                "changePercent": 1.1467550574306706
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": 2.7596084769505036,
+            "meanA_ms": 0.4871556747174408,
+            "meanB_ms": 0.49880222246024963,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.48611546905400854,
+                "B_ms": 0.4927977570332587,
+                "changePercent": 1.3746297751548564
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.4944791483770435,
+                "B_ms": 0.4903072549495846,
+                "changePercent": -0.8436945099003057
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.48488194685584557,
+                "B_ms": 0.5049783018572876,
+                "changePercent": 4.144587178746151
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.48145225446205586,
+                "B_ms": 0.5050277929209793,
+                "changePercent": 4.896755231786232
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.49671529268380255,
+                "B_ms": 0.4924088231443117,
+                "changePercent": -0.8669895215471457
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.47928993687188876,
+                "B_ms": 0.5072934048560759,
+                "changePercent": 5.8426989239442895
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 2.5592975390577366,
+            "meanA_ms": 0.4858978540546054,
+            "meanB_ms": 0.4947730089447254,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.4772526153828949,
+                "B_ms": 0.4992942655614267,
+                "changePercent": 4.618445131169802
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.4778090224135667,
+                "B_ms": 0.49415885102159035,
+                "changePercent": 3.4218333771588005
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.4831727419514209,
+                "B_ms": 0.4920686042169109,
+                "changePercent": 1.8411349592201143
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5029643749973426,
+                "B_ms": 0.4947786607469122,
+                "changePercent": -1.6274938459555188
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.474144981126301,
+                "B_ms": 0.4896848937884594,
+                "changePercent": 3.277460118895359
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5000433884561062,
+                "B_ms": 0.498652778333053,
+                "changePercent": -0.27809789213426583
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": true
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 90394,
+            "changedPixels": 81426,
+            "maximumChannelDifference": 2
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 90163,
+            "changedPixels": 81207,
+            "maximumChannelDifference": 2
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 90189,
+            "changedPixels": 81255,
+            "maximumChannelDifference": 2
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 90254,
+            "changedPixels": 81375,
+            "maximumChannelDifference": 2
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 90475,
+            "changedPixels": 81457,
+            "maximumChannelDifference": 2
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 90057,
+            "changedPixels": 81181,
+            "maximumChannelDifference": 2
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 2,
+      "pose": "single-near",
+      "tolerance": 1,
+      "variant": "maps1024",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": -1.5549057316729398,
+            "meanA_ms": 0.39715421250245225,
+            "meanB_ms": 0.38950637180177083,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.3899157842776428,
+                "B_ms": 0.38952518661972135,
+                "changePercent": -0.100174877158421
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.3987265566441541,
+                "B_ms": 0.39332379431774217,
+                "changePercent": -1.3550043849308024
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.4076110878183196,
+                "B_ms": 0.3891250041003029,
+                "changePercent": -4.535225922572639
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.3902829679039617,
+                "B_ms": 0.3859505134945114,
+                "changePercent": -1.1100803175496
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.39925087670174736,
+                "B_ms": 0.39224479405675083,
+                "changePercent": -1.754807078415077
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.39713800166888785,
+                "B_ms": 0.3868689382215962,
+                "changePercent": -2.5857670140198463
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.7523586192666576,
+            "meanA_ms": 0.39177430800110513,
+            "meanB_ms": 0.39328066729164374,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.38902690963974845,
+                "B_ms": 0.39244963651678216,
+                "changePercent": 0.8798175119050899
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.38759461798084277,
+                "B_ms": 0.38660676606620353,
+                "changePercent": -0.25486729402627306
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.39533768237258,
+                "B_ms": 0.3978081464689846,
+                "changePercent": 0.6248997266282252
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.39410328220886487,
+                "B_ms": 0.39772656358157593,
+                "changePercent": 0.9193735592363916
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.39802345175606507,
+                "B_ms": 0.38849218011212844,
+                "changePercent": -2.394650767909534
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.38655990404852975,
+                "B_ms": 0.39660071100418764,
+                "changePercent": 2.5974776096791885
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": -0.8859374989747759,
+            "meanA_ms": 0.0516718735323391,
+            "meanB_ms": 0.051497690340814486,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.052580731183600925,
+                "B_ms": 0.05155034402074913,
+                "changePercent": -1.9596288215428137
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.05178645369596779,
+                "B_ms": 0.05188368474288533,
+                "changePercent": 0.18775382359326187
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.05209288307620833,
+                "B_ms": 0.05262414439736555,
+                "changePercent": 1.019834744757775
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.053993057614813246,
+                "B_ms": 0.055497390955376126,
+                "changePercent": 2.786160678831706
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.049909717442157366,
+                "B_ms": 0.04875173908658326,
+                "changePercent": -2.320146085611774
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.04966839818128695,
+                "B_ms": 0.04867883884192755,
+                "changePercent": -1.9923318963248282
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 1.4524572736840657,
+            "meanA_ms": 0.05866999627970573,
+            "meanB_ms": 0.05392201678154783,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05043142300564796,
+                "B_ms": 0.05032118254651626,
+                "changePercent": -0.21859478190681125
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.051248251111246645,
+                "B_ms": 0.055962654490334295,
+                "changePercent": 9.199149779480088
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.09661805718981971,
+                "B_ms": 0.06180554434346656,
+                "changePercent": -36.03106278359447
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.05205378693062812,
+                "B_ms": 0.05367969182164719,
+                "changePercent": 3.1235093292749427
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.05243492099301269,
+                "B_ms": 0.05021441029384732,
+                "changePercent": -4.234793639645728
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.049233538447879255,
+                "B_ms": 0.051548617193475366,
+                "changePercent": 4.702239202341607
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": -0.9835946836295961,
+            "meanA_ms": 0.6040587460221205,
+            "meanB_ms": 0.5960565702278271,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5968689317038903,
+                "B_ms": 0.6006154435453936,
+                "changePercent": 0.6276942294195287
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.6070824650426706,
+                "B_ms": 0.6026345363352448,
+                "changePercent": -0.7326729008905186
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.6094427177837739,
+                "B_ms": 0.5924210029964646,
+                "changePercent": -2.7929966657421756
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5989210185362026,
+                "B_ms": 0.5942777885744969,
+                "changePercent": -0.7752658227046516
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.608947923562179,
+                "B_ms": 0.5904895951971412,
+                "changePercent": -3.0311833985838477
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.6030894195040067,
+                "B_ms": 0.5959010547182212,
+                "changePercent": -1.1919235445545406
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.18920735004018807,
+            "meanA_ms": 0.6121351309250005,
+            "meanB_ms": 0.6058783166938357,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5950972263235599,
+                "B_ms": 0.5934227422888702,
+                "changePercent": -0.2813799091342606
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.593043378709505,
+                "B_ms": 0.5983471977136409,
+                "changePercent": 0.8943391317642435
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.6673316238448024,
+                "B_ms": 0.6232603967267399,
+                "changePercent": -6.604096905245993
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.6070390518289059,
+                "B_ms": 0.6110442627687007,
+                "changePercent": 0.6597946092146367
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.6112552461369584,
+                "B_ms": 0.6019210074252138,
+                "changePercent": -1.5270607116643187
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5990442587062716,
+                "B_ms": 0.6072742932398493,
+                "changePercent": 1.3738608481703274
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": false
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 11575,
+            "changedPixels": 10426,
+            "maximumChannelDifference": 2
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 11652,
+            "changedPixels": 10513,
+            "maximumChannelDifference": 2
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 11758,
+            "changedPixels": 10542,
+            "maximumChannelDifference": 2
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 11663,
+            "changedPixels": 10509,
+            "maximumChannelDifference": 2
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 11788,
+            "changedPixels": 10585,
+            "maximumChannelDifference": 2
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 11782,
+            "changedPixels": 10579,
+            "maximumChannelDifference": 2
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 2,
+      "pose": "scatter-overview",
+      "tolerance": 1,
+      "variant": "maps1024",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": -0.3166802407641167,
+            "meanA_ms": 0.2984411160772045,
+            "meanB_ms": 0.2981958977114927,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.3023593793235098,
+                "B_ms": 0.2956623357022181,
+                "changePercent": -2.21492835323166
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.30045746825635433,
+                "B_ms": 0.2987812525437524,
+                "changePercent": -0.5578878509259755
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.30758331801431876,
+                "B_ms": 0.30971268521777046,
+                "changePercent": 0.6922895614750457
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.2921067740923415,
+                "B_ms": 0.30179165575342876,
+                "changePercent": 3.315527923370132
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.2948749946275105,
+                "B_ms": 0.29018402953321737,
+                "changePercent": -1.5908317693125507
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.2932647621491924,
+                "B_ms": 0.29304342751856893,
+                "changePercent": -0.07547263060225795
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.5336367664594333,
+            "meanA_ms": 0.2936970486189239,
+            "meanB_ms": 0.29268764531783137,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.29585677354286116,
+                "B_ms": 0.2907239686464891,
+                "changePercent": -1.7348951774560195
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.2994956594193354,
+                "B_ms": 0.2892769019429882,
+                "changePercent": -3.411988506330743
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.29263455265512067,
+                "B_ms": 0.2997638948727399,
+                "changePercent": 2.436261252450733
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.2933732563784967,
+                "B_ms": 0.294990468925486,
+                "changePercent": 0.5512474337138862
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.29052864798965555,
+                "B_ms": 0.2858263809078683,
+                "changePercent": -1.6185209666327527
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.2902934017280738,
+                "B_ms": 0.29554425661141676,
+                "changePercent": 1.8088095878464383
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": -2.5152438199761598,
+            "meanA_ms": 0.052326246481647506,
+            "meanB_ms": 0.05157292293410541,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05247570031012098,
+                "B_ms": 0.05088628192121784,
+                "changePercent": -3.028865512056045
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.054215279912265636,
+                "B_ms": 0.05231860268395394,
+                "changePercent": -3.498418216010335
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.056031227965528764,
+                "B_ms": 0.05258335052834203,
+                "changePercent": -6.153492547598494
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.050605895618597664,
+                "B_ms": 0.054556430162241064,
+                "changePercent": 7.806470956304112
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.051696193016444646,
+                "B_ms": 0.050661430577747524,
+                "changePercent": -2.0016221278962743
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.04893318206692735,
+                "B_ms": 0.048431441731130086,
+                "changePercent": -1.025358079331573
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 2.35725333128719,
+            "meanA_ms": 0.04974522663461459,
+            "meanB_ms": 0.05456365842191088,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.050032981865418456,
+                "B_ms": 0.05019098171032965,
+                "changePercent": 0.31579138204513857
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.04955817712470889,
+                "B_ms": 0.050545146223157644,
+                "changePercent": 1.9915363229868754
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.05252256717843314,
+                "B_ms": 0.051677076650472976,
+                "changePercent": -1.609766188860895
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.048105920238109924,
+                "B_ms": 0.05119095051971575,
+                "changePercent": 6.41299504579862
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.048999107093550265,
+                "B_ms": 0.05033333824637035,
+                "changePercent": 2.722970339587505
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.04925260630746683,
+                "B_ms": 0.07344445718141894,
+                "changePercent": 49.11791007146065
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": 0.26313106537596553,
+            "meanA_ms": 0.5093713900552959,
+            "meanB_ms": 0.5121513402425788,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5103480798425153,
+                "B_ms": 0.503468758931073,
+                "changePercent": -1.3479664533204705
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5157170138166597,
+                "B_ms": 0.5131293388937289,
+                "changePercent": -0.5017625662144032
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.5183706525713205,
+                "B_ms": 0.5197673744987696,
+                "changePercent": 0.26944463783218353
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5002031345308448,
+                "B_ms": 0.5147734676332524,
+                "changePercent": 2.9128832061545484
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5066588685925429,
+                "B_ms": 0.5079600571965178,
+                "changePercent": 0.25681749291974754
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5049305909778923,
+                "B_ms": 0.5138090443021307,
+                "changePercent": 1.7583512432953752
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.9967271382796961,
+            "meanA_ms": 0.5084641161374748,
+            "meanB_ms": 0.5121252809961637,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5007109478659307,
+                "B_ms": 0.5091996329914158,
+                "changePercent": 1.6953264476569752
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5161345470696688,
+                "B_ms": 0.5055677174823359,
+                "changePercent": -2.0473013572382626
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.510219600982964,
+                "B_ms": 0.5142031198677918,
+                "changePercent": 0.780745952753148
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5060668675772225,
+                "B_ms": 0.5122039826043571,
+                "changePercent": 1.2127083238062442
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5084348667878658,
+                "B_ms": 0.49622132792137563,
+                "changePercent": -2.402183576364758
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5092178665411969,
+                "B_ms": 0.535355905109706,
+                "changePercent": 5.132977510402115
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": false
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8870,
+            "changedPixels": 8385,
+            "maximumChannelDifference": 1
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8845,
+            "changedPixels": 8353,
+            "maximumChannelDifference": 1
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8825,
+            "changedPixels": 8345,
+            "maximumChannelDifference": 1
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8854,
+            "changedPixels": 8374,
+            "maximumChannelDifference": 1
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8839,
+            "changedPixels": 8356,
+            "maximumChannelDifference": 1
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8853,
+            "changedPixels": 8368,
+            "maximumChannelDifference": 1
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 1,
+      "pose": "single-low",
+      "tolerance": 1,
+      "variant": "maps512",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": -1.530949520961672,
+            "meanA_ms": 0.27856480786188814,
+            "meanB_ms": 0.2762228088815593,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.27941578688720864,
+                "B_ms": 0.2751606225501746,
+                "changePercent": -1.5228789985126112
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.2776102483039722,
+                "B_ms": 0.28507638489827514,
+                "changePercent": 2.6894311863183917
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.2797404449665919,
+                "B_ms": 0.27346095400086295,
+                "changePercent": -2.2447561940780014
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.27964496014950174,
+                "B_ms": 0.27534116816241294,
+                "changePercent": -1.5390200434107326
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.28027690132148564,
+                "B_ms": 0.27169530221726745,
+                "changePercent": -3.0618288784257874
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.27470050554256886,
+                "B_ms": 0.2766024214603628,
+                "changePercent": 0.692359817116972
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 1.0379286881967542,
+            "meanA_ms": 0.2751578350499686,
+            "meanB_ms": 0.2770897068936999,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.2705625132269536,
+                "B_ms": 0.2779479109449312,
+                "changePercent": 2.7296455927664054
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.275984377367422,
+                "B_ms": 0.2747230998162801,
+                "changePercent": -0.4570104884823567
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.27217274085463333,
+                "B_ms": 0.273354181748194,
+                "changePercent": 0.43407759713587346
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.27463623458364356,
+                "B_ms": 0.2864757116185501,
+                "changePercent": 4.310966851426423
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.2849800172649945,
+                "B_ms": 0.27295053587295115,
+                "changePercent": -4.22116663038079
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.2726111270021647,
+                "B_ms": 0.2770868013612926,
+                "changePercent": 1.641779779257635
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": -0.15535279125674095,
+            "meanA_ms": 0.04831554057697455,
+            "meanB_ms": 0.04858420450343854,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05120921317332735,
+                "B_ms": 0.05006768818323811,
+                "changePercent": -2.229139874158048
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.048840263237555824,
+                "B_ms": 0.05070921906735748,
+                "changePercent": 3.8266702632440364
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.04855901837193718,
+                "B_ms": 0.04759291186928749,
+                "changePercent": -1.9895511380600972
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.04729080925850818,
+                "B_ms": 0.047309896520649396,
+                "changePercent": 0.04036146228092452
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.04747743757131199,
+                "B_ms": 0.047310759934286274,
+                "changePercent": -0.3510670447944064
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.04651650184920678,
+                "B_ms": 0.048514751445812486,
+                "changePercent": 4.295786478277019
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.3517984342282565,
+            "meanA_ms": 0.04875737876217398,
+            "meanB_ms": 0.04882161253287146,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.04716233039895693,
+                "B_ms": 0.04759723863874873,
+                "changePercent": 0.9221517175101557
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.04749651998281479,
+                "B_ms": 0.04699563821001599,
+                "changePercent": -1.0545652038928877
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.04724478155064086,
+                "B_ms": 0.047410595774029694,
+                "changePercent": 0.3509683354363746
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.04851649767563989,
+                "B_ms": 0.05197480883604536,
+                "changePercent": 7.128113788275137
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.052128477060856916,
+                "B_ms": 0.05056336522102356,
+                "changePercent": -3.0024123628361155
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.04999566590413451,
+                "B_ms": 0.048388028517365456,
+                "changePercent": -3.215553503881041
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": -2.1776028746672282,
+            "meanA_ms": 0.4949001765150266,
+            "meanB_ms": 0.48817868082551286,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.48946787622602034,
+                "B_ms": 0.4781371438487743,
+                "changePercent": -2.314908276434846
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.4872933980853607,
+                "B_ms": 0.4947422081992651,
+                "changePercent": 1.5286088716103707
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.4940425278618932,
+                "B_ms": 0.4837291780859232,
+                "changePercent": -2.087542912672702
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.4948142498809223,
+                "B_ms": 0.49447655813613284,
+                "changePercent": -0.06824616406474471
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5012465359565491,
+                "B_ms": 0.4868463583989069,
+                "changePercent": -2.872873231963946
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5025364710794141,
+                "B_ms": 0.4911406382840748,
+                "changePercent": -2.2676628366617546
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.3040950419730737,
+            "meanA_ms": 0.4895792929649664,
+            "meanB_ms": 0.49077257103312555,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.47899219013440114,
+                "B_ms": 0.49022047702843946,
+                "changePercent": 2.344148218969444
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.4956068005412817,
+                "B_ms": 0.49165711000872153,
+                "changePercent": -0.796940342272634
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.4862856100468586,
+                "B_ms": 0.49058161675930023,
+                "changePercent": 0.8834328270638458
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.4876536598506694,
+                "B_ms": 0.5040842030818263,
+                "changePercent": 3.3693058381205176
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5029427023449292,
+                "B_ms": 0.48343488985362154,
+                "changePercent": -3.878734575599585
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.4859947948716581,
+                "B_ms": 0.4846571294668441,
+                "changePercent": -0.2752427431176985
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": true
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 100882,
+            "changedPixels": 90439,
+            "maximumChannelDifference": 2
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 100744,
+            "changedPixels": 90283,
+            "maximumChannelDifference": 2
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 100813,
+            "changedPixels": 90366,
+            "maximumChannelDifference": 2
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 100725,
+            "changedPixels": 90342,
+            "maximumChannelDifference": 2
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 101044,
+            "changedPixels": 90512,
+            "maximumChannelDifference": 2
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 100539,
+            "changedPixels": 90130,
+            "maximumChannelDifference": 2
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 2,
+      "pose": "single-near",
+      "tolerance": 1,
+      "variant": "maps512",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": 0.8957015132940782,
+            "meanA_ms": 0.3839123350593986,
+            "meanB_ms": 0.38575317739741877,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.3810052100258569,
+                "B_ms": 0.38957985331459594,
+                "changePercent": 2.250531767835162
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.38219964092907804,
+                "B_ms": 0.38588192061676335,
+                "changePercent": 0.9634440468688554
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.3801927183909963,
+                "B_ms": 0.38556946674361825,
+                "changePercent": 1.4142165519047234
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.3885460124971966,
+                "B_ms": 0.39176301409800846,
+                "changePercent": 0.827958979719301
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.3829227789537981,
+                "B_ms": 0.37934894983967143,
+                "changePercent": -0.9333028251520825
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.38860764955946553,
+                "B_ms": 0.3823758597718552,
+                "changePercent": -1.6036199479538937
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.44725419619418005,
+            "meanA_ms": 0.38825679237359306,
+            "meanB_ms": 0.38622554469232756,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.3899722408580904,
+                "B_ms": 0.39054341323208064,
+                "changePercent": 0.14646487984206757
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.39169878194419044,
+                "B_ms": 0.3838202974293381,
+                "changePercent": -2.011363036603697
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.38420138298533857,
+                "B_ms": 0.3812465244360889,
+                "changePercent": -0.7690910756982916
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.3860746316301326,
+                "B_ms": 0.3901545181482409,
+                "changePercent": 1.0567610984647535
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.39275605134510744,
+                "B_ms": 0.38723350250317407,
+                "changePercent": -1.4061015286765954
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.3848376654786989,
+                "B_ms": 0.38435501240504283,
+                "changePercent": -0.1254173166900685
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": 0.2974498640372025,
+            "meanA_ms": 0.051806562825933926,
+            "meanB_ms": 0.05132855585543439,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.049743917770683765,
+                "B_ms": 0.05003471354333063,
+                "changePercent": 0.5845855848898296
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.04912151780445129,
+                "B_ms": 0.05132638519474616,
+                "changePercent": 4.488597846410758
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.050368059116105236,
+                "B_ms": 0.05037325414984176,
+                "changePercent": 0.010314143184575464
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.0509496700639526,
+                "B_ms": 0.05342448033237209,
+                "changePercent": 4.857362697958756
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.055211775664550565,
+                "B_ms": 0.04904599336441606,
+                "changePercent": -11.167513136320528
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.0554444365358601,
+                "B_ms": 0.053766508547899626,
+                "changePercent": -3.0263234560517716
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.8825457330551678,
+            "meanA_ms": 0.05278428741601399,
+            "meanB_ms": 0.051901748520322144,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05592013864467541,
+                "B_ms": 0.05538452630086491,
+                "changePercent": -0.9578165519471549
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.05318576586432755,
+                "B_ms": 0.05289235074693958,
+                "changePercent": -0.5516797823997721
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.05392710348435988,
+                "B_ms": 0.051978291594423354,
+                "changePercent": -3.613789289650482
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.053743041159274675,
+                "B_ms": 0.05115188347796599,
+                "changePercent": -4.821382685861497
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.050035586658244334,
+                "B_ms": 0.05051213277814289,
+                "changePercent": 0.9524143748997904
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.0498940886852021,
+                "B_ms": 0.04949130622359613,
+                "changePercent": -0.8072749141631808
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": -0.14675427701018595,
+            "meanA_ms": 0.5992683670936256,
+            "meanB_ms": 0.5974308434007172,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.6017690805795913,
+                "B_ms": 0.6051484378986061,
+                "changePercent": 0.5615704475477434
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.6038116165048754,
+                "B_ms": 0.6001805498575171,
+                "changePercent": -0.6013575340561461
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.5902612853484849,
+                "B_ms": 0.5972326374224698,
+                "changePercent": 1.1810620562500818
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.6031371691885093,
+                "B_ms": 0.6049939208120728,
+                "changePercent": 0.3078489800357742
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5956761888228357,
+                "B_ms": 0.5797881991990531,
+                "changePercent": -2.667219190879544
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.6009548621174569,
+                "B_ms": 0.5972413152145842,
+                "changePercent": -0.6179410696151133
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.1474108549392561,
+            "meanA_ms": 0.6006158792944107,
+            "meanB_ms": 0.5985338478543175,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5994947714498267,
+                "B_ms": 0.6024166553591689,
+                "changePercent": 0.48739105801971494
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.6030338651423032,
+                "B_ms": 0.6041848925330365,
+                "changePercent": 0.190872761426375
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.6012473992692927,
+                "B_ms": 0.5935902784888943,
+                "changePercent": -1.273539110473365
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5981015516833091,
+                "B_ms": 0.6015477313970526,
+                "changePercent": 0.576186385747457
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.6022456509526819,
+                "B_ms": 0.5892682432507476,
+                "changePercent": -2.1548362667967114
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5995720372690508,
+                "B_ms": 0.600195286097005,
+                "changePercent": 0.1039489484521372
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": false
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 13523,
+            "changedPixels": 12123,
+            "maximumChannelDifference": 2
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 13564,
+            "changedPixels": 12180,
+            "maximumChannelDifference": 2
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 13553,
+            "changedPixels": 12096,
+            "maximumChannelDifference": 2
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 13545,
+            "changedPixels": 12151,
+            "maximumChannelDifference": 2
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 13717,
+            "changedPixels": 12260,
+            "maximumChannelDifference": 2
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 13720,
+            "changedPixels": 12234,
+            "maximumChannelDifference": 2
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 2,
+      "pose": "scatter-overview",
+      "tolerance": 1,
+      "variant": "maps512",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": -1.3640420537796794,
+            "meanA_ms": 0.29931641216131133,
+            "meanB_ms": 0.2972806727888787,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.2985564157521973,
+                "B_ms": 0.2914323073734219,
+                "changePercent": -2.3861849898038856
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.2918385580414906,
+                "B_ms": 0.301247404422611,
+                "changePercent": 3.2239901554690142
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.3032612633736183,
+                "B_ms": 0.29238976518778753,
+                "changePercent": -3.5848621300627714
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.3047786691846947,
+                "B_ms": 0.2995972123850758,
+                "changePercent": -1.7000719943687903
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.29432205580330145,
+                "B_ms": 0.2989921680030723,
+                "changePercent": 1.58673538312466
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.3031415108125657,
+                "B_ms": 0.30002517936130363,
+                "changePercent": -1.0280121131905684
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.7632143796958146,
+            "meanA_ms": 0.29666623272027615,
+            "meanB_ms": 0.2962933964833307,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.29153211410933483,
+                "B_ms": 0.29200779196495813,
+                "changePercent": 0.1631648221934512
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.29638714719718945,
+                "B_ms": 0.29019095624486607,
+                "changePercent": -2.09057343104051
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.30089496188641834,
+                "B_ms": 0.2955815822739775,
+                "changePercent": -1.7658586169503665
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.29849827114958316,
+                "B_ms": 0.2934548635190974,
+                "changePercent": -1.6895935815850804
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.29650867024126154,
+                "B_ms": 0.30305556235058856,
+                "changePercent": 2.207993480932613
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.2961762317378695,
+                "B_ms": 0.3034696225464965,
+                "changePercent": 2.462517253944263
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": -1.1680847714541864,
+            "meanA_ms": 0.05185719944872997,
+            "meanB_ms": 0.05162355551470278,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.054285594766649105,
+                "B_ms": 0.051487862947396934,
+                "changePercent": -5.153727855941237
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.05138800285446147,
+                "B_ms": 0.052736116534409426,
+                "changePercent": 2.6234015822059087
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.05202515846273551,
+                "B_ms": 0.05035850335843861,
+                "changePercent": -3.2035560362409843
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.051555553606400885,
+                "B_ms": 0.051279523177072406,
+                "changePercent": -0.5354038702325314
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.05107985149758557,
+                "B_ms": 0.05398524323633561,
+                "changePercent": 5.687940848628692
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.05080903550454726,
+                "B_ms": 0.049894083834563695,
+                "changePercent": -1.8007656726758414
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 1.8426083877370658,
+            "meanA_ms": 0.05049015776926859,
+            "meanB_ms": 0.05238498852122575,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.049605892854742706,
+                "B_ms": 0.0508376833749935,
+                "changePercent": 2.4831536121278086
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.05155295851485183,
+                "B_ms": 0.050527790638928614,
+                "changePercent": -1.988572344743078
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.051736977184191346,
+                "B_ms": 0.04914061961850772,
+                "changePercent": -5.018378937061218
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.05006252225333204,
+                "B_ms": 0.05070747768816849,
+                "changePercent": 1.2882999213918334
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.04979857961491992,
+                "B_ms": 0.05099221016280353,
+                "changePercent": 2.3969168540822983
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.050184016193573676,
+                "B_ms": 0.062104149643952646,
+                "changePercent": 23.752848724581366
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": -0.9124046951068887,
+            "meanA_ms": 0.5165138823536432,
+            "meanB_ms": 0.5144204381698122,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5104288187188407,
+                "B_ms": 0.5006901337765157,
+                "changePercent": -1.9079418295324224
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5078793183201924,
+                "B_ms": 0.5219375113180528,
+                "changePercent": 2.7680184033399335
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.5211484240135178,
+                "B_ms": 0.5128836831621205,
+                "changePercent": -1.5858708326791149
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5225624918239191,
+                "B_ms": 0.5234097382829835,
+                "changePercent": 0.16213304098946502
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5193802013915653,
+                "B_ms": 0.5145017397201931,
+                "changePercent": -0.9392852592958745
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5176840398538237,
+                "B_ms": 0.5130998227590075,
+                "changePercent": -0.8855241309179029
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.10429205176207268,
+            "meanA_ms": 0.5088537355833169,
+            "meanB_ms": 0.5105464426580713,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5078888934804127,
+                "B_ms": 0.4992986359866336,
+                "changePercent": -1.6913654943136458
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5084540122576678,
+                "B_ms": 0.504934034931163,
+                "changePercent": -0.6922902055340852
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.515305563264216,
+                "B_ms": 0.5109279494111737,
+                "changePercent": -0.8495180656137635
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5038481176597998,
+                "B_ms": 0.5083871559084704,
+                "changePercent": 0.9008743090582305
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5037534477499624,
+                "B_ms": 0.5174392378345752,
+                "changePercent": 2.7167635568036363
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.513872379087843,
+                "B_ms": 0.522291641876412,
+                "changePercent": 1.6383956661600863
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": false
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 6457,
+            "changedPixels": 5818,
+            "maximumChannelDifference": 1
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 6494,
+            "changedPixels": 5850,
+            "maximumChannelDifference": 1
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 6502,
+            "changedPixels": 5858,
+            "maximumChannelDifference": 1
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 6476,
+            "changedPixels": 5834,
+            "maximumChannelDifference": 1
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 6504,
+            "changedPixels": 5855,
+            "maximumChannelDifference": 1
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 6499,
+            "changedPixels": 5853,
+            "maximumChannelDifference": 1
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 1,
+      "pose": "single-low",
+      "tolerance": 1,
+      "variant": "anisotropy4",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": 0.12861320734573467,
+            "meanA_ms": 0.27427357660296064,
+            "meanB_ms": 0.2740520859434683,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.2744748198892921,
+                "B_ms": 0.2734323109810551,
+                "changePercent": -0.3798195071801236
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.2677317534107715,
+                "B_ms": 0.2740208195367207,
+                "changePercent": 2.34901764390274
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.2703324619991084,
+                "B_ms": 0.27538630820345134,
+                "changePercent": 1.8694929077217592
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.28334982926025987,
+                "B_ms": 0.2732300345087424,
+                "changePercent": -3.5714843301431265
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.27723261155188084,
+                "B_ms": 0.27398698148317635,
+                "changePercent": -1.1707244867536493
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.27251998350645107,
+                "B_ms": 0.2742560609476641,
+                "changePercent": 0.6370459218715929
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.2824616625714371,
+            "meanA_ms": 0.2763343557793026,
+            "meanB_ms": 0.2781357066447122,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.2773567781938861,
+                "B_ms": 0.2730876731220633,
+                "changePercent": -1.539210651213474
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.2853810680486883,
+                "B_ms": 0.28432204271666706,
+                "changePercent": -0.3710916562413846
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.2723324772280951,
+                "B_ms": 0.2835850658205648,
+                "changePercent": 4.1319304649239275
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.27022660166646045,
+                "B_ms": 0.27358680866503465,
+                "changePercent": 1.2434775029002143
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.2730711761008327,
+                "B_ms": 0.27541233187851805,
+                "changePercent": 0.8573426939871842
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.27963803343785304,
+                "B_ms": 0.2788203176654254,
+                "changePercent": -0.29241936884430997
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": -0.07664507249661723,
+            "meanA_ms": 0.049191269984779254,
+            "meanB_ms": 0.04943606230275085,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05192795651964843,
+                "B_ms": 0.05162587816206118,
+                "changePercent": -0.5817258714445162
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.048284748724351324,
+                "B_ms": 0.0494661508128047,
+                "changePercent": 2.446739642775775
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.048465284635312855,
+                "B_ms": 0.047499139327555895,
+                "changePercent": -1.9934790748200926
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.04871873049220691,
+                "B_ms": 0.047323788749054074,
+                "changePercent": -2.863255526282593
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.04770314262714237,
+                "B_ms": 0.05043923738412559,
+                "changePercent": 5.735669824458123
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.050047756910013654,
+                "B_ms": 0.05026217938090364,
+                "changePercent": 0.4284357264512817
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.12683679696469663,
+            "meanA_ms": 0.05167953996634525,
+            "meanB_ms": 0.05113468715636474,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.052214396419003606,
+                "B_ms": 0.051046013444041215,
+                "changePercent": -2.237664427998931
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.058605020361331604,
+                "B_ms": 0.05277256423141807,
+                "changePercent": -9.952144191663592
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.04986892357313385,
+                "B_ms": 0.05307812534738332,
+                "changePercent": 6.435273802417463
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.04908767490026852,
+                "B_ms": 0.049741327529773116,
+                "changePercent": 1.3316023438319835
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.0492474112737303,
+                "B_ms": 0.04929163454410931,
+                "changePercent": 0.0897981624520261
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.05105381327060362,
+                "B_ms": 0.05087845784146339,
+                "changePercent": -0.34347175638141936
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": 0.057511105950303065,
+            "meanA_ms": 0.48886908350848696,
+            "meanB_ms": 0.4869037939998735,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.48103473091032356,
+                "B_ms": 0.4821475740754977,
+                "changePercent": 0.23134362108701012
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.4806701617781073,
+                "B_ms": 0.49200173331579816,
+                "changePercent": 2.357452664790527
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.4892066159906487,
+                "B_ms": 0.4930147551931441,
+                "changePercent": 0.7784316642537314
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5018428588906924,
+                "B_ms": 0.47840539385409403,
+                "changePercent": -4.670279674479394
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.4886675693948443,
+                "B_ms": 0.4846328035152207,
+                "changePercent": -0.8256667993376654
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.4917925640863056,
+                "B_ms": 0.49122050404548645,
+                "changePercent": -0.11632140918640399
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.16906073223095786,
+            "meanA_ms": 0.48960416784716976,
+            "meanB_ms": 0.4903289874265384,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.4904036419854189,
+                "B_ms": 0.48848698497749865,
+                "changePercent": -0.390832539530217
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.4970399265099938,
+                "B_ms": 0.49510764074511826,
+                "changePercent": -0.38875866139028714
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.4859383722456793,
+                "B_ms": 0.4950511938659474,
+                "changePercent": 1.875303976953857
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.4811501664031918,
+                "B_ms": 0.4860616415195788,
+                "changePercent": 1.0207780147105439
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.48942882373618585,
+                "B_ms": 0.48335240959810716,
+                "changePercent": -1.2415317291067485
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.49366407620254904,
+                "B_ms": 0.4939140538529803,
+                "changePercent": 0.05063719692837143
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": true
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 9,
+            "changedPixels": 8,
+            "maximumChannelDifference": 1
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 9,
+            "changedPixels": 8,
+            "maximumChannelDifference": 1
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 9,
+            "changedPixels": 8,
+            "maximumChannelDifference": 1
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 9,
+            "changedPixels": 8,
+            "maximumChannelDifference": 1
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 9,
+            "changedPixels": 8,
+            "maximumChannelDifference": 1
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 9,
+            "changedPixels": 8,
+            "maximumChannelDifference": 1
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 1,
+      "pose": "single-near",
+      "tolerance": 1,
+      "variant": "anisotropy4",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": 1.6571819812741917,
+            "meanA_ms": 0.3878083071968932,
+            "meanB_ms": 0.3946370100796533,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.3891623152109484,
+                "B_ms": 0.40150088898371905,
+                "changePercent": 3.170546913331629
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.3874679047536726,
+                "B_ms": 0.3933046731011321,
+                "changePercent": 1.5063875680671357
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.38562240661121905,
+                "B_ms": 0.39170140128893155,
+                "changePercent": 1.5764111663359115
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.39156945422291756,
+                "B_ms": 0.39382984687108546,
+                "changePercent": 0.5772648054618301
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.38179165858309716,
+                "B_ms": 0.3894496476277709,
+                "changePercent": 2.005803131764061
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.3912361037995045,
+                "B_ms": 0.39803560260528076,
+                "changePercent": 1.737952796212472
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.5244155270561435,
+            "meanA_ms": 0.3919115940031285,
+            "meanB_ms": 0.39368967393076876,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.3885164769599214,
+                "B_ms": 0.3942665013407047,
+                "changePercent": 1.479994986512878
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.38994531496427953,
+                "B_ms": 0.3870069340337068,
+                "changePercent": -0.7535366672739574
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.3916831434859584,
+                "B_ms": 0.39326909366839874,
+                "changePercent": 0.4049064170404293
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.3959262151814376,
+                "B_ms": 0.39847568162561703,
+                "changePercent": 0.6439246370718577
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.39404166939978796,
+                "B_ms": 0.39088804138979566,
+                "changePercent": -0.8003285578390695
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.3913567440273861,
+                "B_ms": 0.3982317915263896,
+                "changePercent": 1.7567213556239025
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": 2.4708057336488287,
+            "meanA_ms": 0.05063150294720092,
+            "meanB_ms": 0.0513673415601564,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.053843725860739745,
+                "B_ms": 0.05186544634246578,
+                "changePercent": -3.674113346818797
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.04870483826380223,
+                "B_ms": 0.05017797229811549,
+                "changePercent": 3.024615391050589
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.052167539251968265,
+                "B_ms": 0.05021529796067625,
+                "changePercent": -3.742252978164684
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.05065537213037411,
+                "B_ms": 0.05339409593337526,
+                "changePercent": 5.40658115382584
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.0499001907883212,
+                "B_ms": 0.05085677548777312,
+                "changePercent": 1.9169960762470684
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.04851735138799995,
+                "B_ms": 0.05169446133853247,
+                "changePercent": 6.548399406894112
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -2.2020158523434805,
+            "meanA_ms": 0.05024538000321223,
+            "meanB_ms": 0.04934302139897934,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.04938456307475766,
+                "B_ms": 0.0481927030098935,
+                "changePercent": -2.413426363740301
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.05055381916463375,
+                "B_ms": 0.04830815790531536,
+                "changePercent": -4.442119896036267
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.04849565933303287,
+                "B_ms": 0.04994185292162001,
+                "changePercent": 2.9821093443760383
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.0495876787075152,
+                "B_ms": 0.050099813961423934,
+                "changePercent": 1.0327873118027409
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.05015107065749665,
+                "B_ms": 0.04915276076644659,
+                "changePercent": -1.9906053409466606
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.05329948908183724,
+                "B_ms": 0.050362839829176664,
+                "changePercent": -5.509713701291908
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": 0.957431679625742,
+            "meanA_ms": 0.5952420372826358,
+            "meanB_ms": 0.6028472319788609,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5976597167318687,
+                "B_ms": 0.6064591968121628,
+                "changePercent": 1.4723227672782668
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5881979304831475,
+                "B_ms": 0.6032717113460725,
+                "changePercent": 2.5627055250846187
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.5988619620135675,
+                "B_ms": 0.5972977766456703,
+                "changePercent": -0.26119297385959195
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5996362694228689,
+                "B_ms": 0.6016302165032054,
+                "changePercent": 0.3325260965711063
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.586079001853553,
+                "B_ms": 0.6047474016668275,
+                "changePercent": 3.185304328295868
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.6010173431908091,
+                "B_ms": 0.6036770888992274,
+                "changePercent": 0.44254059197321727
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.28550838518555666,
+            "meanA_ms": 0.6019867012380726,
+            "meanB_ms": 0.6024282394921303,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5987534920374552,
+                "B_ms": 0.605886287909622,
+                "changePercent": 1.1912741999875465
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5950607592239976,
+                "B_ms": 0.5936362819435695,
+                "changePercent": -0.2393835013227319
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.6072665031145638,
+                "B_ms": 0.6052526053584492,
+                "changePercent": -0.3316332690483814
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5989574662332112,
+                "B_ms": 0.6096171855460852,
+                "changePercent": 1.7797122356470574
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.6056753578983868,
+                "B_ms": 0.5978237847254301,
+                "changePercent": -1.2963336002641102
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.6062066289208209,
+                "B_ms": 0.6023532914696261,
+                "changePercent": -0.6356475279814311
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": true
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 10,
+            "changedPixels": 9,
+            "maximumChannelDifference": 1
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 9,
+            "changedPixels": 8,
+            "maximumChannelDifference": 1
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 10,
+            "changedPixels": 9,
+            "maximumChannelDifference": 1
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 10,
+            "changedPixels": 9,
+            "maximumChannelDifference": 1
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 9,
+            "changedPixels": 8,
+            "maximumChannelDifference": 1
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8,
+            "changedPixels": 7,
+            "maximumChannelDifference": 1
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 1,
+      "pose": "scatter-overview",
+      "tolerance": 1,
+      "variant": "anisotropy4",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": -3.123816976930982,
+            "meanA_ms": 0.3026734670533592,
+            "meanB_ms": 0.2961028666403662,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.3095052088610828,
+                "B_ms": 0.2960798641045888,
+                "changePercent": -4.337679745648404
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.3024791415858393,
+                "B_ms": 0.2948272691961999,
+                "changePercent": -2.5297190244332524
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.2990711897534008,
+                "B_ms": 0.30506249944058556,
+                "changePercent": 2.003305531410393
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.3045963579400753,
+                "B_ms": 0.29222655575722456,
+                "changePercent": -4.0610473042111295
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.3046206693397835,
+                "B_ms": 0.293295131996274,
+                "changePercent": -3.7179149294287117
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.29576823483997333,
+                "B_ms": 0.29512587934732437,
+                "changePercent": -0.21718204221508053
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.382862005161011,
+            "meanA_ms": 0.29598423457678613,
+            "meanB_ms": 0.29631800134666264,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.2959574921987951,
+                "B_ms": 0.2952673724697282,
+                "changePercent": -0.23318204379274565
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.29920137603767216,
+                "B_ms": 0.3056024434044957,
+                "changePercent": 2.1393843342544017
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.30116407045473653,
+                "B_ms": 0.2930972210985298,
+                "changePercent": -2.6785563576778415
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.29079426409831893,
+                "B_ms": 0.2991996589116752,
+                "changePercent": 2.8904953952304746
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.29784635504862916,
+                "B_ms": 0.2908932268231486,
+                "changePercent": -2.334468126811662
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.29094184962256503,
+                "B_ms": 0.2938480853723983,
+                "changePercent": 0.9989060541147676
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": -2.965574251689551,
+            "meanA_ms": 0.053026757086627185,
+            "meanB_ms": 0.05190869948516289,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05370136447406063,
+                "B_ms": 0.052123238371374704,
+                "changePercent": -2.938707643915106
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.054849806474521756,
+                "B_ms": 0.053855047250787415,
+                "changePercent": -1.813605712896027
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.052709205192513764,
+                "B_ms": 0.051131913399634264,
+                "changePercent": -2.992440859463996
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.05135763785801828,
+                "B_ms": 0.05320483857455353,
+                "changePercent": 3.5967400246132097
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.05334026839894553,
+                "B_ms": 0.05120312077148507,
+                "changePercent": -4.006630809346867
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.05220226012170315,
+                "B_ms": 0.04993403854314238,
+                "changePercent": -4.345063936451588
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.12463916929092433,
+            "meanA_ms": 0.05293576719446315,
+            "meanB_ms": 0.05178848853878056,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05119095051971575,
+                "B_ms": 0.05148178509746989,
+                "changePercent": 0.5681367015096361
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.051470473408699036,
+                "B_ms": 0.05282725517948469,
+                "changePercent": 2.636039035452775
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.06394358933903277,
+                "B_ms": 0.05277605669107288,
+                "changePercent": -17.46466340628605
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.05021440544320891,
+                "B_ms": 0.05366408246724556,
+                "changePercent": 6.869895189614739
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.0522839012167727,
+                "B_ms": 0.052117189625278115,
+                "changePercent": -0.31885836292778746
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.04851128323934972,
+                "B_ms": 0.04786456217213223,
+                "changePercent": -1.3331353533293178
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": -2.4655859606430464,
+            "meanA_ms": 0.5207479698583484,
+            "meanB_ms": 0.5093894643424492,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5310659616952762,
+                "B_ms": 0.5086440942250192,
+                "changePercent": -4.222049441595088
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5092482460895553,
+                "B_ms": 0.5041588592575863,
+                "changePercent": -0.9993921179011767
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.5098168427745501,
+                "B_ms": 0.5093949439469725,
+                "changePercent": -0.0827549802555616
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5378706603854274,
+                "B_ms": 0.5155728964988763,
+                "changePercent": -4.145562405388126
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5257638889209678,
+                "B_ms": 0.5050920105228821,
+                "changePercent": -3.931779803384916
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5107222192843134,
+                "B_ms": 0.5134739816033592,
+                "changePercent": 0.5387982380915313
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -0.02423500507495735,
+            "meanA_ms": 0.5115792834355185,
+            "meanB_ms": 0.5106300700895695,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5126354032351325,
+                "B_ms": 0.5130260542500764,
+                "changePercent": 0.07620445495544192
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5038506933487952,
+                "B_ms": 0.5170590156922117,
+                "changePercent": 2.6214754723524747
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.520686648087576,
+                "B_ms": 0.5017691146349534,
+                "changePercent": -3.633189658714042
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5031102433955917,
+                "B_ms": 0.5147213572248196,
+                "changePercent": 2.3078667114511786
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.518822048131066,
+                "B_ms": 0.5074705162163203,
+                "changePercent": -2.1879432371150975
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5103706644149497,
+                "B_ms": 0.5097343625190357,
+                "changePercent": -0.12467446510535662
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": true
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 16083,
+            "changedPixels": 12885,
+            "maximumChannelDifference": 2
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 16066,
+            "changedPixels": 12837,
+            "maximumChannelDifference": 2
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 16112,
+            "changedPixels": 12876,
+            "maximumChannelDifference": 2
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 16161,
+            "changedPixels": 12897,
+            "maximumChannelDifference": 2
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 16176,
+            "changedPixels": 12923,
+            "maximumChannelDifference": 2
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 16211,
+            "changedPixels": 12928,
+            "maximumChannelDifference": 2
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 2,
+      "pose": "single-low",
+      "tolerance": 1,
+      "variant": "anisotropy1",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": -0.09803034162765845,
+            "meanA_ms": 0.2768324670291299,
+            "meanB_ms": 0.27598147345189417,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.2679930378993352,
+                "B_ms": 0.26912151952274144,
+                "changePercent": 0.4210861715855829
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.2794444493095701,
+                "B_ms": 0.26863193488679826,
+                "changePercent": -3.8692893881007606
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.27073871266717714,
+                "B_ms": 0.2744843562444051,
+                "changePercent": 1.3834902073396993
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.27519185581089306,
+                "B_ms": 0.27207727544009686,
+                "changePercent": -1.1317850819453357
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.2808888821164146,
+                "B_ms": 0.2791553852148354,
+                "changePercent": -0.6171468548408998
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.28673786437138915,
+                "B_ms": 0.29241836940248805,
+                "changePercent": 1.9810794934781883
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 0.034830423928278176,
+            "meanA_ms": 0.7333119145995524,
+            "meanB_ms": 0.702014173536251,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.3306675353087485,
+                "B_ms": 0.3311223748217647,
+                "changePercent": 0.13755191074065198
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.4762786314434682,
+                "B_ms": 0.5028220621170476,
+                "changePercent": 5.573088717655383
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.7751484081381932,
+                "B_ms": 0.8483463461743668,
+                "changePercent": 9.443086932473443
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.8592404531858241,
+                "B_ms": 0.8586571057094261,
+                "changePercent": -0.06789106288409563
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.8842491370160133,
+                "B_ms": 0.8451961718189219,
+                "changePercent": -4.416511542084112
+              },
+              {
+                "cycle": 5,
+                "A_ms": 1.0742873225050669,
+                "B_ms": 0.8259409805759788,
+                "changePercent": -23.117311051384647
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": -0.2905689710958004,
+            "meanA_ms": 0.051067561596735485,
+            "meanB_ms": 0.05232595463490321,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.052706580997134246,
+                "B_ms": 0.05246874449464182,
+                "changePercent": -0.45124631116816305
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.048782118634941675,
+                "B_ms": 0.04871875474539896,
+                "changePercent": -0.1298916310234377
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.04988716682419181,
+                "B_ms": 0.04962498011688391,
+                "changePercent": -0.52555942539666
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.05148870695848018,
+                "B_ms": 0.049295141555679343,
+                "changePercent": -4.260284501938838
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.05314584025957932,
+                "B_ms": 0.06013022114833196,
+                "changePercent": 13.141914502882912
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.05039495590608567,
+                "B_ms": 0.05371788574848324,
+                "changePercent": 6.593774679731967
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 7.172664032455489,
+            "meanA_ms": 0.07824319618521258,
+            "meanB_ms": 0.07998799184052688,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05134373592833678,
+                "B_ms": 0.06232901068869978,
+                "changePercent": 21.395550132338915
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.05531074809065709,
+                "B_ms": 0.05684982655414691,
+                "changePercent": 2.7826028694589056
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.05894792169177284,
+                "B_ms": 0.06295312778092921,
+                "changePercent": 6.794482272163571
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.05330729860967646,
+                "B_ms": 0.05733245052397251,
+                "changePercent": 7.550845792747407
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.1326840186569219,
+                "B_ms": 0.08825345139484853,
+                "changePercent": -33.48599756912435
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.11786545413391043,
+                "B_ms": 0.15221008410056433,
+                "changePercent": 29.138843284508063
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": 0.35625773788011683,
+            "meanA_ms": 0.48235561068092164,
+            "meanB_ms": 0.48530888226297164,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.47148868422179174,
+                "B_ms": 0.4729262242714564,
+                "changePercent": 0.3048938601861506
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.48528038314543664,
+                "B_ms": 0.4780859356590857,
+                "changePercent": -1.482534167097127
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.47353908788257587,
+                "B_ms": 0.48585241893306375,
+                "changePercent": 2.6002776466768074
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.4838255069140966,
+                "B_ms": 0.4827152782430251,
+                "changePercent": -0.22946881782910378
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.4900086884542058,
+                "B_ms": 0.4920060697865362,
+                "changePercent": 0.40762161557408305
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.48999131346742314,
+                "B_ms": 0.5002673666846628,
+                "changePercent": 2.0971908960020436
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": 3.8283123953376075,
+            "meanA_ms": 0.9947721320915863,
+            "meanB_ms": 0.9875894118320301,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5293116167498132,
+                "B_ms": 0.5482960162529101,
+                "changePercent": 3.5866206035055193
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.6807300281555703,
+                "B_ms": 0.7084357688048234,
+                "changePercent": 4.070004187169696
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.9869435840907196,
+                "B_ms": 1.0606224095681682,
+                "changePercent": 7.465353305410027
+              },
+              {
+                "cycle": 3,
+                "A_ms": 1.0641249973559752,
+                "B_ms": 1.0691909701563418,
+                "changePercent": 0.476069335177165
+              },
+              {
+                "cycle": 4,
+                "A_ms": 1.3471857625215005,
+                "B_ms": 1.0969444362369056,
+                "changePercent": -18.575116605762165
+              },
+              {
+                "cycle": 5,
+                "A_ms": 1.3603368036759396,
+                "B_ms": 1.442046869973031,
+                "changePercent": 6.0066055756407
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": false
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 196776,
+            "changedPixels": 156950,
+            "maximumChannelDifference": 6
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 196707,
+            "changedPixels": 156963,
+            "maximumChannelDifference": 6
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 196942,
+            "changedPixels": 157029,
+            "maximumChannelDifference": 6
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 196407,
+            "changedPixels": 156905,
+            "maximumChannelDifference": 6
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 196688,
+            "changedPixels": 156897,
+            "maximumChannelDifference": 6
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 196588,
+            "changedPixels": 156745,
+            "maximumChannelDifference": 6
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 6,
+      "pose": "single-near",
+      "tolerance": 1,
+      "variant": "anisotropy1",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": 0.4667114453071275,
+            "meanA_ms": 0.3904168131864733,
+            "meanB_ms": 0.39116565231880585,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.39196615883459646,
+                "B_ms": 0.39019792651136714,
+                "changePercent": -0.45111861913963436
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.3818663244601339,
+                "B_ms": 0.3883428774618854,
+                "changePercent": 1.6960262235502732
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.39185936232873547,
+                "B_ms": 0.3882473974954337,
+                "changePercent": -0.9217502962891255
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.3973992958587284,
+                "B_ms": 0.3869904273111994,
+                "changePercent": -2.619246852221202
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.38454947934951633,
+                "B_ms": 0.3928880226643135,
+                "changePercent": 2.168392823961751
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.3948602582871293,
+                "B_ms": 0.40032726246863604,
+                "changePercent": 1.3845415097538893
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -1.0391536723430683,
+            "meanA_ms": 0.39696832391200587,
+            "meanB_ms": 0.3932894897944708,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.39251822454389185,
+                "B_ms": 0.3898020756120483,
+                "changePercent": -0.6919803367091304
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.39814670647804934,
+                "B_ms": 0.38696700357832015,
+                "changePercent": -2.8079355468297873
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.4014201501073937,
+                "B_ms": 0.39038105266323936,
+                "changePercent": -2.750010790739077
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.3915668591313685,
+                "B_ms": 0.3966015501646325,
+                "changePercent": 1.2857806823674212
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.3945373270350198,
+                "B_ms": 0.397960083015884,
+                "changePercent": 0.86753666797168
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.4036206761763121,
+                "B_ms": 0.39802517373270047,
+                "changePercent": -1.3863270079770063
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": 0.28782290150622947,
+            "meanA_ms": 0.05092461975032671,
+            "meanB_ms": 0.050712670296585806,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05312760670979818,
+                "B_ms": 0.05157984560355544,
+                "changePercent": -2.9132897227935772
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.049774297319042184,
+                "B_ms": 0.05104516458231956,
+                "changePercent": 2.553260079457065
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.048684897289300956,
+                "B_ms": 0.049346344894729555,
+                "changePercent": 1.3586299699844595
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.04944529791828245,
+                "B_ms": 0.04905814906427016,
+                "changePercent": -0.7829841669720006
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.04708420116609583,
+                "B_ms": 0.050326367878975965,
+                "changePercent": 6.8858908775853545
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.057431418099440634,
+                "B_ms": 0.05292014975566417,
+                "changePercent": -7.855053023356218
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -1.2829191591911038,
+            "meanA_ms": 0.05252372809789247,
+            "meanB_ms": 0.05212007898889068,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05312414820461223,
+                "B_ms": 0.052248278128293656,
+                "changePercent": -1.6487230495350058
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.05196353595238179,
+                "B_ms": 0.05148697042992959,
+                "changePercent": -0.9171152688472017
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.05352171137928963,
+                "B_ms": 0.0520581864596655,
+                "changePercent": -2.734450902088381
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.0518298572084556,
+                "B_ms": 0.05321698942376921,
+                "changePercent": 2.676318805461264
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.05254078617629906,
+                "B_ms": 0.051369788707233965,
+                "changePercent": -2.2287399071948544
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.05216232966631651,
+                "B_ms": 0.05234026078445216,
+                "changePercent": 0.34111037462070115
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": 0.15538592031663634,
+            "meanA_ms": 0.6011171871149499,
+            "meanB_ms": 0.602715711769027,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.6079374919257438,
+                "B_ms": 0.6014548562234268,
+                "changePercent": -1.0663326062984146
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.590859359363094,
+                "B_ms": 0.6009982850324983,
+                "changePercent": 1.7159626074694678
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.5967769053919861,
+                "B_ms": 0.5943055390768374,
+                "changePercent": -0.4141189601707951
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.6071788278253129,
+                "B_ms": 0.5932699714321643,
+                "changePercent": -2.2907347482725715
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5939427307263637,
+                "B_ms": 0.6118359209115928,
+                "changePercent": 3.012612034723716
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.6100078074571987,
+                "B_ms": 0.6144296979376426,
+                "changePercent": 0.7248908008040678
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -1.052636046688682,
+            "meanA_ms": 0.6078479450985065,
+            "meanB_ms": 0.6006808438946286,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.6018376637560626,
+                "B_ms": 0.5990468829016512,
+                "changePercent": -0.4637099042612558
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.6114739711241176,
+                "B_ms": 0.5975104043803489,
+                "changePercent": -2.2835913551804143
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.6118784901142741,
+                "B_ms": 0.5976823061549416,
+                "changePercent": -2.320098547128413
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.6055095339737212,
+                "B_ms": 0.5994071058618525,
+                "changePercent": -1.00781701517082
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.6022760305010403,
+                "B_ms": 0.6030659860698506,
+                "changePercent": 0.1311617146963595
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.6141119811218232,
+                "B_ms": 0.6073723779991269,
+                "changePercent": -1.097455078206544
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": false
+    },
+    {
+      "comparisons": [
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8693,
+            "changedPixels": 8136,
+            "maximumChannelDifference": 2
+          },
+          "frame": 0
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8674,
+            "changedPixels": 8105,
+            "maximumChannelDifference": 2
+          },
+          "frame": 1
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8740,
+            "changedPixels": 8162,
+            "maximumChannelDifference": 2
+          },
+          "frame": 2
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8734,
+            "changedPixels": 8206,
+            "maximumChannelDifference": 2
+          },
+          "frame": 3
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8705,
+            "changedPixels": 8154,
+            "maximumChannelDifference": 2
+          },
+          "frame": 4
+        },
+        {
+          "aa": {
+            "changedChannels": 0,
+            "changedPixels": 0,
+            "maximumChannelDifference": 0
+          },
+          "delta": {
+            "changedChannels": 8637,
+            "changedPixels": 8087,
+            "maximumChannelDifference": 2
+          },
+          "frame": 5
+        }
+      ],
+      "diagnosticOnly": true,
+      "maximumChannelDifference": 2,
+      "pose": "scatter-overview",
+      "tolerance": 1,
+      "variant": "anisotropy1",
+      "width": 700,
+      "metrics": {
+        "gpuMS": {
+          "AA": {
+            "medianChangePercent": 0.8958721483440457,
+            "meanA_ms": 0.3025656842510216,
+            "meanB_ms": 0.30682826440574396,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.30355557100847363,
+                "B_ms": 0.3252248085724811,
+                "changePercent": 7.138474675993534
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.299478298984468,
+                "B_ms": 0.3071050353658696,
+                "changePercent": 2.5466741354094324
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.3008316076981525,
+                "B_ms": 0.2983428760974978,
+                "changePercent": -0.8272839478861482
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.30612324674924213,
+                "B_ms": 0.297630200899827,
+                "changePercent": -2.7743877472892864
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.30080902312571806,
+                "B_ms": 0.310369796352461,
+                "changePercent": 3.1783532047664487
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.3045963579400753,
+                "B_ms": 0.3022968691463272,
+                "changePercent": -0.754929838721341
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -1.1387227274119893,
+            "meanA_ms": 0.3057469641337068,
+            "meanB_ms": 0.3010400752019551,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.30280555559632677,
+                "B_ms": 0.2992595739973088,
+                "changePercent": -1.1710424506692907
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.3008237884690364,
+                "B_ms": 0.30982898412427556,
+                "changePercent": 2.993511816691341
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.31334809318650514,
+                "B_ms": 0.2958706463687122,
+                "changePercent": -5.577645818763721
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.30890016932971776,
+                "B_ms": 0.29905295620361966,
+                "changePercent": -3.187830277809678
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.30355295166373253,
+                "B_ms": 0.30019443268732476,
+                "changePercent": -1.106403004154688
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.305051226556922,
+                "B_ms": 0.3020338578304897,
+                "changePercent": -0.9891350906826468
+              }
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "medianChangePercent": 0.491593196607909,
+            "meanA_ms": 0.05078385098992536,
+            "meanB_ms": 0.057932874672890954,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.056007823635203145,
+                "B_ms": 0.09780466886392485,
+                "changePercent": 74.62679767912053
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.0498107789705197,
+                "B_ms": 0.05325521245443573,
+                "changePercent": 6.91503637386317
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.05071526781345407,
+                "B_ms": 0.04945834128496548,
+                "changePercent": -2.4783986808705083
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.049260391582114,
+                "B_ms": 0.04774044888714949,
+                "changePercent": -3.085527025157453
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.047476564456398286,
+                "B_ms": 0.048388028517365456,
+                "changePercent": 1.9198189072931804
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.051432279481862984,
+                "B_ms": 0.050950548029504716,
+                "changePercent": -0.9366325140773624
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -1.4448073381401971,
+            "meanA_ms": 0.05137050660171857,
+            "meanB_ms": 0.05077329034166825,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.05198696938653787,
+                "B_ms": 0.05325173454669615,
+                "changePercent": 2.43285033746512
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.0520321288301299,
+                "B_ms": 0.050949660362675786,
+                "changePercent": -2.080384738798724
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.053113699929478266,
+                "B_ms": 0.05085242931575825,
+                "changePercent": -4.257414973391837
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.04891578767759105,
+                "B_ms": 0.04851994647954901,
+                "changePercent": -0.8092299374816703
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.05034634765858451,
+                "B_ms": 0.05080901125135521,
+                "changePercent": 0.9189615816983743
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.05182810612798979,
+                "B_ms": 0.05025696009397507,
+                "changePercent": -3.031455616253409
+              }
+            ]
+          }
+        },
+        "wallMS": {
+          "AA": {
+            "medianChangePercent": -0.08406666192981027,
+            "meanA_ms": 0.5174236082691803,
+            "meanB_ms": 0.5322855932819139,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5238359444774687,
+                "B_ms": 0.6178984137174363,
+                "changePercent": 17.95647477642943
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5232595528165499,
+                "B_ms": 0.523684027333123,
+                "changePercent": 0.08112121685850404
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.5095564119983464,
+                "B_ms": 0.5111562689611068,
+                "changePercent": 0.3139705290894357
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.516419245589835,
+                "B_ms": 0.5125451474062478,
+                "changePercent": -0.7501847029659725
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5184817709960043,
+                "B_ms": 0.5167196262239789,
+                "changePercent": -0.33986629243306643
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5129887237368772,
+                "B_ms": 0.5117100760495911,
+                "changePercent": -0.24925454071812458
+              }
+            ]
+          },
+          "AB": {
+            "medianChangePercent": -1.0811711000811575,
+            "meanA_ms": 0.5200944716408331,
+            "meanB_ms": 0.5134118893895194,
+            "cycles": [
+              {
+                "cycle": 0,
+                "A_ms": 0.5145651230122894,
+                "B_ms": 0.5053489342875158,
+                "changePercent": -1.791063621028488
+              },
+              {
+                "cycle": 1,
+                "A_ms": 0.5170729079206163,
+                "B_ms": 0.5234956576411302,
+                "changePercent": 1.242136190492471
+              },
+              {
+                "cycle": 2,
+                "A_ms": 0.5319600701720143,
+                "B_ms": 0.5046684139718612,
+                "changePercent": -5.130395631260076
+              },
+              {
+                "cycle": 3,
+                "A_ms": 0.5178029290012395,
+                "B_ms": 0.5245746530514831,
+                "changePercent": 1.3077801748447415
+              },
+              {
+                "cycle": 4,
+                "A_ms": 0.5155338537103186,
+                "B_ms": 0.513619786943309,
+                "changePercent": -0.3712785791338269
+              },
+              {
+                "cycle": 5,
+                "A_ms": 0.5236319460285207,
+                "B_ms": 0.5087638904418176,
+                "changePercent": -2.839409569922091
+              }
+            ]
+          }
+        }
+      },
+      "visualGatePassed": false
+    }
+  ]
+}

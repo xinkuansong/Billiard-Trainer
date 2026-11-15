@@ -1,0 +1,1837 @@
+{
+  "source": "/Users/song/projects/13.billiard_trainer/output/local-test-runs/55862b0d598d48b98ee66458543c1474/evidence/attachments/C5AE0450-E67F-425C-85B6-709B3E6D23AA.json",
+  "completed": true,
+  "scope": "Native current production scene; independent shader arithmetic candidates: wood-unscaled; original clipping and per-pixel shading retained; maximum added image difference 1/255; no page/phone claim",
+  "inventory": [
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "pose": "low",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    },
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "pose": "near",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    },
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1",
+        "_2",
+        "_3",
+        "_4",
+        "_5",
+        "_6",
+        "_7",
+        "_8",
+        "_9",
+        "_10",
+        "_11",
+        "_12",
+        "_13",
+        "_14",
+        "_15"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "pose": "overview",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    }
+  ],
+  "materials": [
+    {
+      "aaMaximum": 0,
+      "changedPixels": 6,
+      "group": "wood-unscaled",
+      "materials": 4,
+      "maximumChannelDifference": 1,
+      "pose": "low",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "wood-unscaled",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.7455069474720707,
+                "bMS": 0.5944670216801266,
+                "savedMS": 0.15103992579194414,
+                "savedPercent": 20.260029273248676
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.5945243271222959,
+                "bMS": 0.591923618533959,
+                "savedMS": 0.002600708588336831,
+                "savedPercent": 0.43744359476847033
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.5773107695858926,
+                "bMS": 0.5982378400706997,
+                "savedMS": -0.02092707048480713,
+                "savedPercent": -3.624922933590552
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.592449689672018,
+                "bMS": 0.5996562540531158,
+                "savedMS": -0.007206564381097791,
+                "savedPercent": -1.216401072821452
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.5913767090532929,
+                "bMS": 0.59390797590216,
+                "savedMS": -0.0025312668488671752,
+                "savedPercent": -0.42802951318785637
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.6005607719998807,
+                "bMS": 0.5896701477468014,
+                "savedMS": 0.010890624253079295,
+                "savedPercent": 1.8134091936796464
+              }
+            ],
+            "meanA_MS": 0.6169548691509085,
+            "meanB_MS": 0.594643809664477,
+            "meanSavedMS": 0.02231105948643136,
+            "meanSavedPercent": 2.8735880903494886,
+            "rangeSavedPercent": [
+              -3.624922933590552,
+              20.260029273248676
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -6.267108810672892,
+              12.01428499137187
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.5956006934866309,
+                "bMS": 0.6116718868725002,
+                "savedMS": -0.016071193385869265,
+                "savedPercent": -2.6983167685364697
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.6115781337333223,
+                "bMS": 0.5858142006521424,
+                "savedMS": 0.025763933081179857,
+                "savedPercent": 4.212696900052052
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.586059041476498,
+                "bMS": 0.5994930785770217,
+                "savedMS": -0.01343403710052371,
+                "savedPercent": -2.292266845108035
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.6007795066883167,
+                "bMS": 0.5763281563607355,
+                "savedMS": 0.024451350327581167,
+                "savedPercent": 4.069937482116294
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.5836857696219037,
+                "bMS": 0.5974565962484727,
+                "savedMS": -0.013770826626569033,
+                "savedPercent": -2.359287709804783
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.5962413367039213,
+                "bMS": 0.5858124835261455,
+                "savedMS": 0.010428853177775865,
+                "savedPercent": 1.749099322000644
+              }
+            ],
+            "meanA_MS": 0.5956574136184322,
+            "meanB_MS": 0.5927627337061696,
+            "meanSavedMS": 0.0028946799122624802,
+            "meanSavedPercent": 0.4469770634532837,
+            "rangeSavedPercent": [
+              -2.6983167685364697,
+              4.212696900052052
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -3.011104365571007,
+              3.9050584924775746
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.09702086875525613,
+                "bMS": 0.09704163918892543,
+                "savedMS": -2.0770433669298205e-05,
+                "savedPercent": -0.021408212414272945
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.08849478520763417,
+                "bMS": 0.0889930718888839,
+                "savedMS": -0.0004982866812497377,
+                "savedPercent": -0.5630689764155189
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08827602141536772,
+                "bMS": 0.08805380396855374,
+                "savedMS": 0.00022221744681398536,
+                "savedPercent": 0.25173024707171515
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.0888680515345186,
+                "bMS": 0.08792190540892382,
+                "savedMS": 0.0009461461255947795,
+                "savedPercent": 1.0646639700739613
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.08777431988467772,
+                "bMS": 0.09583851594167452,
+                "savedMS": -0.008064196056996792,
+                "savedPercent": -9.187420725779402
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08821354519265394,
+                "bMS": 0.08884721319191158,
+                "savedMS": -0.0006336679992576394,
+                "savedPercent": -0.7183341264357309
+              }
+            ],
+            "meanA_MS": 0.08977459866501805,
+            "meanB_MS": 0.09111602493147883,
+            "meanSavedMS": -0.0013414262664607837,
+            "meanSavedPercent": -1.5289729706498747,
+            "rangeSavedPercent": [
+              -9.187420725779402,
+              1.0646639700739613
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -5.523343306006626,
+              2.4653973647068765
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.09451733785681427,
+                "bMS": 0.11581425011778872,
+                "savedMS": -0.02129691226097445,
+                "savedPercent": -22.532281107237132
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.09014059711868565,
+                "bMS": 0.08669788561140497,
+                "savedMS": 0.003442711507280677,
+                "savedPercent": 3.8192685841072844
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08579166994119684,
+                "bMS": 0.08657640622307856,
+                "savedMS": -0.0007847362818817205,
+                "savedPercent": -0.9146998565473698
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.08790795497285823,
+                "bMS": 0.08672741629804175,
+                "savedMS": 0.0011805386748164892,
+                "savedPercent": 1.3429258764818075
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.08627949864603579,
+                "bMS": 0.08658853281910221,
+                "savedMS": -0.000309034173066422,
+                "savedPercent": -0.35817798888035257
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08944442379288375,
+                "bMS": 0.08601559481273095,
+                "savedMS": 0.003428828980152801,
+                "savedPercent": 3.833474279059083
+              }
+            ],
+            "meanA_MS": 0.08901358038807909,
+            "meanB_MS": 0.09140334764702453,
+            "meanSavedMS": -0.0023897672589454377,
+            "meanSavedPercent": -2.468248368836113,
+            "rangeSavedPercent": [
+              -22.532281107237132,
+              3.833474279059083
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -12.99785565547102,
+              8.061358917798794
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.0043351018490891,
+                "bMS": 0.8530607641053697,
+                "savedMS": 0.15127433774371946,
+                "savedPercent": 15.062137872629076
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8412430567356447,
+                "bMS": 0.8383628252583245,
+                "savedMS": 0.0028802314773201942,
+                "savedPercent": 0.3423780385774154
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8281006594188511,
+                "bMS": 0.8484826248604804,
+                "savedMS": -0.02038196544162929,
+                "savedPercent": -2.461290811666912
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8419618146338811,
+                "bMS": 0.8458576533788195,
+                "savedMS": -0.0038958387449383736,
+                "savedPercent": -0.4627096712969627
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8468038286082447,
+                "bMS": 0.8479166426695883,
+                "savedMS": -0.0011128140613436699,
+                "savedPercent": -0.13141344237574168
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8500919890745232,
+                "bMS": 0.84601040968361,
+                "savedMS": 0.004081579390913248,
+                "savedPercent": 0.4801338494386678
+              }
+            ],
+            "meanA_MS": 0.8687560750533723,
+            "meanB_MS": 0.8466151533260321,
+            "meanSavedMS": 0.022140921727340262,
+            "meanSavedPercent": 2.138205972550924,
+            "rangeSavedPercent": [
+              -2.461290811666912,
+              15.062137872629076
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -4.60012821740135,
+              8.876540162503199
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8581649065793803,
+                "bMS": 0.8848784685445329,
+                "savedMS": -0.02671356196515262,
+                "savedPercent": -3.112870470505731
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8657430880703032,
+                "bMS": 0.8307170064654201,
+                "savedMS": 0.035026081604883075,
+                "savedPercent": 4.045782413689771
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8441787989189228,
+                "bMS": 0.846152805024758,
+                "savedMS": -0.001974006105835202,
+                "savedPercent": -0.23383744158976338
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8514773993132015,
+                "bMS": 0.8265121529499689,
+                "savedMS": 0.024965246363232607,
+                "savedPercent": 2.931991663357064
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8413073082920164,
+                "bMS": 0.858890659098203,
+                "savedMS": -0.01758335080618656,
+                "savedPercent": -2.0900033356281518
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8537169972745081,
+                "bMS": 0.8304495907699069,
+                "savedMS": 0.02326740650460124,
+                "savedPercent": 2.7254238323569107
+              }
+            ],
+            "meanA_MS": 0.8524314164080554,
+            "meanB_MS": 0.846266780475465,
+            "meanSavedMS": 0.006164635932590423,
+            "meanSavedPercent": 0.7110811102800166,
+            "rangeSavedPercent": [
+              -3.112870470505731,
+              4.045782413689771
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -2.3838093355674337,
+              3.805971556127467
+            ]
+          }
+        }
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 0,
+      "group": "wood-unscaled",
+      "materials": 4,
+      "maximumChannelDifference": 0,
+      "pose": "near",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "wood-unscaled",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.882131930363054,
+                "bMS": 0.8586475839062283,
+                "savedMS": 0.023484346456825733,
+                "savedPercent": 2.66222609662938
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8679218881297857,
+                "bMS": 0.8556006844931593,
+                "savedMS": 0.012321203636626366,
+                "savedPercent": 1.419621259140765
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8714531334893157,
+                "bMS": 0.8968888820769886,
+                "savedMS": -0.025435748587672835,
+                "savedPercent": -2.918774126822815
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8801024426550915,
+                "bMS": 0.8695017410597453,
+                "savedMS": 0.010600701595346207,
+                "savedPercent": 1.2044849646554814
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.899057292068998,
+                "bMS": 0.8756840349330256,
+                "savedMS": 0.02337325713597238,
+                "savedPercent": 2.5997516890368098
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8592638866199801,
+                "bMS": 0.858409689196075,
+                "savedMS": 0.0008541974239051342,
+                "savedPercent": 0.09941037173867792
+              }
+            ],
+            "meanA_MS": 0.8766550955543708,
+            "meanB_MS": 0.8691221026108703,
+            "meanSavedMS": 0.007532992943500498,
+            "meanSavedPercent": 0.8444533757297166,
+            "rangeSavedPercent": [
+              -2.918774126822815,
+              2.66222609662938
+            ],
+            "positiveCycles": 5,
+            "meanPercentCI95": [
+              -1.3352321244774286,
+              3.0241388759368615
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8747812729173651,
+                "bMS": 0.8838194383618733,
+                "savedMS": -0.009038165444508195,
+                "savedPercent": -1.0331914644635942
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8696788475693514,
+                "bMS": 0.8976093668024987,
+                "savedMS": -0.027930519233147266,
+                "savedPercent": -3.2115900382318983
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.882045152441909,
+                "bMS": 0.8600260286281506,
+                "savedMS": 0.022019123813758368,
+                "savedPercent": 2.4963715012546976
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8757083463327339,
+                "bMS": 0.8806093925765405,
+                "savedMS": -0.004901046243806606,
+                "savedPercent": -0.5596664990497197
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8565919706597924,
+                "bMS": 0.9116632087777058,
+                "savedMS": -0.05507123811791337,
+                "savedPercent": -6.429109775041971
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8733020901369551,
+                "bMS": 0.8902448268296818,
+                "savedMS": -0.016942736692726612,
+                "savedPercent": -1.9400774238464924
+              }
+            ],
+            "meanA_MS": 0.8720179466763511,
+            "meanB_MS": 0.8873287103294084,
+            "meanSavedMS": -0.01531076365305728,
+            "meanSavedPercent": -1.7795439498964962,
+            "rangeSavedPercent": [
+              -6.429109775041971,
+              2.4963715012546976
+            ],
+            "positiveCycles": 1,
+            "meanPercentCI95": [
+              -4.894013963682125,
+              1.3349260638891327
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.09530034731142223,
+                "bMS": 0.09140103550938268,
+                "savedMS": 0.0038993118020395484,
+                "savedPercent": 4.091602929103067
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.09363369705776374,
+                "bMS": 0.09517015617651244,
+                "savedMS": -0.0015364591187486953,
+                "savedPercent": -1.6409254008210692
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.09656424905794363,
+                "bMS": 0.09031770362829168,
+                "savedMS": 0.006246545429651945,
+                "savedPercent": 6.468797190048762
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.0911579894212385,
+                "bMS": 0.09585417380246024,
+                "savedMS": -0.004696184381221741,
+                "savedPercent": -5.151698069514023
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.10639755055308342,
+                "bMS": 0.08970831792491178,
+                "savedMS": 0.016689232628171638,
+                "savedPercent": 15.685730114477696
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08274998981505632,
+                "bMS": 0.0860052047452579,
+                "savedMS": -0.003255214930201575,
+                "savedPercent": -3.933794961759971
+              }
+            ],
+            "meanA_MS": 0.09430063720275131,
+            "meanB_MS": 0.09140943196446945,
+            "meanSavedMS": 0.0028912052382818534,
+            "meanSavedPercent": 2.5866186335890773,
+            "rangeSavedPercent": [
+              -5.151698069514023,
+              15.685730114477696
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -5.6672187575361495,
+              10.840456024714305
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.08422394360726078,
+                "bMS": 0.08287326393959422,
+                "savedMS": 0.0013506796676665545,
+                "savedPercent": 1.6036765910235946
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.08266146566408376,
+                "bMS": 0.08431250656334062,
+                "savedMS": -0.001651040899256856,
+                "savedPercent": -1.9973525584052518
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.0828698102850467,
+                "bMS": 0.08390279253944755,
+                "savedMS": -0.0010329822544008493,
+                "savedPercent": -1.2465121506224133
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.08192361565306783,
+                "bMS": 0.08493229203547041,
+                "savedMS": -0.0030086763824025836,
+                "savedPercent": -3.672538569517978
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.08030556879627208,
+                "bMS": 0.08359721202092867,
+                "savedMS": -0.003291643224656582,
+                "savedPercent": -4.098897839833724
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08214758903098603,
+                "bMS": 0.0832361401990056,
+                "savedMS": -0.0010885511680195775,
+                "savedPercent": -1.3251163921670015
+              }
+            ],
+            "meanA_MS": 0.08235533217278619,
+            "meanB_MS": 0.08380903454963118,
+            "meanSavedMS": -0.0014537023768449824,
+            "meanSavedPercent": -1.7894568199204623,
+            "rangeSavedPercent": [
+              -4.098897839833724,
+              1.6036765910235946
+            ],
+            "positiveCycles": 1,
+            "meanPercentCI95": [
+              -3.937767488536508,
+              0.35885384869558323
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.1358072612589847,
+                "bMS": 1.1055086797568947,
+                "savedMS": 0.030298581502089972,
+                "savedPercent": 2.6675812468838713
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.1141545255668461,
+                "bMS": 1.1136284738313407,
+                "savedMS": 0.0005260517355054617,
+                "savedPercent": 0.04721532995953352
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.1256093857809901,
+                "bMS": 1.152015591893966,
+                "savedMS": -0.02640620611297595,
+                "savedPercent": -2.345947577067717
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.133637153543532,
+                "bMS": 1.1225191216605406,
+                "savedMS": 0.01111803188299132,
+                "savedPercent": 0.980739899732334
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.1668454778070252,
+                "bMS": 1.1301753402221948,
+                "savedMS": 0.0366701375848304,
+                "savedPercent": 3.142672983037002
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.1063836670170228,
+                "bMS": 1.1082638811785728,
+                "savedMS": -0.0018802141615499313,
+                "savedPercent": -0.1699423281093142
+              }
+            ],
+            "meanA_MS": 1.1304062451624002,
+            "meanB_MS": 1.1220185147572517,
+            "meanSavedMS": 0.008387730405148544,
+            "meanSavedPercent": 0.7203865924059516,
+            "rangeSavedPercent": [
+              -2.345947577067717,
+              3.142672983037002
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -1.3984186154134572,
+              2.83919180022536
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.1183801883210738,
+                "bMS": 1.1307447857689112,
+                "savedMS": -0.012364597447837467,
+                "savedPercent": -1.1055808728514187
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.1172899491308879,
+                "bMS": 1.150366326328367,
+                "savedMS": -0.033076377197479134,
+                "savedPercent": -2.960411236421524
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.123887156912436,
+                "bMS": 1.1061076559902479,
+                "savedMS": 0.017779500922188163,
+                "savedPercent": 1.5819649519825765
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.1160451686009765,
+                "bMS": 1.1281371504689257,
+                "savedMS": -0.012091981867949242,
+                "savedPercent": -1.0834670681928762
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.0986302222590894,
+                "bMS": 1.1541597389926512,
+                "savedMS": -0.05552951673356188,
+                "savedPercent": -5.054431928822943
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.1231146151355158,
+                "bMS": 1.1341805511619896,
+                "savedMS": -0.011065936026473766,
+                "savedPercent": -0.9852900031167827
+              }
+            ],
+            "meanA_MS": 1.1162245500599965,
+            "meanB_MS": 1.1339493681185155,
+            "meanSavedMS": -0.017724818058518887,
+            "meanSavedPercent": -1.601202692903828,
+            "rangeSavedPercent": [
+              -5.054431928822943,
+              1.5819649519825765
+            ],
+            "positiveCycles": 1,
+            "meanPercentCI95": [
+              -3.938685041488961,
+              0.7362796556813052
+            ]
+          }
+        }
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 0,
+      "group": "wood-unscaled",
+      "materials": 4,
+      "maximumChannelDifference": 0,
+      "pose": "overview",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "wood-unscaled",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.6789079634472728,
+                "bMS": 0.6699114843892554,
+                "savedMS": 0.00899647905801737,
+                "savedPercent": 1.3251397158955376
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.670585073142623,
+                "bMS": 0.6625816070785125,
+                "savedMS": 0.008003466064110398,
+                "savedPercent": 1.1935049533093598
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.6634479505009949,
+                "bMS": 0.6591979084381213,
+                "savedMS": 0.004250042062873605,
+                "savedPercent": 0.6405991697863013
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.653000024612993,
+                "bMS": 0.6533333313806603,
+                "savedMS": -0.0003333067676672963,
+                "savedPercent": -0.051042382098658245
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.6550069859561821,
+                "bMS": 0.674725694504256,
+                "savedMS": -0.019718708548073893,
+                "savedPercent": -3.0104577463839464
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.6545260257553309,
+                "bMS": 0.6691301920606444,
+                "savedMS": -0.01460416630531347,
+                "savedPercent": -2.2312583045815613
+              }
+            ],
+            "meanA_MS": 0.6625790039025661,
+            "meanB_MS": 0.6648133696419083,
+            "meanSavedMS": -0.0022343657393422145,
+            "meanSavedPercent": -0.3555857656788279,
+            "rangeSavedPercent": [
+              -3.0104577463839464,
+              1.3251397158955376
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -2.283901125408729,
+              1.572729594051073
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.659960089251399,
+                "bMS": 0.6573212061387798,
+                "savedMS": 0.0026388831126192835,
+                "savedPercent": 0.39985495420073075
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.6533541988270978,
+                "bMS": 0.669756952750807,
+                "savedMS": -0.016402753923709268,
+                "savedPercent": -2.510545421328203
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.6553055524515609,
+                "bMS": 0.6580312619917095,
+                "savedMS": -0.002725709540148613,
+                "savedPercent": -0.4159448260359572
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.6597621346979091,
+                "bMS": 0.6681805340728412,
+                "savedMS": -0.00841839937493205,
+                "savedPercent": -1.2759749206866282
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.6572552180538574,
+                "bMS": 0.6553125276695937,
+                "savedMS": 0.0019426903842637566,
+                "savedPercent": 0.2955762587957981
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.6515434264050176,
+                "bMS": 0.6592465118349841,
+                "savedMS": -0.00770308542996645,
+                "savedPercent": -1.1822827332430175
+              }
+            ],
+            "meanA_MS": 0.656196769947807,
+            "meanB_MS": 0.6613081657431192,
+            "meanSavedMS": -0.0051113957953122235,
+            "meanSavedPercent": -0.7815527813828795,
+            "rangeSavedPercent": [
+              -2.510545421328203,
+              0.39985495420073075
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -1.9393645718547814,
+              0.3762590090890223
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.11362675771427651,
+                "bMS": 0.11767361623545487,
+                "savedMS": -0.004046858521178365,
+                "savedPercent": -3.5615365628530133
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.11560937855392694,
+                "bMS": 0.11838540861693521,
+                "savedMS": -0.002776030063008264,
+                "savedPercent": -2.401215280050452
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.11696007762414713,
+                "bMS": 0.11717531985292833,
+                "savedMS": -0.0002152422287811928,
+                "savedPercent": -0.1840305112252719
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.11489757647116979,
+                "bMS": 0.11552080589657028,
+                "savedMS": -0.0006232294254004955,
+                "savedPercent": -0.5424217329395776
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.11586630716919899,
+                "bMS": 0.11708853223050635,
+                "savedMS": -0.0012222250613073554,
+                "savedPercent": -1.0548580438682198
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.11296701268292964,
+                "bMS": 0.11863715675038596,
+                "savedMS": -0.00567014406745632,
+                "savedPercent": -5.019291855907535
+              }
+            ],
+            "meanA_MS": 0.11498785170260817,
+            "meanB_MS": 0.11741347326379684,
+            "meanSavedMS": -0.0024256215611886656,
+            "meanSavedPercent": -2.1272256644740115,
+            "rangeSavedPercent": [
+              -5.019291855907535,
+              -0.1840305112252719
+            ],
+            "positiveCycles": 0,
+            "meanPercentCI95": [
+              -4.115056412447052,
+              -0.1393949165009709
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.11718922178260982,
+                "bMS": 0.11566841082337002,
+                "savedMS": 0.0015208109592397961,
+                "savedPercent": 1.2977396181203034
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.11472047966284056,
+                "bMS": 0.1170347483518223,
+                "savedMS": -0.002314268688981741,
+                "savedPercent": -2.0173108548563388
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.11262496506484847,
+                "bMS": 0.11371182821070154,
+                "savedMS": -0.001086863145853073,
+                "savedPercent": -0.965028619744536
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.11410934772963326,
+                "bMS": 0.11469791449295978,
+                "savedMS": -0.0005885667633265257,
+                "savedPercent": -0.5157918917572427
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.11274477583356202,
+                "bMS": 0.11344789527356625,
+                "savedMS": -0.0007031194400042295,
+                "savedPercent": -0.6236381551214403
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.11482116921494405,
+                "bMS": 0.11632466339506209,
+                "savedMS": -0.0015034941801180396,
+                "savedPercent": -1.3094224613786278
+              }
+            ],
+            "meanA_MS": 0.11436832654807302,
+            "meanB_MS": 0.11514757675791366,
+            "meanSavedMS": -0.0007792502098406354,
+            "meanSavedPercent": -0.6889087274563137,
+            "rangeSavedPercent": [
+              -2.0173108548563388,
+              1.2977396181203034
+            ],
+            "positiveCycles": 1,
+            "meanPercentCI95": [
+              -1.8583542065152283,
+              0.4805367516026009
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.9602934102683017,
+                "bMS": 0.9504531529576828,
+                "savedMS": 0.009840257310618883,
+                "savedPercent": 1.02471361413066
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.9507864403227965,
+                "bMS": 0.9429860995927205,
+                "savedMS": 0.007800340730075961,
+                "savedPercent": 0.8204093368672474
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.9455468874269476,
+                "bMS": 0.9446978995886942,
+                "savedMS": 0.0008489878382533789,
+                "savedPercent": 0.08978802104289843
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.9327708394266665,
+                "bMS": 0.9353906110239526,
+                "savedMS": -0.0026197715972861024,
+                "savedPercent": -0.28085907991038417
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.931576369718338,
+                "bMS": 0.9567829838488251,
+                "savedMS": -0.02520661413048708,
+                "savedPercent": -2.7058022240418462
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.9310781412447492,
+                "bMS": 0.9530798512666175,
+                "savedMS": -0.022001710021868348,
+                "savedPercent": -2.3630358234438282
+              }
+            ],
+            "meanA_MS": 0.9420086814012999,
+            "meanB_MS": 0.9472317663797488,
+            "meanSavedMS": -0.005223084978448885,
+            "meanSavedPercent": -0.5691310258925422,
+            "rangeSavedPercent": [
+              -2.7058022240418462,
+              1.02471361413066
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -2.2466565740240734,
+              1.108394522238989
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.9399965347256511,
+                "bMS": 0.9332430781796575,
+                "savedMS": 0.006753456545993686,
+                "savedPercent": 0.7184554726007325
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.9344930488926669,
+                "bMS": 0.9457743241606901,
+                "savedMS": -0.011281275268023139,
+                "savedPercent": -1.2072080451953016
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.9421649059125533,
+                "bMS": 0.9415278133625785,
+                "savedMS": 0.0006370925499747937,
+                "savedPercent": 0.067620067991996
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.9392812304819623,
+                "bMS": 0.9453645810329666,
+                "savedMS": -0.006083350551004285,
+                "savedPercent": -0.6476601845735602
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.935137136063228,
+                "bMS": 0.9324600784263263,
+                "savedMS": 0.0026770576369017363,
+                "savedPercent": 0.2862743370637278
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.9296562542052319,
+                "bMS": 0.9361510650099566,
+                "savedMS": -0.006494810804724693,
+                "savedPercent": -0.6986249783558055
+              }
+            ],
+            "meanA_MS": 0.9367881850468822,
+            "meanB_MS": 0.9390868233620293,
+            "meanSavedMS": -0.0022986383151469836,
+            "meanSavedPercent": -0.24685722174470184,
+            "rangeSavedPercent": [
+              -1.2072080451953016,
+              0.7184554726007325
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -1.0040250367306547,
+              0.510310593241251
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "cpu": [
+    {
+      "callsPerGroup": 240,
+      "pose": "low",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.0020655672415159643,
+        "median": 0.002080468402709812,
+        "p95": 0.0021776038920506835,
+        "min": 0.0019204861018806696,
+        "max": 0.0021776038920506835
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.0001657841494306922,
+        "median": 0.00016736109197760624,
+        "p95": 0.00017517401526371637,
+        "min": 0.0001553814702977737,
+        "max": 0.00017517401526371637
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "low",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.5894557228505922,
+          "median": 0.5774375749751925,
+          "p95": 0.6819998379796743,
+          "min": 0.5565832834690809,
+          "max": 0.8778751362115145
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.09459331583154078,
+          "median": 0.09060418233275414,
+          "p95": 0.12379162944853306,
+          "min": 0.07908325642347336,
+          "max": 0.21004164591431618
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.8436202236528819,
+          "median": 0.8249583188444376,
+          "p95": 0.95708342269063,
+          "min": 0.7967916317284107,
+          "max": 1.1366666294634342
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.0014101581958432992,
+          "median": 0.0012707896530628204,
+          "p95": 0.0019583385437726974,
+          "min": 0.0009166542440652847,
+          "max": 0.005958369001746178
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.013967442403857907,
+          "median": 0.013541663065552711,
+          "p95": 0.017291633412241936,
+          "min": 0.012166565284132957,
+          "max": 0.023541739210486412
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "low",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.5879314097304208,
+          "median": 0.5770208081230521,
+          "p95": 0.6231248844414949,
+          "min": 0.5598333664238453,
+          "max": 0.8626249618828297
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.1343797678903987,
+          "median": 0.13039575424045324,
+          "p95": 0.16424991190433502,
+          "min": 0.08445815183222294,
+          "max": 0.2742083743214607
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.8928845345508307,
+          "median": 0.8676249999552965,
+          "p95": 1.046125078573823,
+          "min": 0.8066250011324883,
+          "max": 2.1794582717120647
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.008409287450679889,
+          "median": 0.007354188710451126,
+          "p95": 0.01366669312119484,
+          "min": 0.00100000761449337,
+          "max": 0.026999972760677338
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.016629773502548535,
+          "median": 0.01637497916817665,
+          "p95": 0.019666505977511406,
+          "min": 0.013625016435980797,
+          "max": 0.023250002413988113
+        }
+      }
+    },
+    {
+      "callsPerGroup": 240,
+      "pose": "near",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.0023080871970806685,
+        "median": 0.0022796875176330405,
+        "p95": 0.002615277965863546,
+        "min": 0.002095311841306587,
+        "max": 0.002615277965863546
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.00017161461679885784,
+        "median": 0.00017074683758740622,
+        "p95": 0.00018177088350057602,
+        "min": 0.0001666669656212131,
+        "max": 0.00018177088350057602
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "near",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.8821618976071477,
+          "median": 0.8576874388381839,
+          "p95": 1.0701250284910202,
+          "min": 0.8497082162648439,
+          "max": 1.2158332392573357
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.09138151896574224,
+          "median": 0.0855207908898592,
+          "p95": 0.11987495236098766,
+          "min": 0.07399986498057842,
+          "max": 0.20733335986733437
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 1.1369796217574428,
+          "median": 1.1078541865572333,
+          "p95": 1.329916762188077,
+          "min": 1.0675415396690369,
+          "max": 1.4764582738280296
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.0015646777076957126,
+          "median": 0.0013958197087049484,
+          "p95": 0.0024582259356975555,
+          "min": 0.0009583309292793274,
+          "max": 0.006458256393671036
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.0140117093299826,
+          "median": 0.013291602954268456,
+          "p95": 0.018291641026735306,
+          "min": 0.01200009137392044,
+          "max": 0.024166656658053398
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "near",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.8718941050271193,
+          "median": 0.8578959386795759,
+          "p95": 0.9290834423154593,
+          "min": 0.8516248781234026,
+          "max": 1.1710000690072775
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.11034461931558326,
+          "median": 0.10343757458031178,
+          "p95": 0.15512504614889622,
+          "min": 0.08045835420489311,
+          "max": 0.20925002172589302
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 1.1450368886774716,
+          "median": 1.1319583281874657,
+          "p95": 1.2344166170805693,
+          "min": 1.0854166466742754,
+          "max": 1.4471665490418673
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.007977849842670063,
+          "median": 0.006604124791920185,
+          "p95": 0.015541678294539452,
+          "min": 0.0011664815247058868,
+          "max": 0.02816668711602688
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.01324348704656586,
+          "median": 0.012854230590164661,
+          "p95": 0.01591653563082218,
+          "min": 0.012083211913704872,
+          "max": 0.016166595742106438
+        }
+      }
+    },
+    {
+      "callsPerGroup": 240,
+      "pose": "overview",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.0023022858335429598,
+        "median": 0.0022880204293566444,
+        "p95": 0.002455555174189309,
+        "min": 0.002154166577383876,
+        "max": 0.002455555174189309
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.0001756220525648031,
+        "median": 0.00017447940384348232,
+        "p95": 0.0001861112347493569,
+        "min": 0.0001723955695827802,
+        "max": 0.0001861112347493569
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "overview",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.6935534038348123,
+          "median": 0.6533958949148655,
+          "p95": 0.9304583072662354,
+          "min": 0.6148333195596933,
+          "max": 1.2625835370272398
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.12278602177199598,
+          "median": 0.11404161341488361,
+          "p95": 0.16474979929625988,
+          "min": 0.10558334179222584,
+          "max": 0.33508334308862686
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.9892165714215176,
+          "median": 0.9350208565592766,
+          "p95": 1.2381249107420444,
+          "min": 0.88900001719594,
+          "max": 1.666500000283122
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.001914922904688865,
+          "median": 0.0016667181625962257,
+          "p95": 0.0028333161026239395,
+          "min": 0.0014584511518478394,
+          "max": 0.008291564881801605
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.013603736685278514,
+          "median": 0.012749922461807728,
+          "p95": 0.017708400264382362,
+          "min": 0.01183338463306427,
+          "max": 0.0319166574627161
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "overview",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.6609414000801431,
+          "median": 0.6455000257119536,
+          "p95": 0.7893333677202463,
+          "min": 0.6031668744981289,
+          "max": 0.931750051677227
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.14154124073684216,
+          "median": 0.13837497681379318,
+          "p95": 0.16670837067067623,
+          "min": 0.11041667312383652,
+          "max": 0.19095814786851406
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.9637751766907362,
+          "median": 0.9471668163314462,
+          "p95": 1.0862499475479126,
+          "min": 0.8924582507461309,
+          "max": 1.2457501143217087
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.008320302489058426,
+          "median": 0.007541733793914318,
+          "p95": 0.013583339750766754,
+          "min": 0.0015415716916322708,
+          "max": 0.029125018045306206
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.012844619050156325,
+          "median": 0.012583332136273384,
+          "p95": 0.014374963939189911,
+          "min": 0.011916505172848701,
+          "max": 0.015750061720609665
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "domain": "y>=0, x signed, not both zero; actual call has y>1e-7",
+  "method": "degree9 Chebyshev projection in u, converted to Float32 Horner FMA",
+  "coefficientsAscending": [
+    1.0,
+    -0.3333328366279602,
+    0.19998230040073395,
+    -0.14261573553085327,
+    0.10940198600292206,
+    -0.08372063934803009,
+    0.05746355652809143,
+    -0.030717508867383003,
+    0.010680719278752804,
+    -0.0017437011701986194
+  ],
+  "samples": 400001,
+  "maximumAbsoluteAngleErrorRadians": 2.980184072853831e-07,
+  "worstXY": [
+    -0.7327638268470764,
+    0.6804830431938171
+  ],
+  "boundary": "host fmaf rounded Float32; not a GPU performance or image claim"
+}

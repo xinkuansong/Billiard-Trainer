@@ -1,0 +1,4708 @@
+{
+  "source": "/Users/song/projects/13.billiard_trainer/output/local-test-runs/4364b8d6d0dc495a919a6a6916d28cb8/evidence/attachments/2E5CCB6B-EA9C-4997-B367-61CFEDC29388.json",
+  "completed": true,
+  "scope": "Native current production scene; independent shader arithmetic candidates: cloth-batch2,cloth-batch4; original clipping and per-pixel shading retained; maximum added image difference 1/255; no page/phone claim",
+  "inventory": [
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "materialRasterState": {
+        "balls": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_6_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_3_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_11_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_9_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_2_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_13_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_4_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_10_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_14_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_15_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_8_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6040_002",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_5_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_7_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_12_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_1_001",
+            "transparency": 1
+          }
+        ],
+        "cloth": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "TaiNi",
+            "transparency": 1
+          }
+        ],
+        "leather": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Leather",
+            "transparency": 1
+          }
+        ],
+        "legs": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "MG_Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "MG_Gold",
+            "transparency": 1
+          }
+        ],
+        "other": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "WeiBian",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Black",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White_Wood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "black_2",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "PiTou",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "copp",
+            "transparency": 1
+          }
+        ],
+        "room": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_perimeter_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_floor_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "room_ceiling_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_practice",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_calm",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_again",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_next",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_control",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_enjoy",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_angle",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_route",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          }
+        ],
+        "wood": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "BlackWood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Wood",
+            "transparency": 1
+          }
+        ]
+      },
+      "pose": "low",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    },
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "materialRasterState": {
+        "balls": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_6_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_3_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_11_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_9_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_2_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_13_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_4_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_10_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_14_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_15_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_8_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6040_002",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_5_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_7_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_12_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_1_001",
+            "transparency": 1
+          }
+        ],
+        "cloth": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "TaiNi",
+            "transparency": 1
+          }
+        ],
+        "leather": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Leather",
+            "transparency": 1
+          }
+        ],
+        "legs": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "MG_Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "MG_Gold",
+            "transparency": 1
+          }
+        ],
+        "other": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "WeiBian",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Black",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White_Wood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "black_2",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "PiTou",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "copp",
+            "transparency": 1
+          }
+        ],
+        "room": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_perimeter_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_floor_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "room_ceiling_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_practice",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_calm",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_again",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_next",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_control",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_enjoy",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_angle",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_route",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          }
+        ],
+        "wood": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "BlackWood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Wood",
+            "transparency": 1
+          }
+        ]
+      },
+      "pose": "near",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    },
+    {
+      "activeBalls": [
+        "cueBall",
+        "_1",
+        "_2",
+        "_3",
+        "_4",
+        "_5",
+        "_6",
+        "_7",
+        "_8",
+        "_9",
+        "_10",
+        "_11",
+        "_12",
+        "_13",
+        "_14",
+        "_15"
+      ],
+      "clothSHA256": "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f",
+      "geometryMaterialSlots": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 9,
+        "room": 41,
+        "wood": 2
+      },
+      "hdr": true,
+      "materialCounts": {
+        "balls": 16,
+        "cloth": 1,
+        "leather": 1,
+        "legs": 2,
+        "other": 8,
+        "room": 41,
+        "wood": 2
+      },
+      "materialRasterState": {
+        "balls": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_6_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_3_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_11_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_9_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_2_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_13_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_4_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_10_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_14_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_15_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_8_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6040_002",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_5_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_7_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_12_001",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Lime__q6038_1_001",
+            "transparency": 1
+          }
+        ],
+        "cloth": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "TaiNi",
+            "transparency": 1
+          }
+        ],
+        "leather": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Leather",
+            "transparency": 1
+          }
+        ],
+        "legs": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "MG_Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "MG_Gold",
+            "transparency": 1
+          }
+        ],
+        "other": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Gold",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "WeiBian",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "Black",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "White_Wood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "black_2",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "PiTou",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": true,
+            "name": "copp",
+            "transparency": 1
+          }
+        ],
+        "room": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_perimeter_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Room_tournament_floor_baked",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "room_ceiling_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_practice",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_calm",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_again",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_next",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_control",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_enjoy",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_angle",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "poster_frame_tournament",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Poster_tournament_route",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "",
+            "transparency": 1
+          }
+        ],
+        "wood": [
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "BlackWood",
+            "transparency": 1
+          },
+          {
+            "cullMode": 0,
+            "depthRead": true,
+            "depthWrite": true,
+            "doubleSided": false,
+            "name": "Wood",
+            "transparency": 1
+          }
+        ]
+      },
+      "pose": "overview",
+      "surfaceSHAs": {
+        "balls": [
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "322f57974266ad8890a667a3062df76245bc072f2067898fed41c747c9de62c6",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec",
+          "dff6613589dca0362740e01a4608bff2890ea0b13523fdd3a2eb52536ec330ec"
+        ],
+        "cloth": [
+          "14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f"
+        ],
+        "leather": [
+          "80e7ef934d7488f89ddaded22784e3673dfeb77bbe18e20d6c5402ad2a293a08"
+        ],
+        "legs": [
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d",
+          "7bb2715c7f9f8b4a5cb33752df5e780cdec7c26c6a3599d515aeff7e47778f0d"
+        ],
+        "other": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "46d8a9881af87322cb9ced2ee3bf56133a80512318e09b3c42d0678ae918489d",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "7be9ca7047010e3df2d9b7b51595594de9e255861bf3daa0e9264e0088aee438",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "room": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "19a786f5542fb0cdf17610a8cff9f1505abf228189407968290ffeef3c9d9557",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "wood": [
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e",
+          "bb1856db218940840a8b43a04a2c09b8321f3ef667780eef717349d07df9f50e"
+        ]
+      }
+    }
+  ],
+  "materials": [
+    {
+      "aaMaximum": 0,
+      "changedPixels": 0,
+      "group": "cloth-batch2",
+      "materials": 1,
+      "maximumChannelDifference": 0,
+      "pose": "low",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "cloth-batch2",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.686963515666624,
+                "bMS": 0.5575520917773247,
+                "savedMS": 0.12941142388929927,
+                "savedPercent": 18.8381800398409
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.5513715053287646,
+                "bMS": 0.562934020611768,
+                "savedMS": -0.01156251528300345,
+                "savedPercent": -2.0970462149851405
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.5551979217367867,
+                "bMS": 0.552789958116288,
+                "savedMS": 0.0024079636204987764,
+                "savedPercent": 0.433712650250223
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.5562291577613602,
+                "bMS": 0.5629513858972738,
+                "savedMS": -0.0067222281359136105,
+                "savedPercent": -1.208535734258947
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.5530469158353905,
+                "bMS": 0.5586684079995999,
+                "savedMS": -0.005621492164209485,
+                "savedPercent": -1.0164584600780366
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.5518802111813178,
+                "bMS": 0.550281237034748,
+                "savedMS": 0.0015989741465698426,
+                "savedPercent": 0.28973210384680864
+              }
+            ],
+            "meanA_MS": 0.5757815379183739,
+            "meanB_MS": 0.557529516906167,
+            "meanSavedMS": 0.018252021012206892,
+            "meanSavedPercent": 2.539930730769301,
+            "rangeSavedPercent": [
+              -2.0970462149851405,
+              18.8381800398409
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -5.900535259930637,
+              10.980396721469239
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.5581284640356898,
+                "bMS": 0.5557413387577981,
+                "savedMS": 0.002387125277891755,
+                "savedPercent": 0.4277017625352842
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.5602916741433243,
+                "bMS": 0.5551111050105343,
+                "savedMS": 0.0051805691327899694,
+                "savedPercent": 0.9246200455701872
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.5554583040066063,
+                "bMS": 0.5542448391982665,
+                "savedMS": 0.001213464808339837,
+                "savedPercent": 0.21846190786723832
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.5600885391080132,
+                "bMS": 0.563861132832244,
+                "savedMS": -0.0037725937242308882,
+                "savedPercent": -0.6735709554491246
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.5629965356395891,
+                "bMS": 0.5518229154404253,
+                "savedMS": 0.011173620199163792,
+                "savedPercent": 1.984669441432719
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.5551267240662128,
+                "bMS": 0.5731389101129025,
+                "savedMS": -0.01801218604668975,
+                "savedPercent": -3.2446980600669737
+              }
+            ],
+            "meanA_MS": 0.5586817068332393,
+            "meanB_MS": 0.5589867068920285,
+            "meanSavedMS": -0.00030500005878921394,
+            "meanSavedPercent": -0.06046930968511159,
+            "rangeSavedPercent": [
+              -3.2446980600669737,
+              1.984669441432719
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -1.937141611058757,
+              1.8162029916885336
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.09671178607580562,
+                "bMS": 0.0935416513433059,
+                "savedMS": 0.0031701347324997187,
+                "savedPercent": 3.277919746012002
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.10500172114310165,
+                "bMS": 0.09051213661829631,
+                "savedMS": 0.014489584524805338,
+                "savedPercent": 13.799378112153228
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08499307053474088,
+                "bMS": 0.08517364040017128,
+                "savedMS": -0.00018056986543039943,
+                "savedPercent": -0.21245245558764886
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.08452258771285415,
+                "bMS": 0.08702603129980464,
+                "savedMS": -0.002503443586950496,
+                "savedPercent": -2.9618633961555507
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.084687490016222,
+                "bMS": 0.08464062314790984,
+                "savedMS": 4.68668683121648e-05,
+                "savedPercent": 0.055340958036644364
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08412153692916036,
+                "bMS": 0.084472238086164,
+                "savedMS": -0.00035070115700364113,
+                "savedPercent": -0.41689818066325907
+              }
+            ],
+            "meanA_MS": 0.09000636540198077,
+            "meanB_MS": 0.08756105348260866,
+            "meanSavedMS": 0.002445311919372114,
+            "meanSavedPercent": 2.2569041306325692,
+            "rangeSavedPercent": [
+              -2.9618633961555507,
+              13.799378112153228
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -4.033742085162033,
+              8.547550346427172
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.08502954733557999,
+                "bMS": 0.08489236158008377,
+                "savedMS": 0.00013718575549621914,
+                "savedPercent": 0.16133892252160065
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.08403647613401215,
+                "bMS": 0.08457290823571384,
+                "savedMS": -0.0005364321017016921,
+                "savedPercent": -0.638332455594936
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08396179570506017,
+                "bMS": 0.08387150592170656,
+                "savedMS": 9.028978335361149e-05,
+                "savedPercent": 0.10753674643975003
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.0836857749770085,
+                "bMS": 0.08389934858617683,
+                "savedMS": -0.00021357360916832158,
+                "savedPercent": -0.25520897575125273
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.08338714057269196,
+                "bMS": 0.08323263803807397,
+                "savedMS": 0.00015450253461798957,
+                "savedPercent": 0.18528340647836872
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08255034723939995,
+                "bMS": 0.08336632163263857,
+                "savedMS": -0.0008159743932386193,
+                "savedPercent": -0.9884566455817012
+              }
+            ],
+            "meanA_MS": 0.08377518032729211,
+            "meanB_MS": 0.08397251399906559,
+            "meanSavedMS": -0.0001973336717734688,
+            "meanSavedPercent": -0.23797316691469508,
+            "rangeSavedPercent": [
+              -0.9884566455817012,
+              0.18528340647836872
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -0.7482553471058646,
+              0.2723090132764745
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.9387603883321086,
+                "bMS": 0.8010294889875998,
+                "savedMS": 0.13773089934450877,
+                "savedPercent": 14.671571261034419
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8125885215122253,
+                "bMS": 0.8185416809283197,
+                "savedMS": -0.005953159416094422,
+                "savedPercent": -0.7326167252542045
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8169062493834645,
+                "bMS": 0.8042847330216318,
+                "savedMS": 0.012621516361832619,
+                "savedPercent": 1.5450385367180544
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8284982662492743,
+                "bMS": 0.8271093829534948,
+                "savedMS": 0.001388883295779464,
+                "savedPercent": 0.16763864842676496
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8080277863579491,
+                "bMS": 0.8244357789711406,
+                "savedMS": -0.01640799261319148,
+                "savedPercent": -2.0306223239113814
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8029097419542571,
+                "bMS": 0.8065676762877653,
+                "savedMS": -0.0036579343335081393,
+                "savedPercent": -0.4555847491157402
+              }
+            ],
+            "meanA_MS": 0.8346151589648798,
+            "meanB_MS": 0.8136614568583254,
+            "meanSavedMS": 0.020953702106554468,
+            "meanSavedPercent": 2.194237441316319,
+            "rangeSavedPercent": [
+              -2.0306223239113814,
+              14.671571261034419
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -4.337821294380614,
+              8.726296177013252
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8183367996631811,
+                "bMS": 0.8057343657128513,
+                "savedMS": 0.012602433950329783,
+                "savedPercent": 1.540005772136462
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8193646208383143,
+                "bMS": 0.8120104030240327,
+                "savedMS": 0.007354217814281583,
+                "savedPercent": 0.8975513010016569
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.794220482930541,
+                "bMS": 0.8017794946984699,
+                "savedMS": -0.007559011767928836,
+                "savedPercent": -0.9517523068704227
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8091215471116205,
+                "bMS": 0.8012100879568607,
+                "savedMS": 0.007911459154759881,
+                "savedPercent": 0.977783768458767
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8096301947565129,
+                "bMS": 0.7909617949432383,
+                "savedMS": 0.018668399813274617,
+                "savedPercent": 2.3057934269470923
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.7920208639310052,
+                "bMS": 0.8164183721722414,
+                "savedMS": -0.02439750824123621,
+                "savedPercent": -3.080412316431292
+              }
+            ],
+            "meanA_MS": 0.8071157515385292,
+            "meanB_MS": 0.8046857530846157,
+            "meanSavedMS": 0.00242999845391347,
+            "meanSavedPercent": 0.2814949408737106,
+            "rangeSavedPercent": [
+              -3.080412316431292,
+              2.3057934269470923
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -1.784353107967555,
+              2.347342989714976
+            ]
+          }
+        }
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 0,
+      "group": "cloth-batch4",
+      "materials": 1,
+      "maximumChannelDifference": 0,
+      "pose": "low",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "cloth-batch4",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8606839983258396,
+                "bMS": 0.56264060549438,
+                "savedMS": 0.29804339283145964,
+                "savedPercent": 34.62866666641869
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.5615242892721047,
+                "bMS": 0.5574999862195303,
+                "savedMS": 0.004024303052574396,
+                "savedPercent": 0.7166747956336916
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.561487841575096,
+                "bMS": 0.5525538193372389,
+                "savedMS": 0.008934022237857109,
+                "savedPercent": 1.5911336945062293
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.5500781117007136,
+                "bMS": 0.5742881815725317,
+                "savedMS": -0.024210069871818063,
+                "savedPercent": -4.401205820927169
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.5694912979379296,
+                "bMS": 0.5522292146148781,
+                "savedMS": 0.01726208332305157,
+                "savedPercent": 3.0311408419331123
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.551786448340863,
+                "bMS": 0.5563003457306573,
+                "savedMS": -0.004513897389794352,
+                "savedPercent": -0.8180515131110864
+              }
+            ],
+            "meanA_MS": 0.6091753311920911,
+            "meanB_MS": 0.5592520254948694,
+            "meanSavedMS": 0.04992330569722172,
+            "meanSavedPercent": 5.791393110742244,
+            "rangeSavedPercent": [
+              -4.401205820927169,
+              34.62866666641869
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -9.274579983001985,
+              20.85736620448647
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.5587274499703199,
+                "bMS": 0.5636701243929565,
+                "savedMS": -0.004942674422636628,
+                "savedPercent": -0.8846306768889174
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.5637812331163635,
+                "bMS": 0.5678489784865329,
+                "savedMS": -0.004067745370169407,
+                "savedPercent": -0.7215113116987757
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.5543107496729741,
+                "bMS": 0.569131972345834,
+                "savedMS": -0.014821222672859902,
+                "savedPercent": -2.673811157659121
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.5623090255539864,
+                "bMS": 0.5603524429413179,
+                "savedMS": 0.0019565826126685115,
+                "savedPercent": 0.3479550431794844
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.5591961768611023,
+                "bMS": 0.569171883398667,
+                "savedMS": -0.009975706537564633,
+                "savedPercent": -1.783936827601466
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.5792500063156089,
+                "bMS": 0.5628819635603577,
+                "savedMS": 0.016368042755251166,
+                "savedPercent": 2.8257302678962617
+              }
+            ],
+            "meanA_MS": 0.5629291069150592,
+            "meanB_MS": 0.5655095608542777,
+            "meanSavedMS": -0.002580453939218482,
+            "meanSavedPercent": -0.4817007771287557,
+            "rangeSavedPercent": [
+              -2.673811157659121,
+              2.8257302678962617
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -2.492372754532698,
+              1.528971200275187
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.0949947958967338,
+                "bMS": 0.09119096406114598,
+                "savedMS": 0.0038038318355878287,
+                "savedPercent": 4.004252864254657
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.0937222212087363,
+                "bMS": 0.08710069232620299,
+                "savedMS": 0.006621528882533312,
+                "savedPercent": 7.065057568136346
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08522050726848344,
+                "bMS": 0.08635069631660978,
+                "savedMS": -0.00113018904812634,
+                "savedPercent": -1.326193758229729
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.08532987946333985,
+                "bMS": 0.08465453477886815,
+                "savedMS": 0.0006753446844716959,
+                "savedPercent": 0.7914515861490737
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.0847916235215962,
+                "bMS": 0.08480034496945639,
+                "savedMS": -8.721447860196574e-06,
+                "savedPercent": -0.010285742267896598
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08510416955687106,
+                "bMS": 0.08480036437201004,
+                "savedMS": 0.0003038051848610196,
+                "savedPercent": 0.3569803764526497
+              }
+            ],
+            "meanA_MS": 0.08819386615262678,
+            "meanB_MS": 0.0864829328040489,
+            "meanSavedMS": 0.0017109333485778866,
+            "meanSavedPercent": 1.8135438157491837,
+            "rangeSavedPercent": [
+              -1.326193758229729,
+              7.065057568136346
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -1.4631167140733716,
+              5.090204345571739
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.08936459198594093,
+                "bMS": 0.09803471039049327,
+                "savedMS": -0.00867011840455234,
+                "savedPercent": -9.701961606803225
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.12774302740581334,
+                "bMS": 0.0917013482345889,
+                "savedMS": 0.03604167917122443,
+                "savedPercent": 28.21420464439709
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08980210016792019,
+                "bMS": 0.09130206308327615,
+                "savedMS": -0.0014999629153559652,
+                "savedPercent": -1.6702982586723443
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.08956943444597225,
+                "bMS": 0.09207639959640801,
+                "savedMS": -0.002506965150435761,
+                "savedPercent": -2.798906977522502
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.09110240110506614,
+                "bMS": 0.08862499574509759,
+                "savedMS": 0.002477405359968543,
+                "savedPercent": 2.7193634085575997
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08857811917550862,
+                "bMS": 0.08476738003082573,
+                "savedMS": 0.003810739144682884,
+                "savedPercent": 4.302122443051978
+              }
+            ],
+            "meanA_MS": 0.09602661238103691,
+            "meanB_MS": 0.09108448284678161,
+            "meanSavedMS": 0.004942129534255299,
+            "meanSavedPercent": 3.5107539421680993,
+            "rangeSavedPercent": [
+              -9.701961606803225,
+              28.21420464439709
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -10.196510433066036,
+              17.218018317402233
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.2214531016070396,
+                "bMS": 0.8245434049361696,
+                "savedMS": 0.39690969667086995,
+                "savedPercent": 32.49487812087622
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8131006907206029,
+                "bMS": 0.8070780895650387,
+                "savedMS": 0.006022601155564189,
+                "savedPercent": 0.7406956142451084
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8192812674678862,
+                "bMS": 0.7969791768118739,
+                "savedMS": 0.022302090656012297,
+                "savedPercent": 2.722153128795476
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8105225764059772,
+                "bMS": 0.8231336832977831,
+                "savedMS": -0.01261110689180589,
+                "savedPercent": -1.5559229636423102
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8136006945278496,
+                "bMS": 0.8027413083861271,
+                "savedMS": 0.010859386141722438,
+                "savedPercent": 1.3347316705554657
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8013958189015588,
+                "bMS": 0.8054080050593863,
+                "savedMS": -0.004012186157827502,
+                "savedPercent": -0.5006497492496087
+              }
+            ],
+            "meanA_MS": 0.879892358271819,
+            "meanB_MS": 0.8099806113427298,
+            "meanSavedMS": 0.06991174692908925,
+            "meanSavedPercent": 5.872647636930059,
+            "rangeSavedPercent": [
+              -1.5559229636423102,
+              32.49487812087622
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -7.904018260474559,
+              19.649313534334677
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8063958278701951,
+                "bMS": 0.8168281250012418,
+                "savedMS": -0.010432297131046653,
+                "savedPercent": -1.2936943335383837
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8451423103300234,
+                "bMS": 0.8148766937665641,
+                "savedMS": 0.030265616563459274,
+                "savedPercent": 3.5811266568396887
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.7983628602232784,
+                "bMS": 0.8120642451103777,
+                "savedMS": -0.013701384887099266,
+                "savedPercent": -1.7161851546134543
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8019218706370642,
+                "bMS": 0.8042378370494893,
+                "savedMS": -0.002315966412425041,
+                "savedPercent": -0.288802001445002
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8047413139138371,
+                "bMS": 0.8164913257739196,
+                "savedMS": -0.01175001186008251,
+                "savedPercent": -1.460098003784179
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8173037980062267,
+                "bMS": 0.7952795325157543,
+                "savedMS": 0.022024265490472317,
+                "savedPercent": 2.6947464999183235
+              }
+            ],
+            "meanA_MS": 0.8123113301634375,
+            "meanB_MS": 0.8099629598695578,
+            "meanSavedMS": 0.002348370293879687,
+            "meanSavedPercent": 0.2528489438961655,
+            "rangeSavedPercent": [
+              -1.7161851546134543,
+              3.5811266568396887
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -2.1652017552721303,
+              2.670899643064461
+            ]
+          }
+        }
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 3,
+      "group": "cloth-batch2",
+      "materials": 1,
+      "maximumChannelDifference": 1,
+      "pose": "near",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "cloth-batch2",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.0384270863141865,
+                "bMS": 0.8655017494068792,
+                "savedMS": 0.17292533690730727,
+                "savedPercent": 16.652621949711644
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8728298416826874,
+                "bMS": 0.8653298718854785,
+                "savedMS": 0.007499969797208905,
+                "savedPercent": 0.8592705518351742
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8654565899632871,
+                "bMS": 0.8671284789064279,
+                "savedMS": -0.0016718889431407424,
+                "savedPercent": -0.19317998875156342
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8751683635637164,
+                "bMS": 0.8819166590304425,
+                "savedMS": -0.006748295466726062,
+                "savedPercent": -0.7710853988422027
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8639062386161337,
+                "bMS": 0.8794079864552865,
+                "savedMS": -0.015501747839152813,
+                "savedPercent": -1.7943785038506739
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.872420147061348,
+                "bMS": 0.8770816105728348,
+                "savedMS": -0.004661463511486885,
+                "savedPercent": -0.5343140603972198
+              }
+            ],
+            "meanA_MS": 0.8980347112002265,
+            "meanB_MS": 0.8727277260428916,
+            "meanSavedMS": 0.025306985157334944,
+            "meanSavedPercent": 2.36982242495086,
+            "rangeSavedPercent": [
+              -1.7943785038506739,
+              16.652621949711644
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -5.029552360105244,
+              9.769197210006963
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8692465101679167,
+                "bMS": 0.8686093885141114,
+                "savedMS": 0.0006371216538052504,
+                "savedPercent": 0.07329585409346935
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8833593553087363,
+                "bMS": 0.8606059030474474,
+                "savedMS": 0.022753452261288887,
+                "savedPercent": 2.575786640459193
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8928559254854918,
+                "bMS": 0.8594201256831487,
+                "savedMS": 0.033435799802343014,
+                "savedPercent": 3.7448146837534004
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8739080027832339,
+                "bMS": 0.8597708365414292,
+                "savedMS": 0.014137166241804722,
+                "savedPercent": 1.6176950201600724
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.864550374293079,
+                "bMS": 0.8739201487818112,
+                "savedMS": -0.009369774488732219,
+                "savedPercent": -1.0837742677971363
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8653211698401719,
+                "bMS": 0.8693576673977077,
+                "savedMS": -0.0040364975575357676,
+                "savedPercent": -0.46647391722559195
+              }
+            ],
+            "meanA_MS": 0.8748735563131049,
+            "meanB_MS": 0.8652806783276092,
+            "meanSavedMS": 0.009592877985495648,
+            "meanSavedPercent": 1.0768906689072346,
+            "rangeSavedPercent": [
+              -1.0837742677971363,
+              3.7448146837534004
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -0.8987477040304501,
+              3.0525290418449194
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.10437501866059999,
+                "bMS": 0.080625022140642,
+                "savedMS": 0.02374999651995799,
+                "savedPercent": 22.75448361565013
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.07852257112972438,
+                "bMS": 0.08287325423831741,
+                "savedMS": -0.004350683108593031,
+                "savedPercent": -5.5406783629199055
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.0761892491330703,
+                "bMS": 0.07940452390660842,
+                "savedMS": -0.0032152747735381126,
+                "savedPercent": -4.22011610578074
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.07885417047267158,
+                "bMS": 0.0779287947807461,
+                "savedMS": 0.0009253756919254813,
+                "savedPercent": 1.1735279014141526
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.08118922899787624,
+                "bMS": 0.07885242424284418,
+                "savedMS": 0.0023368047550320625,
+                "savedPercent": 2.8782201578650155
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.07974477678847809,
+                "bMS": 0.07945661006184916,
+                "savedMS": 0.00028816672662893006,
+                "savedPercent": 0.36136125553813797
+              }
+            ],
+            "meanA_MS": 0.08314583586373676,
+            "meanB_MS": 0.07985677156183454,
+            "meanSavedMS": 0.0032890643019022198,
+            "meanSavedPercent": 2.901133076961132,
+            "rangeSavedPercent": [
+              -5.5406783629199055,
+              22.75448361565013
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -7.85994278933822,
+              13.662208943260485
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.08009374141693115,
+                "bMS": 0.09351735934615135,
+                "savedMS": -0.0134236179292202,
+                "savedPercent": -16.759883720930233
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.0822343669521312,
+                "bMS": 0.08080903595934312,
+                "savedMS": 0.0014253309927880764,
+                "savedPercent": 1.7332546544898493
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.07868752193947633,
+                "bMS": 0.07978647287624578,
+                "savedMS": -0.001098950936769455,
+                "savedPercent": -1.3966012776647476
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.07809723805015285,
+                "bMS": 0.07839930670646329,
+                "savedMS": -0.0003020686563104391,
+                "savedPercent": -0.3867853253868661
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.07786110897238056,
+                "bMS": 0.07855902852800985,
+                "savedMS": -0.0006979195556292839,
+                "savedPercent": -0.8963647767678916
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.07883510746372242,
+                "bMS": 0.07755902091351648,
+                "savedMS": 0.001276086550205946,
+                "savedPercent": 1.6186780119417774
+              }
+            ],
+            "meanA_MS": 0.07930151413246575,
+            "meanB_MS": 0.08143837072162165,
+            "meanSavedMS": -0.0021368565891558924,
+            "meanSavedPercent": -2.6812837390530184,
+            "rangeSavedPercent": [
+              -16.759883720930233,
+              1.7332546544898493
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -10.047783740764922,
+              4.685216262658885
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.3192100741434842,
+                "bMS": 1.1163385449132572,
+                "savedMS": 0.202871529230227,
+                "savedPercent": 15.378258035358334
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.1114513908978552,
+                "bMS": 1.1175017183025677,
+                "savedMS": -0.006050327404712563,
+                "savedPercent": -0.5443627543463664
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.0965242981910706,
+                "bMS": 1.1010555608663708,
+                "savedMS": -0.0045312626753002405,
+                "savedPercent": -0.41323869272896524
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.120927093628173,
+                "bMS": 1.1202117990857612,
+                "savedMS": 0.0007152945424118151,
+                "savedPercent": 0.06381276235339961
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.1123367973292868,
+                "bMS": 1.1247517250012606,
+                "savedMS": -0.01241492767197383,
+                "savedPercent": -1.116112287373931
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.1171267251484096,
+                "bMS": 1.1270312631192307,
+                "savedMS": -0.009904537970821137,
+                "savedPercent": -0.8866082735157307
+              }
+            ],
+            "meanA_MS": 1.1462627298897132,
+            "meanB_MS": 1.117815101881408,
+            "meanSavedMS": 0.028447628008305175,
+            "meanSavedPercent": 2.08029146495779,
+            "rangeSavedPercent": [
+              -1.116112287373931,
+              15.378258035358334
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -4.770801975877369,
+              8.931384905792948
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.119734379850949,
+                "bMS": 1.1175729353756954,
+                "savedMS": 0.002161444475253571,
+                "savedPercent": 0.19303189346935004
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.1230242962483317,
+                "bMS": 1.1050555622205138,
+                "savedMS": 0.017968734027817845,
+                "savedPercent": 1.6000307462488295
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.1388698185328394,
+                "bMS": 1.0991163435392082,
+                "savedMS": 0.039753474993631244,
+                "savedPercent": 3.490607473016017
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.1139705020468682,
+                "bMS": 1.1044635515039165,
+                "savedMS": 0.009506950542951698,
+                "savedPercent": 0.8534292896879339
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.1032447800971568,
+                "bMS": 1.1188246329159786,
+                "savedMS": -0.015579852818821793,
+                "savedPercent": -1.4121845940163669
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.1099565987630438,
+                "bMS": 1.1104843579232693,
+                "savedMS": -0.0005277591602255161,
+                "savedPercent": -0.047547729416957445
+              }
+            ],
+            "meanA_MS": 1.118133395923198,
+            "meanB_MS": 1.1092528972464302,
+            "meanSavedMS": 0.008880498676767842,
+            "meanSavedPercent": 0.7795611798314677,
+            "rangeSavedPercent": [
+              -1.4121845940163669,
+              3.490607473016017
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -0.9679797597874289,
+              2.5271021194503644
+            ]
+          }
+        }
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 3,
+      "group": "cloth-batch4",
+      "materials": 1,
+      "maximumChannelDifference": 1,
+      "pose": "near",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "cloth-batch4",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.9129756945185363,
+                "bMS": 0.8660451470253369,
+                "savedMS": 0.04693054749319947,
+                "savedPercent": 5.14039396393226
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8753506990615278,
+                "bMS": 0.8654444536659867,
+                "savedMS": 0.009906245395541191,
+                "savedPercent": 1.1316887512812608
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8752621652092785,
+                "bMS": 0.8737916456690679,
+                "savedMS": 0.001470519540210602,
+                "savedPercent": 0.16800903759606645
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8668177179060876,
+                "bMS": 0.8730538053593287,
+                "savedMS": -0.006236087453241113,
+                "savedPercent": -0.7194231641117355
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8667916796791056,
+                "bMS": 0.8776493195910007,
+                "savedMS": -0.010857639911895034,
+                "savedPercent": -1.252623919499854
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8669305340542147,
+                "bMS": 0.8814253281646719,
+                "savedMS": -0.014494794110457176,
+                "savedPercent": -1.6719671924199089
+              }
+            ],
+            "meanA_MS": 0.8773547484047918,
+            "meanB_MS": 0.8729016165792322,
+            "meanSavedMS": 0.004453131825559657,
+            "meanSavedPercent": 0.4660129127963481,
+            "rangeSavedPercent": [
+              -1.6719671924199089,
+              5.14039396393226
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -2.1605920844525115,
+              3.0926179100452074
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8660034703401228,
+                "bMS": 0.8841128728818148,
+                "savedMS": -0.01810940254169202,
+                "savedPercent": -2.0911466480128023
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.8772691168511907,
+                "bMS": 0.8747551764827222,
+                "savedMS": 0.0025139403684685258,
+                "savedPercent": 0.2865643301672228
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8825104159768671,
+                "bMS": 0.874421860013778,
+                "savedMS": 0.008088555963089106,
+                "savedPercent": 0.9165394330372558
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.874718757889544,
+                "bMS": 0.8838489787497869,
+                "savedMS": -0.009130220860242844,
+                "savedPercent": -1.043789306893516
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.8760295168031007,
+                "bMS": 0.8778038221256187,
+                "savedMS": -0.0017743053225179883,
+                "savedPercent": -0.20253944513113786
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8663802097241083,
+                "bMS": 0.8982829749584198,
+                "savedMS": -0.03190276523431146,
+                "savedPercent": -3.682305398512119
+              }
+            ],
+            "meanA_MS": 0.8738185812641556,
+            "meanB_MS": 0.8822042808686901,
+            "meanSavedMS": -0.008385699604534447,
+            "meanSavedPercent": -0.9694461725575161,
+            "rangeSavedPercent": [
+              -3.682305398512119,
+              0.9165394330372558
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -2.7473438906846246,
+              0.8084515455695922
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.08506770245730877,
+                "bMS": 0.08844964516659577,
+                "savedMS": -0.003381942709287003,
+                "savedPercent": -3.9755895734744113
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.08153125721340378,
+                "bMS": 0.08020659637016554,
+                "savedMS": 0.0013246608432382345,
+                "savedPercent": 1.6247276057218207
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08160241607887049,
+                "bMS": 0.08140450033048789,
+                "savedMS": 0.00019791574838259884,
+                "savedPercent": 0.24253662807153775
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.08006424953540166,
+                "bMS": 0.0797743268776685,
+                "savedMS": 0.0002899226577331576,
+                "savedPercent": 0.3621125026657045
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.07850866920004289,
+                "bMS": 0.07774130790494382,
+                "savedMS": 0.0007673612950990644,
+                "savedPercent": 0.9774223699344596
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.08320484387998779,
+                "bMS": 0.079446171487992,
+                "savedMS": 0.0037586723919957876,
+                "savedPercent": 4.5173720864342775
+              }
+            ],
+            "meanA_MS": 0.08166318972750256,
+            "meanB_MS": 0.08117042468964225,
+            "meanSavedMS": 0.0004927650378603066,
+            "meanSavedPercent": 0.6247636032255648,
+            "rangeSavedPercent": [
+              -3.9755895734744113,
+              4.5173720864342775
+            ],
+            "positiveCycles": 5,
+            "meanPercentCI95": [
+              -2.2556373432249366,
+              3.505164549676066
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.07767708545240264,
+                "bMS": 0.08065103126379351,
+                "savedMS": -0.0029739458113908768,
+                "savedPercent": -3.828601181506984
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.08498442669709523,
+                "bMS": 0.08352082416725655,
+                "savedMS": 0.0014636025298386812,
+                "savedPercent": 1.7222008628184429
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.08076735927412908,
+                "bMS": 0.08248090549993019,
+                "savedMS": -0.0017135462258011103,
+                "savedPercent": -2.1215825813807228
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.09531594696454704,
+                "bMS": 0.08478645274105172,
+                "savedMS": 0.01052949422349532,
+                "savedPercent": 11.046938690554883
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.08231599349528551,
+                "bMS": 0.08422744576819241,
+                "savedMS": -0.0019114522729068995,
+                "savedPercent": -2.3220909956172417
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.080545093320931,
+                "bMS": 0.08103991664635639,
+                "savedMS": -0.0004948233254253864,
+                "savedPercent": -0.6143432269098859
+              }
+            ],
+            "meanA_MS": 0.08360098420073175,
+            "meanB_MS": 0.08278442934776346,
+            "meanSavedMS": 0.0008165548529682881,
+            "meanSavedPercent": 0.647086927993082,
+            "rangeSavedPercent": [
+              -3.828601181506984,
+              11.046938690554883
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -5.052136888406813,
+              6.346310744392977
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.1892274487763643,
+                "bMS": 1.1176770979849,
+                "savedMS": 0.07155035079146432,
+                "savedPercent": 6.016540474665705
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.11727777402848,
+                "bMS": 1.102123234886676,
+                "savedMS": 0.01515453914180398,
+                "savedPercent": 1.3563806149264437
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.1173159582540393,
+                "bMS": 1.1173489425952237,
+                "savedMS": -3.298434118437221e-05,
+                "savedPercent": -0.0029521050818888156
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.113289928374191,
+                "bMS": 1.1148628545925021,
+                "savedMS": -0.001572926218311066,
+                "savedPercent": -0.1412863063090952
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.109729171730578,
+                "bMS": 1.1214965585774432,
+                "savedMS": -0.011767386846865291,
+                "savedPercent": -1.0603836635667174
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.114661436683188,
+                "bMS": 1.1139704729430377,
+                "savedMS": 0.0006909637401502078,
+                "savedPercent": 0.061988664666309375
+              }
+            ],
+            "meanA_MS": 1.1269169529744734,
+            "meanB_MS": 1.114579860263297,
+            "meanSavedMS": 0.012337092711176298,
+            "meanSavedPercent": 1.0383812798834595,
+            "rangeSavedPercent": [
+              -1.0603836635667174,
+              6.016540474665705
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -1.6465331207816136,
+              3.7232956805485324
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 1.0943229135591537,
+                "bMS": 1.1179375287611037,
+                "savedMS": -0.023614615201950073,
+                "savedPercent": -2.1579201997284674
+              },
+              {
+                "cycle": 1,
+                "aMS": 1.1208732806456585,
+                "bMS": 1.1134426943802584,
+                "savedMS": 0.007430586265400052,
+                "savedPercent": 0.6629283072141571
+              },
+              {
+                "cycle": 2,
+                "aMS": 1.1177951528225094,
+                "bMS": 1.108581597994392,
+                "savedMS": 0.009213554828117365,
+                "savedPercent": 0.8242614762510383
+              },
+              {
+                "cycle": 3,
+                "aMS": 1.132864582662781,
+                "bMS": 1.1276024354932208,
+                "savedMS": 0.005262147169560194,
+                "savedPercent": 0.4644992217155908
+              },
+              {
+                "cycle": 4,
+                "aMS": 1.1201823072042316,
+                "bMS": 1.1205972308137764,
+                "savedMS": -0.0004149236095447595,
+                "savedPercent": -0.037040721575073994
+              },
+              {
+                "cycle": 5,
+                "aMS": 1.1157360956228028,
+                "bMS": 1.144873269367963,
+                "savedMS": -0.029137173745160228,
+                "savedPercent": -2.6114754070850315
+              }
+            ],
+            "meanA_MS": 1.1169623887528561,
+            "meanB_MS": 1.1221724594684523,
+            "meanSavedMS": -0.005210070715596242,
+            "meanSavedPercent": -0.47579122053463113,
+            "rangeSavedPercent": [
+              -2.6114754070850315,
+              0.8242614762510383
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -2.0644232050985667,
+              1.1128407640293043
+            ]
+          }
+        }
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 1,
+      "group": "cloth-batch2",
+      "materials": 1,
+      "maximumChannelDifference": 1,
+      "pose": "overview",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "cloth-batch2",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.701010450332736,
+                "bMS": 0.6449479357494662,
+                "savedMS": 0.05606251458326983,
+                "savedPercent": 7.997386423648841
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.6189809161393592,
+                "bMS": 0.6239114639659723,
+                "savedMS": -0.004930547826613063,
+                "savedPercent": -0.7965589403572153
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.6342812266666442,
+                "bMS": 0.629046883356447,
+                "savedMS": 0.005234343310197231,
+                "savedPercent": 0.8252401442977307
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.6223836486848692,
+                "bMS": 0.62592364459609,
+                "savedMS": -0.0035399959112207835,
+                "savedPercent": -0.5687803525528007
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.6319062764911602,
+                "bMS": 0.6241388812971612,
+                "savedMS": 0.007767395193998938,
+                "savedPercent": 1.229200513267508
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.6202013658670088,
+                "bMS": 0.6175902672111988,
+                "savedMS": 0.002611098655809996,
+                "savedPercent": 0.42100820790031923
+              }
+            ],
+            "meanA_MS": 0.6381273140302963,
+            "meanB_MS": 0.6275931793627225,
+            "meanSavedMS": 0.010534134667573691,
+            "meanSavedPercent": 1.5179159993673972,
+            "rangeSavedPercent": [
+              -0.7965589403572153,
+              7.997386423648841
+            ],
+            "positiveCycles": 4,
+            "meanPercentCI95": [
+              -1.914184309466021,
+              4.950016308200816
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.6161875304921219,
+                "bMS": 0.6289496765627215,
+                "savedMS": -0.012762146070599556,
+                "savedPercent": -2.071146434983355
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.621045163522164,
+                "bMS": 0.6180139122686038,
+                "savedMS": 0.0030312512535601854,
+                "savedPercent": 0.488088698150212
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.6300243355023364,
+                "bMS": 0.6283142526323596,
+                "savedMS": 0.001710082869976759,
+                "savedPercent": 0.27143124060648566
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.6154375150799751,
+                "bMS": 0.6299756933003664,
+                "savedMS": -0.014538178220391273,
+                "savedPercent": -2.362250896990259
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.6220850433843831,
+                "bMS": 0.6223889067769051,
+                "savedMS": -0.0003038633925219747,
+                "savedPercent": -0.04884595695611654
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.6220746436156332,
+                "bMS": 0.6253506774858882,
+                "savedMS": -0.0032760338702549907,
+                "savedPercent": -0.5266303495693007
+              }
+            ],
+            "meanA_MS": 0.621142371932769,
+            "meanB_MS": 0.6254988531711407,
+            "meanSavedMS": -0.004356481238371808,
+            "meanSavedPercent": -0.7082256166237222,
+            "rangeSavedPercent": [
+              -2.362250896990259,
+              0.488088698150212
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -1.989605986268233,
+              0.5731547530207886
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.11363539185064535,
+                "bMS": 0.12087323314820726,
+                "savedMS": -0.007237841297561914,
+                "savedPercent": -6.369354810757235
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.1113853941205889,
+                "bMS": 0.11077429129121204,
+                "savedMS": 0.0006111028293768611,
+                "savedPercent": 0.5486382071919271
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.10991838644258678,
+                "bMS": 0.11073780478909612,
+                "savedMS": -0.0008194183465093374,
+                "savedPercent": -0.7454788712144541
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.11013018471809725,
+                "bMS": 0.11017883662134409,
+                "savedMS": -4.8651903246835215e-05,
+                "savedPercent": -0.04417671991686076
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.11340622828962903,
+                "bMS": 0.11579339237262805,
+                "savedMS": -0.0023871640829990215,
+                "savedPercent": -2.1049673540878415
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.11809203230465452,
+                "bMS": 0.11431771175314982,
+                "savedMS": 0.0037743205515047007,
+                "savedPercent": 3.1960840014741096
+              }
+            ],
+            "meanA_MS": 0.11276126962103364,
+            "meanB_MS": 0.11377921166260622,
+            "meanSavedMS": -0.001017942041572591,
+            "meanSavedPercent": -0.9198759245517257,
+            "rangeSavedPercent": [
+              -6.369354810757235,
+              3.1960840014741096
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -4.271924425179753,
+              2.4321725760763013
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.11446701440339287,
+                "bMS": 0.11289235165653129,
+                "savedMS": 0.001574662746861577,
+                "savedPercent": 1.3756476091114884
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.11209201572152476,
+                "bMS": 0.11101211809242766,
+                "savedMS": 0.001079897629097104,
+                "savedPercent": 0.9634028098664426
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.11084548896178603,
+                "bMS": 0.11235244649772842,
+                "savedMS": -0.001506957535942391,
+                "savedPercent": -1.3595118304380562
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.11020313831977546,
+                "bMS": 0.11081769480369985,
+                "savedMS": -0.0006145564839243889,
+                "savedPercent": -0.55765787916233
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.11036979655424754,
+                "bMS": 0.11097397267197569,
+                "savedMS": -0.0006041761177281446,
+                "savedPercent": -0.5474107378925789
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.11040802928619087,
+                "bMS": 0.11018402680444221,
+                "savedMS": 0.00022400248174865578,
+                "savedPercent": 0.20288604297792007
+              }
+            ],
+            "meanA_MS": 0.11139758054115292,
+            "meanB_MS": 0.11137210175446752,
+            "meanSavedMS": 2.5478786685402082e-05,
+            "meanSavedPercent": 0.012892669077147654,
+            "rangeSavedPercent": [
+              -1.3595118304380562,
+              1.3756476091114884
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -1.0697425771394073,
+              1.0955279152937025
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.9965086840869238,
+                "bMS": 0.9374982522179683,
+                "savedMS": 0.05901043186895549,
+                "savedPercent": 5.921717774394037
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.9099357509209464,
+                "bMS": 0.905958324437961,
+                "savedMS": 0.00397742648298538,
+                "savedPercent": 0.4371106947891458
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.9097864870758107,
+                "bMS": 0.9057829641581824,
+                "savedMS": 0.004003522917628288,
+                "savedPercent": 0.44005082230845255
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.9001215318373094,
+                "bMS": 0.9114653027306,
+                "savedMS": -0.011343770893290639,
+                "savedPercent": -1.2602488099730234
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.9085954710220298,
+                "bMS": 0.9005954780150205,
+                "savedMS": 0.007999993007009265,
+                "savedPercent": 0.8804790759093821
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.8924079787296554,
+                "bMS": 0.8895885451541593,
+                "savedMS": 0.0028194335754960775,
+                "savedPercent": 0.3159354961740198
+              }
+            ],
+            "meanA_MS": 0.9195593172787793,
+            "meanB_MS": 0.9084814777856486,
+            "meanSavedMS": 0.011077839493130645,
+            "meanSavedPercent": 1.122507508933669,
+            "rangeSavedPercent": [
+              -1.2602488099730234,
+              5.921717774394037
+            ],
+            "positiveCycles": 5,
+            "meanPercentCI95": [
+              -1.4636424194034727,
+              3.7086574372708103
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.8856180550840994,
+                "bMS": 0.8955138619057834,
+                "savedMS": -0.009895806821684006,
+                "savedPercent": -1.1173899137302805
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.902503466932103,
+                "bMS": 0.8979426929727197,
+                "savedMS": 0.0045607739593833685,
+                "savedPercent": 0.5053469738888531
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.9111753800728669,
+                "bMS": 0.9136580241223177,
+                "savedMS": -0.002482644049450755,
+                "savedPercent": -0.27246610298581786
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.8907899706779668,
+                "bMS": 0.9198541617176185,
+                "savedMS": -0.029064191039651632,
+                "savedPercent": -3.2627434071278683
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.9138316284709921,
+                "bMS": 0.9264774659338096,
+                "savedMS": -0.012645837462817555,
+                "savedPercent": -1.3838257583594868
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.9090590465348214,
+                "bMS": 0.9086041633660594,
+                "savedMS": 0.0004548831687619659,
+                "savedPercent": 0.05003890236788284
+              }
+            ],
+            "meanA_MS": 0.9021629246288083,
+            "meanB_MS": 0.9103417283363847,
+            "meanSavedMS": -0.008178803707576435,
+            "meanSavedPercent": -0.9135065509911195,
+            "rangeSavedPercent": [
+              -3.2627434071278683,
+              0.5053469738888531
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -2.332159750496899,
+              0.5051466485146603
+            ]
+          }
+        }
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "changedPixels": 1,
+      "group": "cloth-batch4",
+      "materials": 1,
+      "maximumChannelDifference": 1,
+      "pose": "overview",
+      "qualityPassed": true,
+      "restoreMaximum": 0,
+      "variant": "cloth-batch4",
+      "metrics": {
+        "gpuSpanMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.6209409815104058,
+                "bMS": 0.626298647451525,
+                "savedMS": -0.005357665941119194,
+                "savedPercent": -0.8628301401667768
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.6286475885038575,
+                "bMS": 0.618767342530191,
+                "savedMS": 0.009880245973666546,
+                "savedPercent": 1.5716668852863847
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.6187447773603102,
+                "bMS": 0.6265138896803061,
+                "savedMS": -0.007769112319995886,
+                "savedPercent": -1.2556247105859193
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.6179079646244645,
+                "bMS": 0.6209131776510427,
+                "savedMS": -0.0030052130265781907,
+                "savedPercent": -0.4863528548955698
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.6158992958565553,
+                "bMS": 0.6190416655347993,
+                "savedMS": -0.0031423696782439947,
+                "savedPercent": -0.5102083570129395
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.6252812163438648,
+                "bMS": 0.6225712034696093,
+                "savedMS": 0.0027100128742555407,
+                "savedPercent": 0.43340705004725527
+              }
+            ],
+            "meanA_MS": 0.6212369706999097,
+            "meanB_MS": 0.6223509877195789,
+            "meanSavedMS": -0.0011140170196691963,
+            "meanSavedPercent": -0.18499035455459426,
+            "rangeSavedPercent": [
+              -1.2556247105859193,
+              1.5716668852863847
+            ],
+            "positiveCycles": 2,
+            "meanPercentCI95": [
+              -1.2626218495378718,
+              0.8926411404286833
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.6196492856057981,
+                "bMS": 0.6291979419377943,
+                "savedMS": -0.009548656331996197,
+                "savedPercent": -1.5409775422658616
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.626744789769873,
+                "bMS": 0.6246354217485836,
+                "savedMS": 0.0021093680212894705,
+                "savedPercent": 0.33655932298439756
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.6215468747541308,
+                "bMS": 0.6233281261908511,
+                "savedMS": -0.0017812514367202548,
+                "savedPercent": -0.2865836044023028
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.628970495502775,
+                "bMS": 0.6272968894336373,
+                "savedMS": 0.0016736060691376897,
+                "savedPercent": 0.2660865781629189
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.6288194272201508,
+                "bMS": 0.618126776923115,
+                "savedMS": 0.01069265029703581,
+                "savedPercent": 1.7004325620640048
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.6235399147650847,
+                "bMS": 0.6259444441335896,
+                "savedMS": -0.002404529368504882,
+                "savedPercent": -0.3856255728890708
+              }
+            ],
+            "meanA_MS": 0.6248784646029688,
+            "meanB_MS": 0.6247549333945952,
+            "meanSavedMS": 0.0001235312083736062,
+            "meanSavedPercent": 0.014981957275681024,
+            "rangeSavedPercent": [
+              -1.5409775422658616,
+              1.7004325620640048
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -1.1036884187753564,
+              1.1336523333267186
+            ]
+          }
+        },
+        "cpuEncodeMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.1146388822235167,
+                "bMS": 0.11571529709423582,
+                "savedMS": -0.0010764148707191196,
+                "savedPercent": -0.9389614150462353
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.11039759071233372,
+                "bMS": 0.11482466167459886,
+                "savedMS": -0.004427070962265134,
+                "savedPercent": -4.010115559315858
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.10959032806567848,
+                "bMS": 0.10976217648324867,
+                "savedMS": -0.00017184841757018898,
+                "savedPercent": -0.1568098395208733
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.11034028527016441,
+                "bMS": 0.11026565334759653,
+                "savedMS": 7.463192256788875e-05,
+                "savedPercent": 0.06763796412629806
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.10975174761066835,
+                "bMS": 0.10867535214250286,
+                "savedMS": 0.0010763954681654864,
+                "savedPercent": 0.9807547411307518
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.10968923258284728,
+                "bMS": 0.10965974070131779,
+                "savedMS": 2.949188152949478e-05,
+                "savedPercent": 0.026886760746748617
+              }
+            ],
+            "meanA_MS": 0.1107346777442015,
+            "meanB_MS": 0.11148381357391675,
+            "meanSavedMS": -0.000749135829715262,
+            "meanSavedPercent": -0.6717678913131948,
+            "rangeSavedPercent": [
+              -4.010115559315858,
+              0.9807547411307518
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -2.504634838329843,
+              1.1610990557034535
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.10935416988407572,
+                "bMS": 0.10904687223955989,
+                "savedMS": 0.00030729764451582764,
+                "savedPercent": 0.28101136412227173
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.11016666151893635,
+                "bMS": 0.10938019840978086,
+                "savedMS": 0.0007864631091554913,
+                "savedPercent": 0.7138848525606883
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.1094461864947031,
+                "bMS": 0.10932639512854318,
+                "savedMS": 0.00011979136615991592,
+                "savedPercent": 0.10945229797085118
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.11671008542180061,
+                "bMS": 0.10964582907035947,
+                "savedMS": 0.007064256351441145,
+                "savedPercent": 6.052824249001528
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.11000865682338674,
+                "bMS": 0.10988888485978048,
+                "savedMS": 0.00011977196360626885,
+                "savedPercent": 0.10887503498797971
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.10932637572598954,
+                "bMS": 0.10976386450541516,
+                "savedMS": -0.00043748877942562103,
+                "savedPercent": -0.40016764163308793
+              }
+            ],
+            "meanA_MS": 0.11083535597814867,
+            "meanB_MS": 0.10950867403557317,
+            "meanSavedMS": 0.0013266819425755045,
+            "meanSavedPercent": 1.1443133595017052,
+            "rangeSavedPercent": [
+              -0.40016764163308793,
+              6.052824249001528
+            ],
+            "positiveCycles": 5,
+            "meanPercentCI95": [
+              -1.4074405008091309,
+              3.6960672198125413
+            ]
+          }
+        },
+        "cpuWallMS": {
+          "AA": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.9131961851380765,
+                "bMS": 0.9254149529927721,
+                "savedMS": -0.012218767854695556,
+                "savedPercent": -1.3380222183963746
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.9022343826169769,
+                "bMS": 0.9167690974815438,
+                "savedMS": -0.014534714864566922,
+                "savedPercent": -1.6109688507334692
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.9118090480721245,
+                "bMS": 0.9155712323263288,
+                "savedMS": -0.0037621842542042705,
+                "savedPercent": -0.41260659368963404
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.9179583382016668,
+                "bMS": 0.9075711811116586,
+                "savedMS": 0.010387157090008259,
+                "savedPercent": 1.1315499470659307
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.9083697805181146,
+                "bMS": 0.8946441036338607,
+                "savedMS": 0.013725676884253857,
+                "savedPercent": 1.5110230633635815
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.9189531362305084,
+                "bMS": 0.8952222415246069,
+                "savedMS": 0.023730894705901506,
+                "savedPercent": 2.582383559105553
+              }
+            ],
+            "meanA_MS": 0.9120868117962446,
+            "meanB_MS": 0.9091988015117951,
+            "meanSavedMS": 0.002888010284449479,
+            "meanSavedPercent": 0.3105598177859312,
+            "rangeSavedPercent": [
+              -1.6109688507334692,
+              2.582383559105553
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -1.4588526608648866,
+              2.079972296436749
+            ]
+          },
+          "AB": {
+            "cycles": [
+              {
+                "cycle": 0,
+                "aMS": 0.9000833185079197,
+                "bMS": 0.909331584504495,
+                "savedMS": -0.009248265996575356,
+                "savedPercent": -1.027489989694102
+              },
+              {
+                "cycle": 1,
+                "aMS": 0.9172430339579781,
+                "bMS": 0.9094305666318784,
+                "savedMS": 0.007812467326099748,
+                "savedPercent": 0.8517336231367512
+              },
+              {
+                "cycle": 2,
+                "aMS": 0.8980538307999572,
+                "bMS": 0.9093263846201202,
+                "savedMS": -0.011272553820163012,
+                "savedPercent": -1.255220281185348
+              },
+              {
+                "cycle": 3,
+                "aMS": 0.9112899133469909,
+                "bMS": 0.9090868018878003,
+                "savedMS": 0.00220311145919061,
+                "savedPercent": 0.24175747222955746
+              },
+              {
+                "cycle": 4,
+                "aMS": 0.9123801719397306,
+                "bMS": 0.8931111078709364,
+                "savedMS": 0.01926906406879425,
+                "savedPercent": 2.1119555927906677
+              },
+              {
+                "cycle": 5,
+                "aMS": 0.9023090242408216,
+                "bMS": 0.9199617973839244,
+                "savedMS": -0.017652773143102762,
+                "savedPercent": -1.9563999327121135
+              }
+            ],
+            "meanA_MS": 0.9068932154655663,
+            "meanB_MS": 0.9083747071498591,
+            "meanSavedMS": -0.0014814916842927535,
+            "meanSavedPercent": -0.1722772525724312,
+            "rangeSavedPercent": [
+              -1.9563999327121135,
+              2.1119555927906677
+            ],
+            "positiveCycles": 3,
+            "meanPercentCI95": [
+              -1.7658127586901717,
+              1.4212582535453093
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "cpu": [
+    {
+      "callsPerGroup": 240,
+      "pose": "low",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.002351779484241787,
+        "median": 0.0022476563268962004,
+        "p95": 0.0026935769710689783,
+        "min": 0.002110764035023749,
+        "max": 0.0026935769710689783
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.0001683014690772527,
+        "median": 0.00016736109197760624,
+        "p95": 0.00017777783796191216,
+        "min": 0.0001586799044162035,
+        "max": 0.00017777783796191216
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "low",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.5613337683219773,
+          "median": 0.5543126026168466,
+          "p95": 0.5823748651891947,
+          "min": 0.5348748527467251,
+          "max": 0.7312500383704901
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.09282726387027651,
+          "median": 0.08666666690260172,
+          "p95": 0.1283334568142891,
+          "min": 0.08316664025187492,
+          "max": 0.20524999126791954
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.8342608634848148,
+          "median": 0.8048958843573928,
+          "p95": 0.9562084451317787,
+          "min": 0.7675832603126764,
+          "max": 1.3889584224671125
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.0014114508909794192,
+          "median": 0.0012083910405635834,
+          "p95": 0.00237487256526947,
+          "min": 0.0010416842997074127,
+          "max": 0.006499933078885078
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.013573361987558505,
+          "median": 0.012645847164094448,
+          "p95": 0.01629185862839222,
+          "min": 0.011958181858062744,
+          "max": 0.050333328545093536
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "low",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.5554904588886226,
+          "median": 0.5522082792595029,
+          "p95": 0.5735415033996105,
+          "min": 0.5360001232475042,
+          "max": 0.72825001552701
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.1104956633450153,
+          "median": 0.10662502609193325,
+          "p95": 0.13266666792333126,
+          "min": 0.08462509140372276,
+          "max": 0.1615416258573532
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.8266089498647489,
+          "median": 0.8190834196284413,
+          "p95": 0.888958340510726,
+          "min": 0.7879999466240406,
+          "max": 0.9827502071857452
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.007152790203690529,
+          "median": 0.006437534466385841,
+          "p95": 0.0116666778922081,
+          "min": 0.0012083910405635834,
+          "max": 0.02720835618674755
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.01306684862356633,
+          "median": 0.012625008821487427,
+          "p95": 0.015041790902614594,
+          "min": 0.012041768059134483,
+          "max": 0.019791768863797188
+        }
+      }
+    },
+    {
+      "callsPerGroup": 240,
+      "pose": "near",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.002314294073989408,
+        "median": 0.0023144098425594466,
+        "p95": 0.0026953125294918814,
+        "min": 0.002045833389274776,
+        "max": 0.0026953125294918814
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.00017421900540486805,
+        "median": 0.00017369796599571902,
+        "p95": 0.00017708419666936,
+        "min": 0.00017291749827563763,
+        "max": 0.00017708419666936
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "near",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.8751045970711857,
+          "median": 0.8676249999552965,
+          "p95": 0.8886251598596573,
+          "min": 0.8618333376944065,
+          "max": 1.0761248413473368
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.0842039977821211,
+          "median": 0.07812492549419403,
+          "p95": 0.12287497520446777,
+          "min": 0.0724999699741602,
+          "max": 0.14291657134890556
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 1.1528272564949777,
+          "median": 1.1159374844282866,
+          "p95": 1.5960000455379486,
+          "min": 1.0847081430256367,
+          "max": 1.8544583581387997
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.0013059761840850115,
+          "median": 0.0011667143553495407,
+          "p95": 0.002499902620911598,
+          "min": 0.0009583309292793274,
+          "max": 0.003666616976261139
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.012988726666662842,
+          "median": 0.012354226782917976,
+          "p95": 0.01733331009745598,
+          "min": 0.0116666778922081,
+          "max": 0.018916791304945946
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "near",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.8810338792197095,
+          "median": 0.8700626203790307,
+          "p95": 0.9443750604987144,
+          "min": 0.8637499995529652,
+          "max": 1.1100834235548973
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.10566014922612037,
+          "median": 0.09995826985687017,
+          "p95": 0.1366250216960907,
+          "min": 0.08862512186169624,
+          "max": 0.19945832900702953
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 1.148520396479095,
+          "median": 1.135916681960225,
+          "p95": 1.247250009328127,
+          "min": 1.1042917612940073,
+          "max": 1.3592916075140238
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.007471363157189141,
+          "median": 0.006416579708456993,
+          "p95": 0.01200009137392044,
+          "min": 0.001250067725777626,
+          "max": 0.031958334147930145
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.012804261738589654,
+          "median": 0.012479140423238277,
+          "p95": 0.015791505575180054,
+          "min": 0.0116666778922081,
+          "max": 0.017458340153098106
+        }
+      }
+    },
+    {
+      "callsPerGroup": 240,
+      "pose": "overview",
+      "usesTwoViewPoseControl": true,
+      "stableCameraUpdateMS": {
+        "count": 12,
+        "mean": 0.002133969893394452,
+        "median": 0.0021406250501361983,
+        "p95": 0.002252778115992745,
+        "min": 0.001955208911870917,
+        "max": 0.002252778115992745
+      },
+      "stableViewportUpdateMS": {
+        "count": 12,
+        "mean": 0.00016851845430210233,
+        "median": 0.00016874982975423336,
+        "p95": 0.00017066001115987697,
+        "min": 0.0001666669656212131,
+        "max": 0.00017066001115987697
+      }
+    },
+    {
+      "changingBallState": false,
+      "pose": "overview",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.6496562540026692,
+          "median": 0.621145823970437,
+          "p95": 0.9633749723434448,
+          "min": 0.6027915515005589,
+          "max": 0.9962499607354403
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.12360589365319659,
+          "median": 0.11741661000996828,
+          "p95": 0.15533342957496643,
+          "min": 0.10949978604912758,
+          "max": 0.2630832605063915
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.9431371508981101,
+          "median": 0.9015001123771071,
+          "p95": 1.2628331314772367,
+          "min": 0.8625418413430452,
+          "max": 1.7114165239036083
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.0018151040421798825,
+          "median": 0.0016666017472743988,
+          "p95": 0.002541579306125641,
+          "min": 0.001250067725777626,
+          "max": 0.006125075742602348
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.014052086044102907,
+          "median": 0.013708136975765228,
+          "p95": 0.016416655853390694,
+          "min": 0.011750031262636185,
+          "max": 0.025291694328188896
+        }
+      }
+    },
+    {
+      "changingBallState": true,
+      "pose": "overview",
+      "frames": {
+        "gpuSpanMS": {
+          "count": 96,
+          "mean": 0.6316085079257997,
+          "median": 0.6258958019316196,
+          "p95": 0.663041602820158,
+          "min": 0.6007500924170017,
+          "max": 0.8313748985528946
+        },
+        "cpuEncodeMS": {
+          "count": 96,
+          "mean": 0.13887369520186135,
+          "median": 0.13606261927634478,
+          "p95": 0.1537916250526905,
+          "min": 0.11108326725661755,
+          "max": 0.18708338029682636
+        },
+        "cpuWallMS": {
+          "count": 96,
+          "mean": 0.9310025901262028,
+          "median": 0.922291656024754,
+          "p95": 1.0075417812913656,
+          "min": 0.8869166485965252,
+          "max": 1.1606665793806314
+        }
+      },
+      "callbacks": {
+        "contactUpdateMS": {
+          "count": 96,
+          "mean": 0.007864172706225267,
+          "median": 0.007291790097951889,
+          "p95": 0.011250143870711327,
+          "min": 0.0017082784324884415,
+          "max": 0.027708476409316063
+        },
+        "postRenderMaintenanceMS": {
+          "count": 96,
+          "mean": 0.012667546495019147,
+          "median": 0.012416858226060867,
+          "p95": 0.014791497960686684,
+          "min": 0.01183338463306427,
+          "max": 0.016458332538604736
+        }
+      }
+    }
+  ]
+}

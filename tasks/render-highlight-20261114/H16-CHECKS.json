@@ -1,0 +1,88 @@
+{
+  "runs": [
+    {
+      "id": "a2593999d59d41bd975ced4b5cf46d6f",
+      "task": "h16-batched-math-preflight",
+      "state": "reclaimed",
+      "exitCode": 0,
+      "workExists": false
+    },
+    {
+      "id": "4364b8d6d0dc495a919a6a6916d28cb8",
+      "task": "h16-r1-current-scene-grouped-samples",
+      "state": "reclaimed",
+      "exitCode": 0,
+      "workExists": false,
+      "testCounts": {
+        "totalTestCount": 1,
+        "passedTests": 1,
+        "failedTests": 0,
+        "skippedTests": 0
+      }
+    },
+    {
+      "id": "25632ad39fc54a74b92ec12838bce12a",
+      "task": "h16-r2-strip-mask-oracle",
+      "state": "reclaimed",
+      "exitCode": 0,
+      "workExists": false
+    },
+    {
+      "id": "625f04a83d344671914b52f61a9c0ded",
+      "task": "h16-r2-current-scene-strip-masks",
+      "state": "reclaimed",
+      "exitCode": 0,
+      "workExists": false,
+      "testCounts": {
+        "totalTestCount": 1,
+        "passedTests": 1,
+        "failedTests": 0,
+        "skippedTests": 0
+      }
+    },
+    {
+      "id": "4872b96fbe86494386bb1ed837d9e781",
+      "task": "h16-r3-packed-strip-mask-oracle",
+      "state": "reclaimed",
+      "exitCode": 0,
+      "workExists": false
+    },
+    {
+      "id": "915557b0425d42c696e64d1e733061b5",
+      "task": "h16-r3-current-scene-packed-strip-masks",
+      "state": "reclaimed",
+      "exitCode": 0,
+      "workExists": false,
+      "testCounts": {
+        "totalTestCount": 1,
+        "passedTests": 1,
+        "failedTests": 0,
+        "skippedTests": 0
+      }
+    }
+  ],
+  "productionComparedWithH15": {
+    "baseline": "output/local-test-runs/45049dd5c729464480350e8c347598a8/evidence/snapshot-manifest.json",
+    "checkedFiles": 3414,
+    "changedFiles": []
+  },
+  "formalTimedFrames": 8640,
+  "formalQualityPairs": 15,
+  "productionSnapshotMatches": [
+    "4364b8d6d0dc495a919a6a6916d28cb8",
+    "625f04a83d344671914b52f61a9c0ded",
+    "915557b0425d42c696e64d1e733061b5"
+  ],
+  "rawReports": [
+    "output/local-test-runs/4364b8d6d0dc495a919a6a6916d28cb8/evidence/attachments/2E5CCB6B-EA9C-4997-B367-61CFEDC29388.json",
+    "output/local-test-runs/625f04a83d344671914b52f61a9c0ded/evidence/attachments/40BE9377-A6B6-49CA-833B-0C23D5697280.json",
+    "output/local-test-runs/915557b0425d42c696e64d1e733061b5/evidence/attachments/8321A5F1-6218-405B-866A-97FF44FD66DD.json"
+  ],
+  "finalTestSourceMatchesFrozen": true,
+  "gates": {
+    "verify-gate": "passed",
+    "verify-doc-size": "passed",
+    "scopedDiffCheck": "passed",
+    "H16MarkdownLinks": "passed"
+  }
+}

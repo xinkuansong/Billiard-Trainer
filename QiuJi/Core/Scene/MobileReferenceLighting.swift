@@ -339,6 +339,12 @@ enum MobileReferenceLighting {
                 material.diffuse.contents = UIColor(red: 0.34, green: 0.22, blue: 0.14, alpha: 1)
                 material.lightingModel = .constant
                 material.shaderModifiers = [.surface: trialShader(matteWoodShader)]
+                // H15: the live App recipe culls opaque table backfaces;
+                // explicit legacy/export recipes retain their raster policy.
+                if scene.declaredRenderRecipe == .liveReference {
+                    material.isDoubleSided = false
+                    material.cullMode = .back
+                }
             }
             for material in node.geometry?.materials ?? [] where ["Wood", "BlackWood"].contains(material.name ?? "") {
                 // Source-aligned roughness modulates a weak matte coating. The
@@ -346,6 +352,10 @@ enum MobileReferenceLighting {
                 material.lightingModel = .constant
                 TableSurfaceTextures.bindWood(to: material)
                 material.shaderModifiers = [.surface: trialShader(woodCoatShader)]
+                if scene.declaredRenderRecipe == .liveReference {
+                    material.isDoubleSided = false
+                    material.cullMode = .back
+                }
             }
         }
         applySurfaceFinishes(to: scene)
@@ -375,7 +385,6 @@ enum MobileReferenceLighting {
         let shader = program.source
         let extraDeclaration = program.declaration
         let declarationSuffix = program.declarationSuffix
-        #if DEBUG
         let useStaticField = StaticClothIrradiance.requested() && program.state.effective
             && program.state.request == .guardCombo && !clothPrototype
         if useStaticField, let device = MTLCreateSystemDefaultDevice() {
@@ -389,8 +398,11 @@ enum MobileReferenceLighting {
         } else {
             scene.staticClothIrradiance = nil
         }
-        #endif
         var installedCloth = false
+        #if DEBUG
+        var installedStaticField = false
+        var installedConstantBalls = false
+        #endif
         scene.tableNode?.enumerateChildNodes { node,_ in
             for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
                 var mods=m.shaderModifiers ?? [:]
@@ -406,16 +418,24 @@ enum MobileReferenceLighting {
                 contactSource = contactSource.replacingOccurrences(of: "#pragma body",
                     with: "#pragma declaration\n" + extraDeclaration + analyticPanelDiffuse + declarationSuffix + (scene.renderingProfile.usesShadow ? "\n" + analyticShadowFunctions : "") + "\n#pragma body")
                 mods[.surface]=trialShader(contactSource+"\n"+shader)
-                #if DEBUG
                 if let field = scene.staticClothIrradiance,
                    let source = mods[.surface], let candidate = StaticClothIrradiance.replacingDiffuse(in: source) {
                     field.install(on: m)
                     mods[.surface] = candidate
+                    if ClothShadowProgram.requested(),
+                       let optimized = ClothShadowProgram.replacingLocalBalls(in: candidate) {
+                        mods[.surface] = optimized
+                        #if DEBUG
+                        installedConstantBalls = true
+                        #endif
+                    }
+                    #if DEBUG
+                    installedStaticField = true
+                    #endif
                 } else {
                     m.setValue(nil, forKey: "temporalField0")
                     m.setValue(nil, forKey: "temporalField1")
                 }
-                #endif
                 m.lightingModel = .physicallyBased;m.shaderModifiers=mods
                 installedCloth = true
                 #if DEBUG
@@ -430,6 +450,14 @@ enum MobileReferenceLighting {
                 #endif
             }
         }
+        #if DEBUG
+        if installedStaticField, let field = scene.staticClothIrradiance {
+            print("[StaticClothIrradiance] installed: \(StaticClothIrradiance.identity), bytes=\(field.allocatedBytes)")
+        }
+        if installedConstantBalls {
+            print("[ClothShadowProgram] installed: \(ClothShadowProgram.identity)")
+        }
+        #endif
         scene.recordSafeClothSupportState(installedCloth || !program.state.requested
             ? program.state : program.state.fallingBack("cloth-material-missing"))
     }

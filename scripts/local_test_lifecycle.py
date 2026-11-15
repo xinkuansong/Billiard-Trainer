@@ -101,7 +101,11 @@ def reclaim(run):
                 # rmtree does not follow nested symlinks; read-only build folders are writable first.
                 for base, _, _ in os.walk(work, followlinks=False):
                     p = Path(base)
-                    p.chmod(p.stat().st_mode | 0o700)
+                    mode = p.stat().st_mode
+                    # Native iOS-on-Mac wrappers can reject even a no-op chmod.
+                    # Only read-only snapshot directories need permission repair.
+                    if mode & 0o700 != 0o700:
+                        p.chmod(mode | 0o700)
                 shutil.rmtree(work)
                 r['free_space_delta'] = shutil.disk_usage(run).free - before
             r.update(state='reclaimed', reclaimed_at=time.time())

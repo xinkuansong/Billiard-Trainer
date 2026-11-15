@@ -371,9 +371,9 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     ///   Default `false` keeps the cheap 3-light look for the 2D pages.
     #if DEBUG
     private(set) var setupTiming: [String: Double] = [:]
-    // Experimental field lives only as long as a consuming scene. Process cache is weak.
-    var staticClothIrradiance: StaticClothIrradiance?
     #endif
+    // Scene owns the shared field wrapper; cached table materials may retain its textures.
+    var staticClothIrradiance: StaticClothIrradiance?
 
     /// - Parameter mobileRendering: production table rendering (v62 closeout,
     ///   ADR-P5-01): mobile base lighting + S267 reference lighting + surface
@@ -390,9 +390,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         probeRequestGeneration &+= 1
         pendingProbeInputs = nil
         roomReflectionProbe = nil
-        #if DEBUG
-        if !mobileRendering { staticClothIrradiance = nil }
-        #endif
+        if !mobileRendering || enhancedRendering { staticClothIrradiance = nil }
         installedProbeInputs = nil
         defer {
             isSettingUpScene = false

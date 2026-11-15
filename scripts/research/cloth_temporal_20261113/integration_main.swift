@@ -11,8 +11,10 @@ if(outputPeak>1.0){float mapped=1.0+\(headroom)*(1.0-exp(-(outputPeak-1.0)/\(hea
 // __HELPERS__
 try FileManager.default.createDirectory(at:output,withIntermediateDirectories:true)
 try candidate.write(to:output.appendingPathComponent("actual-candidate.surface"),atomically:true,encoding:.utf8)
-try need(!StaticClothIrradiance.requested(arguments:[]),"Default must be off")
+try need(StaticClothIrradiance.requested(arguments:[]),"Phone preview must work on icon launch")
 try need(StaticClothIrradiance.requested(arguments:[StaticClothIrradiance.launchArgument]),"Flag not accepted")
+try need(!StaticClothIrradiance.requested(arguments:[StaticClothIrradiance.disableArgument]),"Baseline override lost")
+try need(!StaticClothIrradiance.requested(arguments:[StaticClothIrradiance.launchArgument,StaticClothIrradiance.disableArgument]),"Disable must win")
 try need(!StaticClothIrradiance.requested(arguments:[StaticClothIrradiance.launchArgument,"-rendering.referenceCloth"]),"Reference override lost")
 try need(StaticClothIrradiance.replacingDiffuse(in:"#pragma body") == nil,"Drift must fail closed")
 try need(StaticClothIrradiance.replacingDiffuse(in:candidate) == nil,"Duplicate transform")
@@ -31,7 +33,7 @@ try autoreleasepool {
  try write(["sharedIdentity":true,"bytes":first.allocatedBytes,"prepareMS":first.preparationMilliseconds,"generationMS":first.generationMilliseconds],"resource.json")
 }
 try need(released == nil,"Weak cache retained last owner")
-try write(["defaultOff":true,"explicitOn":true,"referenceOverride":true,"driftRejected":true,"duplicateRejected":true,"rigDriftRejected":true,"lastOwnerReleased":true],"contracts.json")
+try write(["defaultOnDebug":true,"explicitOn":true,"baselineOverride":true,"referenceOverride":true,"driftRejected":true,"duplicateRejected":true,"rigDriftRejected":true,"lastOwnerReleased":true],"contracts.json")
 let field=try StaticClothIrradiance.acquire(emitter:emitter,radiance:StaticClothIrradiance.expectedRadiance,device:device)
 let colors:[(String,[Double])]=[("green",[48,155,32]),("tournamentBlue",[50,141,181]),("mistGray",[133,140,139]),("burgundy",[121,62,75]),("blueGray",[88,126,142]),("camel",[171,146,108])]
 var comparisons=[[String:Any]](),largest=0,aaChanges=0

@@ -16,10 +16,22 @@ if mode=="corrupt" || mode=="truncated" {
  path=out.appendingPathComponent("broken.bin");try bytes.write(to:path!)
 }
 var report:[String:Any]=["mode":mode,"supports32BitFloatFiltering":device.supports32BitFloatFiltering]
+try need(StaticClothIrradiance.requested(arguments:[]),"Icon launch must enable the preview")
+#if DEBUG
+try need(!StaticClothIrradiance.requested(arguments:[StaticClothIrradiance.disableArgument]),"Baseline override lost")
+try need(!StaticClothIrradiance.requested(arguments:[StaticClothIrradiance.launchArgument,StaticClothIrradiance.disableArgument]),"Disable must win")
+try need(!StaticClothIrradiance.requested(arguments:[StaticClothIrradiance.launchArgument,"-rendering.referenceCloth"]),"Reference override lost")
+#else
+try need(StaticClothIrradiance.requested(arguments:[StaticClothIrradiance.disableArgument,"-rendering.referenceCloth"]),"Release must ignore diagnostic arguments")
+#endif
+report["launchPolicyPassed"]=true
 if mode != "valid" {
  var rejected=false
  do {_=try StaticClothIrradiance.acquire(emitter:emitter,radiance:StaticClothIrradiance.expectedRadiance,device:device,assetURL:path)} catch{rejected=true;report["error"]=String(describing:error)}
  try need(rejected,"Invalid asset accepted");report["rejected"]=rejected
+ let recovered=try StaticClothIrradiance.acquire(emitter:emitter,radiance:StaticClothIrradiance.expectedRadiance,device:device,assetURL:asset)
+ try need(recovered.fields.count==2,"Preparation did not recover")
+ report["recoveredAfterFailure"]=true
 } else {
  weak var released:StaticClothIrradiance?
  try autoreleasepool {
