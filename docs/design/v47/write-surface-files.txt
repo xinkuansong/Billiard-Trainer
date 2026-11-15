@@ -16,6 +16,7 @@ QiuJiTests/BankKickDifficultyTests.swift
 QiuJiTests/BankKickSpinSearchEvidenceTests.swift
 QiuJiTests/BatchSequenceReplayRegressionTests.swift
 QiuJiTests/BreakFlowRunnerV6Tests.swift
+QiuJiTests/ClothSupportPerformanceResearchTests.swift
 QiuJiTests/CueClearanceTests.swift
 QiuJiTests/CueSpinPreviewCaptureTests.swift
 QiuJiTests/CueStyleTests.swift

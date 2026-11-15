@@ -261,3 +261,7 @@ ProfileView 路由签名仅因同步/游客合并说明加入自定义球形而�
 ### 2026-10-28 练习视图合并
 
 `TrainingQuotaLedgerTests` 在系统 temporaryDirectory/UUID 下创建额度 JSON，模拟原子恢复和损坏；defer 仅移除自己创建的目录。`TrainingViewMergeStateTests` 经生产 checkpoint API 在独立临时 owner/project 目录写入并清理，多球测试使用独立 UserDefaults suite 和随机 checkpoint 目录；不写 Bundle、内容资产、用户真实存档或设计基线。新 UI 测试的截图只写 XCTAttachment/本轮 xcresult，启动使用内存 SwiftData 和进程隔离额度/checkpoint。生产新写盘面为 Application Support/QiuJi/TrainingQuota 及 TrainingCheckpoints，按项目和 owner 隔离；额度是设备项目桶，不按账号重置。
+
+## 2026-11-15 H17 Compute研究附件登记
+
+`ClothSupportPerformanceResearchTests.swift`新增内嵌Metal程序的`texture.write(...)`，命中写盘扫描的字面量规则；这些调用写GPU纹理，不是文件系统写入。该文件实验报告、生成的Metal源码和画面仍仅通过`XCTAttachment`写入本轮xcresult；未新增直接文件写入API，不修改Bundle/训练数据/设计截图基线。原生启动器`scene_cost_20261114/run.py`将冻结源码、构建/测试日志、xcresult及导出附件写入`output/local-test-runs/<ID>/evidence`，`work`由生命周期管理器成功回收，失败诊断后显式complete。独立H17脚本也仅写其受管work/evidence；各轮原件保留，不覆盖旧轮次。此登记不把采集通过当性能或画质通过，结果见`tasks/render-highlight-20261114/H17-DELIVERY.md`。

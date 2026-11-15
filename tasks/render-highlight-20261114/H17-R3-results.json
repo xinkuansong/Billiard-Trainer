@@ -1,0 +1,1522 @@
+{
+  "source": "output/local-test-runs/d8a56e3860034113869680c13857b088/evidence/attachments/DED8441F-896C-4447-8A15-0EF98E4242BF.json",
+  "sha256": "945d1e0d43c33cc277573e587ddaff2280069959e0a14f56e75ae20e84559c95",
+  "completed": true,
+  "device": "Apple M5 Pro",
+  "rows": [
+    {
+      "aaMaximum": 0,
+      "activeBallCapacity": 2,
+      "allocatedBytes": 11878656,
+      "cameraTransform": [
+        1,
+        4.1956212678267307e-16,
+        4.371139183945161e-08,
+        0,
+        6.013304076901704e-09,
+        0.9904922246932983,
+        -0.13756835460662842,
+        0,
+        -4.3295795393305525e-08,
+        0.13756835460662842,
+        0.9904922246932983,
+        0,
+        0,
+        1.0499999523162842,
+        1.7999999523162842,
+        1
+      ],
+      "capturedPixels": 58819,
+      "clothMaterials": 1,
+      "maximumChannelDifference": 1,
+      "pose": "low",
+      "positiveControlMaximum": 193,
+      "positiveControlPixels": 19959,
+      "preparations": [
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 3.209208371117711,
+              "cpuEncodeMS": 209.9433750845492,
+              "cpuFullSyncWallMS": 213.79408333450556,
+              "cpuWallMS": 213.1525834556669,
+              "frame": 0,
+              "gpuEndTime": 1601461.8421327502,
+              "gpuSpanMS": 2.6191251818090677,
+              "gpuStartTime": 1601461.839513625,
+              "sentinelClearWallMSExcluded": 0.6414582021534443
+            },
+            {
+              "cpuCommitWaitMS": 3.2914166804403067,
+              "cpuEncodeMS": 0.1721666194498539,
+              "cpuFullSyncWallMS": 3.9283749647438526,
+              "cpuWallMS": 3.4635832998901606,
+              "frame": 1,
+              "gpuEndTime": 1601461.8460942502,
+              "gpuSpanMS": 2.82333348877728,
+              "gpuStartTime": 1601461.8432709167,
+              "sentinelClearWallMSExcluded": 0.464749988168478
+            },
+            {
+              "cpuCommitWaitMS": 3.033166751265526,
+              "cpuEncodeMS": 0.14070840552449226,
+              "cpuFullSyncWallMS": 3.844833467155695,
+              "cpuWallMS": 3.173875156790018,
+              "frame": 2,
+              "gpuEndTime": 1601461.8499497501,
+              "gpuSpanMS": 2.59612500667572,
+              "gpuStartTime": 1601461.847353625,
+              "sentinelClearWallMSExcluded": 0.6709583103656769
+            }
+          ],
+          "epoch": "initial",
+          "prepare": {
+            "cpuEncodeMS": 0.008125090971589088,
+            "gpuMS": 0.4507501143962145,
+            "wallMS": 0.9973333217203617
+          },
+          "validPixels": 58819
+        },
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 3.555041505023837,
+              "cpuEncodeMS": 0.31045847572386265,
+              "cpuFullSyncWallMS": 4.491583211347461,
+              "cpuWallMS": 3.8654999807476997,
+              "frame": 0,
+              "gpuEndTime": 1601464.1516600002,
+              "gpuSpanMS": 2.644000109285116,
+              "gpuStartTime": 1601464.149016,
+              "sentinelClearWallMSExcluded": 0.626083230599761
+            }
+          ],
+          "epoch": "camera",
+          "prepare": {
+            "cpuEncodeMS": 0.007583294063806534,
+            "gpuMS": 0.44937501661479473,
+            "wallMS": 0.8846665732562542
+          },
+          "validPixels": 59664
+        },
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 3.2143332064151764,
+              "cpuEncodeMS": 177.13808338157833,
+              "cpuFullSyncWallMS": 181.48162495344877,
+              "cpuWallMS": 180.3524165879935,
+              "frame": 0,
+              "gpuEndTime": 1601464.412344875,
+              "gpuSpanMS": 2.642374951392412,
+              "gpuStartTime": 1601464.4097025,
+              "sentinelClearWallMSExcluded": 1.1291666887700558
+            }
+          ],
+          "epoch": "roughness",
+          "prepare": {
+            "cpuEncodeMS": 0.01687486656010151,
+            "gpuMS": 0.4403749480843544,
+            "wallMS": 0.9163334034383297
+          },
+          "validPixels": 59664
+        },
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 2.790875034406781,
+              "cpuEncodeMS": 0.3531249240040779,
+              "cpuFullSyncWallMS": 3.3827500883489847,
+              "cpuWallMS": 3.143999958410859,
+              "frame": 0,
+              "gpuEndTime": 1601466.243556,
+              "gpuSpanMS": 2.636499935761094,
+              "gpuStartTime": 1601466.2409195001,
+              "sentinelClearWallMSExcluded": 0.23870845325291157
+            }
+          ],
+          "epoch": "restore",
+          "prepare": {
+            "cpuEncodeMS": 0.007708324119448662,
+            "gpuMS": 0.4515000618994236,
+            "wallMS": 0.9991666302084923
+          },
+          "validPixels": 58819
+        }
+      ],
+      "restoreMaximum": 0,
+      "qualityFrames": 8,
+      "quality": [
+        {
+          "aaMaximum": 0,
+          "changedPixels": 0,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 3.3050416968762875,
+              "cpuEncodeMS": 1104.4533748645335,
+              "cpuFullSyncWallMS": 1108.5155000910163,
+              "cpuWallMS": 1107.7584165614098,
+              "frame": 0,
+              "gpuEndTime": 1601463.6590516667,
+              "gpuSpanMS": 2.459124894812703,
+              "gpuStartTime": 1601463.6565925418,
+              "sentinelClearWallMSExcluded": 0.7570835296064615
+            }
+          ],
+          "frame": 0,
+          "maximumChannelDifference": 0,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 1,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 1.2506667990237474,
+              "cpuEncodeMS": 0.3099166788160801,
+              "cpuFullSyncWallMS": 2.089208457618952,
+              "cpuWallMS": 1.5605834778398275,
+              "frame": 0,
+              "gpuEndTime": 1601463.754402,
+              "gpuSpanMS": 0.6308332085609436,
+              "gpuStartTime": 1601463.7537711668,
+              "sentinelClearWallMSExcluded": 0.5285833030939102
+            }
+          ],
+          "frame": 1,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 0,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 1.0260415729135275,
+              "cpuEncodeMS": 0.26287510991096497,
+              "cpuFullSyncWallMS": 1.901166746392846,
+              "cpuWallMS": 1.2889166828244925,
+              "frame": 0,
+              "gpuEndTime": 1601463.8411317917,
+              "gpuSpanMS": 0.5669998936355114,
+              "gpuStartTime": 1601463.8405647918,
+              "sentinelClearWallMSExcluded": 0.6122083868831396
+            }
+          ],
+          "frame": 2,
+          "maximumChannelDifference": 0,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 0,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 2.6122916024178267,
+              "cpuEncodeMS": 0.22733351215720177,
+              "cpuFullSyncWallMS": 3.3192916307598352,
+              "cpuWallMS": 2.8396251145750284,
+              "frame": 0,
+              "gpuEndTime": 1601463.9255647918,
+              "gpuSpanMS": 2.4650415871292353,
+              "gpuStartTime": 1601463.9230997502,
+              "sentinelClearWallMSExcluded": 0.4796665161848068
+            }
+          ],
+          "frame": 3,
+          "maximumChannelDifference": 0,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 1,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 0.6980833131819963,
+              "cpuEncodeMS": 0.19029155373573303,
+              "cpuFullSyncWallMS": 1.076999818906188,
+              "cpuWallMS": 0.8883748669177294,
+              "frame": 0,
+              "gpuEndTime": 1601464.0077414168,
+              "gpuSpanMS": 0.5710416007786989,
+              "gpuStartTime": 1601464.0071703752,
+              "sentinelClearWallMSExcluded": 0.18862495198845863
+            }
+          ],
+          "frame": 4,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 1,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 0.7243333384394646,
+              "cpuEncodeMS": 0.20329165272414684,
+              "cpuFullSyncWallMS": 1.5550416428595781,
+              "cpuWallMS": 0.9276249911636114,
+              "frame": 0,
+              "gpuEndTime": 1601464.0896131669,
+              "gpuSpanMS": 0.5910417530685663,
+              "gpuStartTime": 1601464.0890221251,
+              "sentinelClearWallMSExcluded": 0.6273749750107527
+            }
+          ],
+          "frame": 5,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 1,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 1.11204176209867,
+              "cpuEncodeMS": 0.20166649483144283,
+              "cpuFullSyncWallMS": 2.106624888256192,
+              "cpuWallMS": 1.3137082569301128,
+              "frame": 0,
+              "gpuEndTime": 1601464.1731729168,
+              "gpuSpanMS": 0.9529166854918003,
+              "gpuStartTime": 1601464.17222,
+              "sentinelClearWallMSExcluded": 0.7928749546408653
+            }
+          ],
+          "frame": 6,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 1,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 3.6556667182594538,
+              "cpuEncodeMS": 1080.8135834522545,
+              "cpuFullSyncWallMS": 1084.6469583921134,
+              "cpuWallMS": 1084.469250170514,
+              "frame": 0,
+              "gpuEndTime": 1601466.1742139168,
+              "gpuSpanMS": 2.887541661038995,
+              "gpuStartTime": 1601466.171326375,
+              "sentinelClearWallMSExcluded": 0.17770822159945965
+            }
+          ],
+          "frame": 7,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        }
+      ],
+      "AA": {
+        "gpuSpanMS": {
+          "savingPercent": 0.17596910002433686,
+          "cycles": [
+            0.3290912292294057,
+            -0.6119796091758722,
+            0.4062642087979018,
+            0.6226284684345273,
+            0.02284697081926801,
+            -1.1264547710536421
+          ],
+          "aMS": 0.548583222553134,
+          "bMS": 0.5481666885316372,
+          "fasterCycles": 4,
+          "frameCount": 288
+        },
+        "cpuEncodeMS": {
+          "savingPercent": -0.1772915201116665,
+          "cycles": [
+            -1.659216085237314,
+            -0.21144976887439437,
+            -0.1431332713489386,
+            -0.5260569910662483,
+            0.09653833432381465,
+            0.047965690423790175
+          ],
+          "aMS": 0.08760415948927402,
+          "bMS": 0.08793745655566454,
+          "fasterCycles": 2,
+          "frameCount": 288
+        },
+        "cpuWallMS": {
+          "savingPercent": 0.23856539857696757,
+          "cycles": [
+            -2.4236937192732455,
+            -0.018152915458347074,
+            0.4952837126122822,
+            1.0781759881455355,
+            1.2817720674255795,
+            -0.08338290533942416
+          ],
+          "aMS": 0.8009166922420263,
+          "bMS": 0.7958958158269525,
+          "fasterCycles": 3,
+          "frameCount": 288
+        },
+        "cpuFullSyncWallMS": {
+          "savingPercent": 0.4863064197374256,
+          "cycles": [
+            -1.3017597382196877,
+            0.6012139672696759,
+            0.359854323624198,
+            1.4451987363917285,
+            1.303908682015431,
+            0.3713988722051753
+          ],
+          "aMS": 0.9575416333973408,
+          "bMS": 0.9531250689178705,
+          "fasterCycles": 5,
+          "frameCount": 288
+        }
+      },
+      "AB": {
+        "gpuSpanMS": {
+          "savingPercent": -1.3856222964263476,
+          "cycles": [
+            -0.7755418709318729,
+            -1.5303688810424765,
+            -2.5582633409688693,
+            -3.7629977262718217,
+            -0.014914751896122347,
+            -1.2408757118102187
+          ],
+          "aMS": 0.5502082640305161,
+          "bMS": 0.5602500168606639,
+          "fasterCycles": 0,
+          "frameCount": 288
+        },
+        "cpuEncodeMS": {
+          "savingPercent": -12.280113037481522,
+          "cycles": [
+            -13.571622309094655,
+            -12.917986245906832,
+            -11.642239829056212,
+            -11.158620634758476,
+            -10.040337376820773,
+            -12.995319456804634
+          ],
+          "aMS": 0.08722918573766947,
+          "bMS": 0.09768758900463581,
+          "fasterCycles": 0,
+          "frameCount": 288
+        },
+        "cpuWallMS": {
+          "savingPercent": 0.40471436046198295,
+          "cycles": [
+            -0.06474171630246328,
+            -0.985613012639508,
+            -2.8581277936404303,
+            0.8741704372264292,
+            2.8892773990331966,
+            1.156373143442957
+          ],
+          "aMS": 0.8021666435524821,
+          "bMS": 0.7996874628588557,
+          "fasterCycles": 3,
+          "frameCount": 288
+        },
+        "cpuFullSyncWallMS": {
+          "savingPercent": 0.1036634667599512,
+          "cycles": [
+            -1.2596704062299624,
+            -1.7174199647511434,
+            -1.3963084104356982,
+            1.6214660221657407,
+            1.4669973397498648,
+            2.114335517998267
+          ],
+          "aMS": 0.960666686296463,
+          "bMS": 0.9588540997356176,
+          "fasterCycles": 3,
+          "frameCount": 288
+        }
+      },
+      "DI": {
+        "gpuSpanMS": {
+          "savingPercent": 0.10623883686111668,
+          "cycles": [
+            1.088984699508866,
+            0.6344798128970708,
+            -1.0790430038594145,
+            -0.21973786301077158,
+            0.18627835498808976,
+            0.026199318734143606
+          ],
+          "aMS": 0.5596041446551681,
+          "bMS": 0.5594792310148478,
+          "fasterCycles": 4,
+          "frameCount": 288
+        },
+        "cpuEncodeMS": {
+          "savingPercent": 0.17816967724123,
+          "cycles": [
+            2.701633665683656,
+            -0.58154019090213,
+            -0.021505918933506507,
+            -0.2140925525693005,
+            0.9433837933038203,
+            0.3778452734159665
+          ],
+          "aMS": 0.09766663424670696,
+          "bMS": 0.09733345359563828,
+          "fasterCycles": 3,
+          "frameCount": 288
+        },
+        "cpuWallMS": {
+          "savingPercent": -0.026594313057920482,
+          "cycles": [
+            -0.5471692044939358,
+            -0.38104130288212357,
+            -0.6002651807714754,
+            0.9901294596747601,
+            0.3802870223105548,
+            0.3278526767662826
+          ],
+          "aMS": 0.8049167226999998,
+          "bMS": 0.8039583917707205,
+          "fasterCycles": 3,
+          "frameCount": 288
+        },
+        "cpuFullSyncWallMS": {
+          "savingPercent": 0.08806204585029564,
+          "cycles": [
+            -0.8985319342764697,
+            0.32727850821957505,
+            -0.15115441651898376,
+            0.4470685254845952,
+            0.743051198175404,
+            -0.545958661306778
+          ],
+          "aMS": 0.9627289837226272,
+          "bMS": 0.9613125585019588,
+          "fasterCycles": 3,
+          "frameCount": 288
+        }
+      },
+      "epochPreparationGPU_MS": {
+        "initial": 8.489333791658282,
+        "camera": 3.093375125899911,
+        "roughness": 3.0827498994767666,
+        "restore": 3.0879999976605177
+      },
+      "initialBreakEvenFrames": null,
+      "initialAmortizedSavings": {
+        "1": -1544.7560678617926,
+        "2": -773.2905750073049,
+        "8": -194.69145536643936,
+        "60": -27.54059858130038
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "activeBallCapacity": 2,
+      "allocatedBytes": 11878656,
+      "cameraTransform": [
+        0.8823529481887817,
+        -5.9871680946343986e-09,
+        -0.47058820724487305,
+        0,
+        -0.33754321932792664,
+        0.6967856884002686,
+        -0.6328936219215393,
+        0,
+        0.32789909839630127,
+        0.7172793745994568,
+        0.6148108243942261,
+        0,
+        0.1599999964237213,
+        1.149999976158142,
+        0.30000001192092896,
+        1
+      ],
+      "capturedPixels": 147456,
+      "clothMaterials": 1,
+      "maximumChannelDifference": 1,
+      "pose": "near",
+      "positiveControlMaximum": 206,
+      "positiveControlPixels": 129978,
+      "preparations": [
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 1.9149165600538254,
+              "cpuEncodeMS": 102.43270848877728,
+              "cpuFullSyncWallMS": 104.62041664868593,
+              "cpuWallMS": 104.3476250488311,
+              "frame": 0,
+              "gpuEndTime": 1601469.24581625,
+              "gpuSpanMS": 1.306750113144517,
+              "gpuStartTime": 1601469.2445095,
+              "sentinelClearWallMSExcluded": 0.2727499231696129
+            },
+            {
+              "cpuCommitWaitMS": 1.8022917211055756,
+              "cpuEncodeMS": 0.19999989308416843,
+              "cpuFullSyncWallMS": 2.626416739076376,
+              "cpuWallMS": 2.002291614189744,
+              "frame": 1,
+              "gpuEndTime": 1601469.2484581252,
+              "gpuSpanMS": 1.3036250602453947,
+              "gpuStartTime": 1601469.2471545,
+              "sentinelClearWallMSExcluded": 0.6240834482014179
+            },
+            {
+              "cpuCommitWaitMS": 1.7941249534487724,
+              "cpuEncodeMS": 0.23229164071381092,
+              "cpuFullSyncWallMS": 2.7067081537097692,
+              "cpuWallMS": 2.0264165941625834,
+              "frame": 2,
+              "gpuEndTime": 1601469.2511683751,
+              "gpuSpanMS": 1.2427500914782286,
+              "gpuStartTime": 1601469.249925625,
+              "sentinelClearWallMSExcluded": 0.6802915595471859
+            }
+          ],
+          "epoch": "initial",
+          "prepare": {
+            "cpuEncodeMS": 0.01912517473101616,
+            "gpuMS": 0.31649996526539326,
+            "wallMS": 0.844333553686738
+          },
+          "validPixels": 147456
+        },
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 2.951291622593999,
+              "cpuEncodeMS": 0.23208349011838436,
+              "cpuFullSyncWallMS": 3.76308336853981,
+              "cpuWallMS": 3.1833751127123833,
+              "frame": 0,
+              "gpuEndTime": 1601470.94038875,
+              "gpuSpanMS": 2.4708332493901253,
+              "gpuStartTime": 1601470.9379179168,
+              "sentinelClearWallMSExcluded": 0.5796668119728565
+            }
+          ],
+          "epoch": "camera",
+          "prepare": {
+            "cpuEncodeMS": 0.004791654646396637,
+            "gpuMS": 0.7444166112691164,
+            "wallMS": 1.220249803736806
+          },
+          "validPixels": 147456
+        },
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 3.0632917769253254,
+              "cpuEncodeMS": 95.57233331725001,
+              "cpuFullSyncWallMS": 99.17916683480144,
+              "cpuWallMS": 98.63562509417534,
+              "frame": 0,
+              "gpuEndTime": 1601471.1420250419,
+              "gpuSpanMS": 2.4865418672561646,
+              "gpuStartTime": 1601471.1395385,
+              "sentinelClearWallMSExcluded": 0.5435417406260967
+            }
+          ],
+          "epoch": "roughness",
+          "prepare": {
+            "cpuEncodeMS": 0.01520826481282711,
+            "gpuMS": 0.7436252199113369,
+            "wallMS": 1.2405416928231716
+          },
+          "validPixels": 147456
+        },
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 2.895166864618659,
+              "cpuEncodeMS": 0.2777916379272938,
+              "cpuFullSyncWallMS": 3.799791680648923,
+              "cpuWallMS": 3.172958502545953,
+              "frame": 0,
+              "gpuEndTime": 1601472.2908569167,
+              "gpuSpanMS": 2.4342916440218687,
+              "gpuStartTime": 1601472.288422625,
+              "sentinelClearWallMSExcluded": 0.6268331781029701
+            }
+          ],
+          "epoch": "restore",
+          "prepare": {
+            "cpuEncodeMS": 0.0062498729676008224,
+            "gpuMS": 0.7436249870806932,
+            "wallMS": 1.229958375915885
+          },
+          "validPixels": 147456
+        }
+      ],
+      "restoreMaximum": 0,
+      "qualityFrames": 8,
+      "quality": [
+        {
+          "aaMaximum": 0,
+          "changedPixels": 6,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 3.883749945089221,
+              "cpuEncodeMS": 676.0111667681485,
+              "cpuFullSyncWallMS": 680.5057083256543,
+              "cpuWallMS": 679.8949167132378,
+              "frame": 0,
+              "gpuEndTime": 1601470.3624366252,
+              "gpuSpanMS": 3.203500062227249,
+              "gpuStartTime": 1601470.359233125,
+              "sentinelClearWallMSExcluded": 0.6107082590460777
+            }
+          ],
+          "frame": 0,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 8,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 1.1776250321418047,
+              "cpuEncodeMS": 0.20833313465118408,
+              "cpuFullSyncWallMS": 1.5463749878108501,
+              "cpuWallMS": 1.3859581667929888,
+              "frame": 0,
+              "gpuEndTime": 1601470.4662347918,
+              "gpuSpanMS": 1.0339166037738323,
+              "gpuStartTime": 1601470.4652008752,
+              "sentinelClearWallMSExcluded": 0.16037514433264732
+            }
+          ],
+          "frame": 1,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 6,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 1.4938334934413433,
+              "cpuEncodeMS": 0.2071666531264782,
+              "cpuFullSyncWallMS": 1.8736666534096003,
+              "cpuWallMS": 1.7010001465678215,
+              "frame": 0,
+              "gpuEndTime": 1601470.563270125,
+              "gpuSpanMS": 1.3379999436438084,
+              "gpuStartTime": 1601470.5619321251,
+              "sentinelClearWallMSExcluded": 0.17266650684177876
+            }
+          ],
+          "frame": 2,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 6,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 2.775458386167884,
+              "cpuEncodeMS": 0.22062496282160282,
+              "cpuFullSyncWallMS": 3.672458464279771,
+              "cpuWallMS": 2.9960833489894867,
+              "frame": 0,
+              "gpuEndTime": 1601470.6663030419,
+              "gpuSpanMS": 2.5921666529029608,
+              "gpuStartTime": 1601470.6637108752,
+              "sentinelClearWallMSExcluded": 0.6763751152902842
+            }
+          ],
+          "frame": 3,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 7,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 0.9354583453387022,
+              "cpuEncodeMS": 0.22045825608074665,
+              "cpuFullSyncWallMS": 1.342250034213066,
+              "cpuWallMS": 1.1559166014194489,
+              "frame": 0,
+              "gpuEndTime": 1601470.7668915,
+              "gpuSpanMS": 0.791874947026372,
+              "gpuStartTime": 1601470.766099625,
+              "sentinelClearWallMSExcluded": 0.18633343279361725
+            }
+          ],
+          "frame": 4,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 3,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 1.379666617140174,
+              "cpuEncodeMS": 0.2682083286345005,
+              "cpuFullSyncWallMS": 2.2247915621846914,
+              "cpuWallMS": 1.6478749457746744,
+              "frame": 0,
+              "gpuEndTime": 1601470.863657375,
+              "gpuSpanMS": 1.218458404764533,
+              "gpuStartTime": 1601470.8624389167,
+              "sentinelClearWallMSExcluded": 0.576916616410017
+            }
+          ],
+          "frame": 5,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 9,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 1.0201248805969954,
+              "cpuEncodeMS": 0.21183351054787636,
+              "cpuFullSyncWallMS": 1.947249984368682,
+              "cpuWallMS": 1.2319583911448717,
+              "frame": 0,
+              "gpuEndTime": 1601470.9688254169,
+              "gpuSpanMS": 0.7922917138785124,
+              "gpuStartTime": 1601470.9680331252,
+              "sentinelClearWallMSExcluded": 0.7152499165385962
+            }
+          ],
+          "frame": 6,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 3,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 4.889749921858311,
+              "cpuEncodeMS": 644.646791741252,
+              "cpuFullSyncWallMS": 650.1544583588839,
+              "cpuWallMS": 649.5365416631103,
+              "frame": 0,
+              "gpuEndTime": 1601472.202609,
+              "gpuSpanMS": 4.640583181753755,
+              "gpuStartTime": 1601472.1979684168,
+              "sentinelClearWallMSExcluded": 0.6179166957736015
+            }
+          ],
+          "frame": 7,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        }
+      ],
+      "AA": {
+        "gpuSpanMS": {
+          "savingPercent": -0.1336679368437288,
+          "cycles": [
+            0.040888968914032375,
+            -0.38521485262554833,
+            -0.27702762549635107,
+            -0.0914692732764788,
+            -0.1758666004109788,
+            -0.07223434500889248
+          ],
+          "aMS": 0.865187612362206,
+          "bMS": 0.8662291802465916,
+          "fasterCycles": 1,
+          "frameCount": 288
+        },
+        "cpuEncodeMS": {
+          "savingPercent": 0.5716380474718674,
+          "cycles": [
+            6.399465512853142,
+            -1.0324525285729136,
+            1.1078800872798444,
+            0.8890730873715835,
+            0.2542030075721513,
+            -1.4246338554526838
+          ],
+          "aMS": 0.08293753489851952,
+          "bMS": 0.08243753109127283,
+          "fasterCycles": 4,
+          "frameCount": 288
+        },
+        "cpuWallMS": {
+          "savingPercent": 0.045116794470478894,
+          "cycles": [
+            1.6442535382580448,
+            -0.7367990304663952,
+            -1.028457319207976,
+            1.2604570864625408,
+            -0.5358747195222113,
+            0.6261083084631691
+          ],
+          "aMS": 1.1208541691303253,
+          "bMS": 1.1174583341926336,
+          "fasterCycles": 3,
+          "frameCount": 288
+        },
+        "cpuFullSyncWallMS": {
+          "savingPercent": 0.5261935906276605,
+          "cycles": [
+            1.1706621949898022,
+            0.6968761933705214,
+            -0.9550590910254231,
+            1.0886638496284462,
+            0.3555109878847995,
+            0.3502037434628513
+          ],
+          "aMS": 1.2749375309795141,
+          "bMS": 1.2697292258962989,
+          "fasterCycles": 5,
+          "frameCount": 288
+        }
+      },
+      "AB": {
+        "gpuSpanMS": {
+          "savingPercent": 12.46961255865957,
+          "cycles": [
+            12.367804629703539,
+            13.143592232071633,
+            12.571420487615603,
+            11.951404505201157,
+            13.089573930386301,
+            11.869750831965042
+          ],
+          "aMS": 0.8652498945593834,
+          "bMS": 0.7646667072549462,
+          "fasterCycles": 6,
+          "frameCount": 288
+        },
+        "cpuEncodeMS": {
+          "savingPercent": -3.3984558824451554,
+          "cycles": [
+            -12.963915250651192,
+            -11.4222534569423,
+            -8.193948481542822,
+            3.618423368913004,
+            3.593855415434122,
+            1.397036716652511
+          ],
+          "aMS": 0.09341666009277105,
+          "bMS": 0.09843753650784492,
+          "fasterCycles": 3,
+          "frameCount": 288
+        },
+        "cpuWallMS": {
+          "savingPercent": 11.159996071932255,
+          "cycles": [
+            10.472379662456,
+            10.782470188189642,
+            11.537521955674867,
+            11.652648336067505,
+            13.772052929781042,
+            10.673333644179639
+          ],
+          "aMS": 1.1347709223628044,
+          "bMS": 0.9971666149795055,
+          "fasterCycles": 6,
+          "frameCount": 288
+        },
+        "cpuFullSyncWallMS": {
+          "savingPercent": 9.925711226251167,
+          "cycles": [
+            8.88505491642958,
+            9.343630952719229,
+            10.520352284761557,
+            10.133380830395456,
+            12.915885044657738,
+            9.718041622106877
+          ],
+          "aMS": 1.2962917098775506,
+          "bMS": 1.1604165192693472,
+          "fasterCycles": 6,
+          "frameCount": 288
+        }
+      },
+      "DI": {
+        "gpuSpanMS": {
+          "savingPercent": 0.29332051389138747,
+          "cycles": [
+            -0.5072820253973154,
+            -1.3878090374520147,
+            -1.6691383766563428,
+            1.3176790921978432,
+            1.0939230531800903,
+            2.174891640876231
+          ],
+          "aMS": 0.7663333090022206,
+          "bMS": 0.7683333242312074,
+          "fasterCycles": 3,
+          "frameCount": 288
+        },
+        "cpuEncodeMS": {
+          "savingPercent": 0.5601907293992625,
+          "cycles": [
+            0.6079953141016281,
+            0.5123861446968969,
+            -4.404096955441994,
+            0.8237339221418005,
+            -2.9634312320051093,
+            0.837051429668012
+          ],
+          "aMS": 0.09791669435799122,
+          "bMS": 0.0978332245722413,
+          "fasterCycles": 4,
+          "frameCount": 288
+        },
+        "cpuWallMS": {
+          "savingPercent": 1.3629112253773612,
+          "cycles": [
+            1.8442125196950987,
+            0.4071649011497591,
+            -2.1200987087465206,
+            1.655802953986274,
+            2.834790140705612,
+            1.0700194967684484
+          ],
+          "aMS": 1.0166249703615904,
+          "bMS": 1.0040625929832458,
+          "fasterCycles": 5,
+          "frameCount": 288
+        },
+        "cpuFullSyncWallMS": {
+          "savingPercent": 1.2011400616421808,
+          "cycles": [
+            1.5868719151833854,
+            -1.5057891713776028,
+            -1.5388197205115084,
+            1.9770982157793604,
+            2.8917039955135837,
+            0.8154082081009761
+          ],
+          "aMS": 1.180562423542142,
+          "bMS": 1.1692498810589314,
+          "fasterCycles": 4,
+          "frameCount": 288
+        }
+      },
+      "epochPreparationGPU_MS": {
+        "initial": 4.1696252301335335,
+        "camera": 3.2152498606592417,
+        "roughness": 3.2301670871675014,
+        "restore": 3.177916631102562
+      },
+      "initialBreakEvenFrames": 41.45449494967031,
+      "initialAmortizedSavings": {
+        "1": -470.27362481230927,
+        "2": -229.32443450603031,
+        "8": -48.61254177632111,
+        "60": 3.593116123372675
+      }
+    },
+    {
+      "aaMaximum": 0,
+      "activeBallCapacity": 16,
+      "allocatedBytes": 11878656,
+      "cameraTransform": [
+        0.7592564821243286,
+        -2.1878800993135883e-08,
+        -0.6507914662361145,
+        0,
+        -0.3684905469417572,
+        0.8242547512054443,
+        -0.4299055337905884,
+        0,
+        0.5364180207252502,
+        0.5662190914154053,
+        0.6258207559585571,
+        0,
+        1.7999999523162842,
+        2.700000047683716,
+        2.0999999046325684,
+        1
+      ],
+      "capturedPixels": 67386,
+      "clothMaterials": 1,
+      "maximumChannelDifference": 1,
+      "pose": "overview",
+      "positiveControlMaximum": 205,
+      "positiveControlPixels": 54916,
+      "preparations": [
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 1.5839999541640282,
+              "cpuEncodeMS": 98.88937487266958,
+              "cpuFullSyncWallMS": 101.07029159553349,
+              "cpuWallMS": 100.4733748268336,
+              "frame": 0,
+              "gpuEndTime": 1601475.1812999167,
+              "gpuSpanMS": 0.9275416377931833,
+              "gpuStartTime": 1601475.180372375,
+              "sentinelClearWallMSExcluded": 0.5969167686998844
+            },
+            {
+              "cpuCommitWaitMS": 1.246416475623846,
+              "cpuEncodeMS": 0.16216677613556385,
+              "cpuFullSyncWallMS": 2.136208349838853,
+              "cpuWallMS": 1.40858325175941,
+              "frame": 1,
+              "gpuEndTime": 1601475.183465125,
+              "gpuSpanMS": 0.7795833516865969,
+              "gpuStartTime": 1601475.1826855417,
+              "sentinelClearWallMSExcluded": 0.727625098079443
+            },
+            {
+              "cpuCommitWaitMS": 1.5661667566746473,
+              "cpuEncodeMS": 0.148500083014369,
+              "cpuFullSyncWallMS": 2.4877917021512985,
+              "cpuWallMS": 1.7146668396890163,
+              "frame": 2,
+              "gpuEndTime": 1601475.1859310418,
+              "gpuSpanMS": 0.9617500472813845,
+              "gpuStartTime": 1601475.1849692918,
+              "sentinelClearWallMSExcluded": 0.7731248624622822
+            }
+          ],
+          "epoch": "initial",
+          "prepare": {
+            "cpuEncodeMS": 0.004958361387252808,
+            "gpuMS": 0.392416724935174,
+            "wallMS": 1.1165416799485683
+          },
+          "validPixels": 67386
+        },
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 2.728499937802553,
+              "cpuEncodeMS": 0.2684167120605707,
+              "cpuFullSyncWallMS": 3.303166711702943,
+              "cpuWallMS": 2.996916649863124,
+              "frame": 0,
+              "gpuEndTime": 1601476.8015353752,
+              "gpuSpanMS": 2.3415000177919865,
+              "gpuStartTime": 1601476.7991938752,
+              "sentinelClearWallMSExcluded": 0.30625006183981895
+            }
+          ],
+          "epoch": "camera",
+          "prepare": {
+            "cpuEncodeMS": 0.004749977961182594,
+            "gpuMS": 0.4369583912193775,
+            "wallMS": 1.1084999423474073
+          },
+          "validPixels": 66899
+        },
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 2.8706248849630356,
+              "cpuEncodeMS": 95.46091663651168,
+              "cpuFullSyncWallMS": 98.94554154016078,
+              "cpuWallMS": 98.33154152147472,
+              "frame": 0,
+              "gpuEndTime": 1601476.993627625,
+              "gpuSpanMS": 2.2815833799540997,
+              "gpuStartTime": 1601476.9913460417,
+              "sentinelClearWallMSExcluded": 0.6140000186860561
+            }
+          ],
+          "epoch": "roughness",
+          "prepare": {
+            "cpuEncodeMS": 0.013916753232479095,
+            "gpuMS": 0.45187491923570633,
+            "wallMS": 0.6050833035260439
+          },
+          "validPixels": 66899
+        },
+        {
+          "captureFrames": [
+            {
+              "cpuCommitWaitMS": 2.7498332783579826,
+              "cpuEncodeMS": 0.33758324570953846,
+              "cpuFullSyncWallMS": 3.70795838534832,
+              "cpuWallMS": 3.087416524067521,
+              "frame": 0,
+              "gpuEndTime": 1601478.1563060002,
+              "gpuSpanMS": 2.2518751211464405,
+              "gpuStartTime": 1601478.154054125,
+              "sentinelClearWallMSExcluded": 0.6205418612807989
+            }
+          ],
+          "epoch": "restore",
+          "prepare": {
+            "cpuEncodeMS": 0.010875053703784943,
+            "gpuMS": 0.4479165654629469,
+            "wallMS": 0.938791548833251
+          },
+          "validPixels": 67386
+        }
+      ],
+      "restoreMaximum": 0,
+      "qualityFrames": 8,
+      "quality": [
+        {
+          "aaMaximum": 0,
+          "changedPixels": 5,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 3.270958550274372,
+              "cpuEncodeMS": 663.1340831518173,
+              "cpuFullSyncWallMS": 666.7239584494382,
+              "cpuWallMS": 666.4050417020917,
+              "frame": 0,
+              "gpuEndTime": 1601476.2636960002,
+              "gpuSpanMS": 2.5835002306848764,
+              "gpuStartTime": 1601476.2611125,
+              "sentinelClearWallMSExcluded": 0.3189167473465204
+            }
+          ],
+          "frame": 0,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 9,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 0.9856249671429396,
+              "cpuEncodeMS": 0.24804170243442059,
+              "cpuFullSyncWallMS": 1.953166676685214,
+              "cpuWallMS": 1.2336666695773602,
+              "frame": 0,
+              "gpuEndTime": 1601476.361630625,
+              "gpuSpanMS": 0.7741251029074192,
+              "gpuStartTime": 1601476.3608565,
+              "sentinelClearWallMSExcluded": 0.7194583304226398
+            }
+          ],
+          "frame": 1,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 6,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 1.6379165463149548,
+              "cpuEncodeMS": 0.22908346727490425,
+              "cpuFullSyncWallMS": 2.567541552707553,
+              "cpuWallMS": 1.867000013589859,
+              "frame": 0,
+              "gpuEndTime": 1601476.4532796668,
+              "gpuSpanMS": 0.8681667968630791,
+              "gpuStartTime": 1601476.4524115,
+              "sentinelClearWallMSExcluded": 0.7005415391176939
+            }
+          ],
+          "frame": 2,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 5,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 0.7703332230448723,
+              "cpuEncodeMS": 0.20350003615021706,
+              "cpuFullSyncWallMS": 1.139291562139988,
+              "cpuWallMS": 0.9738332591950893,
+              "frame": 0,
+              "gpuEndTime": 1601476.5467075417,
+              "gpuSpanMS": 0.6302916444838047,
+              "gpuStartTime": 1601476.54607725,
+              "sentinelClearWallMSExcluded": 0.16541662625968456
+            }
+          ],
+          "frame": 3,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 5,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 1.3288331683725119,
+              "cpuEncodeMS": 0.29104179702699184,
+              "cpuFullSyncWallMS": 2.1452081855386496,
+              "cpuWallMS": 1.6198749653995037,
+              "frame": 0,
+              "gpuEndTime": 1601476.641296125,
+              "gpuSpanMS": 0.9008748456835747,
+              "gpuStartTime": 1601476.6403952502,
+              "sentinelClearWallMSExcluded": 0.5252915434539318
+            }
+          ],
+          "frame": 4,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 7,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 0.8887499570846558,
+              "cpuEncodeMS": 0.16083335503935814,
+              "cpuFullSyncWallMS": 1.184375025331974,
+              "cpuWallMS": 1.049583312124014,
+              "frame": 0,
+              "gpuEndTime": 1601476.7317830417,
+              "gpuSpanMS": 0.7605415303260088,
+              "gpuStartTime": 1601476.7310225002,
+              "sentinelClearWallMSExcluded": 0.13475003652274609
+            }
+          ],
+          "frame": 5,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 3,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 0.7854166906327009,
+              "cpuEncodeMS": 0.23475009948015213,
+              "cpuFullSyncWallMS": 1.6213750932365656,
+              "cpuWallMS": 1.020166790112853,
+              "frame": 0,
+              "gpuEndTime": 1601476.828823125,
+              "gpuSpanMS": 0.6229581777006388,
+              "gpuStartTime": 1601476.8282001668,
+              "sentinelClearWallMSExcluded": 0.6011666264384985
+            }
+          ],
+          "frame": 6,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        },
+        {
+          "aaMaximum": 0,
+          "changedPixels": 8,
+          "firstConsumeFrame": [
+            {
+              "cpuCommitWaitMS": 3.446125192567706,
+              "cpuEncodeMS": 662.0416666846722,
+              "cpuFullSyncWallMS": 666.0579168237746,
+              "cpuWallMS": 665.4877918772399,
+              "frame": 0,
+              "gpuEndTime": 1601478.0742467917,
+              "gpuSpanMS": 2.7554999105632305,
+              "gpuStartTime": 1601478.0714912917,
+              "sentinelClearWallMSExcluded": 0.5700835026800632
+            }
+          ],
+          "frame": 7,
+          "maximumChannelDifference": 1,
+          "restoreMaximum": 0
+        }
+      ],
+      "AA": {
+        "gpuSpanMS": {
+          "savingPercent": -0.1169441425687312,
+          "cycles": [
+            -0.170139739401165,
+            0.33409626363286593,
+            -0.8833536991180946,
+            -1.36364165293128,
+            -0.0637485457362974,
+            2.2858980828845965
+          ],
+          "aMS": 0.6222708616405725,
+          "bMS": 0.6216249894350767,
+          "fasterCycles": 2,
+          "frameCount": 288
+        },
+        "cpuEncodeMS": {
+          "savingPercent": -0.9450716658230718,
+          "cycles": [
+            -4.5260622725773025,
+            1.312850186656478,
+            -1.238561509027547,
+            -4.0344666027597675,
+            -0.6515818226185965,
+            0.6295466716702003
+          ],
+          "aMS": 0.12058345600962639,
+          "bMS": 0.12172921560704708,
+          "fasterCycles": 2,
+          "frameCount": 288
+        },
+        "cpuWallMS": {
+          "savingPercent": 0.051127026358888106,
+          "cycles": [
+            1.5486743543978165,
+            0.3172611410110271,
+            -1.6765203384437877,
+            -1.837614011384292,
+            -0.21500708829325088,
+            1.6424018378524252
+          ],
+          "aMS": 0.9178959298878908,
+          "bMS": 0.9198124753311276,
+          "fasterCycles": 3,
+          "frameCount": 288
+        },
+        "cpuFullSyncWallMS": {
+          "savingPercent": 0.16867378528470645,
+          "cycles": [
+            1.4162051963053202,
+            0.15996698279772126,
+            -2.0291599761355528,
+            -1.173110482304529,
+            0.17738058777169163,
+            1.9753267584219358
+          ],
+          "aMS": 1.0746666230261326,
+          "bMS": 1.0775834089145064,
+          "fasterCycles": 4,
+          "frameCount": 288
+        }
+      },
+      "AB": {
+        "gpuSpanMS": {
+          "savingPercent": 2.698063764970604,
+          "cycles": [
+            2.811989569727247,
+            3.0376902578504783,
+            0.5599622997172427,
+            0.5486872913939789,
+            2.7708268664644375,
+            2.6253006634767706
+          ],
+          "aMS": 0.62331254594028,
+          "bMS": 0.6099791498854756,
+          "fasterCycles": 6,
+          "frameCount": 288
+        },
+        "cpuEncodeMS": {
+          "savingPercent": -9.166445534995983,
+          "cycles": [
+            -10.501212683151762,
+            -9.10053595911753,
+            -7.342833836959084,
+            -10.530912420375916,
+            -9.232355110874435,
+            -8.221691428393441
+          ],
+          "aMS": 0.11825002729892731,
+          "bMS": 0.12912508100271225,
+          "fasterCycles": 0,
+          "frameCount": 288
+        },
+        "cpuWallMS": {
+          "savingPercent": 3.0022678959726212,
+          "cycles": [
+            4.891754783372582,
+            2.8481158665966455,
+            1.693449417530235,
+            2.1732303151138055,
+            3.156419925348597,
+            4.82110610129557
+          ],
+          "aMS": 0.9118542075157166,
+          "bMS": 0.886083347722888,
+          "fasterCycles": 6,
+          "frameCount": 288
+        },
+        "cpuFullSyncWallMS": {
+          "savingPercent": 2.3468814582213504,
+          "cycles": [
+            3.3280086715612778,
+            2.7630443112655834,
+            1.2737131647753142,
+            1.9026238590235223,
+            1.9307186051771175,
+            4.157241825059366
+          ],
+          "aMS": 1.0705626336857677,
+          "bMS": 1.0455625597387552,
+          "fasterCycles": 6,
+          "frameCount": 288
+        }
+      },
+      "DI": {
+        "gpuSpanMS": {
+          "savingPercent": 0.5562181523413867,
+          "cycles": [
+            1.7429526987529864,
+            1.6687546942869003,
+            -1.3499289064323738,
+            -0.5147689854638982,
+            -1.3313106336443559,
+            1.6272052901466716
+          ],
+          "aMS": 0.6120416801422834,
+          "bMS": 0.6091250106692314,
+          "fasterCycles": 3,
+          "frameCount": 288
+        },
+        "cpuEncodeMS": {
+          "savingPercent": 0.49108489274629075,
+          "cycles": [
+            -0.1608621492261486,
+            0.39870538853942206,
+            4.1101244512997575,
+            -3.3301712214349743,
+            0.5834643969531594,
+            10.502263749675688
+          ],
+          "aMS": 0.13449997641146183,
+          "bMS": 0.13208319433033466,
+          "fasterCycles": 4,
+          "frameCount": 288
+        },
+        "cpuWallMS": {
+          "savingPercent": 1.3666725049511108,
+          "cycles": [
+            1.9612442800222674,
+            1.8010407083961177,
+            -0.15105826495973584,
+            0.10831268640186797,
+            0.9323043015061039,
+            2.6374605864161293
+          ],
+          "aMS": 0.9004581952467561,
+          "bMS": 0.8905208669602871,
+          "fasterCycles": 5,
+          "frameCount": 288
+        },
+        "cpuFullSyncWallMS": {
+          "savingPercent": 1.3179080419531364,
+          "cycles": [
+            2.283127549126207,
+            1.6529215166228406,
+            -0.07541074179440166,
+            -0.03771060680692884,
+            0.9828945672834322,
+            2.52323039675566
+          ],
+          "aMS": 1.0537916095927358,
+          "bMS": 1.044708420522511,
+          "fasterCycles": 4,
+          "frameCount": 288
+        }
+      },
+      "epochPreparationGPU_MS": {
+        "initial": 3.0612917616963387,
+        "camera": 2.778458409011364,
+        "roughness": 2.733458299189806,
+        "restore": 2.6997916866093874
+      },
+      "initialBreakEvenFrames": 229.59580208324238,
+      "initialAmortizedSavings": {
+        "1": -488.99358523958887,
+        "2": -243.42723320360372,
+        "8": -59.25246917661491,
+        "60": -6.046426235484792
+      }
+    }
+  ],
+  "scope": "Current production full 3D scene, real ball geometry, same-command compute+render; no SwiftUI page/physical playback/phone claim",
+  "timing": "Six AA/AB/DI groups, alternating ABBA/BAAB, twelve frames per arm; first-use captures/prepare separate; no trimmed samples"
+}

@@ -37,6 +37,179 @@ final class ClothSupportPerformanceResearchTests: XCTestCase {
         }
     }
 
+    func testNativeClothComputeReuse() throws { try runNativeClothCompute(animated: false) }
+    func testNativeClothComputeAnimation() throws { try runNativeClothCompute(animated: true) }
+
+    private func runNativeClothCompute(animated: Bool) throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("H17 requires the authorized native Mac")
+        #else
+        guard ProcessInfo.processInfo.isiOSAppOnMac else { throw XCTSkip("H17 native Mac only") }
+        let device=try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        var rows=[[String:Any]](),complete=false
+        defer { attachStrictReport(["study":"H17-current-production-compute", "animated":animated, "device":device.name,
+            "completed":complete && testRun?.totalFailureCount==0, "rows":rows,
+            "scope":"Current production full 3D scene, real ball geometry, same-command compute+render; no SwiftUI page/physical playback/phone claim",
+            "timing":"Six AA/AB/DI groups, alternating ABBA/BAAB, twelve frames per arm; first-use captures/prepare separate; no trimmed samples"],name:"h17-current-scene.json") }
+        for pose in animated ? ["near"]:["low","near","overview"] {
+            try autoreleasepool {
+                let scene=AngleTrainingScene()
+                scene.configureDailyClearanceRendering(asynchronousReflection:false)
+                scene.setupScene(recipe:.liveReference,roomStyle:.tournament)
+                try require(scene.applyClothColor(.green) && scene.applyTableStyle(.charcoal),"H17 appearance")
+                scene.hideAllBalls()
+                let keys=Array((["cueBall"]+(1...15).map{"_\($0)"}).prefix(pose=="overview" ? 16:2))
+                let size=CGSize(width:1400,height:800),camera=try XCTUnwrap(scene.cameraNode)
+                scene.cameraRig?.viewportSize=size
+                scene.setCameraMode(.perspective3D,animated:false)
+                let initialEye:SIMD3<Float> = pose=="near" ? SIMD3(0.16,1.15,0.3) : (pose=="low" ? SIMD3(0,1.05,1.8):SIMD3(1.8,2.7,2.1))
+                @MainActor func cameraPose(_ eye:SIMD3<Float>)throws {
+                    let delta=eye-SIMD3<Float>(0,scene.surfaceY,0)
+                    let value=TwoViewCamera.Pose.looking(eye:eye,yaw:atan2(delta.z,delta.x),pitch:-atan2(delta.y,hypot(delta.x,delta.z)),fov:50)
+                    camera.simdTransform=value.transform;camera.camera?.fieldOfView=50
+                    try require(camera.camera?.usesOrthographicProjection==false,"H17 requires perspective projection; setupScene starts top-down")
+                    try require(abs(camera.simdWorldTransform.columns.0.y)<0.00001 && simd_length(value.forward-simd_normalize(-delta))<0.00001,"H17 horizontal current camera")
+                    SCNTransaction.flush()
+                }
+                try cameraPose(initialEye)
+                @MainActor func updateBalls(_ frame:Int) {
+                    SCNTransaction.begin();SCNTransaction.disableActions=true
+                    for (i,key) in keys.enumerated() {
+                        let x:Float=pose=="overview" ? Float(i/4)*0.6-0.9:Float(i)*0.05715
+                        let z:Float=pose=="overview" ? Float(i%4)*0.3-0.45:0
+                        scene.showBall(key:key,scenePosition:SCNVector3(x+Float(frame%3)*0.08,scene.surfaceY+AngleSceneCalculator.ballRadius+(frame==3 && i==0 ? 0.03:0),z))
+                        if animated && frame==3 && i==0 {scene.allBallNodes[key]?.position.y += 0.03}
+                        scene.allBallNodes[key]?.isHidden = frame==5 || (frame==4 && i==0)
+                    }
+                    SCNTransaction.commit();SCNTransaction.flush()
+                }
+                updateBalls(0)
+                let animationProbe=H17AnimationProbe(contact:scene.contactOcclusion)
+                let carrier=SCNNode();carrier.name="H17-moving-ball-parent"
+                @MainActor func restartAction() {
+                    carrier.removeAllActions();carrier.simdPosition = .zero
+                    carrier.runAction(.customAction(duration:600) { node,elapsed in
+                        animationProbe.actionStep(node,elapsed:Double(elapsed))
+                    })
+                    SCNTransaction.flush()
+                }
+                if animated {
+                    scene.rootNode.addChildNode(carrier)
+                    for key in keys {carrier.addChildNode(scene.allBallNodes[key]!)}
+                    restartAction()
+                }
+                var cloth=[SCNMaterial](),seen=Set<ObjectIdentifier>(),solids=[SCNMaterial]()
+                scene.rootNode.enumerateChildNodes { node,_ in
+                    for m in node.geometry?.materials ?? [] where seen.insert(ObjectIdentifier(m)).inserted {
+                        if m.name=="TaiNi" {cloth.append(m)}
+                        if ["Wood","BlackWood","MG_Gold"].contains(m.name ?? "") {solids.append(m)}
+                    }
+                }
+                try require(!cloth.isEmpty && !solids.isEmpty && solids.allSatisfy{!$0.isDoubleSided && $0.cullMode == .back},"H17 production cloth and H15 raster baseline")
+                let target=try RenderTarget(device:device,scene:scene,size:size)
+                if animated {target.renderer.delegate=animationProbe;target.researchTime=1}
+                try require(target.renderer.prepare(scene,shouldAbortBlock:nil),"H17 prepare production scene")
+                _=try target.render(frames:6)
+                let cache=try H17Cache(device:device,materials:cloth,target:target)
+                let roughness=cloth.map{$0.roughness.intensity}
+                let attachment=XCTAttachment(string:cache.computeSource);attachment.name="h17-compute.metal";attachment.lifetime = .keepAlways;add(attachment)
+                var preparations=[[String:Any]]()
+                @MainActor func captureReceivers(_ epoch:String)throws {
+                    target.beforeRender={try cache.encode($0,"clearReceivers")}
+                    cache.install(cache.capture)
+                    let hidden=keys.map{scene.allBallNodes[$0]!.isHidden}
+                    for key in keys {scene.allBallNodes[key]!.isHidden=true}
+                    SCNTransaction.flush()
+                    let capture=try target.render(frames:epoch=="initial" ? 3:1,includeNativeTiming:true)
+                    for (i,key) in keys.enumerated() {scene.allBallNodes[key]!.isHidden=hidden[i]}
+                    SCNTransaction.flush()
+                    try cache.inputs(scene,target.renderer)
+                    let prepare=try cache.prepare(target)
+                    preparations.append(["epoch":epoch,"captureFrames":capture.perFrameTiming,"prepare":prepare,"validPixels":cache.validPixels()])
+                    try require(cache.validPixels()>0,"H17 missing real receiver inputs")
+                }
+                @MainActor func apply(_ variant:String?) {
+                    target.updatesBeforeRender = animated && variant != nil
+                    if let variant {
+                        cache.install(cache.consumer)
+                        target.beforeRender={ command in try cache.inputs(scene,target.renderer);try cache.encode(command,variant) }
+                    } else { target.beforeRender=nil;cache.install(cache.baseline) }
+                }
+                try captureReceivers("initial")
+                var quality=[[String:Any]](),maximum=0,aaMax=0,restoreMax=0
+                for frame in 0..<8 {
+                    if animated {target.researchTime=1+Double(frame)*0.11}
+                    updateBalls(frame)
+                    if frame==6 {try cameraPose(initialEye+SIMD3<Float>(0.05,0.02,0));try captureReceivers("camera")}
+                    if frame==7 {
+                        for (i,m) in cloth.enumerated(){m.roughness.intensity=roughness[i]*0.85}
+                        SCNTransaction.flush();try captureReceivers("roughness")
+                    }
+                    apply(nil);_=try target.render(frames:3);let a=try target.readback()
+                    _=try target.render(frames:1);let aa=try target.readback()
+                    apply("reuse");_=animationProbe.take()
+                    let first=try target.render(frames:1,includeNativeTiming:true);let b=try target.readback()
+                    let callbacks=animationProbe.take()
+                    var maximumBallDelta:Float=0
+                    if animated {
+                        try require(callbacks["update"]==1 && callbacks["animations"]==1,"H17 exactly one animation update per consumed frame")
+                        let bytes=Data(bytes:cache.balls.contents(),count:256)
+                        let production=try XCTUnwrap(cloth.first?.value(forKey:"contactUniforms") as? NSData)
+                        try require(bytes==(production as Data),"H17 Compute and final render must use the same uniform version")
+                        for (slot,item) in scene.allBallNodes.sorted(by:{$0.key<$1.key}).enumerated() {
+                            let value=bytes.withUnsafeBytes{$0.loadUnaligned(fromByteOffset:slot*16,as:SIMD4<Float>.self)}
+                            let position=item.value.presentation.simdWorldPosition
+                            maximumBallDelta=max(maximumBallDelta,abs(value.x-position.x),abs(value.y-position.z),abs(value.z-max(AngleSceneCalculator.ballRadius,position.y-scene.surfaceY)))
+                        }
+                        try require(maximumBallDelta<0.000001,"H17 final presentation center mismatch")
+                    }
+                    apply(nil);_=try target.render(frames:3);let restored=try target.readback()
+                    let delta=difference(a,b),noise=difference(a,aa),rest=difference(a,restored)
+                    maximum=max(maximum,delta.maximum);aaMax=max(aaMax,noise.maximum);restoreMax=max(restoreMax,rest.maximum)
+                    quality.append(["frame":frame,"maximumChannelDifference":delta.maximum,"changedPixels":delta.changedPixels,
+                        "aaMaximum":noise.maximum,"restoreMaximum":rest.maximum,"firstConsumeFrame":first.perFrameTiming,
+                        "callbacks":callbacks,"maximumBallCenterDelta":maximumBallDelta,
+                        "carrierPresentationY":carrier.presentation.position.y])
+                    attach(a,"h17-\(pose)-\(frame)-baseline");attach(b,"h17-\(pose)-\(frame)-reuse")
+                }
+                for (i,m) in cloth.enumerated(){m.roughness.intensity=roughness[i]}
+                try cameraPose(initialEye);updateBalls(0);try captureReceivers("restore")
+                apply(nil);_=try target.render(frames:3);let controlA=try target.readback()
+                apply("reuse")
+                cache.install(cache.consumer.replacingOccurrences(of:"E=reuseE.xyz;S=reuseSpecular.read(uint2(reusePixel)).xyz;",with:"E=reuseE.xyz;S=float3(2,0,0);"))
+                _=try target.render(frames:3);let controlB=try target.readback(),positive=difference(controlA,controlB)
+                attach(controlB,"h17-\(pose)-positive-control")
+                try require(positive.maximum>8 && positive.changedPixels>100,"H17 real consumer positive control")
+                var times=[[String:Any]](),epochTime:TimeInterval=20
+                if maximum<=1 && aaMax==0 && restoreMax==0 {
+                    for kind in ["AA","AB","DI"] {for cycle in 0..<6 {
+                        for arm in cycle%2==0 ? [false,true,true,false]:[true,false,false,true] {
+                            if animated {epochTime += 1;target.researchTime=epochTime;restartAction()}
+                            apply(kind=="DI" ? (arm ? "reuse":"direct"):(kind=="AB" && arm ? "reuse":nil))
+                            _=try target.render(frames:6)
+                            var frames=[[String:Any]]()
+                            for frame in 0..<12 {
+                                if animated {target.researchTime=epochTime+Double(frame+1)/60}
+                                updateBalls(frame%6);frames += try target.render(frames:1,includeNativeTiming:true).perFrameTiming
+                            }
+                            times.append(["kind":kind,"cycle":cycle,"arm":arm ? "B":"A","frames":frames])
+                        }
+                    }}
+                }
+                apply(nil)
+                rows.append(["pose":pose,"allocatedBytes":cache.allocatedBytes,"capturedPixels":cache.validPixels(),
+                    "maximumChannelDifference":maximum,"aaMaximum":aaMax,"restoreMaximum":restoreMax,
+                    "quality":quality,"preparations":preparations,"positiveControlMaximum":positive.maximum,
+                    "positiveControlPixels":positive.changedPixels,"times":times,
+                    "cameraTransform":matrixValues(camera.transform),"clothMaterials":cloth.count,"activeBallCapacity":keys.count])
+                print("[H17] \(pose) max=\(maximum) AA=\(aaMax) restore=\(restoreMax) arms=\(times.count)")
+                target.beforeRender=nil;carrier.removeAllActions()
+            }
+        }
+        complete=true
+        #endif
+    }
+
     func testNativeCurrentMaterialAndCPUCost() throws {
         try runNativeMaterialStudy(vertexDiffuse: false)
     }
@@ -2487,6 +2660,226 @@ final class ClothSupportPerformanceResearchTests: XCTestCase {
          "screenSpaceAmbientOcclusionNormalThreshold": camera.screenSpaceAmbientOcclusionNormalThreshold]
     }
 
+    #if DEBUG
+    private final class H17AnimationProbe: NSObject, SCNSceneRendererDelegate, @unchecked Sendable {
+        let contact: MobileContactOcclusion?
+        private let lock=NSLock()
+        private var counters=[String:Int]()
+        init(contact:MobileContactOcclusion?) {self.contact=contact;super.init()}
+        private func count(_ key:String) {lock.lock();counters[key,default:0]+=1;lock.unlock()}
+        func take()->[String:Int] {lock.lock();defer{lock.unlock()};let result=counters;counters.removeAll();return result}
+        func actionStep(_ node:SCNNode,elapsed:Double) {
+            count("action")
+            node.simdPosition=SIMD3<Float>(Float(sin(elapsed*5))*0.14,Float(1-cos(elapsed*4))*0.018,Float(sin(elapsed*3))*0.04)
+        }
+        func renderer(_ renderer:SCNSceneRenderer,updateAtTime time:TimeInterval) {count("update")}
+        func renderer(_ renderer:SCNSceneRenderer,didApplyAnimationsAtTime time:TimeInterval) {
+            count("animations");contact?.renderer(renderer,didApplyAnimationsAtTime:time)
+        }
+        func renderer(_ renderer:SCNSceneRenderer,didApplyConstraintsAtTime time:TimeInterval) {count("constraints")}
+        func renderer(_ renderer:SCNSceneRenderer,willRenderScene scene:SCNScene,atTime time:TimeInterval) {count("willRender")}
+        func renderer(_ renderer:SCNSceneRenderer,didRenderScene scene:SCNScene,atTime time:TimeInterval) {count("didRender")}
+    }
+
+    /// H17 research only. No App runtime or material default references this type.
+    @MainActor private final class H17Cache {
+        let device: MTLDevice
+        let materials: [SCNMaterial]
+        let baseline: String, consumer: String, capture: String, computeSource: String
+        let textures: [MTLTexture], fields: [MTLTexture], balls: MTLBuffer
+        var pipelines: [String: MTLComputePipelineState] = [:]
+        var camera = SIMD4<Float>(repeating: 0)
+        let side = 384
+        init(device: MTLDevice, materials: [SCNMaterial], target: RenderTarget) throws {
+            self.device=device; self.materials=materials
+            let baseline=try XCTUnwrap(materials.first?.shaderModifiers?[.surface])
+            try Self.need(ClothResearchShaders.sha256(baseline)=="14a880284fffc793f01d0357b0a625559101609d7986c9ac0cac72e7085efa4f", "H17 current production C1/H9 identity")
+            try Self.need(materials.allSatisfy{$0.shaderModifiers?[.surface]==baseline}, "H17 shared cloth identity")
+            self.baseline=baseline
+            fields=try ["temporalField0","temporalField1"].map { name in
+                let property=try XCTUnwrap(materials.first?.value(forKey:name) as? SCNMaterialProperty)
+                return try XCTUnwrap(property.contents as? MTLTexture)
+            }
+            let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba32Float,width:side,height:side,mipmapped:false)
+            d.usage=[.shaderRead,.shaderWrite];d.storageMode = .shared
+            textures=try (0..<5).map { i in
+                let t=try XCTUnwrap(device.makeTexture(descriptor:d));t.label="H17-\(i)";return t
+            }
+            balls=try XCTUnwrap(device.makeBuffer(length:256,options:.storageModeShared))
+            @MainActor func once(_ source:String,_ old:String,_ new:String)throws->String {
+                try Self.need(source.components(separatedBy:old).count==2,"H17 unique shader anchor")
+                return source.replacingOccurrences(of:old,with:new)
+            }
+            let brdfStart=try XCTUnwrap(baseline.range(of:"float nl=max(0.001,dot(n,l));",options:.backwards),"BRDF")
+            let weightStart=try XCTUnwrap(baseline.range(of:"float3 weighted=",range:brdfStart.upperBound..<baseline.endIndex),"Weight")
+            let weightEnd=try XCTUnwrap(baseline.range(of:"unoccludedE+=weighted; E+=weighted*visibility;",range:weightStart.lowerBound..<baseline.endIndex),"Accumulate")
+            let brdf=String(baseline[brdfStart.lowerBound..<weightStart.lowerBound])
+            let weight=String(baseline[weightStart.lowerBound..<weightEnd.lowerBound])
+            let accumulation="S+=weighted*visibility*D*G*F/(4.0*nv*nl);"
+            let coreStart=try XCTUnwrap(baseline.range(of:"bool shadowPossible=false;"),"Core start")
+            let coreEnd=try XCTUnwrap(baseline.range(of:"// v64ClothNap:"),"Core end")
+            let core=String(baseline[coreStart.lowerBound..<coreEnd.lowerBound])
+            let declarations=String(baseline[..<baseline.range(of:"#pragma body")!.lowerBound])
+             .components(separatedBy:"\n").filter { !$0.hasPrefix("#pragma") && !$0.hasPrefix("texture") && $0 != "QiuJiContactUniforms contactUniforms;" }.joined(separator:"\n")
+            let commonInputs="""
+            float4 q=receiverPosition.read(id),nr=receiverNormal.read(id);
+            if(q.w==0.0){resultDiffuse.write(float4(0),id);resultSpecular.write(float4(0),id);return;}
+            float3 p=q.xyz,n=nr.xyz,v=normalize(camera.xyz-p);
+            float nv=max(0.001,dot(n,v));float alpha=max(0.01,nr.w*nr.w);float a2=alpha*alpha;
+            float3 E=0.0,unoccludedE=0.0,S=0.0;
+            \((0..<16).map{"float4 contactBall\($0)=contactUniforms.contactBalls[\($0)];"}.joined(separator:"\n"))
+            """
+            let signature="""
+            texture2d<float,access::read> receiverPosition [[texture(0)]],
+            texture2d<float,access::read> receiverNormal [[texture(1)]],
+            texture2d<float,access::read> staticSpecular [[texture(2)]],
+            texture2d<float,access::write> resultDiffuse [[texture(3)]],
+            texture2d<float,access::write> resultSpecular [[texture(4)]],
+            texture3d<float> temporalField0 [[texture(5)]],texture3d<float> temporalField1 [[texture(6)]],
+            constant QiuJiContactUniforms &contactUniforms [[buffer(0)]],constant float4 &camera [[buffer(1)]],
+            uint2 id [[thread_position_in_grid]]
+            """
+            var separated=try once(core,brdf,"")
+            separated=try once(separated,accumulation,"""
+            if(!shadowPossible || visibility<1.0) {
+             \(brdf)
+             S+=weighted*(shadowPossible ? visibility-1.0:visibility)*D*G*F/(4.0*nv*nl);
+            }
+            """)
+            let finalLoop=try XCTUnwrap(separated.range(of:"for(int panel=0;panel<2;++panel) {",options:.backwards),"Final panel loop")
+            separated.insert(contentsOf:"if(shadowPossible) S=staticSpecular.read(id).rgb;\n",at:finalLoop.lowerBound)
+            let prepare="""
+            kernel void prepareSpecular(texture2d<float,access::read> receiverPosition [[texture(0)]],
+             texture2d<float,access::read> receiverNormal [[texture(1)]],texture2d<float,access::write> result [[texture(2)]],
+             constant float4 &camera [[buffer(0)]],uint2 id [[thread_position_in_grid]]) {
+             if(any(id>=uint2(result.get_width(),result.get_height())))return;
+             float4 q=receiverPosition.read(id),nr=receiverNormal.read(id);
+             if(q.w==0.0){result.write(float4(0),id);return;}
+             float3 p=q.xyz,n=nr.xyz,v=normalize(camera.xyz-p),S=0.0;
+             float nv=max(0.001,dot(n,v));float alpha=max(0.01,nr.w*nr.w);float a2=alpha*alpha;
+             for(int panel=0;panel<2;++panel){
+              float cellArea=v62EmitterArea(panel)/32.0;
+              for(int ix=0;ix<8;++ix)for(int iz=0;iz<4;++iz){
+               float3 lp=v62EmitterCenter(panel)+v62EmitterU(panel)*(2.0*(float(ix)+0.5)/8.0-1.0)+v62EmitterV(panel)*(2.0*(float(iz)+0.5)/4.0-1.0);
+               float3 delta=lp-p;float r2=dot(delta,delta);float3 l=delta/sqrt(r2);
+               \(brdf)
+               \(weight)
+               S+=weighted*D*G*F/(4.0*nv*nl);
+              }
+             }
+             result.write(float4(S,1),id);
+            }
+            """
+            let clearKernel="""
+            kernel void clearReceivers(texture2d<float,access::write> positions [[texture(0)]],texture2d<float,access::write> normals [[texture(1)]],uint2 id [[thread_position_in_grid]]) {
+             if(any(id>=uint2(positions.get_width(),positions.get_height())))return;
+             positions.write(float4(0),id);normals.write(float4(0),id);
+            }
+            """
+            let computeSource="#include <metal_stdlib>\nusing namespace metal;\n"+declarations+"\n"+prepare+clearKernel+[ ("direct",core),("reuse",separated) ].map { name,body in
+             """
+             kernel void \(name)(\(signature)) {
+              if(any(id>=uint2(receiverPosition.get_width(),receiverPosition.get_height())))return;
+              \(commonInputs)
+              \(body)
+              resultDiffuse.write(float4(E,1),id);resultSpecular.write(float4(S,1),id);
+             }
+             """
+            }.joined(separator:"\n")
+            self.computeSource=computeSource
+            let library=try device.makeLibrary(source:computeSource,options:nil)
+
+            for name in ["prepareSpecular","direct","reuse","clearReceivers"] {pipelines[name]=try device.makeComputePipelineState(function:XCTUnwrap(library.makeFunction(name:name),name))}
+            let project="""
+            float4 reuseClip=scn_frame.projectionTransform*float4(_surface.position,1.0);
+            float2 reuseScreen=(reuseClip.xy/reuseClip.w*float2(0.5,-0.5)+0.5)*reuseViewport.xy;
+            int2 reusePixel=int2(floor(reuseScreen))-int2(reuseViewport.zw);
+            float3 reuseGeometryNormal=normalize((scn_frame.inverseViewTransform*float4(_surface.geometryNormal,0.0)).xyz);
+            bool reuseInside=all(reusePixel>=int2(0)) && all(reusePixel<int2(\(384),\(384))) && abs(p.y-0.8)<0.00001 && reuseGeometryNormal.y>0.99999;
+            """
+            let arguments="""
+            #pragma arguments
+            texture2d<float> reuseDiffuse;
+            texture2d<float> reuseSpecular;
+            float4 reuseViewport;
+            """
+            let consumerBody="""
+            \(project)
+            float4 reuseE=reuseInside ? reuseDiffuse.read(uint2(reusePixel)):float4(0);
+            if(reuseE.w==1.0){E=reuseE.xyz;S=reuseSpecular.read(uint2(reusePixel)).xyz;}
+            else {\(core)}
+            """
+            let consumer=try once(try once(baseline,"#pragma body",arguments+"\n#pragma body"),core,consumerBody)
+            let capture="""
+            #pragma arguments
+            texture2d<float,access::write> reusePositionOut;
+            texture2d<float,access::write> reuseNormalOut;
+            float4 reuseViewport;
+            #pragma body
+            float3 p=(scn_frame.inverseViewTransform*float4(_surface.position,1.0)).xyz;
+            \(project)
+            if(reuseInside){
+             reusePositionOut.write(float4(p,1),uint2(reusePixel));
+             float3 n=normalize((scn_frame.inverseViewTransform*float4(_surface.normal,0.0)).xyz);
+             reuseNormalOut.write(float4(n,_surface.roughness),uint2(reusePixel));
+            }
+            _surface.emission.rgb=float3(0);_surface.diffuse.rgb=float3(0);_surface.metalness=1.0;
+            """
+            self.consumer=consumer; self.capture=capture
+            let zero=Data(repeating:0,count:side*side*16)
+            for t in textures {zero.withUnsafeBytes{t.replace(region:MTLRegionMake2D(0,0,side,side),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:side*16)}}
+            for m in materials {
+                for (name,index) in [("reusePositionOut",0),("reuseNormalOut",1),("reuseDiffuse",3),("reuseSpecular",4)] {
+                    m.setValue(SCNMaterialProperty(contents:textures[index]),forKey:name)
+                }
+                m.setValue(NSValue(scnVector4:SCNVector4(Float(target.width),Float(target.height),Float((target.width-side)/2),Float((target.height-side)/2))),forKey:"reuseViewport")
+            }
+            try Self.need(allocatedBytes<=16*1024*1024,"H17 resource budget")
+        }
+        var allocatedBytes:Int {textures.reduce(0){$0+$1.allocatedSize}+balls.allocatedSize}
+        func install(_ source:String) {
+            for m in materials {var mods=m.shaderModifiers ?? [:];mods[.surface]=source;m.shaderModifiers=mods}
+            SCNTransaction.flush()
+        }
+        func inputs(_ scene:AngleTrainingScene,_ renderer:SCNRenderer)throws {
+            // The compute pass precedes SCNRenderer.render. Refresh through the
+            // production callback before copying its ABI, not from the prior frame.
+            scene.contactOcclusion?.renderer(renderer,didApplyAnimationsAtTime:1)
+            let data=try XCTUnwrap(materials.first?.value(forKey:"contactUniforms") as? NSData)
+            try Self.need(data.length==256,"H17 actual production uniform ABI")
+            memcpy(balls.contents(),data.bytes,256)
+            camera=SIMD4(try XCTUnwrap(scene.cameraNode).simdWorldPosition,1)
+        }
+        func encode(_ command:MTLCommandBuffer,_ name:String)throws {
+            let e=try XCTUnwrap(command.makeComputeCommandEncoder());e.label="H17 \(name)"
+            e.setComputePipelineState(pipelines[name]!)
+            for i in 0..<3 {e.setTexture(textures[i],index:i)}
+            if name=="clearReceivers" {} else if name=="prepareSpecular" {e.setBytes(&camera,length:16,index:0)}
+            else {
+                e.setTexture(textures[3],index:3);e.setTexture(textures[4],index:4)
+                e.setTexture(fields[0],index:5);e.setTexture(fields[1],index:6)
+                e.setBuffer(balls,offset:0,index:0);e.setBytes(&camera,length:16,index:1)
+            }
+            e.dispatchThreads(MTLSize(width:side,height:side,depth:1),threadsPerThreadgroup:MTLSize(width:8,height:8,depth:1));e.endEncoding()
+        }
+        func prepare(_ target:RenderTarget)throws->[String:Double] {
+            let start=CACurrentMediaTime(),command=try XCTUnwrap(target.queue.makeCommandBuffer())
+            try encode(command,"prepareSpecular");let encoded=CACurrentMediaTime()
+            command.commit();command.waitUntilCompleted()
+            try Self.need(command.status == .completed,"H17 preparation failed")
+            return ["gpuMS":(command.gpuEndTime-command.gpuStartTime)*1000,"cpuEncodeMS":(encoded-start)*1000,"wallMS":(CACurrentMediaTime()-start)*1000]
+        }
+        func validPixels()->Int {
+            var values=[Float](repeating:0,count:side*side*4)
+            values.withUnsafeMutableBytes{textures[0].getBytes($0.baseAddress!,bytesPerRow:side*16,from:MTLRegionMake2D(0,0,side,side),mipmapLevel:0)}
+            return (0..<side*side).filter{values[4*$0+3]==1}.count
+        }
+        private static func need(_ value:Bool,_ text:String)throws {
+            if !value {throw NSError(domain:"H17",code:1,userInfo:[NSLocalizedDescriptionKey:text])}
+        }
+    }
+    #endif
+
     private struct Frame {
         let image: UIImage
         let bgra: [UInt8]
@@ -2516,6 +2909,9 @@ final class ClothSupportPerformanceResearchTests: XCTestCase {
 
     @MainActor private final class RenderTarget {
         let renderer: SCNRenderer
+        var beforeRender: ((MTLCommandBuffer) throws -> Void)?
+        var updatesBeforeRender = false
+        var researchTime: TimeInterval?
         let queue: MTLCommandQueue
         let color: MTLTexture
         let multisample: MTLTexture
@@ -2570,8 +2966,14 @@ final class ClothSupportPerformanceResearchTests: XCTestCase {
                 pass.depthAttachment.storeAction = .dontCare; pass.depthAttachment.clearDepth = 1
                 pass.stencilAttachment.texture = depth; pass.stencilAttachment.loadAction = .clear
                 pass.stencilAttachment.storeAction = .dontCare; pass.stencilAttachment.clearStencil = 0
-                renderer.render(atTime: atTime, viewport: CGRect(x: 0, y: 0, width: width, height: height),
-                                commandBuffer: command, passDescriptor: pass)
+                let time=researchTime ?? atTime
+                if updatesBeforeRender {renderer.update(atTime:time)}
+                try beforeRender?(command)
+                if updatesBeforeRender {
+                    renderer.render(withViewport:CGRect(x:0,y:0,width:width,height:height),commandBuffer:command,passDescriptor:pass)
+                } else {
+                    renderer.render(atTime:time,viewport:CGRect(x:0,y:0,width:width,height:height),commandBuffer:command,passDescriptor:pass)
+                }
                 let encodeEnd = CACurrentMediaTime()
                 command.commit(); command.waitUntilCompleted()
                 let wallEnd = CACurrentMediaTime()
