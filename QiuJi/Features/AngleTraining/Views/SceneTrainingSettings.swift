@@ -105,7 +105,10 @@ struct SceneTrainingSettings<Batch>: View {
                             Spacer()
                             BTSelectionIndicator(isSelected: draft.angleSelection.contains(range))
                         }
-                    }.accessibilityIdentifier("training.range." + range.rawValue)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("training.range." + range.rawValue)
                         .accessibilityValue(draft.angleSelection.contains(range) ? "已选" : "未选")
                         .accessibilityAddTraits(draft.angleSelection.contains(range) ? .isSelected : [])
                 }
@@ -385,8 +388,10 @@ struct TrainingMultiSelectRow<Choice: Hashable & Identifiable>: View {
                 Image(systemName: BTIcon.chevronRight).foregroundStyle(.btPrimary)
             }.contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityIdentifier(identifier).accessibilityValue(summary)
         .popover(isPresented: $expanded) {
+            BTIntrinsicMenuLayout {
             VStack(spacing: 0) {
                 ForEach(choices) { choice in
                     Button {
@@ -402,8 +407,9 @@ struct TrainingMultiSelectRow<Choice: Hashable & Identifiable>: View {
                         .accessibilityValue(selection.contains(choice) ? "已选" : "未选")
                         .accessibilityAddTraits(selection.contains(choice) ? .isSelected : [])
                 }
-            }.padding(.vertical, Spacing.sm).frame(minWidth: 250, maxWidth: 340)
-                .presentationCompactAdaptation(.popover)
+            }.padding(.vertical, Spacing.sm)
+            }
+            .presentationCompactAdaptation(.popover)
         }
     }
 }

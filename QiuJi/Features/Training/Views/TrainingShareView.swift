@@ -115,6 +115,7 @@ struct TrainingShareView: View {
                             .background(selectedFont == font ? Color.btPrimary : Color.clear)
                             .clipShape(Capsule())
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .background(Color.btBGTertiary)
@@ -200,6 +201,7 @@ struct TrainingShareView: View {
                 .background(isActive.wrappedValue ? Color.btPrimary : Color.btBGTertiary)
                 .clipShape(Capsule())
         }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Share Actions

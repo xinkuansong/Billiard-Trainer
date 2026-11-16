@@ -65,6 +65,7 @@ struct BTDrillCard: View {
                             .font(.btCallout)
                             .foregroundStyle(isFavorited ? .btPrimary : .btTextTertiary)
                     }
+                    .buttonStyle(.plain)
                 }
 
                 Spacer()
@@ -176,7 +177,13 @@ struct BTDrillGridCard: View {
                     .frame(width: 30, height: 30)
                     .background(.black.opacity(0.35))
                     .clipShape(Circle())
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(BTPressableStyle.row)
+            .accessibilityLabel(isFavorited ? "取消收藏" : "收藏")
+            .accessibilityValue(isFavorited ? "已收藏" : "未收藏")
+            .accessibilityIdentifier("drill.favorite.\(drill.id)")
         }
     }
 

@@ -269,6 +269,7 @@ struct DrillRecordView: View {
                     .font(.btSubheadlineMedium)
                     .foregroundStyle(.btPrimary)
             }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)

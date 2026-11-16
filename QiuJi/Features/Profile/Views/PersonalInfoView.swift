@@ -98,6 +98,8 @@ struct PersonalInfoView: View {
                                                      ownerKey: ownerKey, authState: authState)
                     }
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(.btDestructive)
                 .font(.btCaption)
                 .disabled(avatarStore.phase != .idle)
                 .accessibilityIdentifier("personalInfo.avatarDelete")
@@ -118,6 +120,7 @@ struct PersonalInfoView: View {
                         .accessibilityIdentifier("personalInfo.displayNameField")
 
                     Button("完成") { saveName() }
+                        .buttonStyle(.plain)
                         .font(.btCallout.weight(.medium))
                         .foregroundStyle(.btPrimary)
                         .accessibilityIdentifier("personalInfo.displayNameSave")
@@ -160,9 +163,9 @@ struct PersonalInfoView: View {
             Text("基本资料").font(.btSubheadlineMedium).foregroundStyle(.btTextSecondary)
                 .padding(.leading, Spacing.xs)
             VStack(spacing: 0) {
-                Menu {
+                BTCompactMenu {
                     ForEach(ProfileGender.allCases) { gender in
-                        Button(gender.title) {
+                        BTCompactMenuAction(gender.title) {
                             Task { _ = await profile.setGender(gender, authState: authState) }
                         }
                     }
@@ -216,6 +219,8 @@ struct PersonalInfoView: View {
                         } label: {
                             Text("不填写生日").frame(minHeight: 44).contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
                         .accessibilityIdentifier("personalInfo.clearBirthday")
                     }
                 }

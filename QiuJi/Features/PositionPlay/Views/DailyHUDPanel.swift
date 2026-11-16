@@ -104,13 +104,18 @@ struct DailyHUDMenuPanel: View {
     let onBack: () -> Void
     let onClose: () -> Void
     var followsAppearance = false
+    var fitsShortOptions = false
     @Environment(\.colorScheme) private var colorScheme
     @State private var measuredHeight: CGFloat = 1
     @State private var measuredHeaderHeight: CGFloat = 44
+    @State private var measuredIntrinsicWidth: CGFloat = 252
     @Environment(\.dynamicTypeSize) private var typeSize
     @AccessibilityFocusState private var headingFocused: Bool
 
-    private var width: CGFloat { min(typeSize.isAccessibilitySize ? 360 : 252, max(44, availableSize.width)) }
+    private var width: CGFloat {
+        let preferred = fitsShortOptions ? max(112, measuredIntrinsicWidth) : (typeSize.isAccessibilitySize ? 360 : 252)
+        return min(preferred, max(44, availableSize.width))
+    }
     private var headerHeight: CGFloat { title == nil ? 0 : measuredHeaderHeight + 0.5 }
     private var availableHeight: CGFloat { max(44, availableSize.height - headerHeight - 16) }
 
@@ -146,6 +151,25 @@ struct DailyHUDMenuPanel: View {
         }
         .padding(.vertical, 8)
         .frame(width: width)
+        .background {
+            if fitsShortOptions {
+                VStack(spacing: 0) {
+                    if let title {
+                        HStack(spacing: 0) {
+                            Color.clear.frame(width: 44, height: 44)
+                            Text(title).font(.subheadline.weight(.semibold))
+                            Color.clear.frame(width: 52, height: 44)
+                        }
+                    }
+                    content
+                }
+                .fixedSize(horizontal: true, vertical: true)
+                .background(GeometryReader { geometry in
+                    Color.clear.preference(key: DailyMenuIntrinsicWidthKey.self, value: geometry.size.width)
+                })
+                .hidden().allowsHitTesting(false).accessibilityHidden(true)
+            }
+        }
         .foregroundStyle(followsAppearance ? Color.btText : .white)
         .background {
             if followsAppearance {
@@ -165,6 +189,9 @@ struct DailyHUDMenuPanel: View {
         }
         .onPreferenceChange(DailyMenuHeaderHeightKey.self) { value in
             if value.isFinite, value > 0 { measuredHeaderHeight = value }
+        }
+        .onPreferenceChange(DailyMenuIntrinsicWidthKey.self) { value in
+            if value.isFinite, value > 0 { measuredIntrinsicWidth = value }
         }
         .onAppear { headingFocused = true }
     }
@@ -228,6 +255,11 @@ struct DailyHUDMenuPanel: View {
         Rectangle().fill(followsAppearance ? Color.btSeparator : Color.white.opacity(strong ? 0.16 : 0.08))
             .frame(height: 0.5).padding(.horizontal, 16).accessibilityHidden(true)
     }
+}
+
+private struct DailyMenuIntrinsicWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 struct DailyConfirmationCard: View {

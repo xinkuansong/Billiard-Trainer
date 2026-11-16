@@ -10,7 +10,7 @@ private final class ModelPerfFrames: @unchecked Sendable {
     func snapshot() -> [Double] { lock.lock(); defer { lock.unlock() }; return times }
 }
 
-/// Opt-in scene-host A/B using the production VM, solver, SCNActions and scheduler.
+/// Opt-in production scene-host measurement using the VM, solver, SCNActions and scheduler.
 /// Device runs retain native scale; full SwiftUI-page performance is a separate measurement.
 @MainActor final class ModelAssetPerformanceTests: XCTestCase {
     func testLiveScenePerformance() async throws {
@@ -62,9 +62,10 @@ private final class ModelPerfFrames: @unchecked Sendable {
         if let delay = env["MODEL_PERF_TRACE_DELAY"].flatMap(Double.init) {
             try await Task.sleep(for: .seconds(delay))
         }
-        let original = UserDefaults.standard.bool(forKey: "modelAssetTrialUseOriginal")
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: "modelAssetTrialUseOriginal"),
+                       "Original-model A/B was retired; remove the stale trial launch preference")
         let tableURL = try XCTUnwrap(ModelAssetTrial.url("TaiQiuZhuo"))
-        XCTAssertEqual(tableURL.lastPathComponent.hasPrefix("ModelTrial"), !original)
+        XCTAssertEqual(tableURL.lastPathComponent, "ModelTrial20261010_TaiQiuZhuo.usdz")
         let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
         let orientation = DailyTableOrientation.Controller()
         orientation.landscape = true
@@ -205,7 +206,7 @@ private final class ModelPerfFrames: @unchecked Sendable {
                 XCTAssertFalse(raw.rootNode.childNodes.isEmpty)
             }
         }
-        let report: [String: Any] = ["startConditions": startConditions, "endConditions": conditions(), "OS": UIDevice.current.systemVersion, "original": original, "table": tableURL.lastPathComponent,
+        let report: [String: Any] = ["startConditions": startConditions, "endConditions": conditions(), "OS": UIDevice.current.systemVersion, "original": false, "table": tableURL.lastPathComponent,
             "process": getpid(), "setupMS": setupMS, "setupCPUMS": setupCPUMS,
             "memoryBefore": initialMemory, "memoryAfterSetup": setupMemory,
             "windowSize": [view.bounds.width, view.bounds.height], "scale": view.contentScaleFactor,
@@ -213,7 +214,7 @@ private final class ModelPerfFrames: @unchecked Sendable {
             "board": board.onTable.mapValues { [$0.x, $0.y] }, "before": before,
             "firstBallMotionMS": try XCTUnwrap(firstBallMotionMS), "predictionDuration": prediction.duration, "after": vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] }]
         try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(to: output.appendingPathComponent("metrics.json"))
-        print("MODEL_PERF_DONE", original ? "original" : "optimized", setupMS)
+        print("MODEL_PERF_DONE", "production", setupMS)
         fflush(stdout)
         if let delay = env["MODEL_PERF_END_DELAY"].flatMap(Double.init) {
             try await Task.sleep(for: .seconds(delay))

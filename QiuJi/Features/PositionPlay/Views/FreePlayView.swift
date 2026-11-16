@@ -347,6 +347,8 @@ struct FreePlayView: View {
             if showsCameraPreview { dailyCameraPreviewControls }
             if isDailyClearance, ProcessInfo.processInfo.arguments.contains("-dailyLayout.headerAudit") {
                 Button("切换顶栏验证宽度") { dailyHeaderAuditStep += 1 }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
                     .font(.system(size: 12)).padding(8).background(.black.opacity(0.8))
                     .accessibilityIdentifier("dailyLayout.toggleHeaderWidth")
             }
@@ -1267,6 +1269,7 @@ struct FreePlayView: View {
 
     private var cameraFocus: some View {
         Button(vm.isBreakMode ? "开球视角" : "回到瞄准") { ShotPlayCamera.focus(on: vm) }
+            .buttonStyle(.plain)
             .font(.btFootnote)
             .foregroundStyle(HUDStyle.accent)
             .padding(.horizontal, Spacing.sm)
@@ -1726,7 +1729,8 @@ private extension FreePlayView {
                 .accessibilityIdentifier("cameraPreview.collapse")
         }
         .font(.btCaption)
-        .buttonStyle(.borderless)
+        .buttonStyle(.plain)
+        .foregroundStyle(.tint)
         .controlSize(.regular)
         .padding(Spacing.sm)
         .background(HUDStyle.panelBackground, in: RoundedRectangle(cornerRadius: BTRadius.md))
@@ -1819,6 +1823,7 @@ struct ShotObservationMenu: View {
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .foregroundStyle(HUDStyle.accent)
         .accessibilityHint("查看全桌、母球、目标球或目标袋，不改变击球选择")
         .accessibilityIdentifier("\(identifierPrefix).observation")
@@ -2106,7 +2111,8 @@ private extension FreePlayView {
                         DailyHUDMenuPanel(title: dailyMenuTitle, items: dailyMenuItems,
                             availableSize: CGSize(width: size.width - 2 * panelTrailingInset,
                                                   height: size.height - DailyLayoutMetrics.Panels.top - 8),
-                            onBack: { dailyPresentation = .more }, onClose: closeDailyPresentation)
+                            onBack: { dailyPresentation = .more }, onClose: closeDailyPresentation,
+                            fitsShortOptions: presentation == .aim || presentation == .trajectory)
                             .padding(.top, DailyLayoutMetrics.Panels.top)
                             .padding(.trailing, panelTrailingInset)
                     }

@@ -62,40 +62,33 @@ struct DrillListView: View {
     }
 
     private var libraryFilterMenu: some View {
-        Menu {
-            Section("球种") {
+        BTCompactMenu {
+            BTCompactMenuSection("球种") {
                 ForEach(BallTypeFilter.displayCases) { filter in
-                    Button {
+                    BTCompactMenuAction {
                         withAnimation(BTMotion.easeFast) {
                             viewModel.ballTypeFilter = filter
                         }
                     } label: {
-                        if viewModel.ballTypeFilter == filter {
-                            Label(filter.rawValue, systemImage: "checkmark")
-                        } else {
-                            Text(filter.rawValue)
-                        }
+                        BTCompactMenuChoiceLabel(title: filter.rawValue, isSelected: viewModel.ballTypeFilter == filter)
                     }
                     .accessibilityIdentifier("ballTypeMenu_\(filter.rawValue)")
                 }
             }
-            Section("动作类型") {
+            Divider()
+            BTCompactMenuSection("动作类型") {
                 ForEach(DrillBadgeFilter.allCases) { filter in
-                    Button {
+                    BTCompactMenuAction {
                         withAnimation(BTMotion.easeFast) {
                             viewModel.badgeFilter = filter
                         }
                     } label: {
-                        if viewModel.badgeFilter == filter {
-                            Label(filter.menuLabel, systemImage: "checkmark")
-                        } else {
-                            Text(filter.menuLabel)
-                        }
+                        BTCompactMenuChoiceLabel(title: filter.menuLabel, isSelected: viewModel.badgeFilter == filter)
                     }
                 }
             }
             if libraryFilterActiveCount > 0 {
-                Button("清除筛选", role: .destructive) {
+                BTCompactMenuAction("清除筛选", role: .destructive) {
                     withAnimation(BTMotion.easeFast) {
                         viewModel.ballTypeFilter = .all
                         viewModel.badgeFilter = .all
@@ -125,6 +118,7 @@ struct DrillListView: View {
                 }
             }
         }
+        .buttonStyle(BTPressableStyle.row)
         .accessibilityIdentifier("badgeFilterMenu")
         .accessibilityLabel(
             libraryFilterActiveCount > 0

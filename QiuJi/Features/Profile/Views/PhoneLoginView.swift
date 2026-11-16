@@ -100,6 +100,7 @@ struct PhoneLoginView: View {
                         Button(countdown > 0 ? "\(countdown)秒" : "发送验证码") {
                             sendCode()
                         }
+                        .buttonStyle(.plain)
                         .font(.btSubheadlineMedium)
                         .foregroundStyle(canSendCode ? .btPrimary : .btTextTertiary)
                         .padding(.horizontal, Spacing.lg)
@@ -144,6 +145,7 @@ struct PhoneLoginView: View {
                     .padding(.horizontal, Spacing.xxl)
 
                     Button("收不到验证码？") {}
+                        .buttonStyle(.plain)
                         .font(.btCaption)
                         .foregroundStyle(.btTextSecondary)
                         .frame(maxWidth: .infinity)

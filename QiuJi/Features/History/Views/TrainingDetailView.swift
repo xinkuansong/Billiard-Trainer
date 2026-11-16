@@ -97,6 +97,7 @@ struct TrainingDetailView: View {
                         .background(Color.btBGTertiary.opacity(0.3))
                         .clipShape(Circle())
                 }
+                .buttonStyle(.plain)
             }
             ToolbarItem(placement: .principal) {
                 Text(sessionTitle)

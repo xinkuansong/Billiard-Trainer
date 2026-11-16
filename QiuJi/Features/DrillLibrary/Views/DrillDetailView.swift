@@ -251,6 +251,7 @@ struct DrillDetailView: View {
                             .padding(.vertical, Spacing.md)
                             .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                         .accessibilityIdentifier("tryoutFormation_\(index)")
 
                         if index < formations.count - 1 {
@@ -739,6 +740,7 @@ private struct AddDrillToTrainingSheet: View {
                                     emphasized: false
                                 )
                             }
+                            .buttonStyle(.plain)
                             .accessibilityIdentifier("addToPlan_\(plan.id.uuidString)")
                         }
                     }
@@ -782,6 +784,7 @@ private struct AddDrillToTrainingSheet: View {
                     emphasized: true
                 )
             }
+            .buttonStyle(.plain)
             .accessibilityIdentifier("addToTodayTrainingRow")
         }
     }

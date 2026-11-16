@@ -186,6 +186,7 @@ struct SubscriptionView: View {
                     .foregroundStyle(.btTextSecondary)
                     .frame(width: 44, height: 44)
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("关闭")
             .accessibilityIdentifier("subscription.close")
             Spacer(minLength: Spacing.sm)
@@ -193,6 +194,7 @@ struct SubscriptionView: View {
                 if authState.hasLocalAccount { Task { await handleRestore() } }
                 else { showLogin = true }
             }
+            .buttonStyle(.plain)
             .font(.btProCaption)
             .foregroundStyle(Color.btOverviewDays)
             .frame(minHeight: 44)
@@ -230,6 +232,7 @@ struct SubscriptionView: View {
                         Button("重新加载") {
                             Task { await reloadProducts() }
                         }
+                        .buttonStyle(.plain)
                         .font(.btProBody)
                         .foregroundStyle(.btPrimary)
                         .frame(minHeight: 44)
@@ -362,7 +365,9 @@ struct SubscriptionView: View {
                 if subscriptionManager.purchaseOutcome == .pending {
                     Button("购买已取消或被拒绝，重新选择") {
                         subscriptionManager.resetWaitingPurchaseAfterCancellation()
-                    }.font(.btProCaption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint).font(.btProCaption)
                 }
             }
             Text("Pro 权益以当前 Apple 购买为依据；\(AppMetadata.displayName) 账号分别保存各自的训练数据。")
@@ -370,7 +375,11 @@ struct SubscriptionView: View {
             HStack(spacing: Spacing.lg) {
                 if let termsURL = AppConfig.termsURL, let privacyURL = AppConfig.privacyURL {
                     Link("服务条款", destination: termsURL)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
                     Link("隐私政策", destination: privacyURL)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
                 } else {
                     Text("法律文件链接待发布")
                         .foregroundStyle(.btTextSecondary)
@@ -393,6 +402,8 @@ struct SubscriptionView: View {
             } else if !authState.hasLocalAccount {
                 Text("模拟器解锁 Pro 需先登录。")
                 Button("登录") { showLogin = true }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("subscription.simulatorLogin")
             } else if subscriptionManager.isPremium &&
@@ -403,6 +414,8 @@ struct SubscriptionView: View {
                     subscriptionManager.setDebugPremiumUnlocked(!subscriptionManager.isPremium)
                     dismiss()
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
                 .frame(minHeight: 44)
                 .accessibilityIdentifier(subscriptionManager.isPremium
                                          ? "simulatorLockProButton" : "simulatorUnlockProButton")

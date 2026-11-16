@@ -1,0 +1,652 @@
+文件	行	类型	归属	处理	依据
+QiuJi/App/MainTabView.swift	96	Button	body	系统控件/语义动作	alert:content
+QiuJi/App/RootView.swift	390	Button	body	显式样式	.borderedProminent
+QiuJi/App/RootView.swift	587	Button	body	系统控件/语义动作	ToolbarItemGroup:content
+QiuJi/App/RootView.swift	589	Button	body	系统控件/语义动作	ToolbarItemGroup:content
+QiuJi/Core/Components/BTButton.swift	211	Button		显式样式	BTButtonStyle.primary
+QiuJi/Core/Components/BTButton.swift	217	Button		显式样式	BTButtonStyle.secondary
+QiuJi/Core/Components/BTButton.swift	223	Button		显式样式	BTButtonStyle.text
+QiuJi/Core/Components/BTButton.swift	229	Button		显式样式	BTButtonStyle.destructive
+QiuJi/Core/Components/BTButton.swift	235	Button		显式样式	BTButtonStyle.darkPill
+QiuJi/Core/Components/BTButton.swift	242	Button		显式样式	BTButtonStyle.iconCircle
+QiuJi/Core/Components/BTButton.swift	244	Button		显式样式	BTButtonStyle.iconCircle
+QiuJi/Core/Components/BTButton.swift	252	Button		显式样式	BTButtonStyle.segmentedPill(isSelected: true)
+QiuJi/Core/Components/BTButton.swift	254	Button		显式样式	BTButtonStyle.segmentedPill(isSelected: false)
+QiuJi/Core/Components/BTButton.swift	256	Button		显式样式	BTButtonStyle.segmentedPill(isSelected: false)
+QiuJi/Core/Components/BTButton.swift	263	Button		显式样式	BTButtonStyle.goldFilled
+QiuJi/Core/Components/BTButton.swift	277	Button		显式样式	BTButtonStyle.primary
+QiuJi/Core/Components/BTButton.swift	283	Button		显式样式	BTButtonStyle.secondary
+QiuJi/Core/Components/BTButton.swift	289	Button		显式样式	BTButtonStyle.text
+QiuJi/Core/Components/BTButton.swift	295	Button		显式样式	BTButtonStyle.destructive
+QiuJi/Core/Components/BTButton.swift	301	Button		显式样式	BTButtonStyle.darkPill
+QiuJi/Core/Components/BTButton.swift	308	Button		显式样式	BTButtonStyle.iconCircle
+QiuJi/Core/Components/BTButton.swift	310	Button		显式样式	BTButtonStyle.iconCircle
+QiuJi/Core/Components/BTButton.swift	318	Button		显式样式	BTButtonStyle.segmentedPill(isSelected: true)
+QiuJi/Core/Components/BTButton.swift	320	Button		显式样式	BTButtonStyle.segmentedPill(isSelected: false)
+QiuJi/Core/Components/BTButton.swift	322	Button		显式样式	BTButtonStyle.segmentedPill(isSelected: false)
+QiuJi/Core/Components/BTButton.swift	329	Button		显式样式	BTButtonStyle.goldFilled
+QiuJi/Core/Components/BTChipRow.swift	38	Button	chips	显式样式	BTPressableStyle.capsule
+QiuJi/Core/Components/BTDailyLimitGate.swift	76	Button	cardBody	显式样式	BTProUnlockButtonStyle(font: .btCTALabelRounded, expands: false)
+QiuJi/Core/Components/BTDailyLimitGate.swift	95	Button	compactBody	显式样式	BTProUnlockButtonStyle(font: .btCTALabelRounded, expands: false)
+QiuJi/Core/Components/BTDailyLimitGate.swift	149	Button	segment	显式样式	.plain
+QiuJi/Core/Components/BTDrillCard.swift	63	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTDrillCard.swift	173	Button	cardBadge	显式样式	BTPressableStyle.row
+QiuJi/Core/Components/BTDrillCard.swift	362	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTDrillCard.swift	372	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTDrillCard.swift	385	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTDrillPreviewPlayer.swift	89	Button	replayButton	显式样式	BTPressableStyle.capsule
+QiuJi/Core/Components/BTEmptyState.swift	19	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTEmptyState.swift	39	Button	body	显式样式	buttonStyle(for: actionStyle)
+QiuJi/Core/Components/BTEraserButton.swift	11	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTExerciseRow.swift	24	Button	body	显式样式	BTPressableStyle.row
+QiuJi/Core/Components/BTFilterChip.swift	13	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTFloatingIndicator.swift	18	Button	body	显式样式	BTPressableStyle.capsule
+QiuJi/Core/Components/BTGeometricReferenceTool.swift	170	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTGeometricReferenceTool.swift	191	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTGeometricReferenceTool.swift	224	Button	body	系统控件/语义动作	抽取的原生菜单内容，调用处已核对
+QiuJi/Core/Components/BTLibrarySearchBar.swift	25	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTOverflowMenu.swift	31	Button	body	共享组件样式	BTCompactMenu 10 个调用点：9 处直接样式、个人信息父容器 .plain
+QiuJi/Core/Components/BTOverflowMenu.swift	121	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTOverflowMenu.swift	176	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTOverflowMenu.swift	190	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Core/Components/BTOverflowMenu.swift	214	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTOverflowMenu.swift	271	Button		显式样式	.plain
+QiuJi/Core/Components/BTOverflowMenu.swift	314	Button		显式样式	.plain
+QiuJi/Core/Components/BTPremiumLock.swift	31	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTPremiumLock.swift	148	Button	restorePurchaseLink	显式样式	.plain
+QiuJi/Core/Components/BTPremiumLock.swift	176	Button	goldFilledCTA	显式样式	BTProUnlockButtonStyle(font: .btHeadline)
+QiuJi/Core/Components/BTRestTimer.swift	64	Button	buttonRow	显式样式	BTButtonStyle.secondary
+QiuJi/Core/Components/BTRestTimer.swift	68	Button	buttonRow	显式样式	BTButtonStyle.primary
+QiuJi/Core/Components/BTSceneFAB.swift	21	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTSegmentedTab.swift	22	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTSetInputGrid.swift	305	Menu	addButton	显式样式	.plain
+QiuJi/Core/Components/BTSetInputGrid.swift	309	Button	addButton	显式样式	.plain
+QiuJi/Core/Components/BTSetInputGrid.swift	324	Button	addButton	显式样式	.plain
+QiuJi/Core/Components/BTSetInputGrid.swift	356	Menu	addMenuEntry	系统控件/语义动作	抽取的原生菜单内容，调用处已核对
+QiuJi/Core/Components/BTSetInputGrid.swift	358	Button	addMenuEntry	系统控件/语义动作	Menu:content
+QiuJi/Core/Components/BTSetInputGrid.swift	364	Button	addMenuEntry	系统控件/语义动作	抽取的原生菜单内容，调用处已核对
+QiuJi/Core/Components/BTSetInputGrid.swift	564	Button	checkColumn	显式样式	BTPressableStyle.row
+QiuJi/Core/Components/BTSetInputGrid.swift	591	BTCompactMenu	menuColumn	显式样式	.plain
+QiuJi/Core/Components/BTSetInputGrid.swift	592	BTCompactMenuAction	menuColumn	显式样式	.plain
+QiuJi/Core/Components/BTSetInputGrid.swift	715	Menu	body	显式样式	.plain
+QiuJi/Core/Components/BTSetInputGrid.swift	717	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTShotInstrumentColumn.swift	76	Button	body	显式样式	BTHUDPressStyle()
+QiuJi/Core/Components/BTShotInstrumentColumn.swift	419	Button	cameraButton	显式样式	BTHUDPressStyle()
+QiuJi/Core/Components/BTShotPageChrome.swift	119	Button	body	显式样式	BTProUnlockButtonStyle()
+QiuJi/Core/Components/BTShotPageChrome.swift	211	Button	body	显式样式	BTPressableStyle.capsule
+QiuJi/Core/Components/BTShotPageChrome.swift	248	Button	body	显式样式	BTPressableStyle.capsule
+QiuJi/Core/Components/BTShotPageChrome.swift	351	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTShotPageChrome.swift	524	Menu	body	显式样式	.plain
+QiuJi/Core/Components/BTShotPageChrome.swift	527	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTShotPageChrome.swift	539	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTShotPageChrome.swift	544	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTShotPageChrome.swift	667	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTShotPageChrome.swift	694	Menu	body	显式样式	.plain
+QiuJi/Core/Components/BTShotPageChrome.swift	695	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTShotPageChrome.swift	699	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTShotPageChrome.swift	702	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTShotPageChrome.swift	706	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTShotPageChrome.swift	714	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTSpinPad.swift	434	Button	fixedContent	显式样式	BTHUDPressStyle()
+QiuJi/Core/Components/BTSpinPad.swift	491	Button	standardContent	显式样式	BTHUDPressStyle()
+QiuJi/Core/Components/BTTeachingTablePage.swift	23	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTTeachingTablePage.swift	50	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTTeachingTablePage.swift	220	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTTeachingTablePage.swift	517	Button	template	共享组件样式	DailyTemplateHeader.body 注入 BTHUDPressStyle
+QiuJi/Core/Components/BTTeachingTablePage.swift	546	Button	template	显式样式	DailyStrikeButtonStyle()
+QiuJi/Core/Components/BTTeachingTablePage.swift	556	Button	template	显式样式	DailyStrikeButtonStyle()
+QiuJi/Core/Components/BTTeachingTablePage.swift	620	Button	template	显式样式	.plain
+QiuJi/Core/Components/BTTeachingTablePage.swift	630	Button	template	显式样式	.plain
+QiuJi/Core/Components/BTTeachingTablePage.swift	705	Button	navigationTitle	共享组件样式	DailyTemplateHeader.body 注入 BTHUDPressStyle
+QiuJi/Core/Components/BTTeachingTablePage.swift	964	Button	ballToken	显式样式	BTHUDPressStyle()
+QiuJi/Core/Components/BTTeachingTablePage.swift	1001	Button	ballToken	系统控件/语义动作	accessibilityActions:content
+QiuJi/Core/Components/BTTeachingTablePage.swift	1006	Button	ballToken	系统控件/语义动作	accessibilityActions:content
+QiuJi/Core/Components/BTTeachingTablePage.swift	1338	Button	content	显式样式	.plain
+QiuJi/Core/Components/BTTogglePillGroup.swift	42	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTTrainingSettingsResetSection.swift	24	Button	body	显式样式	.plain
+QiuJi/Core/Components/BTTrajectoryDetailChip.swift	19	Button	body	显式样式	BTPressableStyle.capsule
+QiuJi/Core/Components/ControlLayoutHost.swift	357	Button	body	系统控件/语义动作	alert:content
+QiuJi/Core/Components/ControlLayoutHost.swift	358	Button	body	系统控件/语义动作	alert:content
+QiuJi/Core/Components/ControlLayoutHost.swift	362	Button	body	系统控件/语义动作	alert:content
+QiuJi/Core/Components/ControlLayoutHost.swift	363	Button	body	系统控件/语义动作	alert:content
+QiuJi/Core/Components/ControlLayoutHost.swift	364	Button	body	系统控件/语义动作	alert:content
+QiuJi/Core/Components/ControlLayoutHost.swift	373	Button	body	系统控件/语义动作	alert:content
+QiuJi/Core/Components/ControlLayoutHost.swift	378	Button	body	系统控件/语义动作	alert:content
+QiuJi/Core/Components/ControlLayoutHost.swift	379	Button	body	系统控件/语义动作	alert:content
+QiuJi/Core/Components/ControlLayoutHost.swift	382	Button	body	系统控件/语义动作	alert:content
+QiuJi/Core/Components/ControlLayoutHost.swift	383	Button	body	系统控件/语义动作	alert:content
+QiuJi/Core/Components/ControlLayoutHost.swift	483	Button	floatingTools	显式样式	FreeLayoutToolButtonStyle()
+QiuJi/Core/Components/ControlLayoutHost.swift	485	Button	floatingTools	显式样式	FreeLayoutToolButtonStyle()
+QiuJi/Core/Components/ControlLayoutHost.swift	528	Button	templateActionMenu	显式样式	DailyLayoutMenuButtonStyle()
+QiuJi/Core/Components/ControlLayoutHost.swift	552	Button	dropdownItems	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	556	Button	dropdownItems	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	558	Button	dropdownItems	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	562	Button	dropdownItems	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	567	Button	dropdownItems	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	571	Button	dropdownItems	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	580	Button	dropdownItems	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	586	Button	dropdownItems	显式样式	.plain
+QiuJi/Core/Components/ControlLayoutHost.swift	605	Button	dropdownItems	显式样式	.plain
+QiuJi/Core/Components/ControlLayoutHost.swift	621	Button	dropdownItems	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	648	Button	templateActions	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	650	Button	templateActions	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	658	Button	templateActions	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	666	Button	templateActions	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	692	Button	floatingHeader	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	701	Button	floatingHeader	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	704	Button	floatingHeader	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	708	Button	floatingHeader	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	709	Button	floatingHeader	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	720	Button	floatingSelection	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	727	Button	floatingSelection	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	729	Button	floatingSelection	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	736	Button	floatingSelection	共享组件样式	floatingTools / DailyLayoutDropdown / templateActionMenu 调用处注入布局按钮样式
+QiuJi/Core/Components/ControlLayoutHost.swift	901	Button	body	显式样式	.plain
+QiuJi/Core/Components/ControlLayoutHost.swift	906	Button	body	显式样式	.plain
+QiuJi/Core/Components/ShotControlBar.swift	53	Button	body	显式样式	BTPressableStyle.capsule
+QiuJi/Core/DesignSystem/HUDStyle.swift	192	Button	body	显式样式	BTHUDPressStyle()
+QiuJi/Core/Rack/BreakFlowRunner.swift	639	Button	body	显式样式	.plain
+QiuJi/Core/Rack/BreakFlowRunner.swift	652	Button	body	显式样式	.plain
+QiuJi/Core/Rack/BreakFlowRunner.swift	668	Button	body	显式样式	.plain
+QiuJi/Core/Rack/BreakFlowRunner.swift	680	Button	body	显式样式	.plain
+QiuJi/Core/Rack/BreakFlowRunner.swift	790	Button	body	显式样式	.plain
+QiuJi/Core/Scene/DrillSceneView.swift	895	Button	body	显式样式	.plain
+QiuJi/Core/Scene/DrillSceneView.swift	974	Button	body	显式样式	BTPressableStyle.capsule
+QiuJi/Core/Scene/DrillSceneView.swift	1113	Button	formationSwitcher	显式样式	BTPressableStyle.capsule
+QiuJi/Features/AccuracyPractice/AccuracyPracticeView.swift	34	Button	body	显式样式	.plain
+QiuJi/Features/AccuracyPractice/AccuracyPracticeView.swift	83	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/AngleTraining/LearnDocChrome.swift	174	NavigationLink	body	显式样式	BTPressableStyle.row
+QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift	716	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift	717	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift	781	Button	tableTemplate	共享组件样式	DailyTemplateHeader.body 注入 BTHUDPressStyle
+QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift	789	Button	tableTemplate	共享组件样式	DailyTemplateHeader.body 注入 BTHUDPressStyle
+QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift	853	Button	tableTemplate	显式样式	DailyStrikeButtonStyle()
+QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift	860	Button	tableTemplate	显式样式	DailyStrikeButtonStyle()
+QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift	866	Button	tableTemplate	显式样式	DailyStrikeButtonStyle()
+QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift	900	Button	tableTemplate	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/AimPointTrainingView.swift	313	Button	promptCard	显式样式	BTAdaptiveToolActionStyle(isPrimary: true)
+QiuJi/Features/AngleTraining/Views/AimPointTrainingView.swift	345	Button	resultCard	显式样式	BTAdaptiveToolActionStyle(isPrimary: true)
+QiuJi/Features/AngleTraining/Views/AimingMethodsView.swift	444	Button	body	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/AngleHistorySection.swift	67	Button	quizTypeFilter	显式样式	BTPressableStyle.capsule
+QiuJi/Features/AngleTraining/Views/AngleHomeView.swift	417	BTCompactMenu	topicFilterMenu	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/AngleHomeView.swift	419	BTCompactMenuAction	topicFilterMenu	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/AngleHomeView.swift	427	BTCompactMenuAction	topicFilterMenu	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/AngleHomeView.swift	515	Button	sidebarItem	显式样式	BTPressableStyle.row
+QiuJi/Features/AngleTraining/Views/AngleHomeView.swift	564	Button	entryGrid	显式样式	BTPressableStyle.row
+QiuJi/Features/AngleTraining/Views/AngleHomeView.swift	806	NavigationLink	body	显式样式	BTPressableStyle.row
+QiuJi/Features/AngleTraining/Views/AngleSaveErrorBanner.swift	31	Button	body	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/CushionEnglishAtlasView.swift	34	Button	body	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/CushionEnglishAtlasView.swift	37	Button	body	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/CushionEnglishAtlasView.swift	40	Button	body	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/CushionEnglishAtlasView.swift	108	Button	miniPad	显式样式	BTAtlasTrackButtonStyle(isSelected: enabled)
+QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift	85	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift	93	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift	94	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift	245	Button	actionChip	显式样式	BTAdaptiveToolActionStyle(isPrimary: filled)
+QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift	368	Button	resultSection	显式样式	BTAdaptiveToolActionStyle(isPrimary: true)
+QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift	375	NavigationLink	resultSection	显式样式	BTPressableStyle.capsule
+QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift	385	NavigationLink	resultSection	显式样式	BTPressableStyle.capsule
+QiuJi/Features/AngleTraining/Views/NumericKeypadHUD.swift	53	Button	keypadContent	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/NumericKeypadHUD.swift	129	Button	keyButton	显式样式	KeypadKeyStyle(normalBackground: background(for: role))
+QiuJi/Features/AngleTraining/Views/SceneAimingView.swift	79	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/AngleTraining/Views/SceneAimingView.swift	80	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/AngleTraining/Views/SceneAimingView.swift	81	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/AngleTraining/Views/SceneAimingView.swift	203	Button	quizTemplate	共享组件样式	DailyTemplateHeader.body 注入 BTHUDPressStyle
+QiuJi/Features/AngleTraining/Views/SceneAimingView.swift	215	Button	quizTemplate	共享组件样式	DailyTemplateHeader.body 注入 BTHUDPressStyle
+QiuJi/Features/AngleTraining/Views/SceneAimingView.swift	266	Button	quizTemplate	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/SceneAimingView.swift	449	Button	actionColumn	显式样式	DailyStrikeButtonStyle()
+QiuJi/Features/AngleTraining/Views/SceneAimingView.swift	470	Button	primaryAction	显式样式	DailyStrikeButtonStyle()
+QiuJi/Features/AngleTraining/Views/SceneTrainingSettings.swift	102	Button	body	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/SceneTrainingSettings.swift	142	Button	body	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/AngleTraining/Views/SceneTrainingSettings.swift	172	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/AngleTraining/Views/SceneTrainingSettings.swift	176	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/AngleTraining/Views/SceneTrainingSettings.swift	383	Button	body	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/SceneTrainingSettings.swift	397	Button	body	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/SceneTrainingSettings.swift	460	Button	body	显式样式	BTSceneDecisionActionStyle()
+QiuJi/Features/AngleTraining/Views/SceneTrainingSettings.swift	464	Button	body	显式样式	BTSceneDecisionActionStyle(isPrimary: true)
+QiuJi/Features/AngleTraining/Views/SeparationAngleAtlasView.swift	33	Button	body	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/SeparationAngleAtlasView.swift	36	Button	body	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/SeparationAngleAtlasView.swift	95	Button	miniPad	显式样式	BTAtlasTrackButtonStyle(isSelected: enabled)
+QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift	160	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift	261	Button	pairedControls	显式样式	BTHUDPressStyle()
+QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift	306	Menu	cushionControl	显式样式	.plain
+QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift	365	Button	body	显式样式	BTHUDPressStyle()
+QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift	509	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	83	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	84	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	158	PhotosPicker	pickStep	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	322	Button	markBadge	显式样式	.plain
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	444	Button	confirmBottomBar	显式样式	.plain
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	462	Menu	confirmBottomBar	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	463	Button	confirmBottomBar	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	467	Button	confirmBottomBar	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	471	Button	confirmBottomBar	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	475	Button	confirmBottomBar	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	575	Button	undoRedoButton	显式样式	.plain
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	599	Button	primaryButton	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	611	Button	secondaryButton	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	661	Button	columnPrimary	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BallExtraction/Views/BallExtractionView.swift	676	Button	columnSecondary	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BankPractice/BankPracticeSettings.swift	51	Button	body	显式样式	.plain
+QiuJi/Features/BankPractice/BankPracticeSettings.swift	82	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/BankPractice/BankPracticeSettings.swift	86	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/BankPractice/BankPracticeSettings.swift	104	Button	pocketChoice	显式样式	.plain
+QiuJi/Features/BankPractice/BankPracticeView.swift	37	Button	content	显式样式	.plain
+QiuJi/Features/BankPractice/BankPracticeView.swift	76	Button	content	系统控件/语义动作	alert:content
+QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift	351	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift	352	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift	478	Button	template	共享组件样式	DailyTemplateHeader.body 注入 BTHUDPressStyle
+QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift	484	Button	template	显式样式	BTHUDPressStyle()
+QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift	492	Button	template	显式样式	BTHUDPressStyle()
+QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift	530	Button	template	显式样式	DailyStrikeButtonStyle()
+QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift	615	Button	template	显式样式	.plain
+QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift	698	Button	control	显式样式	BTHUDPressStyle()
+QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift	744	Button	toolEntry	显式样式	BTHUDPressStyle()
+QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift	1116	Button	ballToken	显式样式	BTHUDPressStyle()
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	66	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	69	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	72	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	78	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	83	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	90	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	91	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	164	Button	pickStep	显式样式	.plain
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	208	Button	pickStep	显式样式	.plain
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	547	Button	markBadge	显式样式	.plain
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	659	Button	confirmBottomBar	显式样式	.plain
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	737	Button	undoRedoButton	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	760	Button	primaryButton	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	770	Button	secondaryButton	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	811	Button	columnPrimary	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift	821	Button	columnSecondary	显式样式	BTPressableStyle.capsule
+QiuJi/Features/BatchDrillStudio/BatchDrillStudioCore.swift	492	Button	body	显式样式	.plain
+QiuJi/Features/BatchDrillStudio/BatchDrillStudioCore.swift	501	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	36	Button	selectionBody	显式样式	.plain
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	49	Menu	selectionBody	显式样式	.plain
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	50	Button	selectionBody	显式样式	.plain
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	64	Button	selectionBody	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	70	Button	selectionBody	显式样式	.plain
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	86	BTCompactMenu	selectionBody	显式样式	.plain
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	87	BTCompactMenuAction	selectionBody	显式样式	.plain
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	88	BTCompactMenuAction	selectionBody	显式样式	.plain
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	89	BTCompactMenuAction	selectionBody	显式样式	.plain
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	90	BTCompactMenuAction	selectionBody	显式样式	.plain
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	105	Button	selectionBody	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	120	Button	selectionBody	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	122	Button	selectionBody	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	131	Button	selectionBody	系统控件/语义动作	alert:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	133	Button	selectionBody	系统控件/语义动作	alert:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	136	Button	selectionBody	系统控件/语义动作	alert:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	137	Button	selectionBody	系统控件/语义动作	alert:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	142	Button	selectionBody	系统控件/语义动作	alert:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	171	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	173	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	176	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	179	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	180	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	181	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	184	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	185	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	264	Button	body	显式样式	BTAdaptiveToolActionStyle()
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	266	Button	body	显式样式	BTAdaptiveToolActionStyle()
+QiuJi/Features/CustomFormationPractice/CustomFormationPracticeView.swift	278	Button	body	显式样式	BTHUDPressStyle()
+QiuJi/Features/DefensePractice/DefensePracticeSettings.swift	68	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/DefensePractice/DefensePracticeSettings.swift	72	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/DefensePractice/DefensePracticeSettings.swift	90	Button	selectionRow	显式样式	.plain
+QiuJi/Features/DefensePractice/DefensePracticeView.swift	38	Button	content	显式样式	.plain
+QiuJi/Features/DefensePractice/DefensePracticeView.swift	77	Button	content	系统控件/语义动作	alert:content
+QiuJi/Features/DefensePractice/DefensePracticeView.swift	201	Button	tablePage	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/DefensePractice/DefensePracticeView.swift	204	Button	tablePage	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift	145	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift	225	Button	formationPickerSheet	显式样式	.plain
+QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift	406	Button	coachingSection	显式样式	.plain
+QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift	591	Button	bottomBar	显式样式	BTButtonStyle.goldFilled
+QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift	597	Button	bottomBar	显式样式	BTButtonStyle.primary
+QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift	609	Button	bottomBar	显式样式	BTButtonStyle.primary
+QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift	731	Button	body	显式样式	.plain
+QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift	751	Button	body	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift	763	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift	779	Button	todaySection	显式样式	.plain
+QiuJi/Features/DrillLibrary/Views/DrillListView.swift	65	BTCompactMenu	libraryFilterMenu	显式样式	BTPressableStyle.row
+QiuJi/Features/DrillLibrary/Views/DrillListView.swift	68	BTCompactMenuAction	libraryFilterMenu	显式样式	BTPressableStyle.row
+QiuJi/Features/DrillLibrary/Views/DrillListView.swift	81	BTCompactMenuAction	libraryFilterMenu	显式样式	BTPressableStyle.row
+QiuJi/Features/DrillLibrary/Views/DrillListView.swift	91	BTCompactMenuAction	libraryFilterMenu	显式样式	BTPressableStyle.row
+QiuJi/Features/DrillLibrary/Views/DrillListView.swift	177	Button	sidebarItem	显式样式	.plain
+QiuJi/Features/DrillLibrary/Views/DrillListView.swift	234	Button	drillGrid	显式样式	.plain
+QiuJi/Features/DrillLibrary/Views/DrillTutorialView.swift	174	Button	scrollButton	显式样式	.plain
+QiuJi/Features/DrillLibrary/Views/DrillTutorialView.swift	320	Button	sectionCard	显式样式	BTPressableStyle.row
+QiuJi/Features/DrillLibrary/Views/DrillTutorialView.swift	577	Button	topBar	显式样式	.plain
+QiuJi/Features/History/Views/HistoryCalendarView.swift	82	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/History/Views/HistoryCalendarView.swift	149	Button	monthNavigator	显式样式	.plain
+QiuJi/Features/History/Views/HistoryCalendarView.swift	163	Button	monthNavigator	显式样式	.plain
+QiuJi/Features/History/Views/HistoryCalendarView.swift	220	Button	dayCell	显式样式	BTPressableStyle.row
+QiuJi/Features/History/Views/HistoryCalendarView.swift	304	Button	dayItemRow	显式样式	BTPressableStyle.row
+QiuJi/Features/History/Views/HistoryCalendarView.swift	321	Button	dayItemRow	显式样式	BTPressableStyle.row
+QiuJi/Features/History/Views/HistoryCalendarView.swift	440	Button	emptyState	显式样式	.plain
+QiuJi/Features/History/Views/TrainingDataEditorView.swift	207	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/History/Views/TrainingDataEditorView.swift	211	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/History/Views/TrainingDataEditorView.swift	220	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/History/Views/TrainingDetailView.swift	74	NavigationLink	authorizedContent	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/History/Views/TrainingDetailView.swift	75	Button	authorizedContent	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/History/Views/TrainingDetailView.swift	90	Button	authorizedContent	显式样式	.plain
+QiuJi/Features/History/Views/TrainingDetailView.swift	118	Button	authorizedContent	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/History/Views/TrainingDetailView.swift	119	Button	authorizedContent	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/History/Views/TrainingDetailView.swift	140	Button	authorizedContent	系统控件/语义动作	alert:content
+QiuJi/Features/History/Views/TrainingDetailView.swift	240	Button	sourceBreadcrumb	显式样式	.plain
+QiuJi/Features/History/Views/TrainingDetailView.swift	426	Button	bottomBar	显式样式	BTButtonStyle.primary
+QiuJi/Features/KBallPractice/KBallPracticeSettings.swift	76	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/KBallPractice/KBallPracticeSettings.swift	80	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/KBallPractice/KBallPracticeView.swift	37	Button	content	显式样式	.plain
+QiuJi/Features/KBallPractice/KBallPracticeView.swift	76	Button	content	系统控件/语义动作	alert:content
+QiuJi/Features/KickPractice/KickPracticeSettings.swift	39	Button	body	显式样式	.plain
+QiuJi/Features/KickPractice/KickPracticeSettings.swift	70	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/KickPractice/KickPracticeSettings.swift	74	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/KickPractice/KickPracticeView.swift	38	Button	content	显式样式	.plain
+QiuJi/Features/KickPractice/KickPracticeView.swift	77	Button	content	系统控件/语义动作	alert:content
+QiuJi/Features/MultiBallPractice/MultiBallPracticeView.swift	28	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/MultiBallPractice/MultiBallPracticeView.swift	109	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/MultiBallPractice/MultiBallPracticeView.swift	112	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/MultiBallPractice/MultiBallPracticeView.swift	142	Button	choice	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/DailyHUDPanel.swift	126	Button	body	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/DailyHUDPanel.swift	132	Button	body	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/DailyHUDPanel.swift	204	Button	content	共享组件样式	DailyHUDPanel.body 为 content 注入 .plain
+QiuJi/Features/PositionPlay/Views/DailyHUDPanel.swift	342	Button	action	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/DailySpinTransparencyPanel.swift	107	Button	done	显式样式	BTHUDPressStyle()
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	349	Button	coreBody	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	493	Button	tablePageBody	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	494	Button	tablePageBody	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	528	Button	pageBody	系统控件/语义动作	alert:content
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	529	Button	pageBody	系统控件/语义动作	alert:content
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	532	Button	pageBody	系统控件/语义动作	alert:content
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	533	Button	pageBody	系统控件/语义动作	alert:content
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1258	Button	cameraToggle	系统控件/语义动作	抽取的系统 ToolbarItem 内容，调用处已核对
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1271	Button	cameraFocus	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1340	Button	dailyCompletionBar	显式样式	BTSceneDecisionActionStyle(isPrimary: true)
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1363	Button	dailyFailureBar	显式样式	BTSceneDecisionActionStyle(isPrimary: true)
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1419	Button	moreMenu	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1433	Button	moreMenu	系统控件/语义动作	抽取的原生菜单内容，调用处已核对
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1435	Button	moreMenu	系统控件/语义动作	抽取的原生菜单内容，调用处已核对
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1698	Button	dailyCameraPreviewControls	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1707	Menu	dailyCameraPreviewControls	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1709	Button	dailyCameraPreviewControls	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1713	Button	dailyCameraPreviewControls	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1719	Button	dailyCameraPreviewControls	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1728	Button	dailyCameraPreviewControls	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1797	Menu	body	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1798	Button	body	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1805	Button	body	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1810	Button	body	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	1815	Button	body	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2043	Button	dailyLandscapeBody	显式样式	BTSceneDecisionActionStyle()
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2070	Button	dailyLandscapeBody	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2089	Button	dailyLandscapeBody	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2212	Button	multiBallPlanningFeedback	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2314	Button	dailyScoreButton	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2346	Button	dailyLeftControls	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2369	Button	dailyLeftControls	显式样式	BTHUDPressStyle()
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2586	Button	dailyRightControls	显式样式	DailyStrikeButtonStyle()
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2697	Button	manualBreakConfirmationActions	显式样式	BTSceneDecisionActionStyle()
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2706	Button	manualBreakConfirmationActions	显式样式	BTSceneDecisionActionStyle(isPrimary: true)
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2727	Button	dailyRuleChoice	显式样式	BTSceneDecisionActionStyle()
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2730	Button	dailyRuleChoice	显式样式	BTSceneDecisionActionStyle(isPrimary: true)
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	2736	Button	dailyRuleChoice	显式样式	BTSceneDecisionActionStyle(isPrimary: choice == choices.last)
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	3045	Button	dailyHeaderTitle	共享组件样式	DailyTemplateHeader.body 注入 BTHUDPressStyle
+QiuJi/Features/PositionPlay/Views/FreePlayView.swift	3205	Button	dailyPaletteBall	显式样式	BTHUDPressStyle()
+QiuJi/Features/PositionPlay/Views/PlanThreeView.swift	56	Button	breakEntry	显式样式	BTHUDPressStyle()
+QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift	76	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift	77	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift	58	Button	breakEntry	显式样式	BTHUDPressStyle()
+QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift	176	Button	toolChoiceButton	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift	205	Button	toolChoice	显式样式	.plain
+QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift	222	Button	action	显式样式	BTHUDPressStyle()
+QiuJi/Features/Profile/Views/AboutView.swift	65	Button	feedbackSection	显式样式	.plain
+QiuJi/Features/Profile/Views/AboutView.swift	77	Button	feedbackSection	显式样式	.plain
+QiuJi/Features/Profile/Views/AboutView.swift	104	Link	legalSection	显式样式	.plain
+QiuJi/Features/Profile/Views/AboutView.swift	117	Link	legalSection	显式样式	.plain
+QiuJi/Features/Profile/Views/AvatarCropView.swift	39	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Profile/Views/AvatarCropView.swift	42	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Profile/Views/BallStickerSettingsView.swift	12	Button	body	显式样式	.plain
+QiuJi/Features/Profile/Views/ClothColorSelectionView.swift	18	Button	body	显式样式	.plain
+QiuJi/Features/Profile/Views/CueStyleSettingsView.swift	32	Button	styleButton	显式样式	.plain
+QiuJi/Features/Profile/Views/FavoriteDrillsView.swift	49	NavigationLink	body	显式样式	.plain
+QiuJi/Features/Profile/Views/FirstRunProfileView.swift	65	Button	body	显式样式	IntroPrimaryButtonStyle()
+QiuJi/Features/Profile/Views/FirstRunProfileView.swift	107	Button	optionList	显式样式	.plain
+QiuJi/Features/Profile/Views/IntroPresentation.swift	21	Button	body	显式样式	.plain
+QiuJi/Features/Profile/Views/IntroPresentation.swift	176	Button	body	显式样式	.plain
+QiuJi/Features/Profile/Views/LoginView.swift	59	Button	body	显式样式	.plain
+QiuJi/Features/Profile/Views/LoginView.swift	75	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Profile/Views/LoginView.swift	79	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Profile/Views/LoginView.swift	83	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Profile/Views/LoginView.swift	128	Link	legalFooter	显式样式	.plain
+QiuJi/Features/Profile/Views/LoginView.swift	130	Link	legalFooter	显式样式	.plain
+QiuJi/Features/Profile/Views/LoginView.swift	148	Button	loginButtons	显式样式	BTPressableStyle.capsule
+QiuJi/Features/Profile/Views/LoginView.swift	172	Button	loginButtons	显式样式	.bordered
+QiuJi/Features/Profile/Views/LoginView.swift	187	Button	loginButtons	显式样式	.plain
+QiuJi/Features/Profile/Views/OnboardingStyleLab.swift	30	Button	body	显式样式	.plain
+QiuJi/Features/Profile/Views/OnboardingStyleLab.swift	64	Button	body	显式样式	.borderedProminent
+QiuJi/Features/Profile/Views/OnboardingStyleLab.swift	75	Menu	comparisonBar	显式样式	.plain
+QiuJi/Features/Profile/Views/OnboardingStyleLab.swift	76	Button	comparisonBar	显式样式	.plain
+QiuJi/Features/Profile/Views/OnboardingStyleLab.swift	79	Button	comparisonBar	显式样式	.plain
+QiuJi/Features/Profile/Views/OnboardingStyleLab.swift	100	Button	comparisonBar	显式样式	.plain
+QiuJi/Features/Profile/Views/OnboardingStyleLab.swift	105	Button	comparisonBar	显式样式	.plain
+QiuJi/Features/Profile/Views/OnboardingStyleLab.swift	162	Button	footer	显式样式	.plain
+QiuJi/Features/Profile/Views/OnboardingView.swift	54	Button	body	显式样式	IntroPrimaryButtonStyle()
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	67	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	79	PhotosPicker	avatarSection	显式样式	.plain
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	95	Button	avatarSection	显式样式	.plain
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	122	Button	avatarSection	显式样式	.plain
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	130	Button	avatarSection	显式样式	.plain
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	166	BTCompactMenu	basicInfoSection	显式样式	.plain
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	168	BTCompactMenuAction	basicInfoSection	显式样式	.plain
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	177	Button	basicInfoSection	显式样式	.plain
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	215	Button	birthdayEditor	显式样式	.plain
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	234	Button	birthdayEditor	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	237	Button	birthdayEditor	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	253	Button	birthdayEditor	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/PersonalInfoView.swift	309	Button	yearsSection	显式样式	.plain
+QiuJi/Features/Profile/Views/PhoneLoginView.swift	35	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Profile/Views/PhoneLoginView.swift	100	Button	formContent	显式样式	.plain
+QiuJi/Features/Profile/Views/PhoneLoginView.swift	130	Button	formContent	显式样式	BTButtonStyle.primary
+QiuJi/Features/Profile/Views/PhoneLoginView.swift	147	Button	formContent	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	46	Button	body	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	117	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/ProfileView.swift	118	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/ProfileView.swift	123	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/ProfileView.swift	124	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/ProfileView.swift	132	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/ProfileView.swift	145	NavigationLink	loggedInHeader	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	208	Button	guestHeader	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	258	Button	proPromotionCard	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	299	NavigationLink	primaryMenuGroup	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	310	NavigationLink	primaryMenuGroup	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	321	NavigationLink	primaryMenuGroup	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	342	NavigationLink	subscriptionRow	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	356	Button	subscriptionRow	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	375	NavigationLink	secondaryMenuGroup	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	386	Button	secondaryMenuGroup	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	399	Button	secondaryMenuGroup	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	409	NavigationLink	secondaryMenuGroup	显式样式	.plain
+QiuJi/Features/Profile/Views/ProfileView.swift	424	Button	logoutButton	显式样式	.plain
+QiuJi/Features/Profile/Views/RoomStyleSelectionView.swift	18	Button	body	显式样式	.plain
+QiuJi/Features/Profile/Views/SettingsView.swift	66	Menu	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Profile/Views/SettingsView.swift	69	Button	body	系统控件/语义动作	Menu:content；ToolbarItem:content
+QiuJi/Features/Profile/Views/SettingsView.swift	88	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Profile/Views/SettingsView.swift	89	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Profile/Views/SettingsView.swift	98	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Profile/Views/SettingsView.swift	99	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Profile/Views/SettingsView.swift	107	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/SettingsView.swift	108	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/SettingsView.swift	196	NavigationLink	equipmentLink	显式样式	.plain
+QiuJi/Features/Profile/Views/SettingsView.swift	348	Menu	practiceDisplaySection	显式样式	.plain
+QiuJi/Features/Profile/Views/SettingsView.swift	350	Button	practiceDisplaySection	显式样式	.plain
+QiuJi/Features/Profile/Views/SettingsView.swift	475	Button	dataSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SettingsView.swift	502	Button	dataSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SettingsView.swift	529	Button	accountSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SettingsView.swift	541	Button	accountSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SettingsView.swift	551	Button	accountSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SubscriptionStatusView.swift	88	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/SubscriptionStatusView.swift	117	Button	actionsSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SubscriptionStatusView.swift	138	Button	actionsSection	显式样式	ProBrandButtonStyle()
+QiuJi/Features/Profile/Views/SubscriptionStatusView.swift	147	Button	actionsSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SubscriptionView.swift	170	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/SubscriptionView.swift	175	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/SubscriptionView.swift	183	Button	topBar	显式样式	.plain
+QiuJi/Features/Profile/Views/SubscriptionView.swift	193	Button	topBar	显式样式	.plain
+QiuJi/Features/Profile/Views/SubscriptionView.swift	232	Button	pricingSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SubscriptionView.swift	263	Button	pricingCard	显式样式	BTPressableStyle.row
+QiuJi/Features/Profile/Views/SubscriptionView.swift	291	Button	subscribeButton	显式样式	.plain
+QiuJi/Features/Profile/Views/SubscriptionView.swift	303	Button	subscribeButton	显式样式	ProBrandButtonStyle()
+QiuJi/Features/Profile/Views/SubscriptionView.swift	366	Button	legalSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SubscriptionView.swift	377	Link	legalSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SubscriptionView.swift	380	Link	legalSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SubscriptionView.swift	404	Button	simulatorUnlockSection	显式样式	.plain
+QiuJi/Features/Profile/Views/SubscriptionView.swift	413	Button	simulatorUnlockSection	显式样式	.plain
+QiuJi/Features/Profile/Views/TableStyleSelectionView.swift	18	Button	body	显式样式	.plain
+QiuJi/Features/Profile/Views/TrainingGoalView.swift	115	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Profile/Views/TrainingGoalView.swift	187	Button	weeklyGoalSection	显式样式	.plain
+QiuJi/Features/Profile/Views/TrainingGoalView.swift	221	NavigationLink	reminderSection	显式样式	.plain
+QiuJi/Features/SeparationPractice/SeparationPracticeView.swift	40	Button	content	显式样式	.plain
+QiuJi/Features/SeparationPractice/SeparationPracticeView.swift	84	Button	content	系统控件/语义动作	alert:content
+QiuJi/Features/SnakePractice/SnakePracticeView.swift	93	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/SnakePractice/SnakePracticeView.swift	97	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/ThreeBallPractice/ThreeBallPracticeView.swift	39	Button	content	显式样式	.plain
+QiuJi/Features/ThreeBallPractice/ThreeBallPracticeView.swift	86	Button	content	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	87	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	99	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	110	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	123	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	124	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	163	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	299	Button	timerSection	显式样式	.plain
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	315	Button	timerSection	显式样式	.plain
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	332	Button	timerSection	显式样式	.plain
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	414	Button	trainingTopBarRow	显式样式	.plain
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	432	Button	trainingTopBarRow	显式样式	.plain
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	452	Button	trainingTopBarRow	显式样式	.plain
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	463	BTCompactMenu	trainingTopBarRow	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	464	BTCompactMenuAction	trainingTopBarRow	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	468	BTCompactMenuAction	trainingTopBarRow	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	472	BTCompactMenuAction	trainingTopBarRow	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	488	Button	trainingTopBarRow	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	516	Button	trainingTimerLabel	显式样式	.plain
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	615	BTCompactMenu	bottomToolbar	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	616	BTCompactMenuAction	bottomToolbar	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	620	BTCompactMenuAction	bottomToolbar	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	642	Button	bottomToolbar	显式样式	BTButtonStyle.iconCircle
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	691	Button	toolbarItem	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	775	Button	restCountdownOverlay	显式样式	BTButtonStyle.secondary
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	784	Button	restCountdownOverlay	显式样式	BTButtonStyle.primary
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	818	Button	restOverlayTitleBar	显式样式	BTPressableStyle.capsule
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	937	Button	body	显式样式	.plain
+QiuJi/Features/Training/Views/ActiveTrainingView.swift	1003	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/CustomPlanBuilderView.swift	88	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/CustomPlanBuilderView.swift	180	Button	drillRow	显式样式	BTPressableStyle.capsule
+QiuJi/Features/Training/Views/CustomPlanBuilderView.swift	218	Button	addDrillButton	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/CustomPlanBuilderView.swift	241	Menu	saveMenu	系统控件/语义动作	抽取的系统 ToolbarItem 内容，调用处已核对
+QiuJi/Features/Training/Views/CustomPlanBuilderView.swift	242	Button	saveMenu	系统控件/语义动作	Menu:content
+QiuJi/Features/Training/Views/CustomPlanBuilderView.swift	250	Button	saveMenu	系统控件/语义动作	Menu:content
+QiuJi/Features/Training/Views/CustomPlanBuilderView.swift	357	Button	body	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/Training/Views/CustomPlanBuilderView.swift	369	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/DrillRecordView.swift	106	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/DrillRecordView.swift	123	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/DrillRecordView.swift	265	Button	restSettingsRow	显式样式	.plain
+QiuJi/Features/Training/Views/DrillRecordView.swift	300	Button	restDurationPicker	显式样式	BTButtonStyle.primary
+QiuJi/Features/Training/Views/DrillRecordView.swift	321	Button	toggleItem	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/DrillRecordView.swift	346	Button	ballTableSection	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/PlanDetailView.swift	148	Button	content	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/PlanDetailView.swift	149	Button	content	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/PlanDetailView.swift	248	Button	fixedActivateButton	显式样式	BTButtonStyle.primary
+QiuJi/Features/Training/Views/PlanDetailView.swift	257	Button	fixedActivateButton	显式样式	BTButtonStyle.primary
+QiuJi/Features/Training/Views/PlanDetailView.swift	354	Button	stageSection	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/PlanDetailView.swift	601	NavigationLink	drillTrackRow	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/PlanDetailView.swift	607	Button	drillTrackRow	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/PlanDetailView.swift	626	NavigationLink	drillTrackRow	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/PlanDetailView.swift	716	Button	arrangementSheet	显式样式	.plain
+QiuJi/Features/Training/Views/PlanDetailView.swift	753	Button	arrangementSheet	显式样式	BTButtonStyle.primary
+QiuJi/Features/Training/Views/PlanDetailView.swift	765	Button	arrangementSheet	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/PlanListView.swift	86	NavigationLink	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/PlanListView.swift	98	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Training/Views/PlanListView.swift	99	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Training/Views/PlanListView.swift	125	Button	officialPlansSection	显式样式	.plain
+QiuJi/Features/Training/Views/PlanListView.swift	248	Menu	customPlanCard	显式样式	.plain
+QiuJi/Features/Training/Views/PlanListView.swift	249	NavigationLink	customPlanCard	显式样式	.plain
+QiuJi/Features/Training/Views/PlanListView.swift	252	Button	customPlanCard	显式样式	.plain
+QiuJi/Features/Training/Views/PlanListView.swift	257	Button	customPlanCard	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	198	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/TrainingHomeView.swift	207	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Training/Views/TrainingHomeView.swift	208	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Training/Views/TrainingHomeView.swift	480	BTCompactMenu	headerActions	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/TrainingHomeView.swift	481	BTCompactMenuAction	headerActions	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/TrainingHomeView.swift	484	BTCompactMenuAction	headerActions	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/TrainingHomeView.swift	488	BTCompactMenuAction	headerActions	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/TrainingHomeView.swift	491	BTCompactMenuAction	headerActions	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/TrainingHomeView.swift	548	Button	scheduledBlocksSection	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	600	Button	unfinishedCarryBanner	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	656	Button	suggestedLessonRow	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	688	Button	suggestedLessonRow	显式样式	BTButtonStyle.text
+QiuJi/Features/Training/Views/TrainingHomeView.swift	701	Button	savedTrainingRows	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	726	Button	savedTrainingRows	显式样式	BTButtonStyle.text
+QiuJi/Features/Training/Views/TrainingHomeView.swift	743	Button	scheduleItemRow	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	793	NavigationLink	trainingDrillRow	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	943	BTCompactMenu	scheduleItemMenu	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	944	BTCompactMenuAction	scheduleItemMenu	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	946	BTCompactMenuAction	scheduleItemMenu	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	948	BTCompactMenuAction	scheduleItemMenu	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	991	Button	scheduleItemDetails	显式样式	BTButtonStyle.text
+QiuJi/Features/Training/Views/TrainingHomeView.swift	1003	Button	scheduleItemDetails	显式样式	BTButtonStyle.text
+QiuJi/Features/Training/Views/TrainingHomeView.swift	1214	NavigationLink	todayDrillRows	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	1267	Button	weeklyProgressCard	显式样式	BTPressableStyle.capsule
+QiuJi/Features/Training/Views/TrainingHomeView.swift	1748	Button	officialPlanBrowsing	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	1843	Menu	customPlanCard	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	1844	Button	customPlanCard	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	1850	Button	customPlanCard	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	1855	Button	customPlanCard	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	1875	Button	createTemplateRow	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/TrainingHomeView.swift	1980	Button	quickStartBanner	显式样式	BTPressableStyle.row
+QiuJi/Features/Training/Views/TrainingHomeView.swift	2009	Button	startTrainingCircle	显式样式	BTAdaptiveToolActionStyle(isSelected: true, size: .regular)
+QiuJi/Features/Training/Views/TrainingHomeView.swift	2056	Button	body	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	2077	BTCompactMenu	body	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	2078	BTCompactMenuAction	body	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	2080	BTCompactMenuAction	body	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingHomeView.swift	2105	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/TrainingHomeView.swift	2109	Button	body	显式样式	BTButtonStyle.primary
+QiuJi/Features/Training/Views/TrainingNoteView.swift	38	Button	body	显式样式	BTButtonStyle.primary
+QiuJi/Features/Training/Views/TrainingNoteView.swift	62	Button	body	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingNoteView.swift	127	Button	bottomBar	显式样式	BTButtonStyle.text
+QiuJi/Features/Training/Views/TrainingNoteView.swift	132	Button	bottomBar	显式样式	BTButtonStyle.primary
+QiuJi/Features/Training/Views/TrainingNoteView.swift	200	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/TrainingShareView.swift	27	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/TrainingShareView.swift	39	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/TrainingShareView.swift	103	Button	fontSelector	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingShareView.swift	143	Button	themeCircle	显式样式	BTPressableStyle.capsule
+QiuJi/Features/Training/Views/TrainingShareView.swift	190	Button	togglePill	显式样式	.plain
+QiuJi/Features/Training/Views/TrainingShareView.swift	245	Button	shareButton	显式样式	BTPressableStyle.capsule
+QiuJi/Features/Training/Views/TrainingSummaryView.swift	292	Button	shareButton	系统控件/语义动作	抽取的系统 ToolbarItem 内容，调用处已核对
+QiuJi/Features/Training/Views/TrainingSummaryView.swift	337	Button	bottomActionBar	显式样式	BTButtonStyle.primary
+QiuJi/Features/Training/Views/TrainingSummaryView.swift	343	Button	bottomActionBar	显式样式	BTButtonStyle.secondary
+QiuJi/Features/Training/Views/TrainingSummaryView.swift	349	Button	bottomActionBar	显式样式	.plain
+QiuJi/Features/Training/Views/Utilities/ManualTrainingView.swift	68	Button	body	系统控件/语义动作	ToolbarItemGroup:content
+QiuJi/Features/Training/Views/Utilities/ManualTrainingView.swift	75	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/Utilities/ManualTrainingView.swift	78	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/Utilities/ManualTrainingView.swift	92	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Training/Views/Utilities/ManualTrainingView.swift	93	Button	body	系统控件/语义动作	confirmationDialog:content
+QiuJi/Features/Training/Views/Utilities/ManualTrainingView.swift	96	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/Utilities/TrainingHelpView.swift	10	NavigationLink	body	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/Training/Views/Utilities/TrainingHelpView.swift	16	NavigationLink	body	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/Training/Views/Utilities/TrainingHelpView.swift	24	NavigationLink	body	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/Training/Views/Utilities/TrainingHelpView.swift	30	NavigationLink	body	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/Training/Views/Utilities/TrainingHelpView.swift	38	NavigationLink	body	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/Training/Views/Utilities/TrainingHelpView.swift	42	NavigationLink	body	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/Training/Views/Utilities/TrainingNotesView.swift	71	Button	body	显式样式	.plain
+QiuJi/Features/Training/Views/Utilities/TrainingNotesView.swift	79	Button	body	显式样式	.plain
+QiuJi/Features/Training/Views/Utilities/TrainingNotesView.swift	182	NavigationLink	body	显式样式	.plain
+QiuJi/Features/Training/Views/Utilities/TrainingNotesView.swift	207	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/Utilities/TrainingNotesView.swift	212	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/Utilities/TrainingNotesView.swift	216	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/Utilities/TrainingNotesView.swift	223	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/Utilities/TrainingReminderView.swift	46	Button	body	系统控件/语义动作	原生 List/Form 行保留系统外观；自绘行在显式样式中另计
+QiuJi/Features/Training/Views/Utilities/TrainingReminderView.swift	62	Button	body	系统控件/语义动作	ToolbarItem:content
+QiuJi/Features/Training/Views/Utilities/TrainingReminderView.swift	70	Button	body	系统控件/语义动作	alert:content
+QiuJi/Features/Training/Views/Utilities/TrainingReminderView.swift	76	Button	weekdayButtons	显式样式	.plain
+QiuJi/Features/TwoBallPractice/TwoBallPracticeView.swift	41	Button	content	显式样式	.plain
+QiuJi/Features/TwoBallPractice/TwoBallPracticeView.swift	92	Button	content	系统控件/语义动作	alert:content

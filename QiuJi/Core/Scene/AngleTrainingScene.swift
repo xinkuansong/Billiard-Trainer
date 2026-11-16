@@ -821,7 +821,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             if mobileRendering && MobileReferenceLighting.requested {
                 let numbered = PositionPlayBall.number(for: key) != nil
                 MobileReferenceLighting.applyBall(to: ballNode, exposureOffset: cameraNode?.camera?.exposureOffset ?? 0,
-                                                  stickerFinish: numbered, probe: roomReflectionProbe, profile: renderingProfile)
+                                                  stickerFinish: numbered, probe: roomReflectionProbe, profile: renderingProfile,
+                                                  brightensTrainingMaterials: declaredRenderRecipe == .liveReference)
             }
         }
         let selectedSticker = ballStickerStyle ?? .selected()

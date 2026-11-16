@@ -29,6 +29,8 @@ struct ProAccessGate<Content: View>: View {
                 VStack(spacing: Spacing.lg) {
                     ProgressView("正在确认 Pro 权益…")
                     Button("刷新权益") { Task { await subscriptionManager.checkEntitlements() } }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityIdentifier("pro.checking")

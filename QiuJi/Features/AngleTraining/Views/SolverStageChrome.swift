@@ -312,7 +312,8 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             Text(vm.selectedCushions.map { "\($0)库" } ?? "自动").font(.btCaption).foregroundStyle(.white)
                 .frame(width: 44, height: 44)
                 .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
-        }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }
+        }
+        .buttonStyle(.plain).overlay(alignment: .topTrailing) { TeachingMenuIndicator() }
             .disabled(vm.isPlaying || vm.temporaryTopDownActive)
             .accessibilityLabel("求解库数")
             .accessibilityValue(vm.selectedCushions.map { "\($0)库" } ?? "自动，全部库数")

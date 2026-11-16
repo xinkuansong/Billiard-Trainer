@@ -52,6 +52,8 @@ struct CustomFormationPracticeView: View {
                         } label: {
                             Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
                         }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
                         .accessibilityLabel("\(template.name)，模板操作")
                         .accessibilityIdentifier("formation.templateMenu.\(template.id)")
                     }
@@ -81,14 +83,16 @@ struct CustomFormationPracticeView: View {
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("formation.template.\(template.id)")
                         .accessibilityValue(library.selectedID == template.id ? "已选" : "未选")
-                        Menu {
-                            Button("编辑", systemImage: "pencil") { openEditor(template) }
-                            Button("复制", systemImage: "doc.on.doc") { library.duplicate(template) }
-                            Button("重命名", systemImage: "character.cursor.ibeam") { renameText = template.name; renaming = template }
-                            Button("删除", systemImage: "trash", role: .destructive) { deleting = template }
+                        BTCompactMenu {
+                            BTCompactMenuAction("编辑", systemImage: "pencil") { openEditor(template) }
+                            BTCompactMenuAction("复制", systemImage: "doc.on.doc") { library.duplicate(template) }
+                            BTCompactMenuAction("重命名", systemImage: "character.cursor.ibeam") { renameText = template.name; renaming = template }
+                            BTCompactMenuAction("删除", systemImage: "trash", role: .destructive) { deleting = template }
                         } label: {
                             Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
                         }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
                         .accessibilityLabel("\(template.name)，模板操作")
                         .accessibilityIdentifier("formation.templateMenu.\(template.id)")
                     }

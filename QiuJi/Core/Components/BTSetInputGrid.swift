@@ -318,6 +318,7 @@ struct BTSetInputGrid: View {
             } label: {
                 addButtonLabel
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("添加一组")
         } else {
             Button {
@@ -587,8 +588,8 @@ private struct SetRow: View {
     @ViewBuilder
     private var menuColumn: some View {
         if let deleteFn = onDelete {
-            Menu {
-                Button(role: .destructive, action: deleteFn) {
+            BTCompactMenu {
+                BTCompactMenuAction(role: .destructive, action: deleteFn) {
                     Label("删除此组", systemImage: "trash")
                 }
             } label: {
@@ -597,6 +598,7 @@ private struct SetRow: View {
                     .foregroundStyle(.btTextSecondary)
                     .frame(width: 44, height: 44)
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("更多操作")
         } else {
             Image(systemName: "ellipsis")
@@ -747,6 +749,7 @@ struct BTFormationMenu: View {
             .frame(height: 36)
             .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(accessibilityText)
     }
 }

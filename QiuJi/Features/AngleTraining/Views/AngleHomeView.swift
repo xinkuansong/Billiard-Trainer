@@ -414,30 +414,22 @@ struct AngleHomeView: View {
 
     /// 主题筛选 Menu（v34：与动作库 `libraryFilterMenu` 同视觉——44pt 图标 + 激活徽标）。
     private var topicFilterMenu: some View {
-        Menu {
-            Section("主题") {
-                Button {
+        BTCompactMenu {
+            BTCompactMenuSection("主题") {
+                BTCompactMenuAction {
                     withAnimation(BTMotion.easeFast) {
                         selectedTopic = nil
                     }
                 } label: {
-                    if selectedTopic == nil {
-                        Label("全部", systemImage: "checkmark")
-                    } else {
-                        Text("全部")
-                    }
+                    BTCompactMenuChoiceLabel(title: "全部", isSelected: selectedTopic == nil)
                 }
                 ForEach(PracticeTopic.allCases) { topic in
-                    Button {
+                    BTCompactMenuAction {
                         withAnimation(BTMotion.easeFast) {
                             selectedTopic = topic
                         }
                     } label: {
-                        if selectedTopic == topic {
-                            Label(topic.rawValue, systemImage: "checkmark")
-                        } else {
-                            Text(topic.rawValue)
-                        }
+                        BTCompactMenuChoiceLabel(title: topic.rawValue, isSelected: selectedTopic == topic)
                     }
                     .accessibilityIdentifier("practiceTopicMenu_\(topic.rawValue)")
                 }
@@ -465,6 +457,7 @@ struct AngleHomeView: View {
                 }
             }
         }
+        .buttonStyle(.plain)
         .accessibilityIdentifier("practiceTopicFilterMenu")
         .accessibilityLabel(
             selectedTopic.map { "筛选主题，已选 \($0.rawValue)" } ?? "筛选主题"

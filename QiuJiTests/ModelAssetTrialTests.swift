@@ -5,23 +5,51 @@ import Metal
 @testable import QiuJi
 
 final class ModelAssetTrialTests: XCTestCase {
-    private let assets: [(name: String, folder: String?, candidateSHA: String, originalSHA: String, triangles: Int)] = [
-        ("TaiQiuZhuo", nil, "73e43df002f07637656b767fdc105033d10f0d764f6d91aa7a5276cf1c885fb6", "40b546a554257897c7df78df540b36b0ea3f1f2a3fc592c5d67306b3c632942b", 330969),
-        ("CueUV", "CueStyles", "9288907e666d897e4f3be5b94e7ec989eb5a75116f74a07d3790e4340f2e117e", "ad24d3696bc78a02cb3a08a9c09af5f04c657a79404754d8b555c744ba429e7f", 10110)
+    private let assets: [(name: String, folder: String?, candidateSHA: String, triangles: Int)] = [
+        ("TaiQiuZhuo", nil, "73e43df002f07637656b767fdc105033d10f0d764f6d91aa7a5276cf1c885fb6", 330969),
+        ("CueUV", "CueStyles", "9288907e666d897e4f3be5b94e7ec989eb5a75116f74a07d3790e4340f2e117e", 10110)
     ]
 
     private func sha(_ url: URL) throws -> String {
         SHA256.hash(data: try Data(contentsOf: url)).map { String(format: "%02x", $0) }.joined()
     }
 
-    func testBundleSelectsLatestCandidatesAndRetainsOriginals() throws {
+    func testBundleContainsOnlyProductionModels() throws {
         for asset in assets {
             let candidate = try XCTUnwrap(ModelAssetTrial.url(asset.name, subdirectory: asset.folder))
             XCTAssertEqual(try sha(candidate), asset.candidateSHA, asset.name)
-            let original = try XCTUnwrap(ModelAssetTrial.url(asset.name, subdirectory: asset.folder, useOriginal: true))
-            XCTAssertEqual(try sha(original), asset.originalSHA, asset.name)
-            XCTAssertNotEqual(candidate, original)
+            XCTAssertNil(Bundle.main.url(forResource: asset.name, withExtension: "usdz", subdirectory: asset.folder))
         }
+    }
+
+    func testRetiredPreferenceCannotSelectAnUnpackagedModel() throws {
+        let key = "modelAssetTrialUseOriginal"
+        let previous = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let previous { UserDefaults.standard.set(previous, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+        UserDefaults.standard.set(true, forKey: key)
+        for asset in assets {
+            let url = try XCTUnwrap(ModelAssetTrial.url(asset.name, subdirectory: asset.folder))
+            XCTAssertEqual(try sha(url), asset.candidateSHA)
+        }
+    }
+
+    func testMissingProductionModelDoesNotFallBackToLegacyFile() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".bundle")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer {
+            do { try FileManager.default.removeItem(at: root) }
+            catch { XCTFail("Cannot remove test bundle: \(error)") }
+        }
+        let info = ["CFBundleIdentifier": "com.cuephys.tests.legacy-model", "CFBundlePackageType": "BNDL"]
+        try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+            .write(to: root.appendingPathComponent("Info.plist"))
+        try Data([0]).write(to: root.appendingPathComponent("TaiQiuZhuo.usdz"))
+        let bundle = try XCTUnwrap(Bundle(url: root))
+        XCTAssertNotNil(bundle.url(forResource: "TaiQiuZhuo", withExtension: "usdz"))
+        XCTAssertNil(ModelAssetTrial.url("TaiQiuZhuo", bundle: bundle))
     }
 
     // The protected original table/cue surfaces retain USD polygons.

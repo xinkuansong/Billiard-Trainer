@@ -6893,3 +6893,32 @@ FL-271候选时序补充（2026-11-15）：app.screenshot裁切不作全屏视�
 ## FL-272 · 七页球形记忆恢复输入提前失效（2026-11-16）
 
 翻袋和颗星重算入口清除了待应用微调，已修正并通过两项真实求解恢复测试。UI菜单选择器及导航转屏等待同步修订；原失败保留。详见[失败记录](FAILURE-LOG.md#fl-272--球形恢复后重算提前丢弃微调输入2026-11-16)与[结果](table-page-adaptation/BOARD-MEMORY-RESULTS-20261116.md)，测试规则已回写。
+
+
+## DR-466 · 台呢与球采用C档亮度（2026-11-16）
+
+用户已看三档对照并指定最亮C档应用App，球房不动。liveReference台呢及球追加保色中间调映射，强度0.75，峰值高光和纯黑不提升；球房/桌身/灯光/曝光不变。Ball重建传递场景配方，cloth重建补装且幂等。RoomReflectionProbe仅在自己的台呢副本移除显示映射，保持已确认样张的原反射输入。旧版与离线配方保留原效果。
+
+- 已应用至：`docs/design/table-pages/球桌页面统一规范.md` TP29、`变更与来源.md`、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-11-16）。
+- 验证：iOS17/MSL2.4精确新增shader块已编译链接；原生构建成功、2项定向测试通过，三视角与C公式零像素差，球房不变；证据以[任务卡](table-page-adaptation/TABLE-BRIGHTNESS-PREVIEW-20261116.md)为准。
+
+
+## FL-273 · 灯光已安装不代表新材质已完成显示映射（2026-11-16）
+
+台呢/球C档接入首轮：三视角生产与独立C档公式逐像素一致，但同一AngleTrainingScene二次setup后的TaiNi无提亮标记，材质生命周期用例失败（1通过/1失败）。旧S267AreaPanel存在导致MobileReferenceLighting.apply提前返回，而新台呢已由setupTable替换。修正为显示映射在apply的defer独立幂等执行，不以灯光节点存在代表新材质已配置；动态球/台呢重建入口仍各自接入。未删除原断言或放宽像素门槛。
+
+原失败7e7ca19e6fdb43378419d24d429d099e的xcresult、原始截图、冻结改动源已保留，工作目录已回收；修订轮028a6268706f421d83cd5034c8caeb29构建成功、2通过/0失败/0跳过；FL-273关闭。此处不宣称旧版二次setup所有其他渲染行为已完整验收。
+
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` FL-273、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog，最终状态查`table-page-adaptation/TABLE-BRIGHTNESS-PREVIEW-20261116.md`。
+
+
+## DR-467 · 按钮形状开启时保留自绘外观（2026-11-16）
+
+用户明确要求开启设置后也不额外生效。本轮四类入口（首页更多/空态自由训练、动作库筛选/网格收藏）显式复用BTPressableStyle.row，不加自动绿色背景或额外描边。收藏保留30pt圆底，标签内44pt热区与名称/状态语义；不覆盖系统设置及原生控件。
+
+已应用至上述三个Swift文件与UI-IMPLEMENTATION-SPEC Changelog。最终构建成功；iPhone18Pro/iOS27.2浅深色、开/关截图及八组控件区域像素比较通过，更多/筛选/收藏实点和自由训练进入返回通过。真机、全App/完整无障碍未验，详情见[任务卡](table-page-adaptation/IPHONE18-PRO-20261116.md)。
+
+
+## DR-467续 · 全App自定义按钮形状适配（2026-11-16）
+
+用户扩大到整个App；全量解析487个Swift文件、651处控件并逐项分类，37文件补齐77处plain样式，调试相机对照容器由borderless改plain。保留系统菜单/工具栏/表单行及已继承自定义样式，保留action/role/disabled，角度范围行补contentShape保留空白区点击。构建、代表页面开关/浅深色及交互证据见[结果与全量清单](button-shapes-appwide-20261116/RESULTS.md)；不把源码清单当成全页面UI或真机通过。

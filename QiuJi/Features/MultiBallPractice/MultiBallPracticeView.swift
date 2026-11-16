@@ -147,6 +147,7 @@ struct MultiBallSettingsView: View {
             }
             .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityIdentifier(id)
         .accessibilityValue(selected ? "已选" : "未选")
         .accessibilityAddTraits(selected ? .isSelected : [])

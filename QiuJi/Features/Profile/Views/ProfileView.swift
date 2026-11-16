@@ -44,6 +44,8 @@ struct ProfileView: View {
                                     Text("当前离线，可使用本机记录与有效的 Apple 购买权益")
                                         .font(.btCaption).foregroundStyle(.btTextSecondary)
                                     Button("重新连接账号") { Task { await authState.retryBootstrap() } }
+                                        .buttonStyle(.plain)
+                                        .foregroundStyle(.tint)
                                         .font(.btCallout)
                                 }
                             }

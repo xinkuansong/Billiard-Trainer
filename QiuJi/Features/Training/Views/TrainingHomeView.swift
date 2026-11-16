@@ -477,18 +477,18 @@ struct TrainingHomeView: View {
 
     private var headerActions: some View {
         HStack(spacing: Spacing.md) {
-            Menu {
-                Button { router.trainingPath.append(TrainingRoute.notes) } label: {
+            BTCompactMenu {
+                BTCompactMenuAction { router.trainingPath.append(TrainingRoute.notes) } label: {
                     Label("训练心得", systemImage: "book.closed")
                 }
-                Button { showManualTraining = true } label: {
+                BTCompactMenuAction { showManualTraining = true } label: {
                     Label("补记训练", systemImage: "square.and.pencil")
                 }
                 Divider()
-                Button { router.trainingPath.append(TrainingRoute.reminder) } label: {
+                BTCompactMenuAction { router.trainingPath.append(TrainingRoute.reminder) } label: {
                     Label("训练提醒", systemImage: "bell")
                 }
-                Button { router.trainingPath.append(TrainingRoute.help) } label: {
+                BTCompactMenuAction { router.trainingPath.append(TrainingRoute.help) } label: {
                     Label("使用帮助", systemImage: "questionmark.circle")
                 }
             } label: {
@@ -498,6 +498,7 @@ struct TrainingHomeView: View {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
+            .buttonStyle(BTPressableStyle.row)
             .accessibilityIdentifier("trainingHome.moreMenu")
             .accessibilityLabel("更多")
             .sheet(isPresented: $showManualTraining) {
@@ -939,18 +940,19 @@ struct TrainingHomeView: View {
     }
 
     private func scheduleItemMenu(_ item: TodayScheduleItem, index: Int) -> some View {
-        Menu {
-            Button("上移", systemImage: "arrow.up") { moveScheduleItem(item, offset: -1) }
+        BTCompactMenu {
+            BTCompactMenuAction("上移", systemImage: "arrow.up") { moveScheduleItem(item, offset: -1) }
                 .disabled(index == 0)
-            Button("下移", systemImage: "arrow.down") { moveScheduleItem(item, offset: 1) }
+            BTCompactMenuAction("下移", systemImage: "arrow.down") { moveScheduleItem(item, offset: 1) }
                 .disabled(index == unfinishedScheduleItems.count - 1)
-            Button("删除", systemImage: "trash", role: .destructive) { removeScheduleItem(item) }
+            BTCompactMenuAction("删除", systemImage: "trash", role: .destructive) { removeScheduleItem(item) }
         } label: {
             Image(systemName: "ellipsis.circle")
                 .foregroundStyle(.btTextTertiary)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("管理\(item.sourceTitleSnapshot)")
     }
 
@@ -1862,6 +1864,7 @@ struct TrainingHomeView: View {
                     .frame(width: 44, height: 24)
                     .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("管理模版，\(plan.name)")
             .accessibilityIdentifier("trainingHome.template.menu.\(plan.id)")
         }
@@ -1984,6 +1987,7 @@ struct TrainingHomeView: View {
                     .padding(.horizontal, Spacing.lg)
                     .contentShape(Rectangle())
             }
+            .buttonStyle(BTPressableStyle.row)
             .accessibilityIdentifier("trainingHome.freeRecord")
         }
         .frame(maxWidth: .infinity)
@@ -2070,16 +2074,17 @@ private struct TodayCourseSelectionView: View {
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("courseSelection.option.\(index)")
                             .accessibilityValue(selected.contains(option.id) ? "已选" : "未选")
-                            Menu {
-                                Button("上移", systemImage: "chevron.up") { options.swapAt(index, index - 1) }
+                            BTCompactMenu {
+                                BTCompactMenuAction("上移", systemImage: "chevron.up") { options.swapAt(index, index - 1) }
                                     .disabled(index == 0)
-                                Button("下移", systemImage: "chevron.down") { options.swapAt(index, index + 1) }
+                                BTCompactMenuAction("下移", systemImage: "chevron.down") { options.swapAt(index, index + 1) }
                                     .disabled(index == options.count - 1)
                             } label: {
                                 Image(systemName: "arrow.up.arrow.down")
                                     .frame(width: 44, height: 44)
                                     .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
                             .foregroundStyle(.btPrimary)
                             .accessibilityLabel("调整\(option.title)的顺序")
                             .accessibilityIdentifier("courseSelection.reorder.\(index)")

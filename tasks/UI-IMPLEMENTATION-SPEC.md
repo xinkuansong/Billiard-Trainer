@@ -1,3 +1,5 @@
+<!-- Changelog 2026-11-16 FL-273：灯光去重与材质显示映射安装分离，同场景重建必须重新保证C档映射。原失败与修订复验分别保留，见亮度任务卡。 -->
+<!-- Changelog 2026-11-16 DR-466：liveReference台呢/球采用已确认C档显示提亮，球房/桌身与反射输入保持；换外观/重建幂等。见table-page-adaptation/TABLE-BRIGHTNESS-PREVIEW-20261116.md。 -->
 <!-- Changelog 2026-11-16 FL-261：性能/生命周期击球样本核实际前置与结果phase，按钮点击不直接计出杆；无正式UI/API变化。见table-idle-20261116/RESULTS.md。 -->
 <!-- Changelog 2026-11-16 DR-436 r4：AngleTrainingScene.remindTargetPocket(at:)仅为成功重打的现有target重启3秒提示，不触感、不改角色或推荐；含多球存档备用路径，见table-page-adaptation/RETRY-POCKET-20261116.md。 -->
 <!-- 2026-11-15 FL-271：球桌入口探针区分主场景/辅助底图，诊断副本完整清单恢复；无正式UI/API变更。见table-entry-latency-20261115/RESULTS.md。 -->
@@ -3619,3 +3621,14 @@ Changelog：2026-11-12。FreePlay共享宿主以整段力度／方向手势＋�
 
 ### 2026-11-15 临时俯视shader/cache归属与采集返工（FL-271）
 仅研究脚本/记录：读取实际Metal源码、选项、descriptor及library哈希，确认灯光排列变体与缓存复用。修正LLDB拦截正常SIGTERM的测试收尾、返回断点重复回调；后轮已正常结束，2次开关10入口/10返回、0空关联。已应用至 `.cursor/rules/55-test-engineer.mdc` FL-271外部调试补充。App/UI合同不改；模拟器机制证据不冒充原/新真机包逐键差异已闭合。详SHADER-CACHE-ATTRIBUTION.md。
+
+
+Changelog（2026-11-16 / DR-467）：首页更多与空态自由训练、动作库筛选与网格收藏显式使用既有BTPressableStyle.row；按用户决定，系统按钮形状开启后不追加绿色填充或额外边框。收藏维持30pt圆底、标签内44pt触摸区并提供收藏名称/值。无新组件API，不全局覆盖系统无障碍环境；原生控件继续系统行为。原生浅深色开/关、交互与构建证据以IPHONE18-PRO-20261116任务卡当前节为准，非全App/真机验收。
+
+
+Changelog（2026-11-16 / DR-467续）：全App自绘按钮显式消费plain或既有自绘样式，按钮形状开启不叠加额外绿底/描边；保持既有背景、选中态、动作、禁用与触点语义。覆盖清单、共享容器继承、系统控件保留理由及未验页面见 `tasks/button-shapes-appwide-20261116/RESULTS.md`。本轮无全局无障碍环境覆盖，不把代码排查称为完整原生验收。
+
+
+### 2026-11-16 · 短菜单按内容收窄
+
+用户授权统一实施13处已确认菜单。普通短操作使用`BTCompactMenu`／`BTCompactMenuAction`，原生锚定popover，按最长文案、图标／勾选和边距自然定宽，112–340pt并受可用宽度限制，行触区≥44pt；点击后先收起再执行原动作／导航／确认。筛选选中列对齐，原分组、禁用与破坏性角色保留。训练多选只改宽度，继续保持展开与综合互斥／至少一项；球桌短子菜单同时计量标题与返回／关闭，主菜单、透明度、测量、评分各自已定合同不变。参见[完整实施与复验](ui-reviews/UR-20261116-menu-whitespace.md#统一收窄实施与复验2026-11-16)。

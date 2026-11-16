@@ -266,6 +266,7 @@ struct PlanListView: View {
                     .frame(width: 44, height: 24)
                     .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("管理模版，\(plan.name)")
             .accessibilityIdentifier("planList.template.menu.\(plan.id)")
         }

@@ -638,7 +638,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                     } else {
                         DailyHUDMenuPanel(title: menu == .trajectory ? "轨迹显示" : (menu == .breakGame ? "开球玩法" : nil), items: settingsItems,
                             availableSize: CGSize(width: size.width - 2 * (side + windowControls.right), height: size.height - DailyLayoutMetrics.Panels.top - 8),
-                            onBack: { self.menu = .settings }, onClose: { self.menu = nil })
+                            onBack: { self.menu = .settings }, onClose: { self.menu = nil },
+                            fitsShortOptions: menu == .trajectory)
                     }
                 }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)

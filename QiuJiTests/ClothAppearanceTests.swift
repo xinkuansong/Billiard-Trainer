@@ -5,6 +5,56 @@ import Metal
 
 @MainActor
 final class ClothAppearanceTests: XCTestCase {
+    func testApprovedBrightnessSurvivesAppearanceAndSceneRebuilds() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene(recipe: .liveReference, roomStyle: .tournament)
+        func assertBrightness(_ root: SCNNode, expected: Bool, file: StaticString = #filePath, line: UInt = #line) {
+            var count = 0
+            func check(_ node: SCNNode) {
+                for material in node.geometry?.materials ?? [] {
+                    let fragment = material.shaderModifiers?[.fragment] ?? ""
+                    let occurrences = fragment.components(separatedBy: "// trainingBrightnessC").count - 1
+                    XCTAssertEqual(occurrences, expected ? 1 : 0, file: file, line: line)
+                    count += 1
+                }
+            }
+            check(root); root.enumerateChildNodes { node, _ in check(node) }
+            XCTAssertGreaterThan(count, 0, file: file, line: line)
+        }
+        func assertScene() throws {
+            var clothCount = 0
+            scene.tableNode?.enumerateChildNodes { node, _ in
+                for material in node.geometry?.materials ?? [] {
+                    let count = (material.shaderModifiers?[.fragment] ?? "").components(separatedBy: "// trainingBrightnessC").count - 1
+                    XCTAssertEqual(count, material.name == "TaiNi" ? 1 : 0, "Material \(material.name ?? "unnamed") on \(node.name ?? "unnamed")")
+                    if material.name == "TaiNi" { clothCount += 1 }
+                }
+            }
+            XCTAssertGreaterThan(clothCount, 0)
+            for ball in scene.allBallNodes.values { assertBrightness(ball, expected: true) }
+            let room = try XCTUnwrap(scene.rootNode.childNode(withName: "reference_room", recursively: false))
+            assertBrightness(room, expected: false)
+            let probe = try XCTUnwrap(RoomReflectionProbe.prepareBake(scene: scene, style: .tournament))
+            assertBrightness(try XCTUnwrap(probe.table), expected: false)
+        }
+        try assertScene()
+        for color in ClothColor.allCases { XCTAssertTrue(scene.applyClothColor(color)) }
+        for style in BallStickerStyle.allCases { scene.applyBallStickerStyle(style) }
+        scene.configureBallInstances((1...15).map { PositionPlayBall.instanceKey(number: $0) })
+        try assertScene()
+        scene.setCameraMode(.perspective3D, animated: false)
+        let overlay = scene.makeTemporaryTopDownRenderScene()
+        let copies = overlay.rootNode.childNodes.filter { $0.name == "cueBall" }
+        XCTAssertEqual(copies.count, 1)
+        if let cue = copies.first { assertBrightness(cue, expected: true) }
+        scene.setupScene(recipe: .liveReference, roomStyle: .walnut)
+        try assertScene()
+        let legacy = AngleTrainingScene()
+        legacy.setupScene(recipe: .legacyMobile, roomStyle: .tournament)
+        assertBrightness(try XCTUnwrap(legacy.tableNode), expected: false)
+        for ball in legacy.allBallNodes.values { assertBrightness(ball, expected: false) }
+    }
+
     func testPreferencePersistenceAndFallback() throws {
         let name = "ClothColors." + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))

@@ -28,6 +28,8 @@ struct OnboardingStyleLab: View {
                 Text("涨球记").font(.headline)
                 Spacer()
                 Button("跳过介绍") { sheet = .finish }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
                     .font(.subheadline).frame(minHeight: 44)
                     .accessibilityIdentifier("introLab.skip")
             }
@@ -90,15 +92,21 @@ struct OnboardingStyleLab: View {
                 }
                 .frame(minHeight: 44).contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tint)
             .accessibilityIdentifier("introLab.styles")
             .accessibilityValue(style.rawValue)
             Spacer(minLength: 8)
             Button("r6 基准") { style = .reference }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
                 .font(.subheadline).frame(minWidth: 44, minHeight: 44)
                 .accessibilityIdentifier("introLab.reference")
             if showsCloseButton { Button { dismiss() } label: {
                 Image(systemName: "xmark").font(.subheadline).frame(width: 44, height: 44)
             }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tint)
             .accessibilityLabel("关闭设计预览") }
         }
         .padding(.leading, 24).padding(.trailing, 12)

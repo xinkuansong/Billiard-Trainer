@@ -324,6 +324,7 @@ struct BallExtractionView: View {
                             .font(.system(size: 12))
                             .foregroundStyle(.white, Color.btDestructive)
                     }
+                    .buttonStyle(.plain)
                     .offset(x: 5, y: -5)
                 }
             }
@@ -445,6 +446,7 @@ struct BallExtractionView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.btDestructive)
                 }
+                .buttonStyle(.plain)
                 .opacity(vm.selectedKey == nil ? 0 : 1)
                 .disabled(vm.selectedKey == nil)
                 .accessibilityHidden(vm.selectedKey == nil)

@@ -389,7 +389,7 @@ extension TableAppearanceTests {
         }
     }
 
-    func testRailSightsDividePlayingSurfaceInBothAssetVariantsAndCameraModes() throws {
+    func testRailSightsDividePlayingSurfaceWithRetiredPreferenceAndBothCameraModes() throws {
         let preference = "modelAssetTrialUseOriginal"
         let previous = UserDefaults.standard.object(forKey: preference)
         defer {
@@ -406,7 +406,7 @@ extension TableAppearanceTests {
             for mode: AngleTrainingScene.CameraMode in [.topDown2D, .perspective3D] {
                 scene.setCameraMode(mode, animated: false)
                 let centers = try railSightCenters(in: table)
-                XCTAssertEqual(centers.count, 18, "Both packaged assets must retain all rail sights")
+                XCTAssertEqual(centers.count, 18, "Production model must retain all rail sights regardless of the retired preference")
                 for sign: Float in [-1, 1] {
                     let long = centers.filter { $0.z * sign > TablePhysics.innerWidth / 2 && abs($0.x) < TablePhysics.innerLength / 2 }.sorted { $0.x < $1.x }
                     let short = centers.filter { $0.x * sign > TablePhysics.innerLength / 2 }.sorted { $0.z < $1.z }

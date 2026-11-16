@@ -583,6 +583,9 @@ struct TutorialMediaViewer: View {
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(.white, .white.opacity(0.25))
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("关闭图片预览")
+            .accessibilityIdentifier("tutorialMediaClose")
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.sm)
@@ -695,8 +698,12 @@ struct ZoomableContainer<Content: View>: View {
                     ? Double(max(0.4, 1.0 - abs(dismissDragValue) / 400.0))
                     : 1.0
             )
-            // simultaneous 让多图 TabView 翻页 / 视频自带控件不被吞掉；本手势只处理缩放后平移 + 纵向下滑关闭。
-            .simultaneousGesture(dragGesture)
+            // Reject 1x horizontal drags before recognition, rather than merely
+            // doing nothing in onChanged after the pager has already lost the touch.
+            .overlay {
+                TutorialMediaPanSurface(scale: scale, allowsDismiss: swipeToDismiss,
+                                        onChanged: updateDrag, onEnded: finishDrag)
+            }
             .simultaneousGesture(magnification)
             .onTapGesture(count: 2) { toggleZoom() }
             // F-TU-02：不对手势 onChanged 驱动值挂隐式 animation；松手/双击才用 spring。
@@ -719,34 +726,29 @@ struct ZoomableContainer<Content: View>: View {
             }
     }
 
-    private var dragGesture: some Gesture {
-        DragGesture()
-            .onChanged { value in
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    if scale > 1 {
-                        offset = CGSize(width: lastOffset.width + value.translation.width,
-                                        height: lastOffset.height + value.translation.height)
-                    } else if swipeToDismiss, abs(value.translation.height) > abs(value.translation.width) {
-                        // 仅纵向拖动触发下滑关闭；横向 / 缩放=1 时不拦截（交给 TabView / 视频控件）。
-                        setDismissDrag(value.translation.height)
-                    }
-                }
+    private func updateDrag(_ translation: CGSize) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            if scale > 1 {
+                offset = CGSize(width: lastOffset.width + translation.width,
+                                height: lastOffset.height + translation.height)
+            } else if swipeToDismiss {
+                setDismissDrag(max(0, translation.height))
             }
-            .onEnded { value in
-                if scale > 1 {
-                    lastOffset = offset
-                } else if swipeToDismiss,
-                          abs(value.translation.height) > dismissThreshold,
-                          abs(value.translation.height) > abs(value.translation.width) {
-                    onDismiss?()
-                } else {
-                    withAnimation(.interactiveSpring()) {
-                        setDismissDrag(0)
-                    }
-                }
-            }
+        }
+    }
+
+    private func finishDrag(_ translation: CGSize, cancelled: Bool) {
+        if scale > 1 {
+            lastOffset = offset
+        } else if !cancelled, swipeToDismiss,
+                  translation.height > dismissThreshold,
+                  translation.height > abs(translation.width) {
+            onDismiss?()
+        } else {
+            withAnimation(.interactiveSpring()) { setDismissDrag(0) }
+        }
     }
 
     private func toggleZoom() {
@@ -762,6 +764,75 @@ struct ZoomableContainer<Content: View>: View {
     private func resetPan() {
         offset = .zero
         lastOffset = .zero
+    }
+}
+
+/// A directional recognizer rejects horizontal drags before recognition at 1x,
+/// so the enclosing page TabView can receive them on every supported iOS version.
+private struct TutorialMediaPanSurface: UIViewRepresentable {
+    let scale: CGFloat
+    let allowsDismiss: Bool
+    let onChanged: (CGSize) -> Void
+    let onEnded: (CGSize, Bool) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.isMultipleTouchEnabled = true
+        let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.dragged(_:)))
+        pan.maximumNumberOfTouches = 1
+        pan.cancelsTouchesInView = false
+        pan.delegate = context.coordinator
+        view.addGestureRecognizer(pan)
+        view.isAccessibilityElement = true
+        view.accessibilityIdentifier = "tutorialMediaZoom"
+        view.accessibilityLabel = "精讲媒体"
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        context.coordinator.parent = self
+        view.accessibilityValue = "缩放 \(Int((scale * 100).rounded()))%"
+    }
+
+    static func shouldBegin(scale: CGFloat, allowsDismiss: Bool, velocity: CGPoint) -> Bool {
+        scale > 1 || (allowsDismiss && velocity.y > abs(velocity.x))
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: TutorialMediaPanSurface
+        init(_ parent: TutorialMediaPanSurface) { self.parent = parent }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return false }
+            return TutorialMediaPanSurface.shouldBegin(
+                scale: parent.scale, allowsDismiss: parent.allowsDismiss,
+                velocity: pan.velocity(in: pan.view?.window)
+            )
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
+            guard let scroll = other.view as? UIScrollView,
+                  other === scroll.panGestureRecognizer,
+                  let view = gestureRecognizer.view else { return false }
+            // Paging waits for our direction decision. A 1x horizontal drag fails
+            // immediately; a zoomed pan or downward dismissal stays in this page.
+            return view.isDescendant(of: scroll)
+        }
+
+        @objc func dragged(_ pan: UIPanGestureRecognizer) {
+            let translation = pan.translation(in: pan.view?.window)
+            let delta = CGSize(width: translation.x, height: translation.y)
+            switch pan.state {
+            case .began, .changed: parent.onChanged(delta)
+            case .ended: parent.onEnded(delta, false)
+            case .cancelled, .failed: parent.onEnded(delta, true)
+            default: break
+            }
+        }
     }
 }
 

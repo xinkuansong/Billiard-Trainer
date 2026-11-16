@@ -154,6 +154,7 @@ struct HistoryCalendarView: View {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             Spacer()
             Text(vm.monthTitle)
                 .font(.btHeadline)
@@ -167,6 +168,7 @@ struct HistoryCalendarView: View {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, Spacing.xl)
         .padding(.top, Spacing.sm)

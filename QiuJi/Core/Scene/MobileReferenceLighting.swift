@@ -279,7 +279,8 @@ enum MobileReferenceLighting {
     }
 
     static func applyBall(to node: SCNNode, exposureOffset: CGFloat, stickerFinish: Bool = false,
-                          probe: RoomReflectionProbe? = nil, profile: SpecializedProfile? = nil) {
+                          probe: RoomReflectionProbe? = nil, profile: SpecializedProfile? = nil,
+                          brightensTrainingMaterials: Bool = false) {
         let probe = probe ?? RoomReflectionProbe.neutral
         func apply(_ node:SCNNode) {
             for m in node.geometry?.materials ?? [] {
@@ -288,6 +289,7 @@ enum MobileReferenceLighting {
                 m.setValue(NSValue(scnVector3: ClothColor.green.linearAlbedo), forKey: "selectedClothAlbedo")
                 probe?.install(on: m, usesPrefilteredReflection: (profile ?? specializedProfile).usesReflection)
                 applyHighlightHeadroom(to: m, exposureOffset: exposureOffset)
+                if brightensTrainingMaterials { applyTrainingBrightness(to: m) }
             }
         }
         apply(node);node.enumerateChildNodes { node,_ in apply(node) }
@@ -304,6 +306,25 @@ enum MobileReferenceLighting {
     }
 
     static func apply(to scene:AngleTrainingScene) {
+        // Display mapping belongs to the current materials, independently of
+        // whether this scene already owns the reference light rig.
+        defer {
+            if scene.declaredRenderRecipe == .liveReference {
+                func finish(_ material: SCNMaterial) {
+                    applyHighlightHeadroom(to: material, exposureOffset: scene.cameraNode.camera?.exposureOffset ?? 0)
+                    applyTrainingBrightness(to: material)
+                }
+                scene.tableNode?.enumerateChildNodes { node, _ in
+                    for material in node.geometry?.materials ?? [] where material.name == "TaiNi" { finish(material) }
+                }
+                for ball in scene.allBallNodes.values {
+                    for material in ball.geometry?.materials ?? [] { finish(material) }
+                    ball.enumerateChildNodes { node, _ in
+                        for material in node.geometry?.materials ?? [] { finish(material) }
+                    }
+                }
+            }
+        }
         // setupScene already applies the rig on device Debug. Diagnostic callers
         // may ask again; never append another cloth program or emitter pair.
         guard scene.rootNode.childNode(withName: "S267AreaPanel", recursively: false) == nil else { return }
@@ -326,7 +347,8 @@ enum MobileReferenceLighting {
         for (key,node) in scene.allBallNodes {
             let numbered = PositionPlayBall.number(for: key) != nil
             applyBall(to:node, exposureOffset: scene.cameraNode.camera?.exposureOffset ?? 0, stickerFinish: numbered,
-                      probe: scene.roomReflectionProbe, profile: scene.renderingProfile)
+                      probe: scene.roomReflectionProbe, profile: scene.renderingProfile,
+                      brightensTrainingMaterials: scene.declaredRenderRecipe == .liveReference)
         }
         refreshClothLighting(in: scene, ballCount: scene.allBallNodes.count)
         scene.tableNode?.enumerateChildNodes { node, _ in
@@ -468,6 +490,10 @@ enum MobileReferenceLighting {
                     }
                 }
                 #endif
+                if scene.declaredRenderRecipe == .liveReference {
+                    applyHighlightHeadroom(to: m, exposureOffset: scene.cameraNode.camera?.exposureOffset ?? 0)
+                    applyTrainingBrightness(to: m)
+                }
             }
         }
         #if DEBUG
@@ -701,6 +727,23 @@ enum MobileReferenceLighting {
             output.removeSubrange(start.lowerBound..<stop.lowerBound)
         }
         return output
+    }
+
+    /// User-approved C preview (2026-11-16). Hue-preserving display lift only;
+    /// black and peak highlights stay fixed. Do not include this in probe lighting.
+    static let trainingBrightnessFragment = """
+
+    // trainingBrightnessC
+    float trainingBrightnessPeak=max(_output.color.r,max(_output.color.g,_output.color.b));
+    _output.color.rgb *= 1.0 + 0.75 * (1.0-clamp(trainingBrightnessPeak,0.0,1.0));
+    """
+
+    private static func applyTrainingBrightness(to material: SCNMaterial) {
+        var modifiers = material.shaderModifiers ?? [:]
+        let fragment = modifiers[.fragment] ?? "#pragma body"
+        guard !fragment.contains("// trainingBrightnessC") else { return }
+        modifiers[.fragment] = fragment + "\n" + trainingBrightnessFragment
+        material.shaderModifiers = modifiers
     }
 
     /// Output mapping shared by reference materials. Keep diffuse-range values

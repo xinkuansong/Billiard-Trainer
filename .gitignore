@@ -75,9 +75,10 @@ __pycache__/
 # Working / scratch assets (not part of the build)
 /TaiQiuZhuo.usdz
 *.usdz
-# Reversible production model trial; originals remain in place.
+# Current production models and the retired cue archive (excluded from the App).
 !QiuJi/Resources/ModelTrial20261010_TaiQiuZhuo.usdz
 !QiuJi/Resources/ModelTrial20261010_CueUV.usdz
+!QiuJi/Resources/LegacyModels/CueUV.usdz
 /drill_005/
 /problem_images/
 /table.png

@@ -359,7 +359,8 @@ struct SettingsView: View {
                         Text(tablePreferences.general.trajectoryDetail.label)
                         Image(systemName: "chevron.up.chevron.down")
                     }.frame(minHeight: 44).contentShape(Rectangle())
-                }.accessibilityIdentifier("settings.trajectory")
+                }
+                .buttonStyle(.plain).accessibilityIdentifier("settings.trajectory")
                 Divider()
                 Toggle("3D 显示轨迹", isOn: generalToggle(.shows3DTrajectory)).accessibilityIdentifier("settings.trajectory3D")
             }
@@ -536,7 +537,11 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings.bind." + method.rawValue)
                     Divider()
                 }
-                if bindingMethod == .wechat { Button("取消授权") { bindingTask?.cancel() } }
+                if bindingMethod == .wechat {
+                    Button("取消授权") { bindingTask?.cancel() }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
+                }
                 if let bindingError {
                     Text(bindingError)
                         .font(.btFootnote)

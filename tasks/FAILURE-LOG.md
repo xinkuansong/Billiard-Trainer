@@ -2511,3 +2511,19 @@ R1首次进桌时，HUD底图创建的第二场景覆盖了主场景探针身份
 FL-272补充：iPhone返回首页后搜索框已经存在，原生用例仍重复switchTab，当前标签非hittable导致测试失败。按真实导航状态跳过冗余切tab；独立页面复验另列r4，不以iPad通过代替手机验收。App导航未改。
 
 FL-272最终复验：iPad25＋8项通过，iPhone17项功能与1项七页隔离通过；导航脚本修订后的7页独立流程全部通过（0失败／0跳过），原失败保留，返工关闭。证据见七页球形记忆结果记录。
+
+
+## FL-273 · 灯光已安装不代表新材质已完成显示映射（2026-11-16）
+
+台呢/球C档接入首轮：三视角生产与独立C档公式逐像素一致，但同一AngleTrainingScene二次setup后的TaiNi无提亮标记，材质生命周期用例失败（1通过/1失败）。旧S267AreaPanel存在导致MobileReferenceLighting.apply提前返回，而新台呢已由setupTable替换。修正为显示映射在apply的defer独立幂等执行，不以灯光节点存在代表新材质已配置；动态球/台呢重建入口仍各自接入。未删除原断言或放宽像素门槛。
+
+原失败7e7ca19e6fdb43378419d24d429d099e的xcresult、原始截图、冻结改动源已保留，工作目录已回收；修订轮028a6268706f421d83cd5034c8caeb29构建成功、2通过/0失败/0跳过；FL-273关闭。此处不宣称旧版二次setup所有其他渲染行为已完整验收。
+
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` FL-273、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog，最终状态查`table-page-adaptation/TABLE-BRIGHTNESS-PREVIEW-20261116.md`。
+
+
+## FL-274 · 按钮适配最终复验的共享源码与冻结副本返工（2026-11-16）
+
+全 App 按钮适配的最终增量构建读到并行菜单修改的中间状态，TrainingHomeView 的 BTCompactMenuAction systemImage 调用编译失败。未覆盖其他任务修改；待完整初始化器落盘后，冻结源码/资源/项目后重建。冻结首轮 Swift 编译通过，但打包校验发现遗漏根目录 project.yml；补齐配置后 build-frozen-r2.log 构建及打包门禁通过。原 build-final.log 和 build-frozen.log 保留，不混作通过证据。
+
+已应用至本轮冻结快照与 `tasks/button-shapes-appwide-20261116/RESULTS.md` 的分轮证据规则：记录源码哈希、完整构建输入及失败日志，初轮截图与最终补验分别归档。最终 487 文件哈希与工作区一致，角度行空白区切换及主题菜单选择实测通过。FL-274 关闭；不代表真机/全页面状态回归。

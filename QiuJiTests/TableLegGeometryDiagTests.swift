@@ -62,10 +62,8 @@ final class TableLegGeometryDiagTests: XCTestCase {
     /// 若原始模型腿完整而我们处理后不完整 → 根因在 loader；若原始就不完整 → 模型/渲染本身。
     @MainActor
     func test_renderRawUSDZ_sideElevation() throws {
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let url = Bundle.main.url(forResource: "TaiQiuZhuo", withExtension: "usdz") else {
-            print("LEGRAW no url"); return
-        }
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let url = try XCTUnwrap(ModelAssetTrial.url("TaiQiuZhuo"))
         let rawScene = try SCNScene(url: url, options: [.checkConsistency: true])
 
         // 原始 USDZ 是 Z-up：像 loader 那样套一个 -90°X 容器转成 Y-up 再看，

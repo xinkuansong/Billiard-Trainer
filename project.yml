@@ -45,6 +45,11 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
+    postBuildScripts:
+      - name: Verify production model packaging
+        basedOnDependencyAnalysis: false
+        script: |
+          /usr/bin/python3 "$SRCROOT/scripts/verify_model_packaging.py" --bundle "$TARGET_BUILD_DIR/$WRAPPER_NAME"
     preBuildScripts:
       - name: Prepare API transport configuration
         basedOnDependencyAnalysis: false
@@ -66,6 +71,10 @@ targets:
       - path: QiuJi
         excludes:
           - "Resources/Info.plist"
+          # Retired model trial originals stay on disk, never in the App bundle.
+          # Reintroducing the table adds 109 MB; verify_model_packaging.py guards both configs.
+          - "Resources/TaiQiuZhuo.usdz"
+          - "Resources/LegacyModels/**"
           - "**/.DS_Store"
           - "Resources/Drills/**"
           - "Resources/defense-trajectories.bank"
@@ -165,7 +174,6 @@ targets:
         buildPhase: resources
     resources:
       - path: QiuJi/Resources/Assets.xcassets
-      - path: QiuJi/Resources/TaiQiuZhuo.usdz
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji

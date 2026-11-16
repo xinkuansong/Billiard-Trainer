@@ -94,6 +94,7 @@ struct DefensePracticeSettings: View {
                 BTSelectionIndicator(isSelected: selected)
             }.contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)
         .accessibilityValue(selected ? "已选" : "未选")
         .accessibilityAddTraits(selected ? .isSelected : [])

@@ -29,6 +29,7 @@ struct AngleSaveErrorBanner: View {
             HStack {
                 Spacer()
                 Button("重试", action: retry)
+                    .buttonStyle(.plain)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .padding(.horizontal, Spacing.md)

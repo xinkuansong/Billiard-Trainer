@@ -31,9 +31,15 @@ struct CushionEnglishAtlasView: View {
             .overlay(alignment: .bottom) {
                 if ProcessInfo.processInfo.arguments.contains("-w2.uiHooks") {
                     HStack {
-                        Button("高杆") { vm.spinY = 0.3 }.accessibilityIdentifier("w2.bumpCueHeight")
-                        Button("高力度") { vm.velocity = 5.5 }.accessibilityIdentifier("w2.bumpPower")
-                        Button("最低力度") { vm.velocity = Double(ShotTuning.velocityRange.lowerBound) }.accessibilityIdentifier("w2.minimumPower")
+                        Button("高杆") { vm.spinY = 0.3 }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.tint).accessibilityIdentifier("w2.bumpCueHeight")
+                        Button("高力度") { vm.velocity = 5.5 }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.tint).accessibilityIdentifier("w2.bumpPower")
+                        Button("最低力度") { vm.velocity = Double(ShotTuning.velocityRange.lowerBound) }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.tint).accessibilityIdentifier("w2.minimumPower")
                         Text(String(format: "%.1f", vm.lastParallelSimMs)).accessibilityIdentifier("w2.parallelSimMs")
                     }.font(.btCaption)
                 }

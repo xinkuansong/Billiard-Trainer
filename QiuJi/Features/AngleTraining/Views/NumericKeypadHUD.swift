@@ -57,6 +57,7 @@ struct NumericKeypadHUD: View {
                         .frame(minWidth: usesSceneStyle ? 44 : nil, minHeight: usesSceneStyle ? 44 : nil)
                         .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .accessibilityIdentifier("angleKeypad.cancel")
                 .freeControlItem("angle.cancel", name: "取消输入")
             }

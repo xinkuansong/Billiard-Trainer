@@ -299,6 +299,7 @@ struct ActiveTrainingView: View {
                     Button("恢复") {
                         viewModel.unskipTimer()
                     }
+                    .buttonStyle(.plain)
                     .font(.btCaption)
                     .foregroundStyle(.btPrimary)
                 }
@@ -326,6 +327,7 @@ struct ActiveTrainingView: View {
                         .background(Color.btPrimary.opacity(0.1))
                         .clipShape(Capsule())
                     }
+                    .buttonStyle(.plain)
 
                     Button {
                         viewModel.skipTimer()
@@ -342,6 +344,7 @@ struct ActiveTrainingView: View {
                         .background(.btBGTertiary)
                         .clipShape(Capsule())
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -421,6 +424,7 @@ struct ActiveTrainingView: View {
                             .foregroundStyle(.btTextSecondary)
                             .frame(width: 44, height: 44)
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel(viewModel.isTimerRunning ? "暂停计时" : "继续计时")
                     .accessibilityIdentifier("activeTraining.timerToggle")
 
@@ -437,6 +441,7 @@ struct ActiveTrainingView: View {
                                 .foregroundStyle(.btWarning)
                                 .frame(width: 44, height: 44)
                         }
+                        .buttonStyle(.plain)
                         .accessibilityLabel(
                             viewModel.isRestOverlayMinimized
                                 ? "展开组间休息 \(viewModel.restSecondsRemaining)秒"
@@ -450,20 +455,21 @@ struct ActiveTrainingView: View {
                                 .foregroundStyle(.btTextSecondary)
                                 .frame(width: 44, height: 44)
                         }
+                        .buttonStyle(.plain)
                         .accessibilityLabel("休息设置")
                         .accessibilityIdentifier("activeTraining.rest")
                     }
 
-                    Menu {
-                        Button { viewModel.showEndConfirm = true } label: {
+                    BTCompactMenu {
+                        BTCompactMenuAction { viewModel.showEndConfirm = true } label: {
                             Label("结束训练", systemImage: BTIcon.stopCircle)
                         }
                         if !viewModel.isTimerSkipped {
-                            Button { viewModel.skipTimer() } label: {
+                            BTCompactMenuAction { viewModel.skipTimer() } label: {
                                 Label("跳过计时", systemImage: BTIcon.forward)
                             }
                         } else {
-                            Button { viewModel.unskipTimer() } label: {
+                            BTCompactMenuAction { viewModel.unskipTimer() } label: {
                                 Label("恢复计时", systemImage: "clock")
                             }
                         }
@@ -508,6 +514,7 @@ struct ActiveTrainingView: View {
                     .lineLimit(1)
                     .accessibilityIdentifier("activeTraining.timer")
                 Button("恢复") { viewModel.unskipTimer() }
+                    .buttonStyle(.plain)
                     .font(.btCaption)
                     .foregroundStyle(.btPrimary)
                     .frame(minWidth: 44, minHeight: 44)
@@ -605,12 +612,12 @@ struct ActiveTrainingView: View {
 
             Spacer()
 
-            Menu {
-                Button { viewModel.showEndConfirm = true } label: {
+            BTCompactMenu {
+                BTCompactMenuAction { viewModel.showEndConfirm = true } label: {
                     Label("结束训练", systemImage: BTIcon.stopCircle)
                 }
                 if !viewModel.isTimerSkipped {
-                    Button { viewModel.skipTimer() } label: {
+                    BTCompactMenuAction { viewModel.skipTimer() } label: {
                         Label("跳过计时", systemImage: BTIcon.forward)
                     }
                 }

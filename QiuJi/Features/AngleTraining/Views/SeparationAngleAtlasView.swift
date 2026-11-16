@@ -30,8 +30,12 @@ struct SeparationAngleAtlasView: View {
             .overlay(alignment: .bottom) {
                 if ProcessInfo.processInfo.arguments.contains("-y3.uiHooks") {
                     HStack {
-                        Button("高力度") { vm.velocity = 5.5 }.accessibilityIdentifier("y3.bumpPower")
-                        Button("最低力度") { vm.velocity = Double(ShotTuning.velocityRange.lowerBound) }.accessibilityIdentifier("y3.minimumPower")
+                        Button("高力度") { vm.velocity = 5.5 }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.tint).accessibilityIdentifier("y3.bumpPower")
+                        Button("最低力度") { vm.velocity = Double(ShotTuning.velocityRange.lowerBound) }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.tint).accessibilityIdentifier("y3.minimumPower")
                         Text(String(format: "%.1f", vm.lastParallelSimMs)).accessibilityIdentifier("y3.parallelSimMs")
                     }.font(.btCaption)
                 }

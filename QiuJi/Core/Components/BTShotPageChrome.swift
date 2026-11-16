@@ -553,6 +553,7 @@ struct BTSolverMoreMenu<SolveRange: View, PageExtras: View>: View {
                 .frame(minWidth: dailyHUD ? 44 : nil, minHeight: dailyHUD ? 44 : nil)
                 .background { BTHUDControlBackground(shape: Circle(), normal: dailyHUD ? HUDStyle.controlBackground : .clear) }
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("更多")
         .modifier(OptionalAccessibilityIdentifier(accessibilityId))
     }

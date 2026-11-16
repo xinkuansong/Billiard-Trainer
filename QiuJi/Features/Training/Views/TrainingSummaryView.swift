@@ -352,6 +352,7 @@ struct TrainingSummaryView: View {
                     .fontWeight(.bold)
                     .foregroundStyle(.btTextTertiary)
             }
+            .buttonStyle(.plain)
             .disabled(isSaving || showSavedToast)
         }
         .padding(.horizontal, Spacing.xl)

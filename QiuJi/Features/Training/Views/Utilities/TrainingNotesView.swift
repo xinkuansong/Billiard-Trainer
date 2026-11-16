@@ -186,7 +186,8 @@ private struct TrainingNoteCollectionDetail: View {
                                         Text("查看这次训练记录")
                                         Image(systemName: "chevron.right").font(.btCaption)
                                     }.font(.btSubheadlineMedium).foregroundStyle(.btPrimary).frame(minHeight: 44)
-                                }.accessibilityIdentifier("trainingNotes.record")
+                                }
+                                .buttonStyle(.plain).accessibilityIdentifier("trainingNotes.record")
                             }
                         }
                     }

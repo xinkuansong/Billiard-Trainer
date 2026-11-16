@@ -60,6 +60,7 @@ struct LoginView: View {
                     authState.loginAnonymously()
                     dismiss()
                 }
+                .buttonStyle(.plain)
                 .font(.btCallout)
                 .foregroundStyle(.btTextSecondary)
                 .disabled(activeMethod != nil)
@@ -125,7 +126,9 @@ struct LoginView: View {
                     .foregroundStyle(.btTextTertiary)
                 HStack(spacing: Spacing.lg) {
                     Link("用户协议", destination: termsURL)
+                    .buttonStyle(.plain)
                     Link("隐私政策", destination: privacyURL)
+                    .buttonStyle(.plain)
                 }
                 .font(.btCaption)
                 .foregroundStyle(.btPrimary)
@@ -180,7 +183,11 @@ struct LoginView: View {
                 .buttonStyle(.bordered)
                 .disabled(activeMethod != nil)
                 .accessibilityIdentifier("login.wechat")
-                if activeMethod == .wechat { Button("取消授权") { operation?.cancel() } }
+                if activeMethod == .wechat {
+                    Button("取消授权") { operation?.cancel() }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
+                }
             }
         }
         .padding(.horizontal, Spacing.xxl)

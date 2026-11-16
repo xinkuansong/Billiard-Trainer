@@ -452,6 +452,13 @@ final class RoomReflectionProbe {
                     if let existing = materialCopies[id] { return existing }
                     let result = material.copy() as! SCNMaterial
                     if material.name == "TaiNi" {
+                        // The approved brightness is a display mapping, not extra
+                        // emitted light. Preserve the original reflection bake.
+                        if var modifiers = result.shaderModifiers, let fragment = modifiers[.fragment] {
+                            modifiers[.fragment] = fragment.replacingOccurrences(
+                                of: MobileReferenceLighting.trainingBrightnessFragment, with: "")
+                            result.shaderModifiers = modifiers
+                        }
                         // Hiding ball geometry alone leaves their analytic shadows.
                         result.setValue(Data(count: ballGroupCount * 64) as NSData, forKey: "contactUniforms")
                         for group in 0..<ballGroupCount {

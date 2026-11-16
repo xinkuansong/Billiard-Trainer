@@ -28,6 +28,7 @@ struct BTLibrarySearchBar<Trailing: View>: View {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.btTextTertiary)
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel("清除搜索")
                 }
             }

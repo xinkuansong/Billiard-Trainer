@@ -622,7 +622,8 @@ struct BatchAuthoringView: View {
                     } else {
                         DailyHUDMenuPanel(title: menu == .steps ? "选杆重录" : (menu == .followingSteps ? "选杆重录后续" : (menu == .tools ? "工具" : (menu == .trajectory ? "轨迹显示" : nil))), items: menuItems,
                             availableSize: CGSize(width: size.width - 2 * side, height: size.height - DailyLayoutMetrics.Panels.top - 8),
-                            onBack: { self.menu = .more }, onClose: { self.menu = nil })
+                            onBack: { self.menu = .more }, onClose: { self.menu = nil },
+                            fitsShortOptions: menu == .trajectory)
                     }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, DailyLayoutMetrics.Panels.top).padding(.trailing, side + windowControls.right)

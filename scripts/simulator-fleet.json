@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "host": "local",
-  "baseline_count": 14,
+  "baseline_count": 18,
   "temporary_limit": 1,
   "core": [
     {
@@ -111,6 +111,34 @@
       "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
       "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Air-13-inch-M3",
       "reason": "编排重录主交付机，记录明确待用户重录c039；不当普通池设备回收。"
+    },
+    {
+      "udid": "340B2229-1818-43E9-8FE2-B65926A7B0C2",
+      "name": "iPhone 17e",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17e",
+      "reason": "2026-11-16 iPhone18测试前盘点的既有设备；用户允许保留现有18台并临时新增1台。既有设备不借用、不覆盖、不回收；原数据及归属仍保留。"
+    },
+    {
+      "udid": "35D3473D-0E7F-4D66-9E27-2E7F8F338BD3",
+      "name": "iPad Air 13-inch (M4)",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Air-13-inch-M4",
+      "reason": "2026-11-16 iPhone18测试前盘点的既有设备；用户允许保留现有18台并临时新增1台。既有设备不借用、不覆盖、不回收；原数据及归属仍保留。"
+    },
+    {
+      "udid": "2756A955-C8FE-4476-B574-2C6EAAC29EB2",
+      "name": "iPad Air 11-inch (M4)",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Air-11-inch-M4",
+      "reason": "2026-11-16 iPhone18测试前盘点的既有设备；用户允许保留现有18台并临时新增1台。既有设备不借用、不覆盖、不回收；原数据及归属仍保留。"
+    },
+    {
+      "udid": "3EECF81B-C0AD-4C9B-A627-B9F907276C82",
+      "name": "iPhone Duo",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-27-1",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo",
+      "reason": "2026-11-16 iPhone18测试前盘点的既有设备；用户允许保留现有18台并临时新增1台。既有设备不借用、不覆盖、不回收；原数据及归属仍保留。"
     }
   ],
   "remote_plan": {

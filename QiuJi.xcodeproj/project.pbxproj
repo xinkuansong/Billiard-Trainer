@@ -401,7 +401,6 @@
 		6645E7B28E834E1C0F4A2036 /* Daily3DDeviceProfilingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C73ADD28A3556E9AFD1810A /* Daily3DDeviceProfilingUITests.swift */; };
 		665C1D7BBE6F86FE5DA39F7C /* QiuJiSchemaV5.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2CF27C2B70D30FF1FAB5BFB /* QiuJiSchemaV5.swift */; };
 		6660CD852398EA957FECA09C /* AvatarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F530CA0E094725FBBB4C5C6 /* AvatarStore.swift */; };
-		6681222358EC7E6EC98AC8DF /* TaiQiuZhuo.usdz in Resources */ = {isa = PBXBuildFile; fileRef = EA3C188374F32CF49A03E2F5 /* TaiQiuZhuo.usdz */; };
 		668AD5567FE0B98D34448D59 /* LocalSeparationPracticeRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8E79C9B25569B01C91FF08B /* LocalSeparationPracticeRepository.swift */; };
 		66D4B87CD7370571BDCFDFF2 /* CueStyleModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8296A7E00CDAF185C3AC6205 /* CueStyleModel.swift */; };
 		66FA4FC908490FA0FD0C2DC0 /* GeometricRailReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68BAC373AB3D4D51A6E33C1 /* GeometricRailReference.swift */; };
@@ -1936,7 +1935,6 @@
 		E94BD76B3459D704B2449B73 /* DailyClearanceControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyClearanceControllerTests.swift; sourceTree = "<group>"; };
 		EA220E6D8D978A24F0C8C5E5 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		EA27C9106CA8ED0AE5FA76A0 /* FirstRunProfileFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRunProfileFlow.swift; sourceTree = "<group>"; };
-		EA3C188374F32CF49A03E2F5 /* TaiQiuZhuo.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; path = TaiQiuZhuo.usdz; sourceTree = "<group>"; };
 		EA492DA62DCA924F8280C67B /* CameraSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraSurface.swift; sourceTree = "<group>"; };
 		EA687B77A60AF951FA85C1A6 /* LocalAccuracyPracticeRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAccuracyPracticeRepository.swift; sourceTree = "<group>"; };
 		EA763A6DA262DFEB216AE89C /* W2_DarkQuizNavChromeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = W2_DarkQuizNavChromeUITests.swift; sourceTree = "<group>"; };
@@ -3526,7 +3524,6 @@
 				C627ACE7C55D5B7F28124F57 /* PocketPipe */,
 				A6250E924B6DF39444691990 /* Products.storekit */,
 				D24508421732D96D594FD967 /* StaticClothIrradiance-v1.bin */,
-				EA3C188374F32CF49A03E2F5 /* TaiQiuZhuo.usdz */,
 				9E3A45224A0DDBF2C3E09EAF /* Theory */,
 				CA15373488350BA72A359192 /* ThreeBallBank */,
 				A01280D99F45D50E38D0064A /* training-grid-bank-manifest.json */,
@@ -3706,6 +3703,7 @@
 				EAAC142A60E7365EFA416C23 /* Resources */,
 				1217FE02742AAAC932C11695 /* Frameworks */,
 				1671FE01C5BDB68C93E23C5A /* Embed Foundation Extensions */,
+				B0FFB13D253D3A522847D1F1 /* Verify production model packaging */,
 			);
 			buildRules = (
 			);
@@ -3879,7 +3877,6 @@
 				C8E480730339C3231B3168B3 /* TableWood_charcoal.png in Resources */,
 				6B10482CCD7E28DDECA4827B /* TableWood_ivory.png in Resources */,
 				C98DD66509AB285B89F92F9A /* TableWood_walnut.png in Resources */,
-				6681222358EC7E6EC98AC8DF /* TaiQiuZhuo.usdz in Resources */,
 				CF3BE1D3614B1BBB1028C31F /* Theory in Resources */,
 				2FD62D4406B6167EFAEF5892 /* ThreeBallBank in Resources */,
 				5E0268758304443DD3F3CA5B /* TrainingCarpet.jpg in Resources */,
@@ -3937,6 +3934,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$SRCROOT/scripts/prepare-api-plist.sh\"\n";
+		};
+		B0FFB13D253D3A522847D1F1 /* Verify production model packaging */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Verify production model packaging";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/bin/python3 \"$SRCROOT/scripts/verify_model_packaging.py\" --bundle \"$TARGET_BUILD_DIR/$WRAPPER_NAME\"\n";
 		};
 		B215ACF95359F6C237AFF4F3 /* Verify training question bank */ = {
 			isa = PBXShellScriptBuildPhase;
