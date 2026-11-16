@@ -1,0 +1,161 @@
+{
+  "evidence": "output/local-test-runs/e9495fa020784ecbb3f48865da82eaef/evidence/results.json",
+  "sha256": "b735dd322bc99a2c5a273da55df5f69d99c258752848322f8ae6663e2c08645d",
+  "rows": [
+    {
+      "pose": "single-low",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 327680,
+      "pairs": 44,
+      "maximum": 2,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [
+        {
+          "frame": 14,
+          "shadows": false,
+          "maximum": 2
+        }
+      ],
+      "timing": {}
+    },
+    {
+      "pose": "single-near",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 327680,
+      "pairs": 44,
+      "maximum": 1,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [],
+      "timing": {
+        "AA": {
+          "cycles": [
+            {
+              "cycle": 0,
+              "aMS": 0.4225833108648658,
+              "bMS": 0.39747904520481825,
+              "gpuDecreasePercent": 5.940666612855282
+            },
+            {
+              "cycle": 1,
+              "aMS": 0.3969791578128934,
+              "bMS": 0.38695824332535267,
+              "gpuDecreasePercent": 2.524292343897772
+            },
+            {
+              "cycle": 2,
+              "aMS": 0.3997709136456251,
+              "bMS": 0.39266678504645824,
+              "gpuDecreasePercent": 1.7770498944963988
+            },
+            {
+              "cycle": 3,
+              "aMS": 0.38568745367228985,
+              "bMS": 0.3825000021606684,
+              "gpuDecreasePercent": 0.8264338083265168
+            },
+            {
+              "cycle": 4,
+              "aMS": 0.3817082615569234,
+              "bMS": 0.38508325815200806,
+              "gpuDecreasePercent": -0.884182223701061
+            },
+            {
+              "cycle": 5,
+              "aMS": 0.3880000440403819,
+              "bMS": 0.3834583330899477,
+              "gpuDecreasePercent": 1.1705439265263382
+            }
+          ],
+          "medianDecreasePercent": 1.4737969105113686,
+          "min": -0.884182223701061,
+          "max": 5.940666612855282,
+          "positiveCycles": 5
+        },
+        "AB": {
+          "cycles": [
+            {
+              "cycle": 0,
+              "aMS": 0.3923125332221389,
+              "bMS": 0.4119791556149721,
+              "gpuDecreasePercent": -5.012998751609451
+            },
+            {
+              "cycle": 1,
+              "aMS": 0.3782290732488036,
+              "bMS": 0.4222916904836893,
+              "gpuDecreasePercent": -11.649717155904822
+            },
+            {
+              "cycle": 2,
+              "aMS": 0.39691675920039415,
+              "bMS": 0.43412495870143175,
+              "gpuDecreasePercent": -9.374307997474109
+            },
+            {
+              "cycle": 3,
+              "aMS": 0.38762507028877735,
+              "bMS": 0.419104122556746,
+              "gpuDecreasePercent": -8.12100523955198
+            },
+            {
+              "cycle": 4,
+              "aMS": 0.3909165970981121,
+              "bMS": 0.4150416934862733,
+              "gpuDecreasePercent": -6.17141778252671
+            },
+            {
+              "cycle": 5,
+              "aMS": 0.3877501003444195,
+              "bMS": 0.4077707417309284,
+              "gpuDecreasePercent": -5.163284643569552
+            }
+          ],
+          "medianDecreasePercent": -7.146211511039345,
+          "min": -11.649717155904822,
+          "max": -5.012998751609451,
+          "positiveCycles": 0
+        }
+      }
+    },
+    {
+      "pose": "scatter-overview",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 327680,
+      "pairs": 44,
+      "maximum": 2,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [
+        {
+          "frame": 13,
+          "shadows": true,
+          "maximum": 2
+        },
+        {
+          "frame": 14,
+          "shadows": true,
+          "maximum": 2
+        },
+        {
+          "frame": 13,
+          "shadows": false,
+          "maximum": 2
+        },
+        {
+          "frame": 14,
+          "shadows": false,
+          "maximum": 2
+        }
+      ],
+      "timing": {}
+    }
+  ]
+}

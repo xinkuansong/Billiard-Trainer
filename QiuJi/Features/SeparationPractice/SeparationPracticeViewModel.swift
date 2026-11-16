@@ -604,6 +604,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
             scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: shot.direction.vector)
         }
         redrawCue(); geometryReference.restore(); _ = save()
+        scene.remindTargetPocket(at: selectedPocketIndex)
     }
     private func beginReplay() -> Bool {
         guard canPlayback, let cue = scene.cueBallNode, let target = targetNode else { return false }

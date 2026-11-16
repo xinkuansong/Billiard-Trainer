@@ -27,23 +27,19 @@ final class TableStyleUITests: XCTestCase {
         for _ in 0..<6 where !entry.isHittable { app.swipeUp() }
         entry.tap()
         XCTAssertEqual(pink.value as? String, "已选择")
-        app.terminate()
-        app.launchArguments.removeAll { $0 == "-deeplink.settings" }
-        app.launch()
-        app.switchTab(.angle)
-        let category = app.buttons["angleHomeTab_走位"]
-        XCTAssertTrue(category.waitForExistence(timeout: 10)); category.tap()
-        for (title, prefix) in [("自由击球","freeplay"), ("分离角与走位","shotSimulation")] {
-            let card = app.buttons[title]
-            XCTAssertTrue(card.waitForExistence(timeout: 10)); card.tap()
-            let mode = app.buttons[prefix + ".cameraMode"]
-            XCTAssertTrue(mode.waitForExistence(timeout: 25))
-            if mode.value as? String != "3D" { mode.tap() }
+        // Both training entries now use FreePlayView and its shared menu.
+        // Keep persisted preferences while launching their actual page routes.
+        for (route, name) in [("-deeplink.freePlay", "freeplay"), ("-dailyInteraction.sharedPage=shot", "shotSimulation")] {
+            app.terminate()
+            XCUIDevice.shared.orientation = .landscapeLeft
+            app.launchArguments.removeAll { $0.hasPrefix("-deeplink.") || $0.hasPrefix("-dailyInteraction.sharedPage=") }
+            app.launchArguments.append(route)
+            app.launch()
+            setCameraMode("3D", in: app)
             let table = app.descendants(matching: .any)["table.scene"].firstMatch
             let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", "球桌风格：樱花粉木纹"), object: table)
             XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 15), .completed)
-            attach(prefix + "-pink")
-            app.navigationBars.buttons.element(boundBy: 0).tap()
+            attach(name + "-pink")
         }
     }
 
@@ -144,35 +140,49 @@ final class TableStyleUITests: XCTestCase {
 
     func testMaterialAimAndObservationViews() throws {
         continueAfterFailure = false
-        XCUIDevice.shared.orientation = .portrait
+        XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication.launchClean(extraArgs: ["-deeplink.freePlay", "-forcePremium",
             "-tableStyle.v1", "charcoal", "-clothColor.v1", "green"])
         let table = app.descendants(matching: .any)["table.scene"].firstMatch
         XCTAssertTrue(table.waitForExistence(timeout: 20))
-        let mode = app.buttons["freeplay.cameraMode"]
-        XCTAssertTrue(mode.exists)
-        if mode.value as? String != "3D" { mode.tap() }
+        setCameraMode("3D", in: app)
         func selectionState() -> String {
             // FPS is transient render telemetry, not table/target state.
             (table.value as? String ?? "").components(separatedBy: "，渲染帧率")[0]
         }
         let state = selectionState()
-        for destination in ["table", "pocket", "cue"] {
-            app.buttons["freeplay.observation"].tap()
-            let action = app.buttons["freeplay.observe." + destination]
-            XCTAssertTrue(action.waitForExistence(timeout: 5)); action.tap()
+        for (id, name) in [("dailyClearance.observeTable", "whole"), ("shotCamera.thirdPerson", "along-cue"), ("shotCamera.firstPerson", "aim")] {
+            let action = app.buttons[id]
+            XCTAssertTrue(action.waitForExistence(timeout: 5)); XCTAssertTrue(action.isEnabled)
+            action.tap()
             XCTAssertEqual(selectionState(), state)
-            attach("material-observe-" + destination)
+            attach("material-observe-" + name)
         }
-        let focus = app.buttons["freeplay.focus"]
-        XCTAssertTrue(focus.isEnabled); focus.tap()
+        let temporary = app.buttons["shotCamera.temporaryTopDown"]
+        XCTAssertTrue(temporary.waitForExistence(timeout: 5)); temporary.tap()
+        // The native overlay is inside the single accessible table element.
+        // Assert the public control state, then inspect its rendered screenshot.
+        XCTAssertEqual(temporary.value as? String, "已选中")
+        attach("material-temporary-topdown")
+        temporary.tap()
+        XCTAssertEqual(temporary.value as? String, "未选中")
         XCTAssertEqual(selectionState(), state)
-        attach("material-aim")
-        mode.tap(); XCTAssertEqual(mode.value as? String, "2D")
+        setCameraMode("2D", in: app)
         attach("material-topdown")
-        mode.tap(); XCTAssertEqual(mode.value as? String, "3D")
+        setCameraMode("3D", in: app)
         XCTAssertEqual(selectionState(), state)
         attach("material-return-3d")
+    }
+
+    private func setCameraMode(_ value: String, in app: XCUIApplication) {
+        let more = app.buttons["freeplay.moreMenu"]
+        XCTAssertTrue(more.waitForExistence(timeout: 20))
+        more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        if mode.value as? String != value { mode.tap() }
+        XCTAssertEqual(mode.value as? String, value)
+        app.buttons["关闭菜单"].tap()
     }
 
     private func attach(_ name: String) {

@@ -399,6 +399,8 @@ enum MobileReferenceLighting {
             scene.staticClothIrradiance = nil
         }
         var installedCloth = false
+        var installedLTC: ClothSpecularLTC?
+        var ltcState = scene.clothLTCRequested ? "unsupported-source" : "off"
         #if DEBUG
         var installedStaticField = false
         var installedConstantBalls = false
@@ -436,6 +438,24 @@ enum MobileReferenceLighting {
                     m.setValue(nil, forKey: "temporalField0")
                     m.setValue(nil, forKey: "temporalField1")
                 }
+                if scene.clothLTCRequested, let source = mods[.surface],
+                   let candidate = ClothSpecularLTC.replacingSpecular(in: source),
+                   let device = MTLCreateSystemDefaultDevice() {
+                    do {
+                        let ltc = try installedLTC ?? ClothSpecularLTC.acquire(
+                            emitter: emitterGeometry, radiance: rig.radiance, device: device)
+                        ltc.install(on: m)
+                        mods[.surface] = candidate
+                        installedLTC = ltc
+                        ltcState = ClothSpecularLTC.identity
+                    } catch {
+                        ClothSpecularLTC.removeBindings(from: m)
+                        ltcState = "resource-unavailable"
+                        print("[ClothSpecularLTC] reference fallback: \(error)")
+                    }
+                } else {
+                    ClothSpecularLTC.removeBindings(from: m)
+                }
                 m.lightingModel = .physicallyBased;m.shaderModifiers=mods
                 installedCloth = true
                 #if DEBUG
@@ -458,8 +478,9 @@ enum MobileReferenceLighting {
             print("[ClothShadowProgram] installed: \(ClothShadowProgram.identity)")
         }
         #endif
-        scene.recordSafeClothSupportState(installedCloth || !program.state.requested
-            ? program.state : program.state.fallingBack("cloth-material-missing"))
+        scene.clothSpecularLTC = installedLTC
+        scene.recordClothLightingState(support: installedCloth || !program.state.requested
+            ? program.state : program.state.fallingBack("cloth-material-missing"), ltc: ltcState)
     }
 
     /// The original generator below remains byte-for-byte unchanged. This
@@ -827,6 +848,18 @@ enum MobileReferenceLighting {
     }
     _surface.diffuse.rgb=_surface.diffuse.rgb*(v62PanelDiffuse(p,n)/3.14159265+0.26)*0.96+spec;
     """)
+
+    /// Matte printed wordmarks use the same panel irradiance as their leather
+    /// substrate, without a dielectric specular layer washing out small letters.
+    static func applyPrintedInk(to material: SCNMaterial) {
+        material.lightingModel = .constant
+        material.shaderModifiers = [.surface: analyticPanelDiffuse + "\n" + """
+        #pragma body
+        float3 p=(scn_frame.inverseViewTransform*float4(_surface.position,1.0)).xyz;
+        float3 n=normalize((scn_frame.inverseViewTransform*float4(_surface.normal,0.0)).xyz);
+        _surface.diffuse.rgb *= (v62PanelDiffuse(p,n)/3.14159265+0.26)*0.96;
+        """]
+    }
 
     private static let leatherShader = """
     #pragma arguments

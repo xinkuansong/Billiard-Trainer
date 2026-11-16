@@ -1,9 +1,9 @@
 import Foundation
 import SceneKit
 
-/// 走位反解器（思路训练器，ADR-P13-01）的**瞬态**约束输入与解输出。
+/// 走位反解器（思路训练器，ADR-P13-01）的约束输入与瞬态解输出。
 ///
-/// 落区/过点是求解器的输入约束，不进 `PlannedShot`、v1 不持久化——只在一次求解期间存在。
+/// 落区/过点不进入 `PlannedShot`；页面球形记忆可保存用户约束草稿，解与预测在恢复后重算。
 /// 求出的解就是标准 `PlannedShot`（含算好的 spin/velocity）+ 一次 `ShotPrediction`。
 ///
 /// 坐标契约（与 `PositionPlayModels` 一致）：约束几何以**归一化系**存储
@@ -13,7 +13,7 @@ import SceneKit
 
 /// A union of clipped grid triangles in world XZ metres. Rendering and the solver
 /// share these polygons; internal tessellation edges are not region boundaries.
-struct SampledSolveRegion {
+struct SampledSolveRegion: Codable {
     typealias Point = SIMD2<Double>
     let polygons: [[Point]]
     let boundaryLoops: [[Point]]
@@ -94,7 +94,7 @@ enum SolveConstraint {
 
 // MARK: - Region (手画落区，归一化系)
 
-enum SolveRegion {
+enum SolveRegion: Codable {
     /// Coarse recommended region; coordinates are world XZ metres.
     case sampled(SampledSolveRegion)
     /// 轴对齐矩形：中心 + 半宽/半高（归一化单位）。
@@ -115,7 +115,7 @@ enum SolveRegion {
     case sector(apex: CanvasPoint, radiusMin: Double, radiusMax: Double, intervals: [SectorAngleInterval])
 
     /// 扇形角区间（场景 XZ 系 bearing 弧度）。约定 `lo < hi` 且 `hi − lo < π`（本用途恒为 15°）。
-    struct SectorAngleInterval: Equatable {
+    struct SectorAngleInterval: Equatable, Codable {
         var lo: Double
         var hi: Double
     }
@@ -302,7 +302,7 @@ struct PositionPlaySolution: Identifiable {
 /// 丢失了「琥珀十字+容差环」与「青色圈」的区别）。`Draft` 是「上一杆」忠实还原绘制层所需
 /// 的最小信息；`currentConstraint()` 由它派生 `SolveConstraint` 喂求解器。
 /// 各页 VM 以 `typealias Draft = SolveConstraintDraft` 复用，避免重复定义。
-enum SolveConstraintDraft {
+enum SolveConstraintDraft: Codable {
     case region(SolveRegion)
     case restPoint(CanvasPoint)
     case passPoint(CanvasPoint)

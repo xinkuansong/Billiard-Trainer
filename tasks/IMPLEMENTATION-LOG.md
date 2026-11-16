@@ -1,3 +1,13 @@
+<!-- 2026-11-16 FL-261 补充：跨页诊断三球缺选袋，9次点击中3次不构成真实出杆；已纠正覆盖口径，四状态r2补选袋及结果phase，原证据保留。已应用至 .cursor/rules/55-test-engineer.mdc §FL-261业务前置补充；tasks/table-idle-20261116/RESULTS.md。 -->
+## DR-436 r4 — 重打再次提示原目标袋（2026-11-16）
+
+- 按用户新决定，替代历史“同题重打不续时”；新增场景提醒入口，独立三页、共用PositionPlay及多球存档重打备用路径在成功恢复末尾接入，常亮角色和无目标排除。
+- 已回填TP14、来源表、设计技能及UI接口记录；验证进度见[任务卡](table-page-adaptation/RETRY-POCKET-20261116.md)。
+
+## FL-271 — 球桌入口测量探针归属与副本恢复（2026-11-15）
+- R1首帧身份被辅助场景覆盖、R3恢复清单遗漏后增探针均保留失败；主ViewModel绑定与完整源哈希恢复已实施于研究脚本，生产代码未改。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` § FL-271补充 / v1.22；`scripts/research/table_entry_latency_20261115/`。见[诊断记录](table-entry-latency-20261115/RESULTS.md)。
+
 ## FL-269 — B4 验证输入与旧控件合同（2026-11-13）
 - 冻结独立 App/runner/xctestrun；保留原路径消失与不完整结果。修正旧测试中颗星无特写的明确例外、瞄准点方向尺 ID，生产行为不改。B5 真基线用隔离构建与同源资源。
 - 已应用至 `.cursor/rules/55-test-engineer.mdc` v1.20；详情见 `tasks/render-activity-20261113/B4-COVERAGE.md`。
@@ -6855,3 +6865,31 @@ FL-256补充（2026-11-12，C10进行中）：用户实图显示C5目录仍为�
 - **FL-256 / C10 11-12 续验**：移除全部被拒绝缩略图；8类实际详情和7策略主题8原生图接入。原生策略/r4详情专用采集各1项通过；r1–r3精讲失败单独保留。网页8页、242链接及7宽105点击通过；双端两轮取证已完成，独立审查待回。原件与资源收尾见 `23.website/company-site/review/c10/REVIEW.md`。
 
 - **FL-256 / C10 独立结论**：新上下文审查结论ship，仅限C10内容可发现性/媒体；4用户截图+10网页截图+16新增资源哈希已审。旧BRIEF指导已修正并读回；A2及全站美学未据此认可，用户待复验。
+
+
+## FL-271 — 临时俯视历史对照与真机探针前置校验（2026-11-15）
+
+历史对照曾因测试依赖、环境与重装后容器UUID失败，修订后20份模拟器样本有效；真机细分探针两次源码预检拒绝同文件非唯一计数器锚点，限定探针类后独立构建成功。失败日志保留，不计入性能样本。用户纠正实际多次点击间歇性慢，不能按预设两次拆分样本。详 `tasks/topdown-latency-20261115/RESULTS.md`。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` § FL-271（2026-11-15）；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。正式App/UI API未变。
+
+
+### 2026-11-15 临时俯视渲染等待诊断（FL-271续）
+用户要求只定位、不改正式实现。按具体真机卡顿窗口核对编译/renderer锁等待；补齐模拟器1.34秒事件的867ms编译日志。隔离触发式采样自检修复运行中容器UUID变更漏采，冻结脚本版本，人工延迟单列。规则同步55-test-engineer；正式App/UI合同无修改。新缓存单变量对照与调用栈详 `tasks/topdown-latency-20261115/RENDER-WAIT-STACKS.md`，不能将采样权重当点击首帧或宣称原包触发差异已解决。
+
+
+### 2026-11-15 临时俯视shader/cache归属与采集返工（FL-271）
+仅研究脚本/记录：读取实际Metal源码、选项、descriptor及library哈希，确认灯光排列变体与缓存复用。修正LLDB拦截正常SIGTERM的测试收尾、返回断点重复回调；后轮已正常结束，2次开关10入口/10返回、0空关联。已应用至 `.cursor/rules/55-test-engineer.mdc` FL-271外部调试补充。App/UI合同不改；模拟器机制证据不冒充原/新真机包逐键差异已闭合。详SHADER-CACHE-ATTRIBUTION.md。
+
+
+FL-271灯光字典续查（2026-11-15）：d015轮复制返回地址在求值/自动继续下出现延后错关联，入口/返回总数相同不足以证明身份对应；改为在真实C3DLightingSystemAdd读取内部node/light/type。88732轮因LLDB未知free返回类型拒绝清理表达式，原失败保留，显式函数签名后的9ec7411轮6次通过。私有布局必须由当前框架反汇编推导并校验Mach-O UUID；独立字典重放不可写原renderer字典。规则已应用至55-test-engineer，详见topdown-latency-20261115/LIGHT-DICTIONARY-ROOT-CAUSE.md。
+
+FL-271追加：d5e08869暖缓存重放因LLDB局部名d2撞系统符号失败，保留原件；改为任务唯一前缀变量。入口/枚举局部可读证据与整轮失败分列，规则已应用至55-test-engineer及UI Changelog。
+
+
+FL-271候选验证补充（2026-11-15）：固定Git归档首轮构建因6个Git忽略的球房USDZ缺失失败；按PBXResourcesBuildPhase遍历所有真实引用，6个当前资源与冻结原包逐字SHA一致后补入隔离快照。首次本地副本因并行磁盘增长ENOSPC，未构建；迁远端。注入前唯一性检查曾拒绝错误dismantle参数锚点，修正后重注入。原失败不计性能数据；详 CANDIDATE-VALIDATION.md。
+
+FL-271候选时序补充（2026-11-15）：app.screenshot裁切不作全屏视觉通过，改用XCUIScreen且断言实际横屏。取消sleep仍可能被XCTest导航/idle等待覆盖，须用prepareComplete与实际打开事件证明竞争窗口；R7三次测量执行成功但首开456–585ms，候选性能门槛不通过。已应用至55-test-engineer，正式代码未改。
+
+## FL-272 · 七页球形记忆恢复输入提前失效（2026-11-16）
+
+翻袋和颗星重算入口清除了待应用微调，已修正并通过两项真实求解恢复测试。UI菜单选择器及导航转屏等待同步修订；原失败保留。详见[失败记录](FAILURE-LOG.md#fl-272--球形恢复后重算提前丢弃微调输入2026-11-16)与[结果](table-page-adaptation/BOARD-MEMORY-RESULTS-20261116.md)，测试规则已回写。

@@ -265,3 +265,7 @@ ProfileView 路由签名仅因同步/游客合并说明加入自定义球形而�
 ## 2026-11-15 H17 Compute研究附件登记
 
 `ClothSupportPerformanceResearchTests.swift`新增内嵌Metal程序的`texture.write(...)`，命中写盘扫描的字面量规则；这些调用写GPU纹理，不是文件系统写入。该文件实验报告、生成的Metal源码和画面仍仅通过`XCTAttachment`写入本轮xcresult；未新增直接文件写入API，不修改Bundle/训练数据/设计截图基线。原生启动器`scene_cost_20261114/run.py`将冻结源码、构建/测试日志、xcresult及导出附件写入`output/local-test-runs/<ID>/evidence`，`work`由生命周期管理器成功回收，失败诊断后显式complete。独立H17脚本也仅写其受管work/evidence；各轮原件保留，不覆盖旧轮次。此登记不把采集通过当性能或画质通过，结果见`tasks/render-highlight-20261114/H17-DELIVERY.md`。
+
+## 2026-11-16 七页球形记忆测试登记
+
+`DailyComfortRecommendationTests.swift` 的球形记忆用例在系统 temporaryDirectory 下创建独立 UUID 目录，写入版本、损坏、原子提交和 owner/page 隔离 fixture；defer 仅尝试移除本用例目录，清理失败不代表成功。原生恢复测试使用 DEBUG 专用 `BOARD_MEMORY_TEST_DOMAIN` 临时存储域跨启动读取，截图写入 XCTAttachment/本轮 xcresult。生产存储为 Application Support/QiuJi/BoardMemory，按 owner 和页面隔离；这些测试不写用户真实存档、Bundle、内容资产或设计基线。受管构建与证据目录由 local-test / simulator 生命周期工具收尾。

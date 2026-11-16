@@ -1,0 +1,83 @@
+{
+  "evidence": "output/local-test-runs/98e2942ea6ec449bb12b5ef7bf5f7b0a/evidence/results.json",
+  "sha256": "72f6e02f82a929a14cdc0afd2087c30037e441e2f8574015b5585d3484594b1f",
+  "rows": [
+    {
+      "pose": "single-low",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 163840,
+      "pairs": 44,
+      "maximum": 2,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [
+        {
+          "frame": 15,
+          "shadows": false,
+          "maximum": 2
+        }
+      ],
+      "timing": {}
+    },
+    {
+      "pose": "single-near",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 163840,
+      "pairs": 44,
+      "maximum": 2,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [
+        {
+          "frame": 12,
+          "shadows": true,
+          "maximum": 2
+        },
+        {
+          "frame": 12,
+          "shadows": false,
+          "maximum": 2
+        }
+      ],
+      "timing": {}
+    },
+    {
+      "pose": "scatter-overview",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 163840,
+      "pairs": 44,
+      "maximum": 2,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [
+        {
+          "frame": 13,
+          "shadows": true,
+          "maximum": 2
+        },
+        {
+          "frame": 14,
+          "shadows": true,
+          "maximum": 2
+        },
+        {
+          "frame": 13,
+          "shadows": false,
+          "maximum": 2
+        },
+        {
+          "frame": 14,
+          "shadows": false,
+          "maximum": 2
+        }
+      ],
+      "timing": {}
+    }
+  ]
+}

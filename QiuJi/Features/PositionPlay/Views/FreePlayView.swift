@@ -579,7 +579,8 @@ struct FreePlayView: View {
                 vm.scene.tablePreferencePage = preferencePage
                 vm.scene.tablePreferences = pagePreferences
                 FreePlayRulesSession.connect(vm: vm, rules: rulesSession, daily: dailyController,
-                    notices: ruleNotices, mode: entryMode, isEditor: isEditor, isTryout: isTryoutPage)
+                    notices: ruleNotices, mode: entryMode, isEditor: isEditor, isTryout: isTryoutPage,
+                    usesEditorAttackRecommendations: editor?.usesAttackRecommendations ?? false)
                 vm.setupScene(loadsDefaultLayout: isStandard || (editor?.loadsDefaultLayout ?? false))
                 vm.enablePlayerCameraControls()
                 #if DEBUG
@@ -641,13 +642,18 @@ struct FreePlayView: View {
                 }
             }
             applyPagePreferences()
-            if isShotSimulation { vm.resumeAuthoringActivity() }
+            if isShotSimulation || editor?.savesBoardMemory == true { vm.resumeAuthoringActivity(); vm.breakRunner?.resumeActivity() }
             daily3DDiagnostics?.setPage(visible: true, foreground: scenePhase == .active, perspective: is3D)
             updateDaily3DPlaybackDiagnostics()
         }
         .onReceive(ruleNotices.$message) { toast = $0 }
         .onChange(of: trainingOwner.ownerKey) { _, _ in if isMultiBall { multiBallController.ownerChanged() } }
         .onDisappear {
+            if editor?.savesBoardMemory == true {
+                vm.breakRunner?.suspendActivity()
+                vm.suspendAuthoringActivity()
+                vm.boardMemory.save()
+            }
             if isMultiBall { multiBallController.saveCheckpoint() }
             if editingControlLayout { vm.scene.isPaused = scenePausedBeforeLayout }
             layoutBallDragging = false
@@ -668,12 +674,22 @@ struct FreePlayView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
+            if editor?.savesBoardMemory == true {
+                if phase == .active {
+                    vm.resumeAuthoringActivity()
+                    vm.breakRunner?.resumeActivity()
+                } else {
+                    vm.breakRunner?.suspendActivity()
+                    vm.suspendAuthoringActivity()
+                    vm.boardMemory.save()
+                }
+            }
             if isMultiBall, phase != .active { multiBallController.saveCheckpoint() }
             daily3DDiagnostics?.setPage(foreground: phase == .active)
             guard usesCoreTemplate else { return }
             if phase == .active {
                 guard !editingControlLayout else { return }
-                if isShotSimulation { vm.resumeAuthoringActivity() }
+                if isShotSimulation || editor?.savesBoardMemory == true { vm.resumeAuthoringActivity(); vm.breakRunner?.resumeActivity() }
                 if isDailyClearance { dailyController.refreshAccess(); dailyController.resumeActivity() }
                 if !vm.isPlaying && !vm.isBreakMode { vm.recompute() }
             }
@@ -3402,10 +3418,14 @@ final class FreePlayRulesSession: ObservableObject {
 
     static func connect(vm: PositionPlayViewModel, rules: FreePlayRulesSession,
                         daily: DailyClearanceController, notices: BTRuleNoticeCenter,
-                        mode: FreePlayEntryMode, isEditor: Bool, isTryout: Bool) {
+                        mode: FreePlayEntryMode, isEditor: Bool, isTryout: Bool,
+                        usesEditorAttackRecommendations: Bool = false) {
         // Install before setup/loadBoard so the first recommendation uses the page policy.
         // Editors and guided tryouts retain authored targets and archived shot parameters.
-        vm.usesShotComfortRanking = !isEditor && !isTryout
+        vm.resetsVelocityAfterShot = !isEditor && !isTryout
+        vm.usesAttackRecommendations = !isTryout
+            && (usesEditorAttackRecommendations || (!isEditor && (mode == .shotSimulation || mode == .dailyClearance)))
+        vm.usesShotComfortRanking = !isTryout && (!isEditor || vm.usesAttackRecommendations)
         vm.usesAutomaticPocketFallback = true
         vm.legalAimTargets = { [weak rules, weak daily] keys in
             if mode == .dailyClearance { return daily?.legalTargetKeys(tableKeys: keys) ?? keys }

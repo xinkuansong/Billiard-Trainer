@@ -81,6 +81,7 @@ final class TableAppearance {
         let standard: TableMaterialRecipe
     }
     private let slots: [Slot]
+    private let branding: SCNNode?
     private let surfaceY: Float
     private(set) var style: TableStyle = .standard
     private(set) var showsSights = true
@@ -147,6 +148,7 @@ final class TableAppearance {
         capture(table)
         table.enumerateChildNodes { node, _ in capture(node) }
         slots = captured
+        branding = TableBranding.install(on: table, referenceLighting: usesMobileMicroSurface)
     }
 
     func standardMaterial(named name: String) -> SCNMaterial? {
@@ -205,6 +207,7 @@ final class TableAppearance {
                 }
                 geometry.materials = materials
             }
+            if let branding { TableBranding.apply(selection, to: branding) }
             SCNTransaction.commit()
             style = selection
             self.showsSights = showsSights

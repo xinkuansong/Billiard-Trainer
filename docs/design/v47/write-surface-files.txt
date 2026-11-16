@@ -27,6 +27,7 @@ QiuJiTests/CustomFormationTests.swift
 QiuJiTests/Daily3DCameraPerformanceTests.swift
 QiuJiTests/Daily3DClothPerformanceTests.swift
 QiuJiTests/DailyClearanceRulesTests.swift
+QiuJiTests/DailyComfortRecommendationTests.swift
 QiuJiTests/DrillListViewModelTests.swift
 QiuJiTests/DrillShotReconstructionTests.swift
 QiuJiTests/DrillThumbnailBakeRunnerTests.swift

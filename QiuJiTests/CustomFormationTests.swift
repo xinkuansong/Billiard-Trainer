@@ -88,6 +88,26 @@ final class CustomFormationTests: XCTestCase {
         XCTAssertEqual(restored.vm.onTableKeys.count, 3); restored.finishPractice()
     }
 
+    func testPracticeResumeKeepsManualBallAndPocketWithV9Enabled() throws {
+        let value = template()
+        let session = try practice(value)
+        let vm = session.vm
+        let manualTarget = try XCTUnwrap(value.ballKeys.first { $0 != vm.selectedTargetKey })
+        XCTAssertTrue(vm.selectTarget(key: manualTarget))
+        vm.selectPocket(at: 4)
+        XCTAssertEqual(vm.selectedPocketIndex, 4)
+        session.finishPractice()
+
+        let resumed = try practice(value)
+        defer { resumed.finishPractice() }
+        XCTAssertTrue(resumed.vm.usesAttackRecommendations)
+        XCTAssertEqual(resumed.vm.selectedTargetKey, manualTarget)
+        XCTAssertEqual(resumed.vm.selectedPocketIndex, 4)
+        resumed.vm.refreshLegalAimSelection()
+        XCTAssertEqual(resumed.vm.selectedTargetKey, manualTarget)
+        XCTAssertEqual(resumed.vm.selectedPocketIndex, 4)
+    }
+
     func testChangedLayoutAndCopiedTemplateDoNotRestoreStaleProgress() throws {
         let value = template()
         let session = try practice(value)
@@ -185,7 +205,7 @@ final class CustomFormationTests: XCTestCase {
         }
     }
 
-    func testNewPracticesAndRestartUseDailyBallAndPocketRecommendation() throws {
+    func testNewPracticesAndRestartUseV9BallAndPocketRecommendation() throws {
         for layout in BuiltInCustomFormations.templates + [template()] {
             let session = CustomFormationSession(template: layout, editing: false)
             let vm = session.vm
@@ -193,6 +213,7 @@ final class CustomFormationTests: XCTestCase {
             vm.usesAutomaticPocketFallback = true
             defer { session.finishPractice() }
             session.setup()
+            XCTAssertTrue(vm.usesAttackRecommendations)
 
             let cue = try XCTUnwrap(vm.scene.cueBallNode).position
             if BuiltInCustomFormations.contains(layout.id) {
@@ -206,13 +227,13 @@ final class CustomFormationTests: XCTestCase {
                 let node = try XCTUnwrap(vm.scene.allBallNodes[key])
                 balls.append((key: key, position: node.position))
             }
-            let candidates = balls.flatMap { ball in
-                (0..<6).compactMap { pocket in
-                    DailyShotRecommendation.candidate(cue: cue, target: ball.position,
-                        targetKey: ball.key, pocketIndex: pocket,
-                        obstacles: balls.filter { $0.key != ball.key }.map(\.position),
-                        surfaceY: vm.scene.surfaceY)
-                }
+            var assessment = DefenseAttackAssessment()
+            assessment.usePrecomputedWindows = true
+            let candidates = try balls.flatMap { ball in
+                try DailyShotRecommendation.attackCandidates(cue: cue, target: ball.position,
+                    targetKey: ball.key,
+                    obstacles: balls.filter { $0.key != ball.key }.map(\.position),
+                    surfaceY: vm.scene.surfaceY, assessment: &assessment)
             }
             let best = try XCTUnwrap(DailyShotRecommendation.best(candidates), layout.name)
             for restart in [false, true] {

@@ -115,6 +115,7 @@ final class PocketLeatherMarker: SCNNode {
         var ancestor: SCNNode? = node
         while let current = ancestor {
             if let marker = current as? PocketLeatherMarker { return marker.pocketIndex }
+            if let index = TableBranding.pocketIndex(of: current) { return index }
             ancestor = current.parent
         }
         return nil

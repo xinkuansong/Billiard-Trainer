@@ -624,6 +624,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         currentSelection = previous.currentSelection ?? .init(target: previous.input?.target ?? previous.plan?.current,
             pocket: previous.lockedPocket ?? previous.input?.pocket)
         host?.practiceLockedTarget = nil; host?.practiceLockedPocket = nil
+        let restoresSavedBoard = host?.canReplay != true && previous.board != nil
         self.previous = nil
         if host?.canReplay == true { host?.replayCurrent() }
         else if let board = previous.board {
@@ -632,6 +633,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         }
         planningStep = editableSteps.contains(previous.step) ? previous.step : (editableSteps.last ?? .pocket1)
         refreshPresentation()
+        if restoresSavedBoard, let host { host.scene.remindTargetPocket(at: host.selectedPocketIndex) }
         host?.geometryReference.restore(); saveCheckpoint()
     }
     func finishAttempt(reason: String) {

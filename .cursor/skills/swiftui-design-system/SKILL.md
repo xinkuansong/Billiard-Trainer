@@ -1880,3 +1880,7 @@ Changelog：2026-11-12。覆盖DR-462的球库模式开关：移除`allows3DPale
 ### DR-465 · 连续调参期间动作状态稳定
 
 Changelog：2026-11-12。FreePlay共享宿主以整段力度／方向手势＋末次计算驱动依赖预览的动作禁用，不直接随单次`isComputing`翻转。输入尺保持原可操作权限；拖动期间击球文字稳定，松手仍等待才显示计算中。保留完整物理预览和最新意图击球守卫，后台撤销手势。现行TP15，实施／验证范围见`tasks/table-page-adaptation/SHOT-CONTROL-STABILITY-20261112.md`。
+
+### DR-436 r4 · 重打再次提示原目标袋（2026-11-16）
+
+用户新决定覆盖DR-436的“同题重打不续时”：成功重打后短亮目标袋即时重新亮3秒；其他同题重绘/回放仍不续时。`AngleTrainingScene.remindTargetPocket(at:)`仅接受现有`.target`，无额外触感；不改变常亮角色袋、自由瞄准或空目标。独立准度/分离角/瞄准点及PositionPlay在成功恢复末尾调用，多球自主从存档重打的控制器备用路径同样接入；不挂在重绘/恢复通用入口。现行TP14与范围证据见`tasks/table-page-adaptation/RETRY-POCKET-20261116.md`。

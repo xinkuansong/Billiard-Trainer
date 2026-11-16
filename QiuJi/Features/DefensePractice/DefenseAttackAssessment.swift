@@ -70,7 +70,7 @@ struct PipeResult {
 }
 /// Runtime scoring: object-ball opening and comfort of a reachable aim in THAT
 /// opening. No cue-angle width, speed search or physical strike perturbation.
-mutating func pipeAttack(_ cue:P,_ ball:P,_ others:[P]) throws -> PipeResult {
+mutating func pipeAttack(_ cue:P,_ ball:P,_ others:[P], confirmingBlocks: Bool = true) throws -> PipeResult {
  var result = PipeResult()
  for pocket in 0..<6 {
   try Task.checkCancellation()
@@ -131,7 +131,7 @@ mutating func pipeAttack(_ cue:P,_ ball:P,_ others:[P]) throws -> PipeResult {
    }
    if let best { result.routes.append(best) }
   }
-  if !result.routes.contains(where: { $0.pocket == pocket }) {
+  if confirmingBlocks, !result.routes.contains(where: { $0.pocket == pocket }) {
    // With no positive window, absence of a preferred aiming candidate is not
    // evidence. Use a conservative envelope of the ENTIRE capture opening.
    // It may include jaw-invalid directions; failing to close it stays unknown.

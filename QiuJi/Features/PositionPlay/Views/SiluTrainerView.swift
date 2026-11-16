@@ -114,7 +114,7 @@ struct SiluTrainerView: View {
                 if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) } else { vm.placeFromPalette(key) }
             }, menuItems: menuItems, refreshTrajectory: { vm.redrawTrajectory() },
             applyPreferences: { vm.hides3DShotAssists = !$0.enabled(.shows3DTrajectory) }, onSetup: { vm.allowSideSpin = savedAllowSideSpin; vm.basicPositionOnly = savedBasicPositionOnly; vm.hides3DShotAssists = hides3DAssists; if let initialBoard { vm.loadBoard(initialBoard) } },
-            onDisappear: { vm.stopForDismissal() },
+            boardMemoryImported: initialBoard != nil, onDisappear: { vm.stopForDismissal() },
             layoutEditingBlocked: showsToolChoices || vm.isDrawingConstraint,
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
             closeupSnapshot: vm.canStrike ? vm.solvedContactCloseup : nil,
@@ -232,8 +232,7 @@ struct SiluTrainerView: View {
             .init(id: "silu.sideSpin", title: "允许左右塞", selected: vm.allowSideSpin, disabled: busy || vm.isBreakMode, action: { vm.allowSideSpin.toggle(); savedAllowSideSpin = vm.allowSideSpin }),
             .init(id: "silu.basicOnly", title: "仅基础走位（≤1库）", selected: vm.basicPositionOnly, disabled: busy || vm.isBreakMode, action: { vm.basicPositionOnly.toggle(); savedBasicPositionOnly = vm.basicPositionOnly })]
         if !vm.isBreakMode {
-            items += [.init(id: "silu.clear", title: "清空桌面", disabled: busy, action: { vm.clearTable() }),
-                .init(id: "silu.reset", title: "恢复默认球形", disabled: busy, action: { vm.resetAll() })]
+            items += [.init(id: "silu.clear", title: "清空桌面", disabled: busy, action: { vm.clearTable() })]
         }
         return items
     }

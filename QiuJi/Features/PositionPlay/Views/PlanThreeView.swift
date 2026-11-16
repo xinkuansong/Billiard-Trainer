@@ -114,7 +114,7 @@ struct PlanThreeView: View {
                 } else { vm.placeFromPalette(key) }
             }, menuItems: menuItems, refreshTrajectory: { vm.redrawTrajectory() },
             applyPreferences: { vm.hides3DShotAssists = !$0.enabled(.shows3DTrajectory) }, onSetup: { vm.hides3DShotAssists = hides3DAssists; if let initialBoard { vm.loadBoard(initialBoard) }; applyUITestHooksIfNeeded(); vm.activeTool = .none },
-            onDisappear: { vm.stopForDismissal() },
+            boardMemoryImported: initialBoard != nil, onDisappear: { vm.stopForDismissal() },
             layoutEditingBlocked: informationPanel != nil || vm.breakRunner?.showsConfirm == true,
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
             showsAimCloseupSetting: false,

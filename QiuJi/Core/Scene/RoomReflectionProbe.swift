@@ -307,7 +307,7 @@ final class RoomReflectionProbe {
             profile = scene.renderingProfile.rawValue
             mergesClothSupport = scene.mergesDailyClothSupport
             factorsClothBRDF = scene.factorsDailyClothBRDF
-            safeClothSupport = scene.safeClothSupportState.probeCacheIdentity
+            safeClothSupport = scene.safeClothSupportState.probeCacheIdentity + "|clothLTC=" + scene.clothLTCState
             #if DEBUG
             clothPrototype = scene.usesClothLightingPrototype
             #else

@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 import SceneKit
 @testable import QiuJi
 
@@ -276,6 +277,213 @@ final class ShotRecommendationReuseTests: XCTestCase {
         })
     }
 
+    private var screenshotRack: BoardSnapshot {
+        // Centres read from the reported landscape screenshot. Normalize by table length.
+        let pixels: [String: CGPoint] = [
+            PositionPlayBall.cueKey: .init(x: 770.5, y: 465),
+            "_1": .init(x: 718.3, y: 245.3), "_2": .init(x: 1338.9, y: 679),
+            "_4": .init(x: 734.6, y: 559.1), "_5": .init(x: 846.6, y: 585.3),
+            "_6": .init(x: 607.8, y: 477.5), "_7": .init(x: 1353, y: 712),
+            "_8": .init(x: 879.8, y: 352), "_9": .init(x: 497, y: 361),
+            "_10": .init(x: 428, y: 223), "_11": .init(x: 1423.5, y: 246.2),
+            "_12": .init(x: 1192, y: 388), "_13": .init(x: 1025, y: 340),
+            "_14": .init(x: 827, y: 378.8), "_15": .init(x: 1224, y: 350.6)
+        ]
+        return BoardSnapshot(onTable: pixels.mapValues {
+            CanvasPoint(x: Double(($0.x - 353) / 1134), y: Double(($0.y - 175) / 1178))
+        })
+    }
+
+    func testComposerRanksScreenshotRackAfterBreakHandoff() throws {
+        let board = screenshotRack
+        let composer = PositionPlayComposerView()
+        XCTAssertTrue(composer.usesAttackRecommendations)
+
+        let vm = PositionPlayViewModel(), rules = FreePlayRulesSession()
+        let daily = DailyClearanceController(), notices = BTRuleNoticeCenter()
+        defer { vm.cancelDailyAttempt() }
+        func deliverRack(useAttackRecommendations: Bool) throws {
+            FreePlayRulesSession.connect(vm: vm, rules: rules, daily: daily, notices: notices,
+                mode: .standard, isEditor: true, isTryout: false,
+                usesEditorAttackRecommendations: useAttackRecommendations)
+            vm.startBreakFlow(game: .chineseEightBall, manualDeliver: false, seed: 1)
+            try XCTUnwrap(vm.breakRunner).applySettledBoardForTesting(board, pocketedKeys: ["_3"])
+            XCTAssertNil(vm.breakRunner)
+            XCTAssertEqual(Set(vm.onTableKeys), Set(board.onTable.keys))
+        }
+        vm.setupScene(loadsDefaultLayout: false)
+        try deliverRack(useAttackRecommendations: false)
+        print("SCREENSHOT_RACK legacy=\(vm.selectedTargetKey ?? "none")/\(vm.selectedPocketIndex)")
+        XCTAssertEqual(vm.selectedTargetKey, "_4")
+        XCTAssertEqual(vm.selectedPocketIndex, 5)
+
+        try deliverRack(useAttackRecommendations: composer.usesAttackRecommendations)
+        let positions = vm.scene.visibleBalls().mapValues(\.position)
+        let cue = try XCTUnwrap(positions[PositionPlayBall.cueKey])
+        let targets = positions.filter { $0.key != PositionPlayBall.cueKey }
+        var assessment = DefenseAttackAssessment()
+        assessment.usePrecomputedWindows = true
+        let routes = try targets.keys.sorted().flatMap { key in
+            try DailyShotRecommendation.attackCandidates(cue: cue, target: XCTUnwrap(targets[key]),
+                targetKey: key, obstacles: targets.filter { $0.key != key }.map(\.value),
+                surfaceY: vm.scene.surfaceY, assessment: &assessment)
+        }
+        let best = try XCTUnwrap(DailyShotRecommendation.best(routes))
+        let five = try XCTUnwrap(DailyShotRecommendation.best(routes.filter { $0.targetKey == "_5" && $0.pocketIndex == 5 }))
+        for route in routes.sorted(by: { ($0.attackScore ?? 0) > ($1.attackScore ?? 0) }) {
+            print("SCREENSHOT_RACK \(route.targetKey)/\(route.pocketIndex) cut=\(route.cutDegrees)"
+                  + " window=\(route.targetToleranceDegrees ?? 0) comfort=\(route.comfortScore ?? 0)"
+                  + " attack=\(route.attackScore ?? 0)")
+        }
+        XCTAssertNotEqual(best.targetKey, "_4")
+        XCTAssertLessThan(five.cutDegrees, 20)
+        XCTAssertEqual(vm.selectedTargetKey, best.targetKey)
+        XCTAssertEqual(vm.selectedPocketIndex, best.pocketIndex)
+    }
+
+    func testPhotoImportRanksTheImportedBoardWithoutReplacingIt() throws {
+        let board = screenshotRack
+        let composer = PositionPlayComposerView(initialBoard: board)
+        let vm = PositionPlayViewModel(), rules = FreePlayRulesSession()
+        let daily = DailyClearanceController(), notices = BTRuleNoticeCenter()
+        defer { vm.cancelDailyAttempt() }
+        FreePlayRulesSession.connect(vm: vm, rules: rules, daily: daily, notices: notices,
+            mode: .standard, isEditor: true, isTryout: false,
+            usesEditorAttackRecommendations: composer.usesAttackRecommendations)
+        vm.setupScene(loadsDefaultLayout: false)
+        vm.loadBoard(board)
+        XCTAssertEqual(vm.selectedTargetKey, "_13")
+        XCTAssertEqual(vm.selectedPocketIndex, 1)
+        let imported = vm.currentSnapshot().onTable
+        XCTAssertEqual(Set(imported.keys), Set(board.onTable.keys))
+        for (key, point) in board.onTable {
+            let actual = try XCTUnwrap(imported[key])
+            XCTAssertEqual(actual.x, point.x, accuracy: 1e-6)
+            XCTAssertEqual(actual.y, point.y, accuracy: 1e-6)
+        }
+    }
+
+    func testDailyV9RanksOpeningThenRespectsGroupAndManualPlanning() throws {
+        let suite = "DailyV9-\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = DailyClearanceStore(defaults: defaults)
+        let vm = PositionPlayViewModel(), rules = FreePlayRulesSession()
+        let daily = DailyClearanceController(store: store, seedGenerator: { 1 })
+        let notices = BTRuleNoticeCenter()
+        defer { vm.cancelDailyAttempt() }
+        connect(vm, mode: .dailyClearance, rules: rules, daily: daily, notices: notices)
+        daily.start(host: vm, defaultGame: .chineseEightBall)
+        try XCTUnwrap(vm.breakRunner).applySettledBoardForTesting(screenshotRack, pocketedKeys: ["_3"])
+        XCTAssertEqual(daily.phase, .playing)
+        XCTAssertEqual(vm.selectedTargetKey, "_13")
+        XCTAssertEqual(vm.selectedPocketIndex, 1)
+
+        var draft = try XCTUnwrap(store.loadTodayDraft())
+        draft.ruleState.assignedGroup = .solid
+        store.saveDraft(draft)
+        let resumed = DailyClearanceController(store: store)
+        FreePlayRulesSession.connect(vm: vm, rules: rules, daily: resumed, notices: notices,
+            mode: .dailyClearance, isEditor: false, isTryout: false)
+        resumed.start(host: vm, defaultGame: .chineseEightBall)
+        XCTAssertEqual(vm.selectedTargetKey, "_5")
+        XCTAssertEqual(vm.selectedPocketIndex, 5)
+        XCTAssertFalse(vm.selectTarget(key: "_13"))
+        XCTAssertTrue(vm.selectTarget(key: "_4"))
+        vm.selectPocket(at: 5)
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(vm.selectedTargetKey, "_4")
+        XCTAssertEqual(vm.selectedPocketIndex, 5)
+
+        resumed.toggleScoring()
+        XCTAssertTrue(vm.practiceRequiresExplicitAim)
+        XCTAssertTrue(resumed.editPlan { $0.choose(ball: "_4", in: $1) })
+        XCTAssertTrue(resumed.editPlan { $0.choose(pocket: 2, in: $1) })
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(vm.selectedTargetKey, "_4")
+        XCTAssertEqual(vm.selectedPocketIndex, 2)
+        XCTAssertEqual(resumed.shotPlan?.firstPocket, 2)
+        resumed.toggleScoring()
+        XCTAssertFalse(vm.practiceRequiresExplicitAim)
+        XCTAssertEqual(vm.selectedTargetKey, "_5")
+        XCTAssertEqual(vm.selectedPocketIndex, 5)
+    }
+
+    func testShotSimulationReranksRailAndPocketBallAfterBoardEdits() throws {
+        let vm = PositionPlayViewModel(), rules = FreePlayRulesSession()
+        let daily = DailyClearanceController(), notices = BTRuleNoticeCenter()
+        connect(vm, mode: .shotSimulation, rules: rules, daily: daily, notices: notices)
+        defer { vm.cancelDailyAttempt() }
+        let y = vm.scene.surfaceY + AngleSceneCalculator.ballRadius
+        let railZ = -AngleSceneCalculator.innerWidth / 2 + AngleSceneCalculator.ballRadius
+        let cue = SCNVector3(-0.65, y, -0.48)
+        let rail = SCNVector3(-0.10, y, railZ)
+        let nearPocket = SCNVector3(1.06, y, -0.51)
+        func canvas(_ point: SCNVector3) -> CanvasPoint {
+            let normalized = AngleSceneCalculator.sceneToNormalized(position: point)
+            return .init(x: Double(normalized.x), y: Double(normalized.y))
+        }
+        vm.loadBoard(.init(onTable: [PositionPlayBall.cueKey: canvas(cue), "_1": canvas(rail)]))
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+        vm.placeFromPalette("_2", atWorld: nearPocket)
+        let layout = [(key: "_1", other: "_2"), (key: "_2", other: "_1")]
+        let actualCue = try XCTUnwrap(vm.scene.cueBallNode).position
+        var assessment = DefenseAttackAssessment()
+        assessment.usePrecomputedWindows = true
+        var old = [DailyShotRecommendation.Candidate](), new = old
+        for (key, other) in layout {
+            let target = try XCTUnwrap(vm.scene.allBallNodes[key]).position
+            let obstacle = try XCTUnwrap(vm.scene.allBallNodes[other]).position
+            let legacy = (0..<6).compactMap { index in
+                DailyShotRecommendation.candidate(cue: actualCue, target: target, targetKey: key,
+                    pocketIndex: index, obstacles: [obstacle], surfaceY: vm.scene.surfaceY)
+            }
+            let attack = try DailyShotRecommendation.attackCandidates(cue: actualCue, target: target,
+                targetKey: key, obstacles: [obstacle], surfaceY: vm.scene.surfaceY, assessment: &assessment)
+            old.append(contentsOf: legacy)
+            new.append(contentsOf: attack)
+            for (name, candidates) in [("old", legacy), ("v9", attack)] {
+                if let best = DailyShotRecommendation.best(candidates) {
+                    print("RAIL_POCKET \(name) \(key) pocket=\(best.pocketIndex) comfort=\(best.comfortScore ?? -1)"
+                          + " tolerance=\(best.targetToleranceDegrees ?? -1) cut=\(best.cutDegrees)"
+                          + " attack=\(best.attackScore ?? -1)")
+                }
+            }
+        }
+        let oldBest = try XCTUnwrap(DailyShotRecommendation.best(old))
+        let newBest = try XCTUnwrap(DailyShotRecommendation.best(new))
+        XCTAssertEqual(oldBest.targetKey, "_1")
+        XCTAssertEqual(newBest.targetKey, "_2")
+        XCTAssertEqual(vm.selectedTargetKey, newBest.targetKey)
+        XCTAssertEqual(vm.selectedPocketIndex, newBest.pocketIndex)
+        vm.removeFromTable("_2")
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+        vm.placeFromPalette("_2", atWorld: SCNVector3(-1.06, y, -0.51))
+        XCTAssertEqual(vm.selectedTargetKey, "_2")
+        XCTAssertEqual(vm.selectedPocketIndex, 0)
+        let pocketBall = try XCTUnwrap(vm.scene.allBallNodes["_2"])
+        vm.dragBegan(node: pocketBall)
+        vm.dragMoved(node: pocketBall, worldPosition: nearPocket)
+        XCTAssertEqual(vm.selectedPocketIndex, 0)
+        vm.dragEnded(node: pocketBall)
+        XCTAssertEqual(vm.selectedTargetKey, newBest.targetKey)
+        XCTAssertEqual(vm.selectedPocketIndex, newBest.pocketIndex)
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        let manualPocket = vm.selectedPocketIndex
+        XCTAssertGreaterThanOrEqual(manualPocket, 0)
+        vm.selectPocket(at: manualPocket)
+        let cueNode = try XCTUnwrap(vm.scene.cueBallNode)
+        vm.dragBegan(node: cueNode)
+        vm.dragMoved(node: cueNode, worldPosition: SCNVector3(cue.x, cue.y, cue.z + 0.02))
+        vm.dragEnded(node: cueNode)
+        vm.removeFromTable("_2")
+        vm.placeFromPalette("_2", atWorld: nearPocket)
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+        XCTAssertEqual(vm.selectedPocketIndex, manualPocket)
+        vm.removeFromTable("_1")
+        XCTAssertEqual(vm.selectedTargetKey, "_2")
+    }
+
     func testFreePlayAndToolUseComfortFromFirstBoardAndPreserveManualIntent() async throws {
         for mode in [FreePlayEntryMode.standard, .shotSimulation] {
             let vm = PositionPlayViewModel(), rules = FreePlayRulesSession()
@@ -442,5 +650,444 @@ final class ShotRecommendationReuseTests: XCTestCase {
                 XCTAssertFalse(vm.canGoToNextTryoutStep)
             }
         }
+    }
+}
+
+
+@MainActor
+final class BoardMemoryTests: XCTestCase {
+    private struct Value: Codable, Equatable { let number: Int }
+    private final class Model: ObservableObject { @Published var number = 1 }
+
+    func testLatestWriterOwnerIsolationAndImportPriority() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = Model()
+        let first = BoardMemory(page: "composer", root: root)
+        first.begin(owner: "a", changes: model.objectWillChange,
+                    capture: { Value(number: model.number) }, restore: { model.number = $0.number })
+        model.number = 17; first.save()
+        let secondModel = Model()
+        let second = BoardMemory(page: "composer", root: root)
+        second.begin(owner: "a", changes: secondModel.objectWillChange,
+                     capture: { Value(number: secondModel.number) }, restore: { secondModel.number = $0.number })
+        XCTAssertEqual(secondModel.number, 17)
+        model.number = 99; first.end()
+        secondModel.number = 23; second.save(); second.end()
+        let imported = BoardMemory(page: "composer", root: root)
+        imported.begin(owner: "a", changes: model.objectWillChange, imported: true,
+                       capture: { Value(number: 31) }, restore: { _ in XCTFail("Import must win") })
+        imported.end()
+        let other = BoardMemory(page: "composer", root: root)
+        other.begin(owner: "b", changes: model.objectWillChange,
+                    capture: { Value(number: 44) }, restore: { _ in XCTFail("Owner leaked") })
+        other.end()
+        let restored = BoardMemory(page: "composer", root: root)
+        restored.begin(owner: "a", changes: model.objectWillChange,
+                       capture: { Value(number: model.number) }, restore: { model.number = $0.number })
+        XCTAssertEqual(model.number, 31)
+        restored.end()
+    }
+
+    func testUnreadableRecordRemainsUntilExplicitReset() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = Model(), memory = BoardMemory(page: "test", root: root)
+        memory.begin(owner: "a", changes: model.objectWillChange,
+                     capture: { Value(number: model.number) }, restore: { model.number = $0.number })
+        memory.end()
+        let owner = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).first)
+        let file = owner.appendingPathComponent("test.json")
+        let corrupt = Data("broken".utf8)
+        try corrupt.write(to: file)
+        memory.begin(owner: "a", changes: model.objectWillChange,
+                     capture: { Value(number: model.number) }, restore: { model.number = $0.number })
+        XCTAssertNotNil(memory.message)
+        model.number = 55; memory.save()
+        XCTAssertEqual(try Data(contentsOf: file), corrupt)
+        memory.reset { model.number = 1 }
+        XCTAssertNil(memory.message)
+        XCTAssertNotEqual(try Data(contentsOf: file), corrupt)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: owner.path).count, 2)
+        memory.end()
+    }
+
+    func testComposerSavedBoardRestoresSelectionAndEmptyTable() throws {
+        let vm = PositionPlayViewModel()
+        vm.usesAttackRecommendations = true
+        vm.usesShotComfortRanking = true
+        vm.setupScene(loadsDefaultLayout: false)
+        vm.loadBoard(PositionPlayComposerView.defaultBoard)
+        XCTAssertTrue(vm.selectTarget(key: "_8"))
+        vm.selectPocket(at: 3)
+        let saved = try XCTUnwrap(vm.savedBoard)
+        XCTAssertTrue(saved.manual)
+        vm.clearTable()
+        try vm.restoreSavedBoard(saved)
+        XCTAssertEqual(vm.selectedTargetKey, "_8")
+        XCTAssertEqual(vm.selectedPocketIndex, 3)
+        XCTAssertEqual(Set(vm.currentSnapshot().onTable.keys), Set(saved.board.onTable.keys))
+        vm.clearTable()
+        let empty = try XCTUnwrap(vm.savedBoard)
+        vm.loadBoard(PositionPlayComposerView.defaultBoard)
+        try vm.restoreSavedBoard(empty)
+        XCTAssertTrue(vm.currentSnapshot().onTable.isEmpty)
+        vm.cancelDailyAttempt()
+    }
+}
+
+extension BoardMemoryTests {
+    func testPageIsolationVersionRejectionAndWriteFailureRecovery() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = Model()
+        let a = BoardMemory(page: "one", root: root)
+        a.begin(owner: "a", changes: model.objectWillChange, capture: { Value(number: model.number) }, restore: { model.number = $0.number })
+        a.end()
+        let b = BoardMemory(page: "two", root: root)
+        b.begin(owner: "a", changes: model.objectWillChange, capture: { Value(number: 42) }, restore: { _ in XCTFail("Page leaked") })
+        b.end()
+        let owner = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).first)
+        let file = owner.appendingPathComponent("one.json")
+        var record = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+        record["version"] = 999
+        let incompatible = try JSONSerialization.data(withJSONObject: record)
+        try incompatible.write(to: file)
+        a.begin(owner: "a", changes: model.objectWillChange, capture: { Value(number: 7) }, restore: { _ in XCTFail("Incompatible version restored") })
+        a.save(); XCTAssertEqual(try Data(contentsOf: file), incompatible); XCTAssertNotNil(a.message)
+        a.reset { }; a.end()
+        // A parent which is a file forces create/write failure without permission assumptions.
+        let blocked = root.appendingPathComponent("blocked")
+        try Data("block".utf8).write(to: blocked)
+        let failed = BoardMemory(page: "one", root: blocked)
+        failed.begin(owner: "a", changes: model.objectWillChange, capture: { Value(number: 23) }, restore: { _ in })
+        XCTAssertNotNil(failed.message)
+        try FileManager.default.removeItem(at: blocked)
+        failed.save(); XCTAssertNil(failed.message); failed.end()
+    }
+
+    func testComposerAutomaticSelectionAndPreparedBreakRoundTrip() throws {
+        let vm = PositionPlayViewModel()
+        vm.usesAttackRecommendations = true; vm.usesShotComfortRanking = true
+        vm.setupScene(loadsDefaultLayout: false)
+        defer { vm.cancelBreakFlow(); vm.cancelDailyAttempt() }
+        vm.loadBoard(PositionPlayComposerView.defaultBoard)
+        vm.refreshLegalAimSelection()
+        let automatic = try XCTUnwrap(vm.savedBoard)
+        XCTAssertFalse(automatic.manual)
+        try vm.restoreSavedBoard(automatic)
+        XCTAssertFalse(try XCTUnwrap(vm.savedBoard).manual)
+        vm.startBreakFlow(game: .nineBall, manualDeliver: false, seed: 123)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        runner.velocity = 7; runner.spinX = 0.1; runner.spinY = 0.2
+        runner.nudgeAim(byDegrees: 3)
+        let saved = try XCTUnwrap(vm.savedBoard)
+        XCTAssertEqual(saved.preparedBreak?.count, 9)
+        let expectedDirection = saved.preparedBreak?.direction
+        vm.cancelBreakFlow()
+        try vm.restoreSavedBoard(saved)
+        XCTAssertEqual(vm.breakRunner?.velocity, 7)
+        XCTAssertEqual(vm.breakRunner?.savedInput?.direction, expectedDirection)
+        vm.breakRunner?.breakNow()
+        XCTAssertNil(vm.savedBoard)
+        vm.breakRunner?.suspendActivity()
+        XCTAssertEqual(vm.savedBoard?.preparedBreak?.count, 9)
+    }
+}
+
+extension BoardMemoryTests {
+    func testComposerStableShotAndReplayMemory() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene(loadsDefaultLayout: false)
+        vm.loadBoard(.init(onTable: [PositionPlayBall.cueKey: .init(x: 0.5, y: 0.36), "_1": .init(x: 0.5, y: 0.16)]))
+        _ = vm.selectTarget(key: "_1"); vm.selectPocket(at: 4); vm.velocity = 1.4
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+        view.scene = vm.scene; view.pointOfView = vm.scene.cameraNode; view.isPlaying = true
+        let window = UIWindow(windowScene: try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene))
+        let controller = UIViewController(); controller.view = view; window.rootViewController = controller; window.makeKeyAndVisible()
+        defer { vm.cancelDailyAttempt(); window.isHidden = true; view.isPlaying = false }
+        func wait(_ predicate: () -> Bool) async throws {
+            let deadline = Date().addingTimeInterval(30)
+            while !predicate(), Date() < deadline {
+                vm.scene.cameraRig?.update(deltaTime: 0.02)
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            XCTAssertTrue(predicate())
+        }
+        try await wait { !vm.isComputing && !vm.cameraTransitionBusy && vm.solvedShot != nil }
+        let before = try XCTUnwrap(vm.savedBoard)
+        vm.play(); XCTAssertTrue(vm.isPlaying); XCTAssertNil(vm.savedBoard)
+        vm.suspendAuthoringActivity()
+        XCTAssertEqual(vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] }, before.board.onTable.mapValues { [$0.x, $0.y] })
+        vm.resumeAuthoringActivity()
+        try await wait { !vm.isComputing && !vm.cameraTransitionBusy }
+        vm.play(); XCTAssertTrue(vm.isPlaying)
+        try await wait { !vm.isPlaying && !vm.isComputing }
+        let after = try XCTUnwrap(vm.savedBoard)
+        vm.replayLastShot(); XCTAssertTrue(vm.isPlaying); XCTAssertNil(vm.savedBoard)
+        vm.suspendAuthoringActivity()
+        XCTAssertEqual(vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] }, after.board.onTable.mapValues { [$0.x, $0.y] })
+        try vm.restoreSavedBoard(after)
+        XCTAssertEqual(vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] }, after.board.onTable.mapValues { [$0.x, $0.y] })
+    }
+}
+
+@MainActor
+final class PlanningBoardMemoryTests: XCTestCase {
+    private func roundTrip<T: Codable>(_ value: T) throws -> T {
+        try JSONDecoder().decode(T.self, from: JSONEncoder().encode(value))
+    }
+    private func bytes<T: Encodable>(_ value: T) throws -> Data {
+        let encoder = JSONEncoder(); encoder.outputFormatting = .sortedKeys
+        return try encoder.encode(value)
+    }
+    func testSiluAllConstraintKindsAndImportAndEmptyBoard() throws {
+        for tool in [SiluTrainerViewModel.Tool.region, .restPoint, .passPoint] {
+            for shape in [SiluTrainerViewModel.RegionShape.rect, .circle] {
+                let vm = SiluTrainerViewModel(); vm.setupScene()
+                vm.placeFromPalette("_5")
+                vm.activeTool = tool; vm.regionShape = shape
+                vm.toolDrag(startNormalized: .init(x: 0.34, y: 0.24), currentNormalized: .init(x: 0.56, y: 0.40), ended: true)
+                let saved = try roundTrip(XCTUnwrap(vm.savedBoard))
+                vm.stopForDismissal()
+                let restored = SiluTrainerViewModel(); restored.setupScene()
+                try restored.restoreSavedBoard(saved)
+                let result = try XCTUnwrap(restored.savedBoard)
+                XCTAssertEqual(try bytes(result.draft), try bytes(saved.draft))
+                XCTAssertEqual(result.tool, tool); XCTAssertEqual(result.shape, shape)
+                XCTAssertEqual(result.target, saved.target); XCTAssertEqual(result.pocket, saved.pocket)
+                XCTAssertEqual(Set(result.board.onTable.keys), Set(saved.board.onTable.keys))
+                restored.stopForDismissal()
+            }
+        }
+        let vm = SiluTrainerViewModel(); vm.setupScene(); vm.clearTable()
+        let empty = try roundTrip(XCTUnwrap(vm.savedBoard))
+        vm.resetRememberedBoard(); try vm.restoreSavedBoard(empty)
+        XCTAssertEqual(vm.onTableKeys, [PositionPlayBall.cueKey])
+        vm.stopForDismissal()
+    }
+    func testPlanThreeIncompleteFullAndClearedRolesRoundTrip() throws {
+        for stage in 0...3 {
+            let vm = PlanThreeViewModel(); vm.setupScene()
+            if stage > 0 { vm.selectPaletteBall("_1"); vm.selectPocket(at: 4) }
+            if stage > 1 { vm.selectPaletteBall("_2"); vm.selectPocket(at: 5) }
+            if stage > 2 { vm.selectPaletteBall("_3") }
+            vm.stopForDismissal()
+            let saved = try roundTrip(XCTUnwrap(vm.savedBoard))
+            let restored = PlanThreeViewModel(); restored.setupScene()
+            try restored.restoreSavedBoard(saved)
+            XCTAssertEqual(restored.ball1Key, saved.ball1); XCTAssertEqual(restored.ball2Key, saved.ball2)
+            XCTAssertEqual(restored.ball3Key, saved.ball3); XCTAssertEqual(restored.pocket1Index, saved.pocket1)
+            XCTAssertEqual(restored.pocket2Index, saved.pocket2); XCTAssertEqual(restored.armedRole, saved.armed)
+            restored.stopForDismissal()
+            restored.resumeTeachingActivity()
+            restored.clearPaletteRole("_2")
+            restored.stopForDismissal()
+            let cleared = try roundTrip(XCTUnwrap(restored.savedBoard))
+            try vm.restoreSavedBoard(cleared)
+            XCTAssertEqual(vm.ball2Key, cleared.ball2)
+            vm.stopForDismissal()
+        }
+    }
+    func testRestoredPlanningInputsSolveAndStrike() async throws {
+        let silu = SiluTrainerViewModel(); silu.setupScene()
+        silu.toolDrag(startNormalized: .init(x: 0.34, y: 0.24), currentNormalized: .init(x: 0.56, y: 0.40), ended: true)
+        let saved = try roundTrip(XCTUnwrap(silu.savedBoard)); silu.stopForDismissal()
+        try silu.restoreSavedBoard(saved)
+        try await exercise(silu, computing: { silu.isComputing }, ready: { silu.canStrike }, play: silu.play, playing: { silu.isPlaying }, stop: silu.stopForDismissal)
+        let planner = PlanThreeViewModel(); planner.setupScene()
+        planner.loadBoard(.init(onTable: [PositionPlayBall.cueKey: .init(x: 0.5, y: 0.36), "_1": .init(x: 0.5, y: 0.16)]))
+        planner.selectPaletteBall("_1"); planner.selectPocket(at: 4)
+        let plan = try roundTrip(XCTUnwrap(planner.savedBoard)); planner.stopForDismissal()
+        try planner.restoreSavedBoard(plan)
+        try await exercise(planner, computing: { planner.isComputing }, ready: { planner.canStrike }, play: planner.play, playing: { planner.isPlaying }, stop: planner.stopForDismissal)
+    }
+    private func exercise<VM: TeachingTableHost>(_ vm: VM, computing: () -> Bool, ready: () -> Bool,
+        play: () -> Void, playing: () -> Bool, stop: () -> Void) async throws {
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+        view.scene = vm.scene; view.pointOfView = vm.scene.cameraNode; view.isPlaying = true
+        let window = UIWindow(windowScene: try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene))
+        let controller = UIViewController(); controller.view = view; window.rootViewController = controller; window.makeKeyAndVisible()
+        defer { stop(); view.isPlaying = false; window.isHidden = true }
+        let deadline = Date().addingTimeInterval(90)
+        while computing() || !ready(), Date() < deadline {
+            vm.scene.cameraRig?.update(deltaTime: 0.02); try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertTrue(ready()); play(); XCTAssertTrue(playing())
+        let end = Date().addingTimeInterval(30)
+        while playing(), Date() < end { vm.scene.cameraRig?.update(deltaTime: 0.02); try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertFalse(playing())
+    }
+}
+
+@MainActor
+final class ObservationBoardMemoryTests: XCTestCase {
+    func testToleranceRemembersEachPocketUnselectedAndRemovedBall() throws {
+        let vm = PocketToleranceViewModel(); vm.setupScene()
+        vm.selectPocket(at: 0)
+        vm.placeFromPalette("_5"); vm.selectPocket(at: 2)
+        vm.placeFromPalette("_7"); vm.selectPocket(at: 4)
+        vm.placeFromPalette("_9")
+        let saved = try XCTUnwrap(vm.savedBoard)
+        let decoded = try JSONDecoder().decode(SavedObservationBoard.self, from: JSONEncoder().encode(saved))
+        let restored = PocketToleranceViewModel(); restored.setupScene(); try restored.restoreSavedBoard(decoded)
+        for (key, pocket) in [("_3", 0), ("_5", 2), ("_7", 4), ("_9", -1)] {
+            restored.selectTarget(key: key); XCTAssertEqual(restored.selectedPocketIndex, pocket)
+        }
+        restored.removeFromTable("_5"); restored.placeFromPalette("_5")
+        XCTAssertEqual(restored.selectedPocketIndex, -1)
+        restored.resetRememberedBoard()
+        XCTAssertEqual(restored.onTableKeys, ["_3"]); XCTAssertEqual(restored.selectedPocketIndex, -1)
+        vm.suspendTeachingActivity(); restored.suspendTeachingActivity()
+    }
+    func testAngleRestoresMultipleBallsAndManualPocketAndEmptyTable() throws {
+        let vm = AngleDynamicViewModel(); vm.setupScene(); vm.placeFromPalette("_5")
+        vm.selectTarget(key: "_5"); vm.selectPocket(at: 2)
+        let saved = try XCTUnwrap(vm.savedBoard)
+        let restored = AngleDynamicViewModel(); restored.setupScene(); try restored.restoreSavedBoard(saved)
+        XCTAssertEqual(restored.selectedTargetKey, "_5"); XCTAssertEqual(restored.selectedPocketIndex, 2)
+        XCTAssertEqual(restored.cutAngleDegrees, vm.cutAngleDegrees, accuracy: 0.001)
+        try restored.restoreSavedBoard(.init(board: .init(onTable: [:]), target: nil, pockets: [:]))
+        XCTAssertTrue(restored.onTableKeys.isEmpty)
+        restored.resetRememberedBoard(); XCTAssertEqual(restored.selectedTargetKey, "_8")
+        vm.suspendTeachingActivity(); restored.suspendTeachingActivity()
+    }
+}
+
+@MainActor
+final class CushionBoardMemoryTests: XCTestCase {
+    private func roundTrip(_ value: SavedCushionBoard) throws -> SavedCushionBoard {
+        try JSONDecoder().decode(SavedCushionBoard.self, from: JSONEncoder().encode(value))
+    }
+    private func compare(_ expected: SavedCushionBoard, _ actual: SavedCushionBoard) throws {
+        XCTAssertEqual(actual.target, expected.target); XCTAssertEqual(actual.free, expected.free)
+        XCTAssertEqual(actual.pocket, expected.pocket); XCTAssertEqual(actual.cushions, expected.cushions)
+        XCTAssertEqual(actual.direction, expected.direction); XCTAssertEqual(actual.power, expected.power)
+        XCTAssertEqual(actual.spinX, expected.spinX); XCTAssertEqual(actual.spinY, expected.spinY)
+        XCTAssertEqual(Set(actual.poses.keys), Set(expected.poses.keys))
+        for (key, pose) in expected.poses {
+            let other = try XCTUnwrap(actual.poses[key])
+            XCTAssertEqual(pose.position, other.position)
+            let a = try pose.restored(), b = try other.restored()
+            XCTAssertEqual(abs(simd_dot(a.orientation.vector, b.orientation.vector)), 1, accuracy: 0.0001)
+        }
+    }
+    func testBankTargetIdentityObstaclePosesFreeInputsAndReset() throws {
+        let vm = BankShotViewModel(); vm.setupScene(); vm.toggleMode()
+        vm.placeObstacle("_3", atWorld: nil); vm.placeObstacle("_5", atWorld: nil)
+        vm.selectTarget(key: "_3"); vm.selectPocket(2); vm.selectCushions(2)
+        vm.nudgeFreeAim(byDegrees: 7); vm.reflectionPower = 1.8; vm.spinX = 0.1; vm.spinY = 0.2
+        vm.scene.allBallNodes["_5"]?.simdOrientation = simd_quatf(angle: 0.6, axis: SIMD3<Float>(0, 1, 0))
+        let saved = try roundTrip(XCTUnwrap(vm.savedBoard)); vm.stopForDismissal()
+        let restored = BankShotViewModel(); restored.setupScene(); try restored.restoreSavedBoard(saved)
+        try compare(saved, XCTUnwrap(restored.savedBoard))
+        XCTAssertEqual(restored.scene.ballKey(for: try XCTUnwrap(restored.scene.targetBallNodes.first)), "_3")
+        restored.resetRememberedBoard(); XCTAssertEqual(restored.reflectionPower, Double(CushionReflectionSettings.defaultPower)); XCTAssertEqual(restored.selectedTargetKey, "_8")
+        XCTAssertEqual(restored.mode, .solve); XCTAssertNil(restored.selectedCushions)
+        restored.stopForDismissal()
+    }
+    func testDiamondObstaclePosesFreeInputsAndReset() throws {
+        let vm = DiamondSystemViewModel(); vm.setupScene(); vm.toggleMode()
+        vm.placeObstacle("_3", atWorld: nil); vm.selectCushions(3)
+        vm.nudgeFreeAim(byDegrees: -5); vm.reflectionPower = 2.3; vm.spinX = -0.1; vm.spinY = 0.2
+        let saved = try roundTrip(XCTUnwrap(vm.savedBoard)); vm.stopForDismissal()
+        let restored = DiamondSystemViewModel(); restored.setupScene(); try restored.restoreSavedBoard(saved)
+        try compare(saved, XCTUnwrap(restored.savedBoard))
+        restored.resetRememberedBoard(); XCTAssertEqual(restored.reflectionPower, Double(CushionReflectionSettings.defaultPower)); XCTAssertEqual(restored.mode, .solve); XCTAssertNil(restored.selectedCushions)
+        restored.stopForDismissal()
+    }
+    func testRestoredCushionFreeShotsAndCurrentSolve() async throws {
+        let bank = BankShotViewModel(); bank.setupScene(); bank.toggleMode()
+        let bankSaved = try roundTrip(XCTUnwrap(bank.savedBoard)); bank.stopForDismissal()
+        try bank.restoreSavedBoard(bankSaved)
+        try await shoot(bank)
+        let kick = DiamondSystemViewModel(); kick.setupScene(); kick.toggleMode()
+        let kickSaved = try roundTrip(XCTUnwrap(kick.savedBoard)); kick.stopForDismissal()
+        try kick.restoreSavedBoard(kickSaved)
+        try await shoot(kick)
+    }
+    private func shoot<VM: SolverStageHosting>(_ vm: VM) async throws {
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+        view.scene = vm.scene; view.pointOfView = vm.scene.cameraNode; view.isPlaying = true
+        let window = UIWindow(windowScene: try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene))
+        let controller = UIViewController(); controller.view = view; window.rootViewController = controller; window.makeKeyAndVisible()
+        defer { vm.stopForDismissal(); view.isPlaying = false; window.isHidden = true }
+        let deadline = Date().addingTimeInterval(60)
+        while !vm.canFreeStrike, Date() < deadline { vm.scene.cameraRig?.update(deltaTime: 0.02); try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertTrue(vm.canFreeStrike); vm.freeStrike(); XCTAssertTrue(vm.isPlaying)
+        let end = Date().addingTimeInterval(30)
+        while vm.isPlaying, Date() < end { vm.scene.cameraRig?.update(deltaTime: 0.02); try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertFalse(vm.isPlaying)
+        vm.toggleMode()
+        let solveEnd = Date().addingTimeInterval(90)
+        while vm.isSolving, Date() < solveEnd { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertFalse(vm.isSolving)
+    }
+}
+
+extension PlanningBoardMemoryTests {
+    func testSavedSiluFineTuningReturnsOnlyAfterFreshSolve() async throws {
+        let vm = SiluTrainerViewModel(); vm.setupScene()
+        defer { vm.stopForDismissal() }
+        vm.toolDrag(startNormalized: .init(x: 0.34, y: 0.24), currentNormalized: .init(x: 0.56, y: 0.40), ended: true)
+        func wait() async throws {
+            let end = Date().addingTimeInterval(60)
+            while vm.isComputing, Date() < end { try await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertFalse(vm.isComputing)
+        }
+        try await wait(); XCTAssertTrue(vm.hasSolutions)
+        vm.selectSolution(at: min(1, vm.solutions.count - 1))
+        vm.adjustCurrentSolution(velocity: vm.velocity + 0.03)
+        try await wait()
+        let saved = try roundTrip(XCTUnwrap(vm.savedBoard))
+        let expected = try XCTUnwrap(saved.input)
+        vm.stopForDismissal(); try vm.restoreSavedBoard(saved)
+        XCTAssertTrue(vm.isComputing)
+        try await wait()
+        XCTAssertEqual(vm.velocity, expected.adjusted.velocity, accuracy: 0.0001)
+        XCTAssertEqual(vm.spinX, expected.adjusted.spinX, accuracy: 0.0001)
+        XCTAssertEqual(vm.spinY, expected.adjusted.spinY, accuracy: 0.0001)
+        XCTAssertEqual(vm.selectedTargetKey, saved.target)
+    }
+}
+
+extension CushionBoardMemoryTests {
+    func testRestoredBankSolveRetainsFineTunedInput() async throws {
+        let vm = BankShotViewModel(); vm.setupScene()
+        defer { vm.stopForDismissal() }
+        func wait() async throws {
+            let end = Date().addingTimeInterval(90)
+            while vm.isSolving || vm.isAdjustingSolution, Date() < end { try await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertFalse(vm.isSolving || vm.isAdjustingSolution)
+        }
+        try await wait(); XCTAssertTrue(vm.hasSolution)
+        vm.adjustCurrentSolution(velocity: vm.reflectionPower + 0.02, spinX: nil, spinY: nil)
+        try await wait()
+        let saved = try roundTrip(XCTUnwrap(vm.savedBoard))
+        vm.stopForDismissal(); try vm.restoreSavedBoard(saved)
+        try await wait()
+        XCTAssertTrue(vm.hasSolution)
+        XCTAssertEqual(vm.reflectionPower, saved.power, accuracy: 0.0001)
+        XCTAssertEqual(vm.spinX, saved.spinX, accuracy: 0.0001)
+        XCTAssertEqual(vm.spinY, saved.spinY, accuracy: 0.0001)
+    }
+    func testRestoredDiamondSolveRetainsFineTunedInput() async throws {
+        let vm = DiamondSystemViewModel(); vm.setupScene()
+        defer { vm.stopForDismissal() }
+        func wait() async throws {
+            let end = Date().addingTimeInterval(90)
+            while vm.isSolving || vm.isAdjustingSolution, Date() < end { try await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertFalse(vm.isSolving || vm.isAdjustingSolution)
+        }
+        try await wait(); XCTAssertTrue(vm.hasSolution)
+        vm.adjustCurrentSolution(velocity: vm.reflectionPower + 0.02, spinX: nil, spinY: nil)
+        try await wait()
+        let saved = try roundTrip(XCTUnwrap(vm.savedBoard))
+        vm.stopForDismissal(); try vm.restoreSavedBoard(saved)
+        try await wait()
+        XCTAssertTrue(vm.hasSolution)
+        XCTAssertEqual(vm.reflectionPower, saved.power, accuracy: 0.0001)
+        XCTAssertEqual(vm.spinX, saved.spinX, accuracy: 0.0001)
+        XCTAssertEqual(vm.spinY, saved.spinY, accuracy: 0.0001)
     }
 }

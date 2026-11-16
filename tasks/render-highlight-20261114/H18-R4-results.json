@@ -1,0 +1,246 @@
+{
+  "evidence": "output/local-test-runs/43c1f876a2df42ccab701ad811e21b4b/evidence/results.json",
+  "sha256": "cc7b6f9fe4fce832f9cd8061fb155273bc149ed2e99b135a9989787b8eb4e955",
+  "rows": [
+    {
+      "pose": "single-low",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 327680,
+      "pairs": 44,
+      "maximum": 1,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [],
+      "timing": {
+        "AA": {
+          "cycles": [
+            {
+              "cycle": 0,
+              "aMS": 0.29831251595169306,
+              "bMS": 0.28024998027831316,
+              "gpuDecreasePercent": 6.05490373602187
+            },
+            {
+              "cycle": 1,
+              "aMS": 0.2766667166724801,
+              "bMS": 0.27539581060409546,
+              "gpuDecreasePercent": 0.4593635561480113
+            },
+            {
+              "cycle": 2,
+              "aMS": 0.2717291936278343,
+              "bMS": 0.2699375618249178,
+              "gpuDecreasePercent": 0.6593446140242042
+            },
+            {
+              "cycle": 3,
+              "aMS": 0.2732500433921814,
+              "bMS": 0.27627090457826853,
+              "gpuDecreasePercent": -1.1055299931833673
+            },
+            {
+              "cycle": 4,
+              "aMS": 0.2751875435933471,
+              "bMS": 0.2724375808611512,
+              "gpuDecreasePercent": 0.9993049453791982
+            },
+            {
+              "cycle": 5,
+              "aMS": 0.27260405477136374,
+              "bMS": 0.2753124572336674,
+              "gpuDecreasePercent": -0.9935297787757442
+            }
+          ],
+          "medianDecreasePercent": 0.5593540850861077,
+          "min": -1.1055299931833673,
+          "max": 6.05490373602187,
+          "positiveCycles": 4
+        },
+        "AB": {
+          "cycles": [
+            {
+              "cycle": 0,
+              "aMS": 0.27085409965366125,
+              "bMS": 0.28300005942583084,
+              "gpuDecreasePercent": -4.484318231734547
+            },
+            {
+              "cycle": 1,
+              "aMS": 0.2772916341200471,
+              "bMS": 0.2731666900217533,
+              "gpuDecreasePercent": 1.4875833204935354
+            },
+            {
+              "cycle": 2,
+              "aMS": 0.2751665888354182,
+              "bMS": 0.27412502095103264,
+              "gpuDecreasePercent": 0.37852265741774527
+            },
+            {
+              "cycle": 3,
+              "aMS": 0.2719166222959757,
+              "bMS": 0.2750416751950979,
+              "gpuDecreasePercent": -1.1492687989190606
+            },
+            {
+              "cycle": 4,
+              "aMS": 0.27395831421017647,
+              "bMS": 0.2730416599661112,
+              "gpuDecreasePercent": 0.33459624932647314
+            },
+            {
+              "cycle": 5,
+              "aMS": 0.2723959041759372,
+              "bMS": 0.2732500433921814,
+              "gpuDecreasePercent": -0.3135653668612222
+            }
+          ],
+          "medianDecreasePercent": 0.010515441232625461,
+          "min": -4.484318231734547,
+          "max": 1.4875833204935354,
+          "positiveCycles": 3
+        }
+      }
+    },
+    {
+      "pose": "single-near",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 327680,
+      "pairs": 44,
+      "maximum": 16,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [
+        {
+          "frame": 19,
+          "shadows": true,
+          "maximum": 15
+        },
+        {
+          "frame": 20,
+          "shadows": true,
+          "maximum": 15
+        },
+        {
+          "frame": 21,
+          "shadows": true,
+          "maximum": 15
+        },
+        {
+          "frame": 19,
+          "shadows": false,
+          "maximum": 15
+        },
+        {
+          "frame": 20,
+          "shadows": false,
+          "maximum": 15
+        },
+        {
+          "frame": 21,
+          "shadows": false,
+          "maximum": 16
+        }
+      ],
+      "timing": {}
+    },
+    {
+      "pose": "scatter-overview",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 327680,
+      "pairs": 44,
+      "maximum": 159,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [
+        {
+          "frame": 7,
+          "shadows": true,
+          "maximum": 6
+        },
+        {
+          "frame": 8,
+          "shadows": true,
+          "maximum": 3
+        },
+        {
+          "frame": 9,
+          "shadows": true,
+          "maximum": 5
+        },
+        {
+          "frame": 10,
+          "shadows": true,
+          "maximum": 2
+        },
+        {
+          "frame": 11,
+          "shadows": true,
+          "maximum": 2
+        },
+        {
+          "frame": 12,
+          "shadows": true,
+          "maximum": 159
+        },
+        {
+          "frame": 13,
+          "shadows": true,
+          "maximum": 12
+        },
+        {
+          "frame": 14,
+          "shadows": true,
+          "maximum": 6
+        },
+        {
+          "frame": 7,
+          "shadows": false,
+          "maximum": 6
+        },
+        {
+          "frame": 8,
+          "shadows": false,
+          "maximum": 3
+        },
+        {
+          "frame": 9,
+          "shadows": false,
+          "maximum": 5
+        },
+        {
+          "frame": 10,
+          "shadows": false,
+          "maximum": 2
+        },
+        {
+          "frame": 11,
+          "shadows": false,
+          "maximum": 2
+        },
+        {
+          "frame": 12,
+          "shadows": false,
+          "maximum": 159
+        },
+        {
+          "frame": 13,
+          "shadows": false,
+          "maximum": 12
+        },
+        {
+          "frame": 14,
+          "shadows": false,
+          "maximum": 6
+        }
+      ],
+      "timing": {}
+    }
+  ]
+}

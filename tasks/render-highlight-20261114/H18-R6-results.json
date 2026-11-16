@@ -1,0 +1,1241 @@
+{
+  "study": "H18-R6",
+  "policy": "User-authorized 2/4/8 descriptive bins; distribution, visual shape, temporal behavior, and measured cost jointly reviewed. No automatic code-value acceptance.",
+  "decision": "Promote frozen R3 to shared-integration candidate; no App default activation.",
+  "runs": {
+    "oldDistribution": "cc3ec31483bc42d0bc70eee1bac61993",
+    "cost": "18a0ff7332894faaa8eaa311312de065",
+    "costAnalysis": "b0d6e33158fa4bb19dcef45358668765",
+    "motion": "04485225385e4ac5a752a2197b298921",
+    "motionAnalysis": "0acb833a7a57419ba33fd480ee03bd13",
+    "currentScene": "e19e7882b87a4d41918e476a5585cfac",
+    "currentSceneAnalysis": "7fa82e632de84f628cab37154e4b4b8b",
+    "maskHarnessFailure": "c221184ed6e2403686584ffa1f741fcc",
+    "finalChecks": "6cbefc2c44904bdca02257e66ba30cbf"
+  },
+  "lifecycle": {
+    "oldDistribution": "reclaimed",
+    "cost": "reclaimed",
+    "costAnalysis": "reclaimed",
+    "motion": "reclaimed",
+    "motionAnalysis": "reclaimed",
+    "currentScene": "reclaimed",
+    "currentSceneAnalysis": "reclaimed",
+    "maskHarnessFailure": "reclaimed",
+    "finalChecks": "reclaimed"
+  },
+  "evidence": {
+    "oldDistribution": {
+      "path": "output/local-test-runs/cc3ec31483bc42d0bc70eee1bac61993/evidence/prior-distribution.json",
+      "sha256": "bd7cc64a7fcf6125f15f9d9151fefbeaf4ee06eab00d70ff078e0be59bf6631f"
+    },
+    "costAnalysis": {
+      "path": "output/local-test-runs/b0d6e33158fa4bb19dcef45358668765/evidence/review.json",
+      "sha256": "9af3ff3ff33f4170bd4ccd9548f3ec8d141bebacf6c8b9ba807311a25af29f91"
+    },
+    "motionAnalysis": {
+      "path": "output/local-test-runs/0acb833a7a57419ba33fd480ee03bd13/evidence/review.json",
+      "sha256": "258319bbc40b585afc316291d40d250e721b834c1fd4ebf2c6d1b46625657811"
+    },
+    "currentSceneAnalysis": {
+      "path": "output/local-test-runs/7fa82e632de84f628cab37154e4b4b8b/evidence/native-review.json",
+      "sha256": "345521d8c285045d0d8a8a2073974c6e0b872f2964ff2408ad425026c934b4d5"
+    }
+  },
+  "currentScene": {
+    "source": "output/local-test-runs/e19e7882b87a4d41918e476a5585cfac/evidence/attachments/F3315B7B-DCEE-431E-9ABB-FDC5D988F645.json",
+    "sourceSHA256": "52f2e1bcd561a8397a7f5e66c412a7f4dc5904c998879fd2ec54766277f77e4d",
+    "device": "Apple M5 Pro",
+    "scope": "Current full 3D scene and real SCNAction; no SwiftUI page or phone energy claim",
+    "lookupBytes": 163840,
+    "quality": [
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 29270,
+        "maximum": 1,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 0,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.026133928571428572,
+        "meanSignedRGB": [
+          -0.010783928571428571,
+          -0.0023196428571428574,
+          -0.0158625
+        ],
+        "percentiles": {
+          "p95": 0.0,
+          "p99": 1.0,
+          "p99_9": 1.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 31359,
+        "maximum": 1,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 1,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.02799910714285714,
+        "meanSignedRGB": [
+          -0.012169642857142856,
+          -0.0025705357142857144,
+          -0.017097321428571427
+        ],
+        "percentiles": {
+          "p95": 0.0,
+          "p99": 1.0,
+          "p99_9": 1.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 78592,
+        "maximum": 1,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 2,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.07017142857142857,
+        "meanSignedRGB": [
+          -0.028375892857142856,
+          -0.006089285714285715,
+          -0.04390714285714286
+        ],
+        "percentiles": {
+          "p95": 1.0,
+          "p99": 1.0,
+          "p99_9": 1.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 40843,
+        "maximum": 1,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 3,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.03646696428571428,
+        "meanSignedRGB": [
+          -0.015860714285714287,
+          -0.0033410714285714285,
+          -0.023191964285714285
+        ],
+        "percentiles": {
+          "p95": 0.0,
+          "p99": 1.0,
+          "p99_9": 1.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 36758,
+        "maximum": 1,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 4,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.03281964285714286,
+        "meanSignedRGB": [
+          -0.014336607142857142,
+          -0.003073214285714286,
+          -0.020432142857142857
+        ],
+        "percentiles": {
+          "p95": 0.0,
+          "p99": 1.0,
+          "p99_9": 1.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 0,
+        "maximum": 0,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 5,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.0,
+        "meanSignedRGB": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "percentiles": {
+          "p95": 0.0,
+          "p99": 0.0,
+          "p99_9": 0.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 49682,
+        "maximum": 1,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 6,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.04435892857142857,
+        "meanSignedRGB": [
+          -0.019234821428571428,
+          -0.003960714285714285,
+          -0.02873125
+        ],
+        "percentiles": {
+          "p95": 0.0,
+          "p99": 1.0,
+          "p99_9": 1.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 49763,
+        "maximum": 1,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 7,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.04443125,
+        "meanSignedRGB": [
+          -0.018923214285714286,
+          -0.0039035714285714286,
+          -0.02805625
+        ],
+        "percentiles": {
+          "p95": 0.0,
+          "p99": 1.0,
+          "p99_9": 1.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 123062,
+        "maximum": 1,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 8,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.10987678571428572,
+        "meanSignedRGB": [
+          -0.04660803571428571,
+          -0.009208035714285714,
+          -0.06030714285714286
+        ],
+        "percentiles": {
+          "p95": 1.0,
+          "p99": 1.0,
+          "p99_9": 1.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 133116,
+        "maximum": 1,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 9,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.11885357142857143,
+        "meanSignedRGB": [
+          -0.05095535714285714,
+          -0.01009375,
+          -0.06455357142857143
+        ],
+        "percentiles": {
+          "p95": 1.0,
+          "p99": 1.0,
+          "p99_9": 1.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 143114,
+        "maximum": 1,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 10,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.12778035714285715,
+        "meanSignedRGB": [
+          -0.05574910714285714,
+          -0.011057142857142857,
+          -0.06855982142857144
+        ],
+        "percentiles": {
+          "p95": 1.0,
+          "p99": 1.0,
+          "p99_9": 1.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 145799,
+        "maximum": 1,
+        "over": {
+          "1": 0,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 11,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.0,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.13017767857142856,
+        "meanSignedRGB": [
+          -0.05599553571428571,
+          -0.011163392857142858,
+          -0.07189375
+        ],
+        "percentiles": {
+          "p95": 1.0,
+          "p99": 1.0,
+          "p99_9": 1.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 235543,
+        "maximum": 2,
+        "over": {
+          "1": 2268,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 12,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.20249999999999999,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.21233125,
+        "meanSignedRGB": [
+          -0.12885089285714285,
+          -0.035475,
+          -0.14425267857142857
+        ],
+        "percentiles": {
+          "p95": 1.0,
+          "p99": 1.0,
+          "p99_9": 2.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 230057,
+        "maximum": 2,
+        "over": {
+          "1": 2283,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 13,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.20383928571428572,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.20744642857142856,
+        "meanSignedRGB": [
+          -0.1251107142857143,
+          -0.03411875,
+          -0.13992410714285713
+        ],
+        "percentiles": {
+          "p95": 1.0,
+          "p99": 1.0,
+          "p99_9": 2.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 223932,
+        "maximum": 2,
+        "over": {
+          "1": 2239,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 14,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.19991071428571427,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.20193839285714285,
+        "meanSignedRGB": [
+          -0.12069821428571428,
+          -0.0341,
+          -0.13524553571428571
+        ],
+        "percentiles": {
+          "p95": 1.0,
+          "p99": 1.0,
+          "p99_9": 2.0
+        }
+      },
+      {
+        "aaMaximum": 0,
+        "callbacks": {
+          "action": 1,
+          "animations": 1,
+          "constraints": 1,
+          "didRender": 1,
+          "update": 1,
+          "willRender": 1
+        },
+        "changedPixels": 213945,
+        "maximum": 2,
+        "over": {
+          "1": 2099,
+          "2": 0,
+          "4": 0,
+          "8": 0
+        },
+        "pixels": 1120000,
+        "restoreMaximum": 0,
+        "state": 15,
+        "denominator": "whole image, not a cloth ROI",
+        "overPercent": {
+          "1": 0.1874107142857143,
+          "2": 0.0,
+          "4": 0.0,
+          "8": 0.0
+        },
+        "meanMaxChannel": 0.19289642857142858,
+        "meanSignedRGB": [
+          -0.11529642857142858,
+          -0.03306875,
+          -0.12817232142857143
+        ],
+        "percentiles": {
+          "p95": 1.0,
+          "p99": 1.0,
+          "p99_9": 2.0
+        }
+      }
+    ],
+    "timing": {
+      "gpuSpanMS": {
+        "AA": {
+          "groups": [
+            {
+              "cycle": 0,
+              "aMS": 1.1193749960511923,
+              "bMS": 1.1134373489767313,
+              "decreasePercent": 0.530443068266413
+            },
+            {
+              "cycle": 1,
+              "aMS": 1.1225208872929215,
+              "bMS": 1.1197291314601898,
+              "decreasePercent": 0.24870413230922944
+            },
+            {
+              "cycle": 2,
+              "aMS": 1.1045000283047557,
+              "bMS": 1.12641672603786,
+              "decreasePercent": -1.9843093862788868
+            },
+            {
+              "cycle": 3,
+              "aMS": 1.1133542284369469,
+              "bMS": 1.0980000952258706,
+              "decreasePercent": 1.3790878786738106
+            },
+            {
+              "cycle": 4,
+              "aMS": 1.1088959872722626,
+              "bMS": 1.1168334167450666,
+              "decreasePercent": -0.7157956710014882
+            },
+            {
+              "cycle": 5,
+              "aMS": 1.127687399275601,
+              "bMS": 1.1044166749343276,
+              "decreasePercent": 2.0635793533049904
+            }
+          ],
+          "medianDecreasePercent": 0.3895736002878212,
+          "positiveGroups": 4
+        },
+        "AB": {
+          "groups": [
+            {
+              "cycle": 0,
+              "aMS": 1.1073333444073796,
+              "bMS": 1.0513750603422523,
+              "decreasePercent": 5.053427167866512
+            },
+            {
+              "cycle": 1,
+              "aMS": 1.1104375589638948,
+              "bMS": 1.059875008650124,
+              "decreasePercent": 4.553389779155946
+            },
+            {
+              "cycle": 2,
+              "aMS": 1.1171250371262431,
+              "bMS": 1.0585207492113113,
+              "decreasePercent": 5.245991806404127
+            },
+            {
+              "cycle": 3,
+              "aMS": 1.1044582352042198,
+              "bMS": 1.0469374246895313,
+              "decreasePercent": 5.208056645442334
+            },
+            {
+              "cycle": 4,
+              "aMS": 1.1229165829718113,
+              "bMS": 1.0519583011046052,
+              "decreasePercent": 6.319105349696966
+            },
+            {
+              "cycle": 5,
+              "aMS": 1.1135833337903023,
+              "bMS": 1.0508750565350056,
+              "decreasePercent": 5.631215496181738
+            }
+          ],
+          "medianDecreasePercent": 5.2270242259232305,
+          "positiveGroups": 6
+        }
+      },
+      "cpuEncodeMS": {
+        "AA": {
+          "groups": [
+            {
+              "cycle": 0,
+              "aMS": 0.09270827285945415,
+              "bMS": 0.09710411541163921,
+              "decreasePercent": -4.741586070586344
+            },
+            {
+              "cycle": 1,
+              "aMS": 0.1076249172911048,
+              "bMS": 0.10277074761688709,
+              "decreasePercent": 4.510265648881385
+            },
+            {
+              "cycle": 2,
+              "aMS": 0.10043743532150984,
+              "bMS": 0.09320839308202267,
+              "decreasePercent": 7.197557580344735
+            },
+            {
+              "cycle": 3,
+              "aMS": 0.09502086322754622,
+              "bMS": 0.09152072016149759,
+              "decreasePercent": 3.683552166503517
+            },
+            {
+              "cycle": 4,
+              "aMS": 0.0951249385252595,
+              "bMS": 0.09402085561305285,
+              "decreasePercent": 1.1606660980006536
+            },
+            {
+              "cycle": 5,
+              "aMS": 0.09802088607102633,
+              "bMS": 0.09585416410118341,
+              "decreasePercent": 2.210469683239647
+            }
+          ],
+          "medianDecreasePercent": 2.9470109248715817,
+          "positiveGroups": 5
+        },
+        "AB": {
+          "groups": [
+            {
+              "cycle": 0,
+              "aMS": 0.08925003930926323,
+              "bMS": 0.09329163003712893,
+              "decreasePercent": -4.52839097791436
+            },
+            {
+              "cycle": 1,
+              "aMS": 0.09216659236699343,
+              "bMS": 0.10472920257598162,
+              "decreasePercent": -13.630329478783132
+            },
+            {
+              "cycle": 2,
+              "aMS": 0.09950005915015936,
+              "bMS": 0.10183337144553661,
+              "decreasePercent": -2.3450360887283126
+            },
+            {
+              "cycle": 3,
+              "aMS": 0.09031256195157766,
+              "bMS": 0.09016669355332851,
+              "decreasePercent": 0.16151507065800955
+            },
+            {
+              "cycle": 4,
+              "aMS": 0.09231246076524258,
+              "bMS": 0.09491667151451111,
+              "decreasePercent": -2.8210825794052146
+            },
+            {
+              "cycle": 5,
+              "aMS": 0.10987487621605396,
+              "bMS": 0.0994168221950531,
+              "decreasePercent": 9.518148626112238
+            }
+          ],
+          "medianDecreasePercent": -2.5830593340667636,
+          "positiveGroups": 2
+        }
+      },
+      "cpuWallMS": {
+        "AA": {
+          "groups": [
+            {
+              "cycle": 0,
+              "aMS": 1.374791725538671,
+              "bMS": 1.397124957293272,
+              "decreasePercent": -1.6244811006445643
+            },
+            {
+              "cycle": 1,
+              "aMS": 1.397854182869196,
+              "bMS": 1.3888542307540774,
+              "decreasePercent": 0.6438405540015237
+            },
+            {
+              "cycle": 2,
+              "aMS": 1.3729166239500046,
+              "bMS": 1.3820624444633722,
+              "decreasePercent": -0.6661599367232006
+            },
+            {
+              "cycle": 3,
+              "aMS": 1.3703957665711641,
+              "bMS": 1.362374983727932,
+              "decreasePercent": 0.5852895228435193
+            },
+            {
+              "cycle": 4,
+              "aMS": 1.3746041804552078,
+              "bMS": 1.3726040488108993,
+              "decreasePercent": 0.1455060062196386
+            },
+            {
+              "cycle": 5,
+              "aMS": 1.3828125083819032,
+              "bMS": 1.3728542253375053,
+              "decreasePercent": 0.7201470180545667
+            }
+          ],
+          "medianDecreasePercent": 0.36539776453157896,
+          "positiveGroups": 4
+        },
+        "AB": {
+          "groups": [
+            {
+              "cycle": 0,
+              "aMS": 1.3644583523273468,
+              "bMS": 1.3191874604672194,
+              "decreasePercent": 3.3178654213160277
+            },
+            {
+              "cycle": 1,
+              "aMS": 1.3669792097061872,
+              "bMS": 1.3287499314174056,
+              "decreasePercent": 2.7966247048481803
+            },
+            {
+              "cycle": 2,
+              "aMS": 1.3760416768491268,
+              "bMS": 1.3336250558495522,
+              "decreasePercent": 3.082509906000859
+            },
+            {
+              "cycle": 3,
+              "aMS": 1.3665624428540468,
+              "bMS": 1.3042498612776399,
+              "decreasePercent": 4.559804925288887
+            },
+            {
+              "cycle": 4,
+              "aMS": 1.3923333026468754,
+              "bMS": 1.3079165946692228,
+              "decreasePercent": 6.062966950310918
+            },
+            {
+              "cycle": 5,
+              "aMS": 1.3819168088957667,
+              "bMS": 1.3083540834486485,
+              "decreasePercent": 5.323238343551176
+            }
+          ],
+          "medianDecreasePercent": 3.9388351733024574,
+          "positiveGroups": 6
+        }
+      }
+    },
+    "thermalStates": [
+      0
+    ],
+    "interpretation": "GPU timestamps include the complete current SceneKit scene. CPU wall includes synchronous GPU wait; it is not CPU computation or energy."
+  },
+  "materialTiming": {
+    "single-low": {
+      "AA": {
+        "groups": [
+          {
+            "cycle": 0,
+            "aMS": 0.4693750524893403,
+            "bMS": 0.4707707557827234,
+            "decreasePercent": -0.2973535312498992
+          },
+          {
+            "cycle": 1,
+            "aMS": 0.44277089182287455,
+            "bMS": 0.4472708096727729,
+            "decreasePercent": -1.016308418869251
+          },
+          {
+            "cycle": 2,
+            "aMS": 0.46222901437431574,
+            "bMS": 0.45331253204494715,
+            "decreasePercent": 1.9290183117211184
+          },
+          {
+            "cycle": 3,
+            "aMS": 0.4472500877454877,
+            "bMS": 0.4475207533687353,
+            "decreasePercent": -0.06051773508016583
+          },
+          {
+            "cycle": 4,
+            "aMS": 0.44752086978405714,
+            "bMS": 0.44706242624670267,
+            "decreasePercent": 0.10244070574310483
+          },
+          {
+            "cycle": 5,
+            "aMS": 0.44631247874349356,
+            "bMS": 0.45029167085886,
+            "decreasePercent": -0.8915708847238832
+          }
+        ],
+        "medianDecreasePercent": -0.17893563316503253,
+        "positiveGroups": 2
+      },
+      "AB": {
+        "groups": [
+          {
+            "cycle": 0,
+            "aMS": 0.4621250554919243,
+            "bMS": 0.46197918709367514,
+            "decreasePercent": 0.03156470234964319
+          },
+          {
+            "cycle": 1,
+            "aMS": 0.44772925321012735,
+            "bMS": 0.4510832950472832,
+            "decreasePercent": -0.7491227819285927
+          },
+          {
+            "cycle": 2,
+            "aMS": 0.47300010919570923,
+            "bMS": 0.48458343371748924,
+            "decreasePercent": -2.4489052532094195
+          },
+          {
+            "cycle": 3,
+            "aMS": 0.4485000390559435,
+            "bMS": 0.4540833178907633,
+            "decreasePercent": -1.2448781156345374
+          },
+          {
+            "cycle": 4,
+            "aMS": 0.45189575757831335,
+            "bMS": 0.4572916077449918,
+            "decreasePercent": -1.1940475377760833
+          },
+          {
+            "cycle": 5,
+            "aMS": 0.44741667807102203,
+            "bMS": 0.45397924259305,
+            "decreasePercent": -1.4667679690264566
+          }
+        ],
+        "medianDecreasePercent": -1.2194628267053105,
+        "positiveGroups": 1
+      }
+    },
+    "single-near": {
+      "AA": {
+        "groups": [
+          {
+            "cycle": 0,
+            "aMS": 0.959166674874723,
+            "bMS": 0.9353333152830601,
+            "decreasePercent": 2.4847985460687285
+          },
+          {
+            "cycle": 1,
+            "aMS": 0.8647498907521367,
+            "bMS": 0.8643749170005322,
+            "decreasePercent": 0.04336210453619309
+          },
+          {
+            "cycle": 2,
+            "aMS": 0.8636666461825371,
+            "bMS": 0.8653750410303473,
+            "decreasePercent": -0.19780720436078955
+          },
+          {
+            "cycle": 3,
+            "aMS": 0.8671873947605491,
+            "bMS": 0.8667499059811234,
+            "decreasePercent": 0.05044916266874728
+          },
+          {
+            "cycle": 4,
+            "aMS": 0.8655625861138105,
+            "bMS": 0.8656042627990246,
+            "decreasePercent": -0.004814982288128002
+          },
+          {
+            "cycle": 5,
+            "aMS": 0.865250127390027,
+            "bMS": 0.8668333757668734,
+            "decreasePercent": -0.18298158263461725
+          }
+        ],
+        "medianDecreasePercent": 0.019273561124032543,
+        "positiveGroups": 3
+      },
+      "AB": {
+        "groups": [
+          {
+            "cycle": 0,
+            "aMS": 0.865875044837594,
+            "bMS": 0.8091041818261147,
+            "decreasePercent": 6.556472940287531
+          },
+          {
+            "cycle": 1,
+            "aMS": 0.8644582703709602,
+            "bMS": 0.8049792377278209,
+            "decreasePercent": 6.880497842610199
+          },
+          {
+            "cycle": 2,
+            "aMS": 0.8813750464469194,
+            "bMS": 0.8104790467768908,
+            "decreasePercent": 8.043794745021565
+          },
+          {
+            "cycle": 3,
+            "aMS": 0.9020833531394601,
+            "bMS": 0.865708221681416,
+            "decreasePercent": 4.032347047692447
+          },
+          {
+            "cycle": 4,
+            "aMS": 0.9095208952203393,
+            "bMS": 0.9127917001023889,
+            "decreasePercent": -0.35961844298884194
+          },
+          {
+            "cycle": 5,
+            "aMS": 0.8638333529233932,
+            "bMS": 0.8073332719504833,
+            "decreasePercent": 6.54062276962354
+          }
+        ],
+        "medianDecreasePercent": 6.548547854955535,
+        "positiveGroups": 5
+      }
+    },
+    "scatter-overview": {
+      "AA": {
+        "groups": [
+          {
+            "cycle": 0,
+            "aMS": 0.5255623254925013,
+            "bMS": 0.5350208375602961,
+            "decreasePercent": -1.7996937012049494
+          },
+          {
+            "cycle": 1,
+            "aMS": 0.49777072854340076,
+            "bMS": 0.5253750132396817,
+            "decreasePercent": -5.545582155274149
+          },
+          {
+            "cycle": 2,
+            "aMS": 0.5438541993498802,
+            "bMS": 0.5497083766385913,
+            "decreasePercent": -1.0764240297692134
+          },
+          {
+            "cycle": 3,
+            "aMS": 0.4989374428987503,
+            "bMS": 0.5004582926630974,
+            "decreasePercent": -0.30481772534672313
+          },
+          {
+            "cycle": 4,
+            "aMS": 0.495083280839026,
+            "bMS": 0.49556244630366564,
+            "decreasePercent": -0.09678482049072915
+          },
+          {
+            "cycle": 5,
+            "aMS": 0.500250025652349,
+            "bMS": 0.5162500310689211,
+            "decreasePercent": -3.198401718362204
+          }
+        ],
+        "medianDecreasePercent": -1.4380588654870814,
+        "positiveGroups": 0
+      },
+      "AB": {
+        "groups": [
+          {
+            "cycle": 0,
+            "aMS": 0.4993125330656767,
+            "bMS": 0.49081246834248304,
+            "decreasePercent": 1.702353568216081
+          },
+          {
+            "cycle": 1,
+            "aMS": 0.49843755550682545,
+            "bMS": 0.490125035867095,
+            "decreasePercent": 1.6677153532859392
+          },
+          {
+            "cycle": 2,
+            "aMS": 0.5048334132879972,
+            "bMS": 0.49256242346018553,
+            "decreasePercent": 2.430700802446958
+          },
+          {
+            "cycle": 3,
+            "aMS": 0.5004999693483114,
+            "bMS": 0.4902500659227371,
+            "decreasePercent": 2.0479328777822796
+          },
+          {
+            "cycle": 4,
+            "aMS": 0.5017917137593031,
+            "bMS": 0.4953750176355243,
+            "decreasePercent": 1.2787568921189378
+          },
+          {
+            "cycle": 5,
+            "aMS": 0.5004999693483114,
+            "bMS": 0.4973957547917962,
+            "decreasePercent": 0.6202227265981929
+          }
+        ],
+        "medianDecreasePercent": 1.6850344607510102,
+        "positiveGroups": 6
+      }
+    }
+  },
+  "motion": {
+    "frames": 60,
+    "maxClothChannelError": 1,
+    "maxTemporalErrorChange": 2
+  },
+  "oldDistribution": {
+    "pairs": 132,
+    "overOne": 7
+  },
+  "notProven": [
+    "full SwiftUI page or phone energy",
+    "benefit across all camera poses",
+    "all roughness/near-far threshold crossings",
+    "shared App lifecycle integration"
+  ],
+  "finalChecks": {
+    "pythonFilesParsed": 13,
+    "verifyGate": true,
+    "verifyDocSize": true,
+    "gitDiffCheck": true,
+    "sourceArchive": "output/local-test-runs/6cbefc2c44904bdca02257e66ba30cbf/evidence",
+    "commandLogSHA256": "763a864fb5613f91cf522585aae037b72c6ba843492197e1d805d5edc0c1a1b0"
+  }
+}

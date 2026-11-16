@@ -5,6 +5,62 @@ import XCTest
 
 @MainActor
 final class PocketMarkerHighlightTests: XCTestCase {
+    func testRetryReminderPreservesRolesAndRestartsOnlyTransientTarget() throws {
+        let scene = AngleTrainingScene(); scene.setupScene(enhancedRendering: false)
+        let markers = scene.addPocketMarkers().compactMap { $0 as? PocketLeatherMarker }
+        let marker = try XCTUnwrap(markers.first)
+        let pulse = try XCTUnwrap(marker.childNode(withName: "leather_selectionPulse", recursively: true))
+        var haptics = 0; scene.pocketSelectionHaptic = { haptics += 1 }
+        for style in PocketLeatherMarker.Style.allCases {
+            marker.show(style, confirmsSelection: false)
+            scene.remindTargetPocket(at: marker.pocketIndex)
+            XCTAssertEqual(marker.style, style)
+            XCTAssertEqual(pulse.isHidden, style != .target)
+            XCTAssertEqual(pulse.hasActions, style == .target)
+            if style == .target {
+                let first = try XCTUnwrap(pulse.action(forKey: "pocketSelectionPulse"))
+                scene.remindTargetPocket(at: marker.pocketIndex)
+                let second = try XCTUnwrap(pulse.action(forKey: "pocketSelectionPulse"))
+                XCTAssertFalse(first === second, "Each successful retry starts a fresh interval")
+                XCTAssertEqual(second.duration, 3, accuracy: 0.001)
+                scene.setPocketHighlight(marker, style: .selected, confirmsSelection: false)
+                XCTAssertTrue(second === pulse.action(forKey: "pocketSelectionPulse"), "Redraw must not extend the interval")
+            }
+            scene.cancelPocketSelectionFeedback()
+        }
+        scene.remindTargetPocket(at: -1); scene.remindTargetPocket(at: 6)
+        XCTAssertEqual(haptics, 0, "Retry is a visual reminder, not a new selection")
+        XCTAssertTrue(markers.allSatisfy { $0.childNode(withName: "leather_selectionPulse", recursively: true)?.hasActions == false })
+    }
+
+    func testRecordedRetryRestoresTargetAndExcludesFreeAndPlanningModes() throws {
+        for variant in ["target", "free", "planning"] {
+            let vm = PositionPlayViewModel(); vm.setupScene()
+            defer { vm.cancelDailyAttempt() }
+            let board = vm.currentSnapshot(), key = try XCTUnwrap(vm.selectedTargetKey)
+            let index = vm.selectedPocketIndex
+            let shot = PlannedShot(targetKey: key, pocket: try XCTUnwrap(ShotIntent.pocketId(for: index)), velocity: 2,
+                freeAim: variant == "free" ? .init(x: 1, y: 0) : nil)
+            let archive = PositionPlaySequence(name: "Retry reminder", initial: board,
+                steps: [.init(before: board, shot: shot, after: board)])
+            vm.practiceUsesPlanningRoles = variant == "planning"
+            vm.loadSequenceForSelectiveRerecording(archive)
+            XCTAssertTrue(vm.beginRerecording(at: 0))
+            vm.scene.cancelPocketSelectionFeedback()
+            var haptics = 0; vm.scene.pocketSelectionHaptic = { haptics += 1 }
+            vm.replayCurrent()
+            let markers = vm.scene.addPocketMarkers().compactMap { $0 as? PocketLeatherMarker }
+            let lit = markers.filter { $0.childNode(withName: "leather_selectionPulse", recursively: true)?.isHidden == false }
+            XCTAssertEqual(lit.map(\.pocketIndex), variant == "target" ? [index] : [])
+            XCTAssertEqual(vm.sequence.steps.count, 1, "Retrying a selected recording must not delete it")
+            XCTAssertEqual(haptics, 0)
+            if variant != "free" { XCTAssertEqual(vm.selectedPocketIndex, index) }
+            vm.scene.cancelPocketSelectionFeedback()
+            vm.recompute()
+            XCTAssertTrue(markers.allSatisfy { $0.childNode(withName: "leather_selectionPulse", recursively: true)?.hasActions == false })
+        }
+    }
+
     func testOtherManualTargetConsumersPulseAndAcknowledgeSelection() throws {
         func verify(_ vm: any TeachingTableHost) throws {
             vm.setupScene()

@@ -1368,7 +1368,11 @@ final class DailyPocketCameraTimingTests: XCTestCase {
     func testTargetCaptureKeepsFirstPersonAfterContactThenStandsAndUndoRestoresIt() async throws {
         let (vm, view, window) = try await fixture()
         defer { vm.cancelDailyAttempt(); view.isPlaying = false; window.isHidden = true }
-        let prediction = try XCTUnwrap(vm.solvedShot).prediction
+        vm.resetsVelocityAfterShot = true
+        vm.updateSpin(x: 0, y: 0.12)
+        try await ready(vm) { !vm.isComputing && vm.solvedShot?.shot.spinY == 0.12 }
+        let struck = try XCTUnwrap(vm.solvedShot)
+        let prediction = struck.prediction
         let capture = try XCTUnwrap(prediction.events.first {
             if case .pocket(let ball, _) = $0.kind { return ball == ShotInput.targetBallName }; return false
         })
@@ -1402,12 +1406,20 @@ final class DailyPocketCameraTimingTests: XCTestCase {
         XCTAssertEqual(settlements, 1)
         XCTAssertFalse(vm.onTableKeys.contains("_1"))
         vm.replayCurrent()
+        XCTAssertEqual(vm.velocity, struck.shot.velocity)
+        XCTAssertEqual(vm.spinX, struck.shot.spinX)
+        XCTAssertEqual(vm.spinY, struck.shot.spinY)
         XCTAssertEqual(vm.scene.cameraRig?.playerView, .firstPerson, "Undo restores the shot's original view")
     }
 
     func testReplayRestoresFirstPersonThenObservationAndInterruptionReturnsCurrentBoard() async throws {
         let (vm, view, window) = try await fixture()
         defer { vm.cancelDailyAttempt(); view.isPlaying = false; window.isHidden = true }
+        vm.resetsVelocityAfterShot = true
+        vm.updateSpin(x: 0, y: 0.12)
+        try await ready(vm) { !vm.isComputing && vm.solvedShot?.shot.spinY == 0.12 }
+        let struck = try XCTUnwrap(vm.solvedShot).shot
+        XCTAssertNotEqual(struck.velocity, ShotTuning.defaultVelocity)
         let rig = try XCTUnwrap(vm.scene.cameraRig)
         let shotView = vm.scene.cameraNode.transform
         func attachView(_ name: String) {
@@ -1422,11 +1434,16 @@ final class DailyPocketCameraTimingTests: XCTestCase {
         vm.play()
         XCTAssertTrue(vm.isPlaying)
         try await ready(vm) { !vm.isPlaying && !vm.isComputing && !vm.cameraTransitionBusy }
+        XCTAssertEqual(vm.velocity, ShotTuning.defaultVelocity)
+        XCTAssertEqual(vm.spinX, 0)
+        XCTAssertEqual(vm.spinY, 0)
         XCTAssertEqual(rig.playerView, .thirdPerson)
         let observationView = vm.scene.cameraNode.transform
         let after = vm.currentSnapshot()
         let afterPoses = vm.scene.captureBallPoses()
         let afterRails = vm.scene.railInventory.snapshot()
+        vm.velocity = 2.3
+        try await ready(vm) { !vm.isComputing }
         XCTAssertFalse(SCNMatrix4EqualToMatrix4(shotView, observationView))
         attachView("replay-observation-before")
 
@@ -1436,6 +1453,8 @@ final class DailyPocketCameraTimingTests: XCTestCase {
                            after.onTable.mapValues { [$0.x, $0.y] })
             XCTAssertEqual(vm.scene.captureBallPoses(), afterPoses)
             XCTAssertEqual(vm.scene.railInventory.snapshot(), afterRails)
+            XCTAssertEqual(vm.velocity, 2.3, "Replay returns to the draft for the next shot")
+            XCTAssertEqual(vm.spinY, 0)
             XCTAssertTrue(SCNMatrix4EqualToMatrix4(vm.scene.cameraNode.transform, observationView))
             XCTAssertEqual(rig.playerView, .thirdPerson)
             XCTAssertEqual(settlements, 1, "Replay must not produce a second training/rules result")

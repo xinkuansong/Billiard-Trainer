@@ -1,6 +1,92 @@
 import XCTest
 
 final class PocketLeatherFlowUITests: XCTestCase {
+    func testRetryPocketAim() throws { try exerciseRetryPocket(title: "瞄准点练习", prefix: "aimPointTraining", action: "submit") }
+    func testRetryPocketAccuracy() throws { try exerciseRetryPocket(title: "准度练习", prefix: "accuracy", action: "strike") }
+    func testRetryPocketSeparation() throws { try exerciseRetryPocket(title: "分离角练习", prefix: "separation", action: "strike") }
+
+    func testRetryPocketComposer() throws {
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = launch(["-pocketSelection.probe", "-freeLayout.ephemeral", "-dailyInteraction.sharedPage=composer"])
+        defer { app.terminate() }
+        for dimension in ["2D", "3D"] {
+            let more = app.buttons["freeplay.moreMenu"]
+            retryReady(more); more.tap()
+            let camera = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(camera.waitForExistence(timeout: 20))
+            if camera.value as? String != dimension { camera.tap() }
+            XCTAssertEqual(camera.value as? String, dimension)
+            app.buttons["关闭菜单"].firstMatch.coordinate(withNormalizedOffset: .init(dx: 0.03, dy: 0.7)).tap()
+            let strike = app.buttons["dailyClearance.strike"]
+            retryReady(strike); retryWaitDark(app)
+            let target = try XCTUnwrap(try retryPocketState(app).first { ($0["style"] as? Int) == 1 }?["index"] as? Int)
+            strike.tap()
+            let retry = app.buttons["dailyClearance.undo"]
+            retryReady(retry); retryWaitDark(app)
+            retryCapture("composer-" + dimension + "-before-retry")
+            retry.tap()
+            let after = try retryPocketState(app)
+            retryCapture("composer-" + dimension + "-after-retry")
+            XCTAssertEqual(after.first { ($0["index"] as? Int) == target }?["yellow"] as? Double, 1)
+            XCTAssertEqual(after.filter { ($0["yellow"] as? Double ?? 0) > 0 }.count, 1)
+            retryWaitDark(app)
+            retryCapture("composer-" + dimension + "-expired")
+        }
+    }
+
+    private func exerciseRetryPocket(title: String, prefix: String, action: String) throws {
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for dimension in ["2D", "3D"] {
+            let app = launch(["-pocketSelection.probe", "-freeLayout.ephemeral", "-separation.fixedSeed"])
+            defer { app.terminate() }
+            open(title, in: app)
+            let start = app.buttons[prefix + ".start"]
+            XCTAssertTrue(start.waitForExistence(timeout: 20)); start.tap()
+            app.selectTrainingView(dimension + (prefix == "aimPointTraining" ? "瞄准点" : prefix == "accuracy" ? "准度" : "分离角"))
+            let submit = app.buttons[prefix + "." + action]
+            retryReady(submit)
+            let initial = try retryPocketState(app)
+            let target = try XCTUnwrap(initial.first { ($0["style"] as? Int) == 1 }?["index"] as? Int)
+            retryWaitDark(app)
+            submit.tap()
+            let retry = app.buttons[prefix + ".retry"]
+            retryReady(retry)
+            retryWaitDark(app)
+            retryCapture(prefix + "-" + dimension + "-before-retry")
+            retry.tap()
+            let after = try retryPocketState(app)
+            retryCapture(prefix + "-" + dimension + "-after-retry")
+            let active = try XCTUnwrap(after.first { ($0["index"] as? Int) == target })
+            XCTAssertEqual(active["style"] as? Int, 1)
+            XCTAssertEqual(active["yellow"] as? Double, 1, "Retry must show the same target pocket again")
+            XCTAssertEqual(after.filter { ($0["yellow"] as? Double ?? 0) > 0 }.count, 1)
+            retryWaitDark(app)
+            retryCapture(prefix + "-" + dimension + "-expired")
+            XCTAssertEqual(try retryPocketState(app).first { ($0["style"] as? Int) == 1 }?["index"] as? Int, target)
+        }
+    }
+
+    private func retryReady(_ element: XCUIElement) {
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "exists == true AND enabled == true AND hittable == true"), object: element)], timeout: 120), .completed)
+    }
+    private func retryPocketState(_ app: XCUIApplication) throws -> [[String: Any]] {
+        let scene = app.descendants(matching: .any).matching(NSPredicate(format: "identifier IN %@", ["table.scene", "aimPointTraining.scene"])).firstMatch
+        let value = try XCTUnwrap(scene.value as? String)
+        let data = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(value.utf8)) as? [String: Any])
+        return try XCTUnwrap(data["pockets"] as? [[String: Any]])
+    }
+    private func retryWaitDark(_ app: XCUIApplication) {
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard let pockets = try? self.retryPocketState(app), pockets.count == 6 else { return false }
+            return pockets.allSatisfy { ($0["yellow"] as? Double) == 0 && ($0["pending"] as? Bool) == false }
+        }, object: app)], timeout: 15), .completed)
+    }
+    private func retryCapture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "retry-pocket-" + name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
     private var trainingTitle = ""
     private var evidence: URL {
         URL(fileURLWithPath: ProcessInfo.processInfo.environment["POCKET_UI_EVIDENCE"] ?? ProcessInfo.processInfo.environment["TEST_RUNNER_POCKET_UI_EVIDENCE"] ?? URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("output/pocket-leather/W4/standard").path)

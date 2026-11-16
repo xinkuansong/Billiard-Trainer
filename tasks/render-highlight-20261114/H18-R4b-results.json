@@ -1,0 +1,258 @@
+{
+  "evidence": "output/local-test-runs/e081b4c4ead84f59a98445f78d6fa296/evidence/results.json",
+  "sha256": "a784d47961b9dc2f313ecdb8c233c8d772c0dcd9f5bc823b69de278694574df7",
+  "rows": [
+    {
+      "pose": "single-low",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 327680,
+      "pairs": 44,
+      "maximum": 6,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [
+        {
+          "frame": 0,
+          "shadows": true,
+          "maximum": 5
+        },
+        {
+          "frame": 1,
+          "shadows": true,
+          "maximum": 5
+        },
+        {
+          "frame": 2,
+          "shadows": true,
+          "maximum": 5
+        },
+        {
+          "frame": 3,
+          "shadows": true,
+          "maximum": 5
+        },
+        {
+          "frame": 4,
+          "shadows": true,
+          "maximum": 5
+        },
+        {
+          "frame": 5,
+          "shadows": true,
+          "maximum": 5
+        },
+        {
+          "frame": 6,
+          "shadows": true,
+          "maximum": 5
+        },
+        {
+          "frame": 7,
+          "shadows": true,
+          "maximum": 4
+        },
+        {
+          "frame": 9,
+          "shadows": true,
+          "maximum": 4
+        },
+        {
+          "frame": 10,
+          "shadows": true,
+          "maximum": 5
+        },
+        {
+          "frame": 15,
+          "shadows": true,
+          "maximum": 2
+        },
+        {
+          "frame": 16,
+          "shadows": true,
+          "maximum": 3
+        },
+        {
+          "frame": 19,
+          "shadows": true,
+          "maximum": 6
+        },
+        {
+          "frame": 20,
+          "shadows": true,
+          "maximum": 6
+        },
+        {
+          "frame": 21,
+          "shadows": true,
+          "maximum": 6
+        },
+        {
+          "frame": 0,
+          "shadows": false,
+          "maximum": 5
+        },
+        {
+          "frame": 1,
+          "shadows": false,
+          "maximum": 5
+        },
+        {
+          "frame": 2,
+          "shadows": false,
+          "maximum": 5
+        },
+        {
+          "frame": 3,
+          "shadows": false,
+          "maximum": 5
+        },
+        {
+          "frame": 4,
+          "shadows": false,
+          "maximum": 5
+        },
+        {
+          "frame": 5,
+          "shadows": false,
+          "maximum": 5
+        },
+        {
+          "frame": 6,
+          "shadows": false,
+          "maximum": 5
+        },
+        {
+          "frame": 7,
+          "shadows": false,
+          "maximum": 4
+        },
+        {
+          "frame": 9,
+          "shadows": false,
+          "maximum": 4
+        },
+        {
+          "frame": 10,
+          "shadows": false,
+          "maximum": 5
+        },
+        {
+          "frame": 15,
+          "shadows": false,
+          "maximum": 2
+        },
+        {
+          "frame": 16,
+          "shadows": false,
+          "maximum": 3
+        },
+        {
+          "frame": 19,
+          "shadows": false,
+          "maximum": 6
+        },
+        {
+          "frame": 20,
+          "shadows": false,
+          "maximum": 6
+        },
+        {
+          "frame": 21,
+          "shadows": false,
+          "maximum": 6
+        }
+      ],
+      "timing": {}
+    },
+    {
+      "pose": "single-near",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 327680,
+      "pairs": 44,
+      "maximum": 15,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [
+        {
+          "frame": 19,
+          "shadows": true,
+          "maximum": 14
+        },
+        {
+          "frame": 20,
+          "shadows": true,
+          "maximum": 14
+        },
+        {
+          "frame": 21,
+          "shadows": true,
+          "maximum": 14
+        },
+        {
+          "frame": 19,
+          "shadows": false,
+          "maximum": 14
+        },
+        {
+          "frame": 20,
+          "shadows": false,
+          "maximum": 14
+        },
+        {
+          "frame": 21,
+          "shadows": false,
+          "maximum": 15
+        }
+      ],
+      "timing": {}
+    },
+    {
+      "pose": "scatter-overview",
+      "variant": "integral",
+      "width": 700,
+      "height": 400,
+      "lutAllocatedBytes": 327680,
+      "pairs": 44,
+      "maximum": 3,
+      "aaMaximum": 0,
+      "restoreMaximum": 0,
+      "failures": [
+        {
+          "frame": 7,
+          "shadows": true,
+          "maximum": 3
+        },
+        {
+          "frame": 9,
+          "shadows": true,
+          "maximum": 2
+        },
+        {
+          "frame": 13,
+          "shadows": true,
+          "maximum": 2
+        },
+        {
+          "frame": 7,
+          "shadows": false,
+          "maximum": 3
+        },
+        {
+          "frame": 9,
+          "shadows": false,
+          "maximum": 2
+        },
+        {
+          "frame": 13,
+          "shadows": false,
+          "maximum": 2
+        }
+      ],
+      "timing": {}
+    }
+  ]
+}

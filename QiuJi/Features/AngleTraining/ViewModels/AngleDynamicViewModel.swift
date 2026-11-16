@@ -3,7 +3,8 @@ import SceneKit
 import SwiftUI
 
 @MainActor
-final class AngleDynamicViewModel: TeachingTableHost {
+final class AngleDynamicViewModel: TeachingTableHost, BoardMemoryHosting {
+    let boardMemory = BoardMemory(page: "angle")
 
     // MARK: - Scene
 
@@ -277,6 +278,7 @@ final class AngleDynamicViewModel: TeachingTableHost {
     // MARK: - Drag Handling
 
     func dragBegan(node: SCNNode) {
+        boardMemory.save()
         guard !activitySuspended else { return }
         isDragging = true
         draggedNode = node
@@ -334,6 +336,7 @@ final class AngleDynamicViewModel: TeachingTableHost {
     }
 
     func dragEnded(node: SCNNode) {
+        defer { boardMemory.save() }
         isDragging = false
 
         guard !activitySuspended else { TableBallPulse.restore(node); return }
@@ -593,5 +596,27 @@ final class AngleDynamicViewModel: TeachingTableHost {
             scaleDown.timingMode = .easeInEaseOut
             ball.runAction(.sequence([scaleUp, scaleDown]))
         }
+    }
+}
+
+extension AngleDynamicViewModel {
+    typealias SavedBoard = SavedObservationBoard
+    var savedBoard: SavedBoard? {
+        guard !isDragging, !isRandomizing else { return nil }
+        return .init(board: SavedObservationBoard.capture(scene), target: selectedTargetKey,
+                     pockets: selectedTargetKey.map { [$0: selectedPocketIndex] } ?? [:])
+    }
+    func restoreSavedBoard(_ value: SavedBoard) throws {
+        try value.validate()
+        suspendTeachingActivity(); resumeRandomization = false; activitySuspended = false
+        value.apply(to: scene); refreshOnTableKeys()
+        selectedTargetKey = value.target
+        selectedPocketIndex = value.target.flatMap { value.pockets[$0] } ?? -1
+        scene.setCurrentTargetNumber(value.target.flatMap(PositionPlayBall.number(for:)))
+        updatePocketHighlights(confirmsSelection: false); updateCalculations()
+    }
+    func resetRememberedBoard() {
+        suspendTeachingActivity(); activitySuspended = false; resumeRandomization = false
+        resetToDefaults()
     }
 }

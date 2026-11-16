@@ -278,6 +278,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         isRetrying = true; phase = .aiming; showAngleHint = false
         lastScore = nil; lastErrorMM = nil; answerCloseupSnapshot = nil
         closeupGate.reset(); redrawLines()
+        scene.remindTargetPocket(at: selectedPocketIndex)
     }
 
     func toggleAngleHint() {

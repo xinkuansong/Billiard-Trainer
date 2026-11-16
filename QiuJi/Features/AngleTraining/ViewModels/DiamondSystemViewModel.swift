@@ -7,7 +7,9 @@ import SceneKit
 /// target) with the real physics engine (W3, `ShotPredictor.predictKickAll` 四层管线)：
 /// 解 = 引擎全保真 `ShotPrediction`，按「好打优先」（难度 + 扰动容错）排序，配 LRU 解缓存。
 @MainActor
-final class DiamondSystemViewModel: ObservableObject {
+final class DiamondSystemViewModel: ObservableObject, BoardMemoryHosting {
+    let boardMemory = BoardMemory(page: "diamond")
+    private var pendingMemoryInput: SavedCushionBoard?
 
     @Published var cameraTransitionBusy = false
     @Published var temporaryTopDownActive = false
@@ -217,6 +219,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// Revoke stale results immediately; coalesce completed edits before searching.
     func invalidateSolve(automatically: Bool = true) {
+        pendingMemoryInput = nil
         cancelSolve()
         adjustGeneration += 1
         isSolving = false
@@ -288,12 +291,14 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 拖动中只清线不重算（引擎反解重于旧追迹，拖动中连续重算无意义）；松手后自动求解。
     func dragBegan(node: SCNNode) {
+        boardMemory.save()
         TableBallPulse.beginDrag(node)
         invalidateSolve(automatically: false)
         isDragging = true
     }
 
     func dragEnded(node: SCNNode) {
+        defer { boardMemory.save() }
         TableBallPulse.endDrag(node)
         isDragging = false
         if mode == .free {
@@ -473,6 +478,7 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 求解模式「击打」= 演示：回放该解的引擎全保真 `ShotPrediction`（母球绕库碰目标球、
     /// 两球碰后真实去向、障碍球被扰动），结束自动复原击打前球形。画面=物理=回放单一口径。
     func strike() {
+        boardMemory.save()
         guard canStrike, mode == .solve, let sol = currentSolution else { return }
         guard scene.permitsCueStrike(aim:sol.prediction.aimDirection,spinX:Double(sol.spinX),spinY:0) else {
             simulationNotice = CueStrikeAccess.unavailableMessage
@@ -588,6 +594,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 回放上一杆：恢复击打前状态并重放该解的演示。
     func replaySolveShot() {
+        boardMemory.save()
         guard !temporaryTopDownActive, mode == .solve, !isPlaying, let ctx = lastSolveUndo,
               ctx.struckPrediction.hasFinalTableState, ctx.struckPrediction.recorder != nil,
               ctx.struckPrediction.duration > 0.05 else { return }
@@ -990,6 +997,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 自由击球（试手）：`simulateFree` 真物理，球停在哪是哪；进袋球离场（恢复球形/上一杆可回）。
     func freeStrike() {
+        boardMemory.save()
         guard !temporaryTopDownActive, canFreeStrike, let cueNode = scene.cueBallNode, let dir = freeAimDir, let pred = freePreviewPrediction else { return }
         guard scene.permitsCueStrike(aim:dir,spinX:spinX,spinY:spinY) else {
             simulationNotice = CueStrikeAccess.unavailableMessage
@@ -1035,6 +1043,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 回放上一杆：重播引擎 recorder，结束恢复点击回放时的球形和视角。
     func replayLastShot() {
+        boardMemory.save()
         guard !temporaryTopDownActive, mode == .free, !isPlaying, let shot = lastShot,
               shot.prediction.hasFinalTableState, shot.prediction.recorder != nil else { return }
         beginReplay()
@@ -1166,7 +1175,9 @@ final class DiamondSystemViewModel: ObservableObject {
               let cue = scene.cueBallNode?.position,
               let target = scene.targetBallNodes.first?.position else { return }
 
+        let rememberedInput = pendingMemoryInput
         invalidateSolve(automatically: false)
+        pendingMemoryInput = rememberedInput
         hasAttemptedSolve = true
         let prevCushions = currentCushions
 
@@ -1206,6 +1217,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 应用求解结果（过滤、选路、绘制）。在主线程执行。
     private func applySolutions(_ sols: [KickEngineSolution], prevCushions: Int, isNewCatalog: Bool = true) {
+        defer { applyRememberedInput() }
         simulationNotice = nil
         adjustGeneration += 1
         adjustmentDraft = nil
@@ -1474,5 +1486,68 @@ final class DiamondSystemViewModel: ObservableObject {
         scene.clearResultNodes(nodes: &pathNodes)
         scene.ghostBallNode?.isHidden = true
         scene.contactDotNode?.isHidden = true
+    }
+}
+
+
+extension DiamondSystemViewModel {
+    typealias SavedBoard = SavedCushionBoard
+    var savedBoard: SavedBoard? {
+        guard !isPlaying, !isDragging else { return nil }
+        if let pendingMemoryInput { return pendingMemoryInput }
+        let aim = catalogSolution?.prediction.aimDirection
+        return .init(target: "_8", poses: captureBoard().mapValues(SavedBallRest.init),
+            free: mode == .free, pocket: nil, cushions: selectedCushions,
+            direction: freeAimDir.map { [$0.x, $0.y, $0.z] }, power: reflectionPower,
+            spinX: spinX, spinY: spinY, catalogPower: catalogSolvePower,
+            catalogDirection: aim.map { [$0.x, $0.y, $0.z] })
+    }
+    func restoreSavedBoard(_ value: SavedBoard) throws {
+        try value.validate()
+        guard value.target == "_8" else { throw CocoaError(.coderReadCorrupt) }
+        let poses = try value.poses.mapValues { try $0.restored() }
+        stopForDismissal()
+        lastShot = nil; lastSolveUndo = nil; lastSolveSnapshot = nil
+        canUndoShot = false; canPlaybackShot = false; canUndoSolve = false; canReplaySolve = false
+        resumeAdjustment = false; resumeSolve = false
+        isRestoringSolve = true
+        mode = value.free ? .free : .solve
+        scene.cueBallNode?.isHidden = poses[Self.snapshotCueKey] == nil
+        scene.targetBallNodes.first?.isHidden = poses[Self.snapshotTargetKey] == nil
+        applyBoard(poses)
+        selectedCushions = value.cushions
+        freeAimDir = value.direction.map { SCNVector3($0[0], $0[1], $0[2]) }
+        reflectionPower = value.free || value.catalogDirection == nil ? value.power : value.catalogPower
+        spinX = value.spinX; spinY = value.spinY
+        invalidateSolve(automatically: false)
+        pendingMemoryInput = value.free ? nil : value
+        scene.railInventory.clear()
+        isRestoringSolve = false; activitySuspended = false
+        if value.free { refreshFreeAim() } else { scheduleAutomaticSolve() }
+    }
+    private func applyRememberedInput() {
+        guard let input = pendingMemoryInput else { return }
+        pendingMemoryInput = nil
+        guard input.catalogDirection != nil else { return }
+        guard let index = displayed.firstIndex(where: { input.matches($0.prediction.aimDirection) }) else {
+            simulationNotice = "球形已恢复，原微调路线已失效，请选择当前解"
+            return
+        }
+        showSolution(at: index)
+        if abs(reflectionPower - input.power) > 0.0001 || abs(spinX - input.spinX) > 0.0001 || abs(spinY - input.spinY) > 0.0001 {
+            adjustCurrentSolution(velocity: input.power, spinX: input.spinX, spinY: input.spinY)
+        }
+    }
+    func resetRememberedBoard() {
+        stopForDismissal()
+        lastShot = nil; lastSolveUndo = nil; lastSolveSnapshot = nil
+        canUndoShot = false; canPlaybackShot = false; canUndoSolve = false; canReplaySolve = false
+        resumeAdjustment = false; resumeSolve = false; pendingMemoryInput = nil
+        isRestoringSolve = true
+        mode = .solve; selectedCushions = nil; freeAimDir = nil
+        reflectionPower = Double(CushionReflectionSettings.defaultPower); spinX = 0; spinY = 0
+        reset()
+        isRestoringSolve = false; activitySuspended = false
+        scheduleAutomaticSolve()
     }
 }

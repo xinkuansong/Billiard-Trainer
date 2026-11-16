@@ -11,6 +11,31 @@ enum DailyShotRecommendation {
         var cueTargetDistance: Double = 0
         var targetPocketDistance: Double = 0
         var comfortScore: Double? = nil
+        var attackScore: Double? = nil
+        var targetToleranceDegrees: Double? = nil
+        fileprivate var rankingScore: Double? { attackScore ?? comfortScore }
+    }
+
+    /// The attacker's ranking is the inverse of the v9 defensive grade.
+    static func attackCandidates(cue: SCNVector3, target: SCNVector3, targetKey: String,
+                                 obstacles: [SCNVector3], surfaceY: Float,
+                                 assessment: inout DefenseAttackAssessment) throws -> [Candidate] {
+        func point(_ position: SCNVector3) -> DefenseAttackAssessment.P {
+            .init(Double(position.x), Double(position.z))
+        }
+        let routes = try assessment.pipeAttack(point(cue), point(target), obstacles.map(point),
+                                               confirmingBlocks: false)
+        return routes.routes.compactMap { route in
+            guard let cut = route.cutDegrees, cut < AngleSceneCalculator.maxCutAngle,
+                  MiddlePocketRegion.assess(target: target, pocket: route.pocket,
+                                            calibration: MiddlePocketRegion.production) != .outside else { return nil }
+            let aim = SCNVector3(Float(route.aim[0]), surfaceY, Float(route.aim[1]))
+            return Candidate(targetKey: targetKey, pocketIndex: route.pocket, aim: aim, cutDegrees: cut,
+                             cueTargetDistance: (point(cue) - point(target)).length,
+                             targetPocketDistance: (point(aim) - point(target)).length,
+                             comfortScore: route.comfort, attackScore: 100 - route.score,
+                             targetToleranceDegrees: route.tolerance)
+        }
     }
     static func candidate(cue: SCNVector3, target: SCNVector3,
                           targetKey: String, pocketIndex: Int,
@@ -82,8 +107,8 @@ enum DailyShotRecommendation {
     }
     static func best(_ candidates: [Candidate],
         preferred: (target: String, pocket: Int)? = nil) -> Candidate? {
-        candidates.filter { $0.comfortScore?.isFinite == true }.min { lhs, rhs in
-            if lhs.comfortScore! != rhs.comfortScore! { return lhs.comfortScore! > rhs.comfortScore! }
+        candidates.filter { $0.rankingScore?.isFinite == true }.min { lhs, rhs in
+            if lhs.rankingScore! != rhs.rankingScore! { return lhs.rankingScore! > rhs.rankingScore! }
             let lp = lhs.targetKey == preferred?.target && lhs.pocketIndex == preferred?.pocket
             let rp = rhs.targetKey == preferred?.target && rhs.pocketIndex == preferred?.pocket
             if lp != rp { return lp }

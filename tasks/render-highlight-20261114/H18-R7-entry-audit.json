@@ -1,0 +1,152 @@
+{
+  "scope": "Source call-chain audit only, not per-page runtime acceptance",
+  "consumers": [
+    {
+      "path": "QiuJi/Core/Scene/DrillSceneView.swift",
+      "line": 117,
+      "call": "scene.setupScene(recipe: .liveReference)"
+    },
+    {
+      "path": "QiuJi/Features/AccuracyPractice/AccuracyPracticeViewModel.swift",
+      "line": 270,
+      "call": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/ViewModels/AngleDynamicViewModel.swift",
+      "line": 152,
+      "call": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift",
+      "line": 289,
+      "call": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/ViewModels/CushionEnglishAtlasViewModel.swift",
+      "line": 94,
+      "call": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift",
+      "line": 266,
+      "call": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/ViewModels/SeparationAngleAtlasViewModel.swift",
+      "line": 85,
+      "call": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift",
+      "line": 106,
+      "call": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift",
+      "line": 154,
+      "call": "vm.scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/BallExtraction/ViewModels/BallExtractionViewModel.swift",
+      "line": 298,
+      "call": "scene.setupScene(recipe: .liveReference)"
+    },
+    {
+      "path": "QiuJi/Features/BankPractice/BankPracticeViewModel.swift",
+      "line": 270,
+      "call": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift",
+      "line": 369,
+      "call": "composer.scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/DefensePractice/DefensePracticeViewModel.swift",
+      "line": 280,
+      "call": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/KBallPractice/KBallPracticeViewModel.swift",
+      "line": 252,
+      "call": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/KickPractice/KickPracticeViewModel.swift",
+      "line": 260,
+      "call": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/PocketTolerance/PocketToleranceViewModel.swift",
+      "line": 40,
+      "call": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift",
+      "line": 481,
+      "call": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift",
+      "line": 258,
+      "call": "scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+      "line": 573,
+      "call": "if isDailyClearance { vm.scene.configureDailyClearanceRendering(asynchronousReflection: true) }"
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+      "line": 576,
+      "call": "vm.scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/Profile/Views/AppearanceCombinationPreview.swift",
+      "line": 16,
+      "call": "scene.setupScene(recipe: .liveReference)"
+    },
+    {
+      "path": "QiuJi/Features/Profile/Views/OnboardingStyleLab.swift",
+      "line": 214,
+      "call": "scene.setupScene(recipe: .liveReference, roomStyle: .tournament)"
+    },
+    {
+      "path": "QiuJi/Features/SeparationPractice/SeparationPracticeViewModel.swift",
+      "line": 285,
+      "call": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/ThreeBallPractice/ThreeBallPracticeViewModel.swift",
+      "line": 284,
+      "call": "builtScene = true; scene.configureReferenceTableRendering()"
+    },
+    {
+      "path": "QiuJi/Features/TwoBallPractice/TwoBallPracticeViewModel.swift",
+      "line": 320,
+      "call": "builtScene = true; scene.configureReferenceTableRendering()"
+    }
+  ],
+  "sharedEntry": "MobileReferenceLighting.refreshClothLighting(in:ballCount:)",
+  "viewSelection": "Same GPU program consumes each renderer camera matrices, including shared-material temporary top-down clone",
+  "fallback": [
+    "disabled request",
+    "unknown source/capacity/rig",
+    "missing/corrupt LUT",
+    "outside validated view domain",
+    "far8 / roughness below 0.4"
+  ],
+  "measuredLTCDomain": {
+    "eyeHeightAboveBedMetres": [
+      0.25,
+      0.5
+    ],
+    "downPitchDegrees": [
+      30,
+      65
+    ],
+    "fragmentDistanceMetresMax": 1.0,
+    "roughnessMin": 0.4,
+    "requiresOriginalNear64": true
+  }
+}

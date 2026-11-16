@@ -435,6 +435,7 @@ final class DailyClearanceController: ObservableObject {
     private func restore(_ restored: DailyClearanceDraft) {
         switch restored.phase {
         case .playing:
+            (host as? PositionPlayViewModel)?.practiceRequiresExplicitAim = isPlanning
             if let board = restored.board { host?.loadDailyClearanceBoard(board) }
             statusText = restored.ruleState.ruleVersion < 2 ? "已恢复旧规则球局；重新开球后使用新规则" : "已恢复今日清台"
             if !restored.ruleState.breakChoices.isEmpty {

@@ -61,6 +61,11 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     private(set) var mergesDailyClothSupport = false
     private(set) var factorsDailyClothBRDF = false
     private(set) var clothSupportRequest: DailyClothSupportExperiment.Request = .configuredDefault
+    /// Preparation-time selection. Camera movement stays inside one GPU program.
+    var clothLTCRequested = ClothSpecularLTC.requested()
+    var clothSpecularLTC: ClothSpecularLTC?
+    private(set) var clothLTCState = "off"
+
     var safeClothSupportRequested: Bool { clothSupportRequest != .off }
     private(set) var safeClothSupportState = DailyClothSupportExperiment.pending(
         request: .configuredDefault, profile: MobileReferenceLighting.specializedProfile)
@@ -76,11 +81,14 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     }
 
     /// Material/probe attribution is updated only after installation or uniform expansion.
-    func recordSafeClothSupportState(_ state: DailyClothSupportExperiment.State) {
-        guard state != safeClothSupportState else { return }
-        let previousProbeIdentity = safeClothSupportState.probeCacheIdentity
-        safeClothSupportState = state
-        if previousProbeIdentity != state.probeCacheIdentity { refreshRoomReflectionProbe() }
+    func recordClothLightingState(support: DailyClothSupportExperiment.State, ltc: String) {
+        let changed = safeClothSupportState.probeCacheIdentity != support.probeCacheIdentity
+            || clothLTCState != ltc
+        safeClothSupportState = support
+        clothLTCState = ltc
+        // Commit both identities before refreshing. A capacity expansion must
+        // not bake an intermediate combination that is immediately superseded.
+        if changed { refreshRoomReflectionProbe() }
     }
 
     /// Opt in to the current reference materials without selecting a camera policy.
@@ -183,6 +191,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         let appearanceChanged = tableAppearance?.style != style || tableAppearance?.showsSights != showsSights
         guard tableAppearance?.apply(style, showsSights: showsSights) == true else { return false }
         for marker in leatherMarkers { marker.applyTableStyle(style) }
+        TableBranding.setVisible(currentCameraMode == .perspective3D, in: tableNode)
         if showsPracticeRailColors && appearanceChanged { setPracticeRailColors(true, segments: practiceRailSegments) }
         refreshRoomReflectionProbe()
         return true
@@ -343,6 +352,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     }
     private var reusableTableKey: String {
         var key = "\(ModelAssetTrial.identity("TaiQiuZhuo"))|tableBindings.v2|\(renderingProfile.rawValue)|\(sceneExposureOffset ?? 0)|\(mergesDailyClothSupport)|\(factorsDailyClothBRDF)"
+        key += "|clothLTC=\(clothLTCRequested ? ClothSpecularLTC.identity : "off")"
         #if DEBUG
         key += "|prototype=\(usesClothLightingPrototype)"
         #endif
@@ -390,7 +400,11 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         probeRequestGeneration &+= 1
         pendingProbeInputs = nil
         roomReflectionProbe = nil
-        if !mobileRendering || enhancedRendering { staticClothIrradiance = nil }
+        if !mobileRendering || enhancedRendering {
+            staticClothIrradiance = nil
+            clothSpecularLTC = nil
+            clothLTCState = "off"
+        }
         installedProbeInputs = nil
         defer {
             isSettingUpScene = false
@@ -1500,6 +1514,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         // accidentally match a newly inserted prediction node to a removed node.
         var seen = Set<SCNNode>()
         func mirror(_ source: SCNNode, parent: SCNNode, world: Bool, lightOnly: Bool = false) {
+            if source.name == TableBranding.nodePrefix + "root" { return }
             let id = source
             seen.insert(id)
             let copy: SCNNode
@@ -1562,6 +1577,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// before any fallback overview is applied. Return false to use the normal fallback.
     func setCameraMode(_ mode: CameraMode, animated: Bool = true,
                        initializePerspective: (() -> Bool)? = nil) {
+        TableBranding.setVisible(mode == .perspective3D, in: tableNode)
         if mode != .perspective3D {
             pocketDisplayOrientation = .init(portrait: mode == .topDown2DRotated)
         }
@@ -2360,6 +2376,13 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         cancelPocketSelectionFeedback()
         if emitsHaptic { pocketSelectionHaptic() }
         marker.confirmSelection(delay: source == .manual ? PocketLeatherMarker.manualSelectionPulseDelay : 0)
+    }
+
+    /// A successful retry reminds the player of an existing transient target.
+    /// Persistent role colours and selection haptics belong to other events.
+    func remindTargetPocket(at index: Int) {
+        guard leatherMarkers.contains(where: { $0.pocketIndex == index && $0.style == .target }) else { return }
+        confirmPocketSelection(at: index, emitsHaptic: false)
     }
 
     /// Explicit dual-role state; equal indices show both roles on the same leather.

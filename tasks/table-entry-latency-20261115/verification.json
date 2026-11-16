@@ -1,0 +1,119 @@
+{
+  "runs": [
+    {
+      "run": "167c75df6d064be6a7cfaf614ac726bd",
+      "state": "reclaimed",
+      "exit": 0,
+      "workExists": false
+    },
+    {
+      "run": "fabcfc0229b24a7ca757e80812754f12",
+      "state": "reclaimed",
+      "exit": 0,
+      "workExists": false
+    },
+    {
+      "run": "7cef790985694c019fd8fecab79d858d",
+      "state": "reclaimed",
+      "exit": 0,
+      "workExists": false
+    },
+    {
+      "run": "65bdab43adc54682b9f5cd07bbab3a34",
+      "state": "reclaimed",
+      "exit": 1,
+      "workExists": false
+    },
+    {
+      "run": "a9203831eec8494a8900855a22eaaf24",
+      "state": "reclaimed",
+      "exit": 0,
+      "workExists": false
+    }
+  ],
+  "device": {
+    "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+    "dataPath": "/Users/song/Library/Developer/CoreSimulator/Devices/4F00E012-1FA4-4F08-97E0-1B41160A63CC/data",
+    "dataPathSize": 13289226240,
+    "logPath": "/Users/song/Library/Logs/CoreSimulator/4F00E012-1FA4-4F08-97E0-1B41160A63CC",
+    "udid": "4F00E012-1FA4-4F08-97E0-1B41160A63CC",
+    "lastUsedAt": "2026-11-15T15:11:13Z",
+    "isAvailable": true,
+    "logPathSize": 626688,
+    "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4-8GB",
+    "state": "Shutdown",
+    "name": "QiuJi-Preview-09-Pad13-P"
+  },
+  "tests": [
+    {
+      "path": "output/local-test-runs/167c75df6d064be6a7cfaf614ac726bd/evidence/round-0-3D-default/test.log",
+      "executed": [
+        "Executed 1 test, with 0 failures (0 unexpected) in 96.078 (96.080) seconds"
+      ],
+      "succeeded": true
+    },
+    {
+      "path": "output/local-test-runs/fabcfc0229b24a7ca757e80812754f12/evidence/round-3-2D-default/test.log",
+      "executed": [
+        "Executed 1 test, with 0 failures (0 unexpected) in 41.737 (41.739) seconds"
+      ],
+      "succeeded": true
+    },
+    {
+      "path": "output/local-test-runs/fabcfc0229b24a7ca757e80812754f12/evidence/round-4-3D-stacks/test.log",
+      "executed": [
+        "Executed 1 test, with 0 failures (0 unexpected) in 27.918 (27.920) seconds"
+      ],
+      "succeeded": true
+    },
+    {
+      "path": "output/local-test-runs/fabcfc0229b24a7ca757e80812754f12/evidence/round-1-3D-reference/test.log",
+      "executed": [
+        "Executed 1 test, with 0 failures (0 unexpected) in 54.915 (54.917) seconds"
+      ],
+      "succeeded": true
+    },
+    {
+      "path": "output/local-test-runs/fabcfc0229b24a7ca757e80812754f12/evidence/round-2-3D-default/test.log",
+      "executed": [
+        "Executed 1 test, with 0 failures (0 unexpected) in 50.937 (50.939) seconds"
+      ],
+      "succeeded": true
+    },
+    {
+      "path": "output/local-test-runs/fabcfc0229b24a7ca757e80812754f12/evidence/round-0-3D-default/test.log",
+      "executed": [
+        "Executed 1 test, with 0 failures (0 unexpected) in 53.149 (53.151) seconds"
+      ],
+      "succeeded": true
+    },
+    {
+      "path": "output/local-test-runs/7cef790985694c019fd8fecab79d858d/evidence/round-1-3D-default/test.log",
+      "executed": [
+        "Executed 1 test, with 0 failures (0 unexpected) in 51.030 (51.032) seconds"
+      ],
+      "succeeded": true
+    },
+    {
+      "path": "output/local-test-runs/7cef790985694c019fd8fecab79d858d/evidence/round-0-3D-default/test.log",
+      "executed": [
+        "Executed 1 test, with 0 failures (0 unexpected) in 52.930 (52.932) seconds"
+      ],
+      "succeeded": true
+    },
+    {
+      "path": "output/local-test-runs/a9203831eec8494a8900855a22eaaf24/evidence/round-1-3D-default/test.log",
+      "executed": [
+        "Executed 1 test, with 0 failures (0 unexpected) in 51.030 (51.032) seconds"
+      ],
+      "succeeded": true
+    },
+    {
+      "path": "output/local-test-runs/a9203831eec8494a8900855a22eaaf24/evidence/round-0-3D-default/test.log",
+      "executed": [
+        "Executed 1 test, with 0 failures (0 unexpected) in 53.684 (53.686) seconds"
+      ],
+      "succeeded": true
+    }
+  ]
+}

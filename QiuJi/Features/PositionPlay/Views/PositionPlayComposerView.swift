@@ -17,6 +17,8 @@ struct PositionPlayEditorConfiguration {
     var layoutEditingBlocked: Bool = false
     var formation: CustomFormationSession? = nil
     var onBack: (() -> Void)? = nil
+    var usesAttackRecommendations = false
+    var savesBoardMemory = false
 }
 
 /// Free layout / drill tryout retain their board and sequence semantics inside the daily table shell.
@@ -40,6 +42,7 @@ struct PositionPlayComposerView: View {
     }
 
     @StateObject private var vm = PositionPlayViewModel()
+    @ObservedObject private var memoryOwner = CurrentOwnerContext.shared
     @Environment(\.dismiss) private var dismiss
     @State private var tryoutBoard: BoardSnapshot?
     @State private var tryoutAimPreference: PositionPlayViewModel.AimMode = .pocket
@@ -47,6 +50,7 @@ struct PositionPlayComposerView: View {
     @State private var showClearTableConfirm = false
     @AppStorage("drillTryout.hasSeenGestureHint") private var hasSeenGestureHint = false
     private var isTryout: Bool { sourceDrill != nil }
+    var usesAttackRecommendations: Bool { !isTryout }
     private var openingBoard: BoardSnapshot? {
         if let sourceDrill { return tryoutFormation?.initial ?? DrillBoardBuilder.board(for: sourceDrill) }
         return initialBoard ?? Self.defaultBoard
@@ -58,7 +62,15 @@ struct PositionPlayComposerView: View {
             allowsSeparationAssist: isTryout, setup: setupBoard,
             onInteraction: dismissBriefOnInteraction, onRearrange: rearrange,
             modeItem: tryoutModeItem, aimItems: tryoutAimItems, menuItems: editorMenuItems, overlay: AnyView(briefOverlay),
-            layoutEditingBlocked: showClearTableConfirm, onBack: { if let onBack { onBack() } else { dismiss() } }))
+            layoutEditingBlocked: showClearTableConfirm, onBack: { if let onBack { onBack() } else { dismiss() } },
+            usesAttackRecommendations: usesAttackRecommendations, savesBoardMemory: !isTryout))
+        .modifier(BoardMemoryNotice(memory: vm.boardMemory))
+        .onChange(of: memoryOwner.ownerKey) { _, _ in
+            guard !isTryout else { return }
+            vm.boardMemory.end()
+            restoreDefaultBoard()
+            vm.beginBoardMemory()
+        }
         .confirmationDialog(vm.isRecording ? "清空桌面将丢弃录制中的 \(vm.stepCount) 杆。" : "清空桌面上所有球？",
                             isPresented: $showClearTableConfirm, titleVisibility: .visible) {
             Button("取消", role: .cancel) {}
@@ -81,6 +93,8 @@ struct PositionPlayComposerView: View {
     }
 
     private func setupBoard() {
+        // The practice card opens the default board; imported boards and guided drills have their own workflows.
+        vm.resetsVelocityAfterShot = !isTryout && initialBoard == nil
         if let sourceDrill {
             vm.isGuidedTryout = true
             if let board = tryoutFormation?.initial ?? DrillBoardBuilder.board(for: sourceDrill) {
@@ -100,7 +114,19 @@ struct PositionPlayComposerView: View {
                 _ = vm.selectTarget(key: "_1")
                 vm.selectPocket(at: 1)
             }
+            vm.beginBoardMemory(imported: initialBoard != nil)
         }
+    }
+
+    private func restoreDefaultBoard() {
+        vm.cancelDailyAttempt()
+        vm.cancelBreakFlow()
+        vm.loadBoard(Self.defaultBoard)
+        vm.setPreferredAimMode(.pocket)
+        vm.velocity = 2
+        vm.spinX = 0; vm.spinY = 0
+        _ = vm.selectTarget(key: "_1")
+        vm.selectPocket(at: 1)
     }
 
     private func dismissBriefOnInteraction() {
@@ -130,7 +156,9 @@ struct PositionPlayComposerView: View {
             return [.init(id: "tryout.info", title: "试打说明", disclosure: true, action: { showBrief.toggle() })]
         }
         let busy = vm.isPlaying || vm.isBreakMode
-        return [.init(id: "composer.clear", title: "清空桌面", disabled: busy, action: { showClearTableConfirm = true })]
+        return [.init(id: "composer.clear", title: "清空桌面", disabled: busy, action: { showClearTableConfirm = true }),
+                .init(id: "composer.reset", title: "恢复默认球形", disabled: vm.isPlaying,
+                      action: { vm.boardMemory.reset { restoreDefaultBoard() } })]
     }
 
     private var currentTryoutFormation: DrillTryoutFormation? {

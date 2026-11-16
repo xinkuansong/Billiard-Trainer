@@ -1,3 +1,10 @@
+<!-- Changelog 2026-11-16 FL-261：性能/生命周期击球样本核实际前置与结果phase，按钮点击不直接计出杆；无正式UI/API变化。见table-idle-20261116/RESULTS.md。 -->
+<!-- Changelog 2026-11-16 DR-436 r4：AngleTrainingScene.remindTargetPocket(at:)仅为成功重打的现有target重启3秒提示，不触感、不改角色或推荐；含多球存档备用路径，见table-page-adaptation/RETRY-POCKET-20261116.md。 -->
+<!-- 2026-11-15 FL-271：球桌入口探针区分主场景/辅助底图，诊断副本完整清单恢复；无正式UI/API变更。见table-entry-latency-20261115/RESULTS.md。 -->
+<!-- 2026-11-15 FL-271：候选全屏截图与实际预热竞争分列；R7测量完成但首开门槛未过，不改正式UI/API。 -->
+<!-- 2026-11-15 FL-271：临时俯视候选固定归档补齐6个已核原包SHA的忽略模型；未变更正式组件API。 -->
+<!-- Changelog 2026-11-15 FL-271：内部节点身份取真实注册入口，私有布局校验框架UUID；字典重放求值签名显式、变量使用唯一前缀，失败原件保留。未改正式UI/API。见topdown-latency-20261115/LIGHT-DICTIONARY-ROOT-CAUSE.md。 -->
+<!-- Changelog 2026-11-15 FL-271：历史对照夹具/环境/容器及真机诊断注入作用域校验；实际点击次数与采样权重、首帧时间分列，正式UI/API未变。见 topdown-latency-20261115/RESULTS.md。 -->
 <!-- Changelog 2026-11-13 FL-269：集成验证冻结构建产物；按当前颗星无直接碰球特写及瞄准点独立方向尺合同修正旧测试；不改生产页面行为。 -->
 <!-- Changelog 2026-11-13 FL-268：B2旧UI用例须核当前composer路由/owner/AX与后台合同；40逻辑＋3有效UI通过，旧中断取消用例仍保留失败。未改生产页面合同。 -->
 <!-- Changelog 2026-11-13 FL-266复发：真机联合采集封存ENOSPC；补时长/仪器变化后的空间重预算，无App/UI API修改，按用户要求仅分析已有短轮。 -->
@@ -3604,3 +3611,11 @@ DR-458补充（2026-11-01，正式题库）：按用户选择将翻袋设置碰�
 ### DR-465 · 连续调参期间动作状态稳定
 
 Changelog：2026-11-12。FreePlay共享宿主以整段力度／方向手势＋末次计算驱动依赖预览的动作禁用，不直接随单次`isComputing`翻转。输入尺保持原可操作权限；拖动期间击球文字稳定，松手仍等待才显示计算中。保留完整物理预览和最新意图击球守卫，后台撤销手势。现行TP15，实施／验证范围见`tasks/table-page-adaptation/SHOT-CONTROL-STABILITY-20261112.md`。
+
+
+### 2026-11-15 临时俯视渲染等待诊断（FL-271续）
+用户要求只定位、不改正式实现。按具体真机卡顿窗口核对编译/renderer锁等待；补齐模拟器1.34秒事件的867ms编译日志。隔离触发式采样自检修复运行中容器UUID变更漏采，冻结脚本版本，人工延迟单列。规则同步55-test-engineer；正式App/UI合同无修改。新缓存单变量对照与调用栈详 `tasks/topdown-latency-20261115/RENDER-WAIT-STACKS.md`，不能将采样权重当点击首帧或宣称原包触发差异已解决。
+
+
+### 2026-11-15 临时俯视shader/cache归属与采集返工（FL-271）
+仅研究脚本/记录：读取实际Metal源码、选项、descriptor及library哈希，确认灯光排列变体与缓存复用。修正LLDB拦截正常SIGTERM的测试收尾、返回断点重复回调；后轮已正常结束，2次开关10入口/10返回、0空关联。已应用至 `.cursor/rules/55-test-engineer.mdc` FL-271外部调试补充。App/UI合同不改；模拟器机制证据不冒充原/新真机包逐键差异已闭合。详SHADER-CACHE-ATTRIBUTION.md。

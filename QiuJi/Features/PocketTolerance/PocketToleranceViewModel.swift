@@ -2,7 +2,8 @@ import SwiftUI
 import SceneKit
 
 @MainActor
-final class PocketToleranceViewModel: TeachingTableHost {
+final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
+    let boardMemory = BoardMemory(page: "tolerance")
     let scene = AngleTrainingScene()
     private let boundaryRoot = SCNNode()
     private var markers: [SCNNode] = []
@@ -128,6 +129,7 @@ final class PocketToleranceViewModel: TeachingTableHost {
         return p
     }
     func dragBegan(node: SCNNode) {
+        boardMemory.save()
         guard !suspended, let key = scene.ballKey(for: node), onTableKeys.contains(key) else { return }
         if selectedTargetKey != key { selectTarget(key: key) }
         draggedNode = node; isDragging = true
@@ -140,6 +142,7 @@ final class PocketToleranceViewModel: TeachingTableHost {
         scheduleCalculation()
     }
     func dragEnded(node: SCNNode) {
+        defer { boardMemory.save() }
         isDragging = false; draggedNode = nil
         TableBallPulse.endDrag(node)
         guard !suspended else { return }
@@ -200,5 +203,31 @@ final class PocketToleranceViewModel: TeachingTableHost {
             message = "当前球位暂无法评估"
         }
         topDownContentRevision &+= 1
+    }
+}
+
+extension PocketToleranceViewModel {
+    typealias SavedBoard = SavedObservationBoard
+    var savedBoard: SavedBoard? {
+        guard !isDragging else { return nil }
+        return .init(board: SavedObservationBoard.capture(scene), target: selectedTargetKey, pockets: pocketsByBall)
+    }
+    func restoreSavedBoard(_ value: SavedBoard) throws {
+        try value.validate()
+        guard value.board.onTable[PositionPlayBall.cueKey] == nil else { throw CocoaError(.coderReadCorrupt) }
+        suspendTeachingActivity(); suspended = false
+        value.apply(to: scene)
+        onTableKeys = PositionPlayBall.objectKeys.filter { value.board.onTable[$0] != nil }
+        pocketsByBall = value.pockets
+        selectedTargetKey = value.target
+        selectedPocketIndex = value.target.flatMap { value.pockets[$0] } ?? -1
+        scene.setCurrentTargetNumber(value.target.flatMap(PositionPlayBall.number(for:)))
+        refreshMarkers(); scheduleCalculation(); refreshObservationCameraContext()
+    }
+    func resetRememberedBoard() {
+        suspendTeachingActivity(); suspended = false
+        scene.hideAllBalls(); pocketsByBall = [:]
+        scene.showBall(key: "_3", scenePosition: SCNVector3(0, scene.surfaceY + AngleSceneCalculator.ballRadius, 0))
+        onTableKeys = ["_3"]; selectTarget(key: "_3")
     }
 }

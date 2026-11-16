@@ -480,6 +480,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             record?.draftTip = attempt.fixedTip
         }
         installQuestion()
+        if phase == .aiming { scene.remindTargetPocket(at: selectedPocketIndex) }
     }
     /// Replay the recorded trajectory without submitting, judging or saving another attempt.
     func replayLastShot() {

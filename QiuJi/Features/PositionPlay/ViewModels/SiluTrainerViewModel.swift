@@ -10,7 +10,9 @@ import Combine
 /// 画**可行落区**（情形 A）或标 **K 球过点**（情形 B），由 `PositionPlaySolver` 离线反解出
 /// 塞与力度。结果默认显示最优解、可「下一解」翻档；塞/力度控件转为**只读指示器**展示当前解。
 @MainActor
-final class SiluTrainerViewModel: TeachingTableHost {
+final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
+    let boardMemory = BoardMemory(page: "silu")
+    private var pendingMemoryInput: SavedSolveInput?
     @Published var cameraTransitionBusy = false
     @Published var temporaryTopDownActive = false
     @Published var topDownContentRevision = 0
@@ -80,7 +82,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
 
     // MARK: - Tools
 
-    enum Tool: Equatable {
+    enum Tool: Equatable, Codable {
         /// 画落区（情形 A，区域约束）。
         case region
         /// 标落点（情形 A，精确点 + 容差，最小化到点距离）。
@@ -89,7 +91,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         case passPoint
     }
 
-    enum RegionShape: String, CaseIterable { case rect = "矩形", circle = "圆" }
+    enum RegionShape: String, CaseIterable, Codable { case rect = "矩形", circle = "圆" }
 
     /// 约束草稿（归一化系）。共享定义见 `SolveConstraintDraft`（G17，跨反解页统一口径）。
     typealias Draft = SolveConstraintDraft
@@ -391,6 +393,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
     }
 
     func dragBegan(node: SCNNode) {
+        boardMemory.save()
         guard !isPlaying else { return }
         isDragging = true
         if let runner = breakRunner { runner.dragBegan(node: node); return }
@@ -405,6 +408,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
     }
 
     func dragEnded(node: SCNNode) {
+        defer { boardMemory.save() }
         isDragging = false
         if let runner = breakRunner { runner.dragEnded(node: node); return }
         guard !isPlaying else { return }
@@ -572,6 +576,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
     // MARK: - Solve (background)
 
     private func invalidateSolutions(automatically: Bool = true) {
+        pendingMemoryInput = nil
         solveGeneration += 1
         isComputing = false
         solutions = []
@@ -668,6 +673,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
                 } else {
                     self.showSolution(at: 0)
                 }
+                self.applyRememberedInput()
             }
         }
         solveWork = work
@@ -990,6 +996,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
     // MARK: - Strike (运杆 + 回放，复用编排台模型)
 
     func play() {
+        boardMemory.save()
         guard canStrike, let sol = currentSolution,
               let recorder = sol.prediction.recorder,
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
@@ -1130,6 +1137,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
 
     /// 回放上一杆击打过程（条 21.3）：退回击打前重播动画，播完回到击打后局面。
     func replayLastShot() {
+        boardMemory.save()
         guard !temporaryTopDownActive, !isPlaying, canPlayback, let ctx = lastShotContext else { return }
         let snap = ctx.snapshot
         guard acceptCompletePrediction(snap.prediction),
@@ -1362,7 +1370,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
     private var breakChangeForwarder: AnyCancellable?
 
     /// 进入开球模式：存当前桌面 → 清约束与解 → 摆架。
-    func startBreakFlow(game: RackGame) {
+    func startBreakFlow(game: RackGame, seed: UInt64? = nil) {
         guard !isPlaying, !isComputing, breakRunner == nil else { return }
         boardBeforeBreak = currentSnapshot()
         perspectiveBeforeBreak = scene.capturePerspectiveView()
@@ -1371,7 +1379,8 @@ final class SiluTrainerViewModel: TeachingTableHost {
         scene.clearResultNodes(nodes: &selectionNodes)
         scene.hideAllVisualization()   // 假想球等持久可视化节点不在 selectionNodes 内
         scene.hideCueStick()
-        let runner = BreakFlowRunner(scene: scene, game: game)
+        let runner = BreakFlowRunner(scene: scene, game: game, seed: seed)
+        runner.onBeforeShot = { [weak self] in self?.boardMemory.save() }
         runner.showsAimAssist = showsShotAssists
         // Deliver the settled layout directly, matching composer and PlanThree.
         runner.autoDeliverOnSettle = true
@@ -1423,5 +1432,83 @@ final class SiluTrainerViewModel: TeachingTableHost {
         breakChangeForwarder = nil
         boardBeforeBreak = nil
         perspectiveBeforeBreak = nil
+    }
+}
+
+
+extension SiluTrainerViewModel {
+    struct SavedBoard: Codable {
+        let board: BoardSnapshot
+        let target: String?
+        let pocket: Int
+        let draft: SolveConstraintDraft?
+        let tool: Tool
+        let shape: RegionShape
+        let passVMin, tolerance: Double
+        let allowSideSpin, basicOnly: Bool
+        let input: SavedSolveInput?
+        let preparedBreak: BreakFlowRunner.SavedInput?
+    }
+    var savedBoard: SavedBoard? {
+        guard !isPlaying, !isDragging, !isDrawingConstraint,
+              breakRunner?.isBusy != true, breakRunner?.isMemoryDragging != true else { return nil }
+        let input = pendingMemoryInput ?? (solutions.indices.contains(currentIndex) ? currentSolution.map {
+            var requested = $0.shot
+            requested.velocity = velocity; requested.spinX = spinX; requested.spinY = spinY
+            return SavedSolveInput(catalog: solutions[currentIndex].shot, adjusted: requested)
+        } : nil)
+        return .init(board: boardBeforeBreak ?? currentSnapshot(), target: selectedTargetKey, pocket: selectedPocketIndex,
+            draft: draft, tool: activeTool, shape: regionShape, passVMin: passVMin, tolerance: pointTolerance,
+            allowSideSpin: allowSideSpin, basicOnly: basicPositionOnly, input: input, preparedBreak: breakRunner?.savedInput)
+    }
+    func restoreSavedBoard(_ value: SavedBoard) throws {
+        try BoardMemoryValidation.check(value.board)
+        try BoardMemoryValidation.check(value.draft)
+        try BoardMemoryValidation.check(value.input)
+        try value.preparedBreak?.validate()
+        guard value.passVMin.isFinite, value.passVMin >= 0, value.tolerance.isFinite, value.tolerance > 0 else { throw CocoaError(.coderReadCorrupt) }
+        guard (-1..<6).contains(value.pocket), value.target.map({ value.board.onTable[$0] != nil && !PositionPlayBall.isCue($0) }) ?? true else { throw CocoaError(.coderReadCorrupt) }
+        stopForDismissal(); cancelBreakFlow()
+        resumeSolve = false; resumeAdjustment = false
+        pendingMemoryInput = nil
+        lastShotContext = nil; canUndoShot = false; canPlayback = false
+        scene.hideAllBalls(); scene.railInventory.clear()
+        for (key, point) in value.board.onTable { place(key: key, normalized: point) }
+        refreshOnTableKeys()
+        allowSideSpin = value.allowSideSpin; basicPositionOnly = value.basicOnly
+        selectedTargetKey = value.target; selectedPocketIndex = value.pocket
+        draft = value.draft; hasConstraint = value.draft != nil
+        activeTool = value.tool; regionShape = value.shape
+        passVMin = value.passVMin; pointTolerance = value.tolerance
+        invalidateSolutions(automatically: false)
+        pendingMemoryInput = value.input
+        renderConstraint(); refreshOverlays()
+        activitySuspended = false
+        if let input = value.preparedBreak {
+            startBreakFlow(game: BreakFlowRunner.game(forBallCount: input.count), seed: input.seed)
+            breakRunner?.restoreInput(input)
+        } else { scheduleAutomaticSolve() }
+    }
+    private func applyRememberedInput() {
+        guard let input = pendingMemoryInput else { return }
+        pendingMemoryInput = nil
+        guard let index = solutions.firstIndex(where: { input.matches($0.shot) }) else {
+            setStatus("球形已恢复，原微调路线已失效，请选择当前解", kind: .feedback)
+            return
+        }
+        selectSolution(at: index)
+        if !input.matches(input.adjusted) {
+            adjustCurrentSolution(velocity: input.adjusted.velocity, spinX: input.adjusted.spinX, spinY: input.adjusted.spinY)
+        }
+    }
+    func resetRememberedBoard() {
+        stopForDismissal(); cancelBreakFlow()
+        resumeSolve = false; resumeAdjustment = false; pendingMemoryInput = nil
+        lastShotContext = nil; canUndoShot = false; canPlayback = false
+        allowSideSpin = true; basicPositionOnly = false
+        passVMin = 0.3; pointTolerance = 0.02; regionShape = .rect
+        activeTool = .region
+        activitySuspended = false
+        resetAll()
     }
 }

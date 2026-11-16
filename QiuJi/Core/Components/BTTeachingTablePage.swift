@@ -172,6 +172,7 @@ struct BTTablePlanningControls {
     var refreshTrajectory: () -> Void
     var applyPreferences: (TablePreferenceSnapshot) -> Void = { _ in }
     var onSetup: () -> Void = {}
+    var boardMemoryImported = false
     var onDisappear: () -> Void = {}
     var onLayoutEditingChanged: (Bool) -> Void = { _ in }
     /// Page-owned gestures/confirmation phases outside the scene's drag lifecycle.
@@ -245,6 +246,8 @@ private struct BTAtlasCushionMenu: View {
 /// their title, teaching controls, status and optional cue-speed binding.
 struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Status: View>: View {
     @ObservedObject var vm: Host
+    @ObservedObject private var memoryOwner = CurrentOwnerContext.shared
+    private var memoryHost: (any BoardMemoryHosting)? { vm as? any BoardMemoryHosting }
     let titleLabel: String
     let identifier: String
     let preferencePage: TablePreferencePage
@@ -418,10 +421,20 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             vm.scene.tablePreferences = pagePreferences
             vm.setupScene()
             planning?.onSetup()
+            memoryHost?.beginBoardMemory(imported: planning?.boardMemoryImported == true)
             if onTrainingViewChange != nil { vm.setCameraMode(vm.cameraMode) }
             else { vm.setCameraMode((fixedView3D ?? pagePreferences.enabled(.view3D)) ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D)) }
             applyPagePreferences()
             updateProjection()
+        }
+        .modifier(OptionalBoardMemoryNotice(memory: memoryHost?.boardMemory))
+        .onChange(of: memoryOwner.ownerKey) { _, _ in
+            guard hasAppeared, let memoryHost else { return }
+            memoryHost.boardMemory.end()
+            suspendActivity()
+            vm.resumeTeachingActivity()
+            memoryHost.resetRememberedBoard()
+            memoryHost.beginBoardMemory()
         }
         .onChange(of: scenePhase) { _, phase in
             // The idle editor owns a paused scene. Do not call planning.onDisappear:
@@ -453,6 +466,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         vm.cameraTransitionBusy = false
         planning?.onDisappear()
         vm.suspendTeachingActivity()
+        memoryHost?.boardMemory.save()
     }
 
     private func template(size: CGSize, safe: CGFloat) -> some View {
@@ -782,6 +796,13 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 }
                 return closingItem
             }
+        }
+        if let memoryHost {
+            items.append(.init(id: identifier + ".reset", title: "恢复默认球形",
+                disabled: planning?.isAnimating == true, action: {
+                    menu = nil
+                    memoryHost.boardMemory.reset { memoryHost.resetRememberedBoard() }
+                }))
         }
         items += displayMenuItems.map { item in
             var closingItem = item

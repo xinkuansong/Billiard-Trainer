@@ -105,6 +105,33 @@ final class BreakFlowRunner: ObservableObject {
     /// 用户是否手动调过瞄准。false = 自动锁顶球（母球移动即重瞄顶角）；一旦手动调过则固定方向。
     private var aimManuallyAdjusted = false
 
+    private(set) var isMemoryDragging = false
+    struct SavedInput: Codable {
+        let count: Int
+        let seed: UInt64
+        let cue: CanvasPoint
+        let direction: [Float]?
+        let manual: Bool
+        let velocity, spinX, spinY: Double
+    }
+    var savedInput: SavedInput? {
+        guard phase == .racked, !isMemoryDragging, let cue = scene.cueBallNode else { return nil }
+        let point = AngleSceneCalculator.sceneToNormalized(position: cue.position)
+        return .init(count: game.ballCount, seed: seed, cue: .init(x: Double(point.x), y: Double(point.y)),
+                     direction: aimDir.map { [$0.x, $0.y, $0.z] }, manual: aimManuallyAdjusted,
+                     velocity: velocity, spinX: spinX, spinY: spinY)
+    }
+    func restoreInput(_ input: SavedInput) {
+        if let cue = scene.cueBallNode {
+            let position = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: input.cue.x, y: input.cue.y), surfaceY: scene.surfaceY)
+            dragMoved(node: cue, worldPosition: position)
+        }
+        velocity = input.velocity; spinX = input.spinX; spinY = input.spinY
+        aimManuallyAdjusted = input.manual
+        aimDir = input.direction.map { SCNVector3($0[0], $0[1], $0[2]) }
+        drawAimLine()
+    }
+
     /// 底部条主按钮是否显示为「完成」（仅手动交付宿主、且已停稳时）。
     var showsConfirm: Bool { phase == .settled && !autoDeliverOnSettle }
 
@@ -192,6 +219,8 @@ final class BreakFlowRunner: ObservableObject {
 
     func dragBegan(node: SCNNode) {
         guard phase == .racked else { return }
+        objectWillChange.send()
+        isMemoryDragging = true
         TableBallPulse.beginDrag(node)
     }
 
@@ -221,6 +250,8 @@ final class BreakFlowRunner: ObservableObject {
 
     func dragEnded(node: SCNNode) {
         guard phase == .racked else { return }
+        isMemoryDragging = false
+        objectWillChange.send()
         TableBallPulse.endDrag(node)
         drawAimLine()
     }
@@ -310,6 +341,7 @@ final class BreakFlowRunner: ObservableObject {
 
     /// A background transition is not a request to abandon the user's rack.
     func suspendActivity() {
+        isMemoryDragging = false
         guard !lifecycleSuspended else { return }
         lifecycleSuspended = true
         let interrupted = isBusy
@@ -334,6 +366,7 @@ final class BreakFlowRunner: ObservableObject {
     /// Called only after physical strike eligibility is established, before any
     /// simulation or shot state mutates. Other break consumers need no gate.
     var authorizeStrike: (() -> Bool)?
+    var onBeforeShot: (() -> Void)?
 
     func breakNow() {
         guard !lifecycleSuspended, phase == .racked,
@@ -351,6 +384,7 @@ final class BreakFlowRunner: ObservableObject {
             return
         }
         guard authorizeStrike?() ?? true else { return }
+        onBeforeShot?()
         let sx = Float(spinX), sy = Float(spinY)
         lastBreakSpin = (sx, sy)
         breakGeneration += 1
@@ -782,5 +816,14 @@ struct BreakGamePickerSheet: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(white: 0.09).ignoresSafeArea())
         .environment(\.colorScheme, .dark)
+    }
+}
+
+extension BreakFlowRunner.SavedInput {
+    func validate() throws {
+        guard ((2...10).contains(count) || count == 15), cue.x.isFinite, cue.y.isFinite,
+              (0...1).contains(cue.x), (0...0.5).contains(cue.y),
+              direction.map({ $0.count == 3 && $0.allSatisfy(\.isFinite) }) ?? true,
+              velocity.isFinite, spinX.isFinite, spinY.isFinite else { throw CocoaError(.coderReadCorrupt) }
     }
 }

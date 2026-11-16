@@ -1,0 +1,394 @@
+{
+  "revision": "H: each long side left segment CuePhys: \u53f0\u7403\u8bad\u7ec3, right segment www.cuephys.com; ASCII colon and space in all bilingual labels; pocket layout retained from F",
+  "placements": [
+    {
+      "label": "short-1",
+      "material": "WeiBian",
+      "center": [
+        -1.395,
+        0,
+        -0.068
+      ],
+      "u": [
+        0,
+        -1,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.270121546961326,
+      "height": 0.034,
+      "color": "40392E",
+      "normal_threshold": 0.95,
+      "artwork": "H_singleline"
+    },
+    {
+      "label": "short1",
+      "material": "WeiBian",
+      "center": [
+        1.395,
+        0,
+        -0.068
+      ],
+      "u": [
+        0,
+        1,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.270121546961326,
+      "height": 0.034,
+      "color": "40392E",
+      "normal_threshold": 0.95,
+      "artwork": "H_singleline"
+    },
+    {
+      "label": "long-1-1",
+      "material": "WeiBian",
+      "center": [
+        -0.65,
+        -0.765,
+        -0.068
+      ],
+      "u": [
+        1,
+        0,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.270121546961326,
+      "height": 0.034,
+      "color": "40392E",
+      "normal_threshold": 0.95,
+      "artwork": "H_singleline"
+    },
+    {
+      "label": "long1-1",
+      "material": "WeiBian",
+      "center": [
+        0.65,
+        -0.765,
+        -0.068
+      ],
+      "u": [
+        1,
+        0,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.31841,
+      "height": 0.034,
+      "color": "40392E",
+      "normal_threshold": 0.95,
+      "artwork": "H_domain"
+    },
+    {
+      "label": "long-11",
+      "material": "WeiBian",
+      "center": [
+        -0.65,
+        0.765,
+        -0.068
+      ],
+      "u": [
+        -1,
+        0,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.31841,
+      "height": 0.034,
+      "color": "40392E",
+      "normal_threshold": 0.95,
+      "artwork": "H_domain"
+    },
+    {
+      "label": "long11",
+      "material": "WeiBian",
+      "center": [
+        0.65,
+        0.765,
+        -0.068
+      ],
+      "u": [
+        -1,
+        0,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.270121546961326,
+      "height": 0.034,
+      "color": "40392E",
+      "normal_threshold": 0.95,
+      "artwork": "H_singleline"
+    },
+    {
+      "label": "corner-1-1",
+      "material": "Leather",
+      "center": [
+        -1.368,
+        -0.733,
+        -0.06
+      ],
+      "u": [
+        0.7071067811865476,
+        -0.7071067811865476,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.072,
+      "height": 0.016203991130820397,
+      "color": "514A3D",
+      "normal_threshold": 0.72,
+      "artwork": "D_rail"
+    },
+    {
+      "label": "corner-11",
+      "material": "Leather",
+      "center": [
+        -1.368,
+        0.733,
+        -0.06
+      ],
+      "u": [
+        -0.7071067811865476,
+        -0.7071067811865476,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.072,
+      "height": 0.016203991130820397,
+      "color": "514A3D",
+      "normal_threshold": 0.72,
+      "artwork": "D_rail"
+    },
+    {
+      "label": "corner1-1",
+      "material": "Leather",
+      "center": [
+        1.368,
+        -0.733,
+        -0.06
+      ],
+      "u": [
+        0.7071067811865476,
+        0.7071067811865476,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.072,
+      "height": 0.016203991130820397,
+      "color": "514A3D",
+      "normal_threshold": 0.72,
+      "artwork": "D_rail"
+    },
+    {
+      "label": "corner11",
+      "material": "Leather",
+      "center": [
+        1.368,
+        0.733,
+        -0.06
+      ],
+      "u": [
+        -0.7071067811865476,
+        0.7071067811865476,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.072,
+      "height": 0.016203991130820397,
+      "color": "514A3D",
+      "normal_threshold": 0.72,
+      "artwork": "D_rail"
+    },
+    {
+      "label": "middle-1",
+      "material": "Leather",
+      "center": [
+        0,
+        -0.77,
+        -0.06
+      ],
+      "u": [
+        1,
+        0,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.06,
+      "height": 0.013503325942350331,
+      "color": "514A3D",
+      "normal_threshold": 0.78,
+      "artwork": "D_rail"
+    },
+    {
+      "label": "middle1",
+      "material": "Leather",
+      "center": [
+        0,
+        0.77,
+        -0.06
+      ],
+      "u": [
+        -1,
+        0,
+        0
+      ],
+      "v": [
+        0,
+        0,
+        1
+      ],
+      "width": 0.06,
+      "height": 0.013503325942350331,
+      "color": "514A3D",
+      "normal_threshold": 0.78,
+      "artwork": "D_rail"
+    }
+  ],
+  "coverage": [
+    {
+      "label": "short-1",
+      "passed": 895,
+      "total": 895,
+      "minimum_normal_dot": 0.9999999403953552
+    },
+    {
+      "label": "short1",
+      "passed": 895,
+      "total": 895,
+      "minimum_normal_dot": 0.9999999403953552
+    },
+    {
+      "label": "long-1-1",
+      "passed": 895,
+      "total": 895,
+      "minimum_normal_dot": 1
+    },
+    {
+      "label": "long1-1",
+      "passed": 1225,
+      "total": 1225,
+      "minimum_normal_dot": 1
+    },
+    {
+      "label": "long-11",
+      "passed": 1225,
+      "total": 1225,
+      "minimum_normal_dot": 1
+    },
+    {
+      "label": "long11",
+      "passed": 895,
+      "total": 895,
+      "minimum_normal_dot": 1
+    },
+    {
+      "label": "corner-1-1",
+      "passed": 666,
+      "total": 666,
+      "minimum_normal_dot": 0.7600439637899399
+    },
+    {
+      "label": "corner-11",
+      "passed": 666,
+      "total": 666,
+      "minimum_normal_dot": 0.8199364244937897
+    },
+    {
+      "label": "corner1-1",
+      "passed": 666,
+      "total": 666,
+      "minimum_normal_dot": 0.8199364244937897
+    },
+    {
+      "label": "corner11",
+      "passed": 666,
+      "total": 666,
+      "minimum_normal_dot": 0.7600439637899399
+    },
+    {
+      "label": "middle-1",
+      "passed": 666,
+      "total": 666,
+      "minimum_normal_dot": 0.9067283272743225
+    },
+    {
+      "label": "middle1",
+      "passed": 666,
+      "total": 666,
+      "minimum_normal_dot": 0.9067283272743225
+    }
+  ],
+  "source_sha256": "73e43df002f07637656b767fdc105033d10f0d764f6d91aa7a5276cf1c885fb6",
+  "projectionMatrix": [
+    [
+      1.0000011920928955,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ]
+}

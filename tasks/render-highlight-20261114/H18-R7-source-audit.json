@@ -1,0 +1,59 @@
+{
+  "stage": "Accepted and applied to shared App default within measured close-view domain",
+  "files": {
+    "QiuJi/Core/Scene/ClothSpecularLTC.swift": {
+      "sha256": "012e4f12ae804a8a17850a31a39e751f68f0c1dc1181623dfc1b85a7757e1ac4",
+      "bytes": 11922,
+      "matchesFinalNativeSnapshot": true
+    },
+    "QiuJi/Core/Scene/MobileReferenceLighting.swift": {
+      "sha256": "f8cf30ba610d7c80d19289951cbe42c5f064baf3965b535871fafc2c87e18c00",
+      "bytes": 63540,
+      "matchesFinalNativeSnapshot": true
+    },
+    "QiuJi/Core/Scene/AngleTrainingScene.swift": {
+      "sha256": "4a91964baa84752c5105bc2ea3d4e031219c12111e97700eaa5ad4338a9b3189",
+      "bytes": 155108,
+      "matchesFinalNativeSnapshot": true
+    },
+    "QiuJi/Core/Scene/RoomReflectionProbe.swift": {
+      "sha256": "b9129f8a48094b37b68e9fcaea1b952ed9e90fe0414ad383bd22626dc8650fce",
+      "bytes": 27094,
+      "matchesFinalNativeSnapshot": true
+    },
+    "QiuJi/Resources/ClothSpecularLTC-v1.bin": {
+      "sha256": "5a94fd48682bdace13bd58911d843444c4ec1e03771ea959431b1e826eb0b463",
+      "bytes": 98304,
+      "matchesFinalNativeSnapshot": true
+    },
+    "QiuJi.xcodeproj/project.pbxproj": {
+      "sha256": "3412bcb4e25628da0fd4d187a628bfdee1c2bf859765f780d38758b5ad1a51c0",
+      "bytes": 518683,
+      "matchesFinalNativeSnapshot": true
+    },
+    "QiuJiTests/ClothSupportPerformanceResearchTests.swift": {
+      "sha256": "341084126b978ddd673e0c1b4da7ace6512604897cd497cc5865c8d9fd8b88fb",
+      "bytes": 413353,
+      "matchesFinalNativeSnapshot": true
+    }
+  },
+  "entryAudit": "H18-R7-entry-audit.json",
+  "ios17CompilerRun": "0c76e91e201b414db6a852efc9e052f1",
+  "debugReleaseGeneratorRun": "892789dda3a545fe820251692c591e2c",
+  "nativeBuiltParent": "9ddd061c8ed4403f9d1c590283ef6db4",
+  "finalNativeRun": "b7ce90d463964d778ee9f1cf5ac35906",
+  "finalSnapshotID": "cd0563ded9ce15ee3cdb39e8c1ed062151500dc0d3b2d9350588cf6643d9a547",
+  "fullMatrixRecoveryRun": "15033fc7cc5a465b8ebc8d4a495a17c8",
+  "analysisRuns": [
+    "427df1cd9d894d54a000789ca1bf89df",
+    "89f8f673d243477ca649159e79be3768"
+  ],
+  "productionDefaults": {
+    "Debug": true,
+    "Release": true,
+    "debugReferenceArgument": "-rendering.noClothLTC"
+  },
+  "scope": "Shared reference cloth. Native M5 Pro scene GPU timing, not phone energy or per-page human acceptance.",
+  "finalGateRun": "c9bef13bc17b4cd3aa2c574f12228b1c",
+  "finalDiffRun": "7f791b32f2984c228f30663b8f2e202b"
+}

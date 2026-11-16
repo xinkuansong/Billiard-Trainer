@@ -5,6 +5,53 @@ import SceneKit
 @MainActor
 final class MultiBallPracticeTests: XCTestCase {
 
+    func testIndependentCheckpointRetryRemindsOriginalTargetWithoutShotCache() async throws {
+        func waitForPrediction(_ vm: PositionPlayViewModel) async throws {
+            for _ in 0..<200 where vm.isComputing { try await Task.sleep(for: .milliseconds(100)) }
+            XCTAssertFalse(vm.isComputing, "Checkpoint writes require the prediction to finish")
+        }
+        var config = MultiBallConfiguration(); config.positionMode = .independent
+        let host = PositionPlayViewModel(); host.setupScene()
+        let fixedBoard = host.currentSnapshot()
+        defer { host.suspendAuthoringActivity() }
+        let controller = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
+        controller.attach(to: host)
+        // A random rack can legitimately fall back to free aim, which has no target pulse.
+        host.loadBoard(fixedBoard)
+        host.setPreferredAimMode(.pocket)
+        XCTAssertEqual(host.aimMode, .pocket)
+        let target = try XCTUnwrap(host.selectedTargetKey), pocket = host.selectedPocketIndex
+        XCTAssertTrue((0..<6).contains(pocket)); XCTAssertTrue(controller.requestStrike())
+        let board = host.currentSnapshot()
+        try await waitForPrediction(host)
+        controller.prepareShot()
+        var prediction = ShotPrediction(); prediction.termination = .settled
+        controller.settle(.init(before: board,
+            shot: .init(targetKey: target, pocket: try XCTUnwrap(ShotIntent.pocketId(for: pocket)), velocity: 2),
+            prediction: prediction))
+        try await waitForPrediction(host)
+        controller.saveCheckpoint(); XCTAssertNil(controller.checkpointError)
+
+        let restoredHost = PositionPlayViewModel(); restoredHost.setupScene(loadsDefaultLayout: false)
+        defer { restoredHost.suspendAuthoringActivity() }
+        let restored = MultiBallPracticeController(defaults: defaults, limiter: limiter())
+        restored.attach(to: restoredHost)
+        try await waitForPrediction(restoredHost)
+        XCTAssertTrue(restored.canUndo, "The checkpoint must contain the preceding shot")
+        XCTAssertFalse(restoredHost.canReplay, "Restored practice uses the controller's board fallback")
+        restoredHost.scene.cancelPocketSelectionFeedback()
+        var haptics = 0; restoredHost.scene.pocketSelectionHaptic = { haptics += 1 }
+        restored.undo()
+        XCTAssertEqual(restoredHost.aimMode, .pocket)
+        XCTAssertEqual(restoredHost.selectedTargetKey, target)
+        XCTAssertEqual(restoredHost.selectedPocketIndex, pocket)
+        let markers = restoredHost.scene.addPocketMarkers().compactMap { $0 as? PocketLeatherMarker }
+        XCTAssertEqual(markers.filter {
+            $0.childNode(withName: "leather_selectionPulse", recursively: true)?.isHidden == false
+        }.map(\.pocketIndex), [pocket], "styles: \(markers.map { $0.style }), visible: \(restoredHost.scene.allBallNodes[target]?.isHidden as Any)")
+        XCTAssertEqual(haptics, 1, "loadBoard keeps its existing automatic selection feedback; the retry reminder adds none")
+    }
+
     func testPaletteCapacityUsesConfigurationAndMaximumRandomOpponents() {
         var config = MultiBallConfiguration()
         config.game = .rotation

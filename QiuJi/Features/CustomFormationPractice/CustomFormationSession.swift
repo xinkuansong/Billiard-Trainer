@@ -103,7 +103,9 @@ final class CustomFormationSession: ObservableObject, Identifiable {
     func setup() {
         guard !progressActive else { return }
         if !isTemplateEditor, let restoredProgress { keys = restoredProgress.keys }
+        vm.resetsVelocityAfterShot = !isTemplateEditor
         vm.usesShotComfortRanking = !isTemplateEditor
+        vm.usesAttackRecommendations = !isTemplateEditor
         vm.configureCustomBalls(keys)
         vm.loadBoard(!isTemplateEditor ? (restoredProgress?.board ?? startBoard) : startBoard)
         if isTemplateEditor {
