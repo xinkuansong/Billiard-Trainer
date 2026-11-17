@@ -1,5 +1,7 @@
 # v47 W0 测试写盘盘点
 
+2026-11-17 提交检查补登 `ModelAssetTrialTests.swift`。测试在沙盒 temporaryDirectory 下创建 UUID.bundle，写 Info.plist 和一字节模型占位以验证缺失生产模型行为；defer 删除本轮目录，删除失败令测试失败。异常退出可能留下该临时目录，不写生产资源和用户数据。
+
 2026-11-11 游客训练同步隔离测试（`TrainingSyncPrivacyIntegrationTests.swift`）使用每次生成的 UUID 命名临时球形目录和独立 UserDefaults 域，SwiftData 使用内存容器。用例退出时清除该域并尝试移除该目录；进程异常退出或移除失败时，临时文件可能残留在测试沙盒。测试读取显式指定的 fixture，仅向本机回环测试服务发送请求。
 
 2026-10-14 特写手势回归：登记 `ATeachingStandardsUITests.swift`，新增 `FileHandle.standardOutput.write` 只向测试进程标准输出发送 `CLOSEUP_HOLD` 时序标记，不直接写文件或素材。XCTest截图仍为附件；B10/run-review.py消费日志标记，在独立设备真实持触期间用simctl截图至本轮B10叶子，叶子mkdir拒绝复用；截图/日志/xcresult均保留，无自动删除，不写正式资源或存档。清理由本任务负责。

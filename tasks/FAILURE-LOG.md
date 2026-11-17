@@ -5,6 +5,26 @@
 
 ---
 
+## FL-273 补充 — 库边接入暴露同场景重建漏装（2026-11-17）
+
+70c42afd91754969baef2a7fdd2de9a9原生构建通过，生产库边与候选五机位逐像素对照通过，亮度重建通过；新增材质生命周期测试在两次setup后各4项失败（阴影/轻提/UV/绑定消失），整轮3项中1项失败，不宣称全通过。`setupScene`重建contact材质，但S267AreaPanel节点仍在，`MobileReferenceLighting.apply`提前返回；既有defer仅补显示亮度，未重装cloth照明。修正为已有灯光但台呢尚无参考照明输出时仅刷新台呢程序，已完成材质仍不重复追加。原断言保留并增加重复apply幂等核对，R2独立作业31d6c5c5924d4cf7a8e88c934a49cf8e复验。原始日志/xcresult、失败源码与原图分别保留；尚未安装失败构建到手机。
+- 已应用至：`MobileReferenceLighting.apply`、`ClothAppearanceTests`；`.cursor/rules/55-test-engineer.mdc` FL-273补充。
+
+修后R2作业31d6c5c5924d4cf7a8e88c934a49cf8e构建/3项测试通过（15.664秒，0失败），含同scene两次setup与重复apply；原首轮失败不改写。验证同包已覆盖安装iPhone16Pro，用户观感待续。
+
+## FL-270 补充 — 库侧像素遮罩检查（2026-11-17）
+
+R3 aa7074714ff040919f3131252250a462原生构建成功，但第一视角的非库侧像素零差断言失败，只有原版/旧反弹光两张附件；不能作为新柔化候选通过证据。新增遮罩在fragment阶段重新计算世界坐标，候选在surface阶段使用contactWorld，尚未证明两者覆盖一致。R4改为同surface阶段/同p条件标记遮罩，导出遮罩及原fragment诊断，所有视角记录完成后再执行原零差断言，不放宽阈值。原R3源/结果/日志保留；结果待复验。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc`补充分区采集规则；`scripts/research/rail_shape_20261117/preview.swift`。
+
+R4补充：同surface遮罩仍发现每视角2像素1级差，故此前fragment坐标怀疑未证。完整PNG复算确认新补光相对旧反弹光非库侧零差；这些微小差异已存在于旧反弹光相对原版。保留R3/R4严格失败，未通过改阈值刷绿；完整采集与用户观感候选单独记录。
+
+## FL-270 补充 — 库边候选出图的字符串预检（2026-11-17）
+
+首轮70bd67a28c7b49909207aa9c0642acf7的Metal helper嵌入Swift多行字符串时未统一缩进，导致测试模块编译失败，0项执行。已保留冻结源和失败日志，修正测试字符串并在候选入口新增swiftc parse预检，后续新轮出图，不改变生产渲染或放宽画质断言。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc`的FL-270补充；`scripts/research/rail_bounce_20261117/run.py`。详见[候选记录](table-page-adaptation/RAIL-BOUNCE-PREVIEW-20261117.md)。
+
+
 ## FL-261 补充 — 点击击球不等于真实出杆（2026-11-16）
 
 跨页生命周期诊断先前将9次按钮点击概括为击球后退出；复核发现其中三球3次未选下一球袋，只触发选袋提示。原30次进入/退出弱引用观测仍有效，但击球场景覆盖被高估。已纠正原记录和用户说明；四状态r1已运行，保留原结果，r2补真实选袋、playsStroke与结果phase校验。后续按真实执行事件/结果划分，不把按钮exists/tap当业务发生。补充：r3构建期发现三球成功会自动进入第二杆，通用result断言错误；精确中止本任务构建，r4改核aiming+stage1+firstScore，原中止证据保留。

@@ -1,3 +1,5 @@
+<!-- Changelog 2026-11-17 库边接入：liveReference静态床面直射可见率＋库侧细化/轻提；修复已有灯光时重建台呢漏装，重复apply幂等。原生3项通过，同包已装iPhone。见table-page-adaptation/RAIL-BED-SHADOW-20261117.md。 -->
+<!-- Changelog 2026-11-17 DR-466修订：用户反馈C过亮，liveReference台呢/球改B档0.35；球房及接线沿用。参数与shader编译通过，完整App未重验。 -->
 <!-- Changelog 2026-11-16 FL-273：灯光去重与材质显示映射安装分离，同场景重建必须重新保证C档映射。原失败与修订复验分别保留，见亮度任务卡。 -->
 <!-- Changelog 2026-11-16 DR-466：liveReference台呢/球采用已确认C档显示提亮，球房/桌身与反射输入保持；换外观/重建幂等。见table-page-adaptation/TABLE-BRIGHTNESS-PREVIEW-20261116.md。 -->
 <!-- Changelog 2026-11-16 FL-261：性能/生命周期击球样本核实际前置与结果phase，按钮点击不直接计出杆；无正式UI/API变化。见table-idle-20261116/RESULTS.md。 -->

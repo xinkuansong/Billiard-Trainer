@@ -452,6 +452,9 @@ final class RoomReflectionProbe {
                     if let existing = materialCopies[id] { return existing }
                     let result = material.copy() as! SCNMaterial
                     if material.name == "TaiNi" {
+                        // Match the approved rail preview, whose reflection probe
+                        // was baked before the local rail/bed finish was applied.
+                        MobileRailAppearance.remove(from: result)
                         // The approved brightness is a display mapping, not extra
                         // emitted light. Preserve the original reflection bake.
                         if var modifiers = result.shaderModifiers, let fragment = modifiers[.fragment] {

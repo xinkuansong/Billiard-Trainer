@@ -6922,3 +6922,10 @@ FL-271候选时序补充（2026-11-15）：app.screenshot裁切不作全屏视�
 ## DR-467续 · 全App自定义按钮形状适配（2026-11-16）
 
 用户扩大到整个App；全量解析487个Swift文件、651处控件并逐项分类，37文件补齐77处plain样式，调试相机对照容器由borderless改plain。保留系统菜单/工具栏/表单行及已继承自定义样式，保留action/role/disabled，角度范围行补contentShape保留空白区点击。构建、代表页面开关/浅深色及交互证据见[结果与全量清单](button-shapes-appwide-20261116/RESULTS.md)；不把源码清单当成全页面UI或真机通过。
+
+## DR-466修订 · 默认亮度改为B档（2026-11-17）
+
+用户反馈C过亮，台呢/球正式曲线0.75→0.35，与原B预览一致；球房及材质接线沿用。参数核对、iOS17/MSL2.4编译链接通过，完整App构建/视觉未重验。已应用至TP29、来源表及UI-IMPLEMENTATION-SPEC Changelog；证据见[亮度任务卡](table-page-adaptation/TABLE-BRIGHTNESS-PREVIEW-20261116.md)。
+
+
+2026-11-17 库边正式接入：MobileRailAppearance静态可见率/库侧细化轻提；首轮FL-273重建漏装保留失败，修后R2三项0失败；验证同包覆盖安装并启动iPhone16Pro，数据保留。详细证据与未验边界：`tasks/table-page-adaptation/RAIL-BED-SHADOW-20261117.md`。

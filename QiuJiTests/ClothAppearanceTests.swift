@@ -5,6 +5,59 @@ import Metal
 
 @MainActor
 final class ClothAppearanceTests: XCTestCase {
+    func testRailAppearanceSurvivesMaterialLifecycles() throws {
+        let scene = AngleTrainingScene()
+        scene.configureDailyClearanceRendering(asynchronousReflection: false)
+        scene.setupScene(recipe: .liveReference, roomStyle: .tournament)
+        func check(_ table: SCNNode, installed: Bool = true) throws {
+            var count = 0
+            table.enumerateChildNodes { node, _ in
+                for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
+                    count += 1
+                    let surface = m.shaderModifiers?[.surface] ?? ""
+                    let geometry = m.shaderModifiers?[.geometry] ?? ""
+                    XCTAssertEqual(surface.components(separatedBy: MobileRailAppearance.attenuation).count - 1, installed ? 1 : 0)
+                    XCTAssertEqual(surface.components(separatedBy: MobileRailAppearance.finish).count - 1, installed ? 1 : 0)
+                    XCTAssertEqual(geometry.components(separatedBy: MobileRailAppearance.uvFinish).count - 1, installed ? 1 : 0)
+                    let field = (m.value(forKey: "bedRailVisibility") as? SCNMaterialProperty)?.contents as? MTLTexture
+                    XCTAssertEqual(field != nil, installed)
+                    if let field {
+                        XCTAssertEqual(field.width, 1024); XCTAssertEqual(field.height, 512)
+                        XCTAssertEqual(field.pixelFormat, .r32Float)
+                    }
+                }
+            }
+            XCTAssertGreaterThan(count, 0)
+        }
+        try check(XCTUnwrap(scene.tableNode))
+        MobileReferenceLighting.apply(to: scene)
+        try check(XCTUnwrap(scene.tableNode))
+        for color in ClothColor.allCases {
+            XCTAssertTrue(scene.applyClothColor(color))
+            try check(XCTUnwrap(scene.tableNode))
+        }
+        // More instances than the original shadow buffer force material regeneration.
+        let instances = (1...40).map { PositionPlayBall.instanceKey(number: ($0 % 15) + 1) }
+        scene.configureBallInstances(instances)
+        XCTAssertTrue(instances.allSatisfy { scene.allBallNodes[$0] != nil })
+        try check(XCTUnwrap(scene.tableNode))
+        let overlay = scene.makeTemporaryTopDownRenderScene()
+        try check(overlay.rootNode)
+        let probe = try XCTUnwrap(RoomReflectionProbe.prepareBake(scene: scene, style: .tournament))
+        try check(XCTUnwrap(probe.table), installed: false)
+        for style in [RoomStyle.walnut, .tournament] {
+            scene.setupScene(recipe: .liveReference, roomStyle: style)
+            try check(XCTUnwrap(scene.tableNode))
+            MobileReferenceLighting.apply(to: scene)
+            try check(XCTUnwrap(scene.tableNode))
+        }
+        let legacy = AngleTrainingScene()
+        legacy.setupScene(recipe: .legacyMobile, roomStyle: .tournament)
+        try check(XCTUnwrap(legacy.tableNode), installed: false)
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        XCTAssertThrowsError(try MobileRailAppearance.texture(emitter: "different lamps", device: device))
+    }
+
     func testApprovedBrightnessSurvivesAppearanceAndSceneRebuilds() throws {
         let scene = AngleTrainingScene()
         scene.setupScene(recipe: .liveReference, roomStyle: .tournament)
@@ -13,7 +66,7 @@ final class ClothAppearanceTests: XCTestCase {
             func check(_ node: SCNNode) {
                 for material in node.geometry?.materials ?? [] {
                     let fragment = material.shaderModifiers?[.fragment] ?? ""
-                    let occurrences = fragment.components(separatedBy: "// trainingBrightnessC").count - 1
+                    let occurrences = fragment.components(separatedBy: "// trainingBrightnessApproved").count - 1
                     XCTAssertEqual(occurrences, expected ? 1 : 0, file: file, line: line)
                     count += 1
                 }
@@ -25,7 +78,7 @@ final class ClothAppearanceTests: XCTestCase {
             var clothCount = 0
             scene.tableNode?.enumerateChildNodes { node, _ in
                 for material in node.geometry?.materials ?? [] {
-                    let count = (material.shaderModifiers?[.fragment] ?? "").components(separatedBy: "// trainingBrightnessC").count - 1
+                    let count = (material.shaderModifiers?[.fragment] ?? "").components(separatedBy: "// trainingBrightnessApproved").count - 1
                     XCTAssertEqual(count, material.name == "TaiNi" ? 1 : 0, "Material \(material.name ?? "unnamed") on \(node.name ?? "unnamed")")
                     if material.name == "TaiNi" { clothCount += 1 }
                 }

@@ -134,6 +134,8 @@ enum MobileReferenceLighting {
     /// 0.12 → 0.05: phenolic resin is near-mirror; with the room probe the
     /// wider lobe smeared the panel highlights into grey patches (film look).
     static let stickerBallRoughness = 0.05
+    /// Cue-ball preview: match the numbered balls' polished resin finish.
+    static let cueBallRoughness = stickerBallRoughness
 
     /// Shader argument block shared by every ball material: cloth bounce colour
     /// plus the room reflection probe (equirect texture + SH9 irradiance).
@@ -258,7 +260,7 @@ enum MobileReferenceLighting {
     private static let cueSurface = makeBallSurface(stickerFinish: false)
     private static let stickerSurface = makeBallSurface(stickerFinish: true)
     private static func makeBallSurface(stickerFinish: Bool) -> String {
-        let roughness = stickerFinish ? stickerBallRoughness : 0.34
+        let roughness = stickerFinish ? stickerBallRoughness : cueBallRoughness
         let surface = ballShader.replacingOccurrences(of: "float roughness=\(ballRoughness);", with: "float roughness=\(roughness);")
         let colored = ballShaderArguments + surface.replacingOccurrences(
             of: "float3 clothAlbedo=float3(0.0074764,0.1612358,0.0036536);",
@@ -327,7 +329,23 @@ enum MobileReferenceLighting {
         }
         // setupScene already applies the rig on device Debug. Diagnostic callers
         // may ask again; never append another cloth program or emitter pair.
-        guard scene.rootNode.childNode(withName: "S267AreaPanel", recursively: false) == nil else { return }
+        if scene.rootNode.childNode(withName: "S267AreaPanel", recursively: false) != nil {
+            // A repeated setup rebuilds contact-occlusion materials even though
+            // the existing light nodes survive. Restore the cloth program once;
+            // a second apply on already-finished materials must remain a no-op.
+            var needsClothLighting = false
+            scene.tableNode?.enumerateChildNodes { node, _ in
+                for material in node.geometry?.materials ?? [] where material.name == "TaiNi" {
+                    if material.shaderModifiers?[.surface]?.contains("_surface.emission.rgb = ") != true {
+                        needsClothLighting = true
+                    }
+                }
+            }
+            if needsClothLighting {
+                refreshClothLighting(in: scene, ballCount: scene.contactOcclusion?.capacity ?? scene.allBallNodes.count)
+            }
+            return
+        }
         scene.rootNode.enumerateChildNodes { node,_ in
             if node.light != nil { node.light?.intensity=0 }
         }
@@ -477,6 +495,15 @@ enum MobileReferenceLighting {
                     }
                 } else {
                     ClothSpecularLTC.removeBindings(from: m)
+                }
+                if scene.declaredRenderRecipe == .liveReference && !clothPrototype {
+                    do {
+                        try MobileRailAppearance.install(on: m, modifiers: &mods, emitter: emitterGeometry)
+                    } catch {
+                        mods[.geometry] = mods[.geometry]?.replacingOccurrences(of: MobileRailAppearance.uvFinish, with: "")
+                        m.setValue(nil, forKey: "bedRailVisibility")
+                        print("[MobileRailAppearance] original finish fallback: \(error)")
+                    }
                 }
                 m.lightingModel = .physicallyBased;m.shaderModifiers=mods
                 installedCloth = true
@@ -729,19 +756,19 @@ enum MobileReferenceLighting {
         return output
     }
 
-    /// User-approved C preview (2026-11-16). Hue-preserving display lift only;
+    /// User-selected B preview (2026-11-17). Hue-preserving display lift only;
     /// black and peak highlights stay fixed. Do not include this in probe lighting.
     static let trainingBrightnessFragment = """
 
-    // trainingBrightnessC
+    // trainingBrightnessApproved
     float trainingBrightnessPeak=max(_output.color.r,max(_output.color.g,_output.color.b));
-    _output.color.rgb *= 1.0 + 0.75 * (1.0-clamp(trainingBrightnessPeak,0.0,1.0));
+    _output.color.rgb *= 1.0 + 0.35 * (1.0-clamp(trainingBrightnessPeak,0.0,1.0));
     """
 
     private static func applyTrainingBrightness(to material: SCNMaterial) {
         var modifiers = material.shaderModifiers ?? [:]
         let fragment = modifiers[.fragment] ?? "#pragma body"
-        guard !fragment.contains("// trainingBrightnessC") else { return }
+        guard !fragment.contains("// trainingBrightnessApproved") else { return }
         modifiers[.fragment] = fragment + "\n" + trainingBrightnessFragment
         material.shaderModifiers = modifiers
     }

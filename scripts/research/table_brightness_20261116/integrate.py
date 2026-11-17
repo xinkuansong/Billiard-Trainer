@@ -17,7 +17,7 @@ s=f.read_text(); anchor='    // BEGIN H18 R7 INTEGRATION'
 assert s.count(anchor)==1
 f.write_text(s.replace(anchor,Path(__file__).with_name('integration.swift').read_text()+'\n'+anchor))
 # Seal a new candidate identity before any build/launch consumes it.
-m['origin']['preview']='approved-C-production-integration-20261116'
+m['origin']['preview']='selected-B-production-integration-20261117'
 m['files']=tree_files(bundle/'source');m.pop('snapshot_id')
 m['snapshot_id']=hashlib.sha256(canonical(m)).hexdigest()
 bundle.chmod(0o755);(bundle/'manifest.json').chmod(0o644);write_json(bundle/'manifest.json',m);seal(bundle);verify(bundle)

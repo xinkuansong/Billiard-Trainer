@@ -83,12 +83,12 @@
                 install(amount); _ = try target.render(frames: 5)
                 let frame = try target.readback()
                 attach(frame, "brightness-\(view)-\(name)")
-                if name == "C-bright" {
+                if name == "B-light" {
                     for (i,m) in mats.enumerated() { m.shaderModifiers = production[i] }
                     SCNTransaction.flush(); _ = try target.render(frames: 5)
                     let integrated = try target.readback()
-                    attach(integrated, "integrated-\(view)-C")
-                    try require(difference(frame,integrated).maximum == 0, "Production equals approved C formula")
+                    attach(integrated, "integrated-\(view)-B")
+                    try require(difference(frame,integrated).maximum == 0, "Production equals selected B formula")
                 }
                 let delta = difference(baseline,frame)
                 var outside = 0
