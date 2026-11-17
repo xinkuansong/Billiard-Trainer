@@ -1,4 +1,5 @@
 import SceneKit
+import simd
 
 /// Value-only geometry, exclusively requested by the spatial practice model.
 /// World coordinates: X/Z horizontal, Y up, metres; bed and ground share scene constants.
@@ -18,7 +19,7 @@ enum SpatialPracticeGeometry {
         if let cached = solvers[key] { return cached }
         let surfaces = try asset.contactSurfaces(material: material) + exteriorSurfaces()
         let result = LocalPocketSimulation(surfaces: surfaces, radius: Double(BallPhysics.radius),
-            gravity: SIMD3(0, -Double(TablePhysics.gravity), 0), tolerance: 1e-6, ballMaterial: ballMaterial)
+            gravity: SIMD3(0, -Double(TablePhysics.gravity), 0), tolerance: 1e-6, ballMaterial: ballMaterial, impactNormalMergeTolerance:1e-6)
         solvers[key] = result
         return result
     }
@@ -63,5 +64,33 @@ enum SpatialPracticeGeometry {
     static func isOnBed(_ position: SCNVector3) -> Bool {
         abs(position.y - (BTTablePhysics.surfaceY + BallPhysics.radius)) < 0.00001 &&
         abs(position.x) < TablePhysics.innerLength / 2 && abs(position.z) < TablePhysics.innerWidth / 2
+    }
+}
+
+// Kept in the opt-in page module so the legacy response and layout fingerprint stay unchanged.
+extension PocketContactResponse {
+    static func spatialPracticeImpact(_ initial:Motion,constraints:[ImpactConstraint],radius:Double,
+                                      normalMergeTolerance:Double=1e-6) throws -> Motion {
+        // Opt-in mesh-seam regularization. A sphere touching adjacent coplanar
+        // triangles can receive nearly identical normals with incompatible tiny
+        // tangential impulses. Merge only equal materials below the caller's
+        // angular resolution; old callers retain the exact original solve.
+        if normalMergeTolerance>0 {
+            var groups:[[ImpactConstraint]]=[]
+            for c in constraints {
+                if let i=groups.firstIndex(where:{ group in group.allSatisfy {
+                    $0.restitution==c.restitution && $0.friction==c.friction &&
+                    simd_dot($0.normal-c.normal,$0.normal-c.normal)<=normalMergeTolerance*normalMergeTolerance
+                } }) { groups[i].append(c) } else { groups.append([c]) }
+            }
+            if groups.count<constraints.count {
+                let merged=groups.map { group -> ImpactConstraint in
+                    let sum=group.reduce(V.zero) { $0+$1.normal }
+                    return .init(normal:sum/sqrt(simd_dot(sum,sum)),restitution:group[0].restitution,friction:group[0].friction)
+                }
+                return try simultaneousImpact(initial,constraints:merged,radius:radius)
+            }
+        }
+        return try simultaneousImpact(initial,constraints:constraints,radius:radius)
     }
 }

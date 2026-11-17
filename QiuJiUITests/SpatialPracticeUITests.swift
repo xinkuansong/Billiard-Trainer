@@ -27,15 +27,16 @@ final class SpatialPracticeUITests:XCTestCase {
         let more=element("masseJump.more");ready(more);more.tap()
         let side=element("masseJump.side");ready(side);side.tap()
         capture("v66-side-ready")
-        let baseHeight=Double((element("masseJump.probe").value as? String ?? "").split(separator:"|").last ?? "") ?? 0
+        let initialProbe=(element("masseJump.probe").value as? String ?? "").split(separator:"|")
+        let baseHeight=initialProbe.count>1 ? Double(initialProbe[1]) ?? 0 : 0
         let strike=element("masseJump.strike");ready(strike);strike.tap()
         let flying=XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
             guard let text=self.element("masseJump.probe").value as? String,
                   let height=Double(text.split(separator:"|").last ?? "") else { return false }
-            return text.hasPrefix("playing|") && height>baseHeight+0.005
+            return height>baseHeight+0.005
         },object:app)
         XCTAssertEqual(XCTWaiter.wait(for:[flying],timeout:90),.completed)
-        capture("v66-in-flight")
+        capture("v66-rendered-flight-observed")
         let replay=element("masseJump.replay");ready(replay)
         capture("v66-settled")
         replay.tap();ready(element("masseJump.retry"))

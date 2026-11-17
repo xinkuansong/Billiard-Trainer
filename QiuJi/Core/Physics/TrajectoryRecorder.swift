@@ -480,9 +480,11 @@ struct LocalPocketSimulation {
     let externalAngularAcceleration: V
     let tolerance: Double
     let ballMaterial:SpatialBallContact.MaterialSource
+    let impactNormalMergeTolerance:Double
     private let index: PocketContactIndex?
     init(surfaces:[Surface],radius:Double,gravity:V,tolerance:Double,useSpatialIndex:Bool=true,externalAngularAcceleration:V = .zero,
-         ballMaterial:SpatialBallContact.MaterialSource = .supplied) {
+         ballMaterial:SpatialBallContact.MaterialSource = .supplied,impactNormalMergeTolerance:Double=0) {
+        self.impactNormalMergeTolerance=impactNormalMergeTolerance
         self.surfaces=surfaces;self.radius=radius;self.gravity=gravity;self.tolerance=tolerance;self.externalAngularAcceleration=externalAngularAcceleration
         self.ballMaterial=ballMaterial
         index=useSpatialIndex ? PocketContactIndex(triangles:surfaces.map { $0.triangle }) : nil
@@ -491,6 +493,7 @@ struct LocalPocketSimulation {
     private init(base:LocalPocketSimulation,additionalLinear:V,additionalAngular:V) {
         surfaces=base.surfaces;radius=base.radius;tolerance=base.tolerance;index=base.index
         ballMaterial=base.ballMaterial
+        impactNormalMergeTolerance=base.impactNormalMergeTolerance
         gravity=base.gravity+additionalLinear
         externalAngularAcceleration=base.externalAngularAcceleration+additionalAngular
     }
@@ -502,6 +505,15 @@ struct LocalPocketSimulation {
         SpatialBallContact.material(source:ballMaterial,
             a:.init(velocity:a.velocity,angularVelocity:a.omega),b:.init(velocity:b.velocity,angularVelocity:b.omega),
             normal:normal,radius:radius,restitution:restitution,friction:friction)
+    }
+
+    private func resolvedImpact(_ motion:PocketContactResponse.Motion,
+                                constraints:[PocketContactResponse.ImpactConstraint],radius:Double) throws -> PocketContactResponse.Motion {
+        if impactNormalMergeTolerance>0 {
+            return try PocketContactResponse.spatialPracticeImpact(motion,constraints:constraints,radius:radius,
+                normalMergeTolerance:impactNormalMergeTolerance)
+        }
+        return try PocketContactResponse.simultaneousImpact(motion,constraints:constraints,radius:radius)
     }
 
     /// Return is a support/velocity decision, never merely a region crossing.
@@ -1326,7 +1338,7 @@ struct LocalPocketSimulation {
                 support.append((i,n,curve))
             }
             // Unilateral velocity projection: impulses only push, never pull toward a face.
-            let resting=try PocketContactResponse.simultaneousImpact(.init(velocity:s.velocity,angularVelocity:s.omega),
+            let resting=try resolvedImpact(.init(velocity:s.velocity,angularVelocity:s.omega),
                 constraints:support.map { .init(normal:$0.normal,restitution:0,friction:0) },radius:radius)
             s.velocity=resting.velocity
             // Collapse only sub-resolution rebound components, not tangential
@@ -1714,7 +1726,7 @@ struct LocalPocketSimulation {
                 let liners=simultaneous.filter { i,hit in
                     surfaces[i].tangentialRetention<1 && dot(s.velocity,hit.normal)<0
                 }
-                var motion=try PocketContactResponse.simultaneousImpact(.init(velocity:s.velocity,angularVelocity:s.omega),
+                var motion=try resolvedImpact(.init(velocity:s.velocity,angularVelocity:s.omega),
                                                                          constraints:constraints,radius:radius)
                 for (i,hit) in liners {
                     motion=PocketContactResponse.linerSink(motion,normal:hit.normal,retention:surfaces[i].tangentialRetention)

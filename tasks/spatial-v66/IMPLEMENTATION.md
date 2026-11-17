@@ -2,7 +2,7 @@
 
 2026-11-17，用户授权一次完成自由练习页，入口放在「练习／进阶」；两个答题模式后续。
 
-基线：fcbdfaff；打包依赖补齐提交8b601624。verify-gate通过。首轮远端基线因历史Git忽略的Room_walnut_perimeter.usdz缺失，在测试执行前失败；已补入版本控制，R2独立冻结重跑。旧记录不改为通过。
+基线：fcbdfaff；打包依赖补齐提交8b601624、e632be76。首两轮远端基线因历史Git忽略的TrainingRoom打包网格缺失，在测试执行前失败；补齐后R3构建通过但默认设备容量受保护，R4改用独立SE3完成测试。旧记录不改为通过。
 
 ## 设计与隔离
 
@@ -39,3 +39,12 @@
 坐标数值验证：`python3 scripts/spatial-v66/coordinate_check.py`，16个方位/角度正交基全部通过，地面法向+Y；证据output/v66/coordinate-contract.json。
 
 本机构建R3/R4完整App及测试target通过；R5含侧面观察与存档深度校验继续构建。门禁路由登记新增1页，总99页；verify-gate通过。模拟器运行不继承构建通过状态。
+
+## 2026-11-17 定向运行与返工
+
+- 基线R4：iPhone SE3／iOS26.2，64项执行、60通过、4原有失败（PhysicsEngineTests的三项bankSolve测试及test_kickLowPowerContactHasPhysicalWitness）；ScoringOnlyConsistencyTests 6/6。原件：output/v66/baseline-result-r4。
+- 首个候选R1：ScoringOnlyConsistencyTests 6/6；新页数值7项中6通过，floor实物接触／停点已通过，附加的中心台面精确接触断言因Float高度转换不成立。修订为验证地面停球不会被交回台面。左右扎杆镜像、真实单球跳起落台、记录往返、偏好隔离、旧引擎逐位一致均通过。
+- R1原生UI真实进入进阶新页，抬杆操作通过，但默认三球示例无法完成，保留失败。日志定位0.288秒落台时两相邻台呢面法向差1.84e-7，jointImpactIterationLimit；运动残差4.06e-16而冗余冲量残差1.12e-8。新增仅新模型启用的同材质近平行法向合并，阈值1e-6（球面接触点差约0.029微米，小于1微米空间容差）；旧模型参数为0，原接触求解函数与几何文件不改。新增该实测失败状态的不增能回归。
+- R1证据：output/v66/feature-result-r1；分析副本feature-r1-analysis.xcresult，截图及诊断分别在feature-r1-attachments／feature-r1-diagnostics。SE画面已打开核对；功能失败不标为通过。
+- 本机构建R3–R7通过。R8被几何文件指纹门禁拦截后，将新处理移至页面独立扩展，原TableGeometry.swift字节恢复，无放宽门禁／改写题库历史指纹。R9继续构建。
+- 首轮诊断设备与远端临时构建在证据回传并逐文件核验后按生命周期精确退役／清理；未操作其他任务设备。

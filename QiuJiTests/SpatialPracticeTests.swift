@@ -1,5 +1,6 @@
 import XCTest
 import SceneKit
+import simd
 @testable import QiuJi
 
 final class SpatialPracticeTests: XCTestCase {
@@ -61,6 +62,21 @@ final class SpatialPracticeTests: XCTestCase {
         XCTAssertFalse(engine.getTrajectoryRecorder().localStaticContacts.isEmpty)
         XCTAssertNil(solver.planarSupport(from:.init(time:0,position:SIMD3(Double(ball.position.x),Double(ball.position.y),Double(ball.position.z)),
             velocity:.zero,omega:.zero),surfaceY:Double(BTTablePhysics.surfaceY)))
+    }
+    func testLandingAcrossClothSeamConvergesWithoutAddingEnergy() throws {
+        typealias V=SIMD3<Double>
+        let r=Double(BallPhysics.radius)
+        let initial=PocketContactResponse.Motion(velocity:V(2.825823995276047,-1.4144279503234098,2.1334377632848204e-7),
+            angularVelocity:V(7.4660990601966615e-6,0,-98.89148040075749))
+        let constraints:[PocketContactResponse.ImpactConstraint]=[
+            .init(normal:V(9.713237507336597e-16,0.999999999999983,1.8435394973509615e-7),restitution:0.3,friction:0.20000000298023224),
+            .init(normal:V(0,1,0),restitution:0.3,friction:0.20000000298023224)]
+        let solved=try PocketContactResponse.spatialPracticeImpact(initial,constraints:constraints,radius:r)
+        let flat=PocketContactResponse.impact(initial,normal:V(0,1,0),radius:r,restitution:0.3,friction:0.20000000298023224)
+        XCTAssertEqual(solved.velocity.y,flat.velocity.y,accuracy:1e-6)
+        XCTAssertEqual(solved.velocity.x,flat.velocity.x,accuracy:1e-6)
+        func energy(_ m:PocketContactResponse.Motion)->Double { simd_length_squared(m.velocity)+0.4*r*r*simd_length_squared(m.angularVelocity) }
+        XCTAssertLessThanOrEqual(energy(solved),energy(initial))
     }
     func testDefaultJumpExampleFinishesWithThreeBalls() throws {
         let y=BTTablePhysics.surfaceY+BallPhysics.radius

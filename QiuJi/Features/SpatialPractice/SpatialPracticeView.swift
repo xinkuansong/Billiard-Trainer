@@ -8,6 +8,9 @@ struct SpatialPracticeView: View {
     @State private var showsDetails=false
     @State private var replacement:Int?
     @State private var layoutEditing=false
+    #if DEBUG
+    @State private var observedPeak:Float=0
+    #endif
     private var enabled:Bool { vm.canEdit && !layoutEditing && !showsElevation && !showsDetails }
     private var controls:BTTablePlanningControls {
         .init(spinX:Binding(get:{ vm.input.spinX },set:{ vm.setSpin($0,vm.input.spinY) }),
@@ -113,9 +116,11 @@ struct SpatialPracticeView: View {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-masseJump.probe") {
                 TimelineView(.animation(minimumInterval:0.1,paused:!vm.busy)) { _ in
+                    let height=vm.scene.cueBallNode?.presentation.position.y ?? 0
                     Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
                         .accessibilityIdentifier("masseJump.probe")
-                        .accessibilityValue("\(String(describing:vm.phase))|\(vm.scene.cueBallNode?.presentation.position.y ?? 0)")
+                        .accessibilityValue("\(String(describing:vm.phase))|\(height)|\(observedPeak)")
+                        .onChange(of:height) { _,value in if vm.busy { observedPeak=max(observedPeak,value) } }
                 }
             }
             #endif
