@@ -96,6 +96,31 @@ struct SpatialPracticeRecord: Codable {
         return sounds
     }
 
+    /// Use the incoming state of an accepted cloth contact: the endpoint state
+    /// already contains the upward rebound and cannot identify the first landing.
+    static func firstLanding(_ recorder:TrajectoryRecorder)->Vector? {
+        guard let roles=try? PocketGeometryAsset.load().surfaceRoles() else { return nil }
+        let spans=recorder.localIntervalsByBallName[ShotInput.cueBallName] ?? []
+        let bed=Double(BTTablePhysics.surfaceY+BallPhysics.radius)
+        for event in recorder.localStaticContacts.sorted(by:{$0.contact.time<$1.contact.time}) where event.ballName==ShotInput.cueBallName {
+            let c=event.contact
+            guard roles.indices.contains(c.surface),roles[c.surface] == .clothBed,
+                  let span=spans.first(where:{$0.start.time<c.time && $0.end.time>=c.time}),
+                  let incoming=span.sample(at:c.time,beforeEndpoint:true),incoming.velocity.y < -0.001 else { continue }
+            let wasAirborne=spans.contains { interval in
+                guard interval.start.time<c.time else { return false }
+                let duration=min(interval.end.time,c.time)-interval.start.time
+                let apex=interval.acceleration.y<0 ? min(duration,max(0,-interval.start.velocity.y/interval.acceleration.y)) : duration
+                let peak=interval.sample(at:interval.start.time+apex,beforeEndpoint:true)?.position.y ?? interval.start.position.y
+                return max(interval.start.position.y,peak)>bed+0.0001
+            }
+            if wasAirborne {
+                return Vector(SCNVector3(Float(incoming.position.x),Float(incoming.position.y),Float(incoming.position.z)))
+            }
+        }
+        return nil
+    }
+
     /// Presentation sampling only: physics is solved once. Include committed event times,
     /// with a 240 Hz ceiling between events (gravity chord error <= 0.022 mm).
     static func freeze(prediction: ShotPrediction, input: Input, before: [String: Pose]) -> Shot? {
@@ -111,8 +136,8 @@ struct SpatialPracticeRecord: Codable {
         }
         let sorted=times.sorted()
         var paths:[String:[Sample]]=[:], after=before
-        var peak:Float=0, landing:Vector?
-        var flew=false
+        var peak:Float=0
+        let landing=firstLanding(recorder)
         for key in before.keys.sorted() where before[key]?.disposition != "pocket" && before[key]?.disposition != "escaped" {
             let name=PositionPlayBall.isCue(key) ? ShotInput.cueBallName : key
             let exit=recorder.spatialDomainExits[name]
@@ -138,10 +163,6 @@ struct SpatialPracticeRecord: Codable {
                 if PositionPlayBall.isCue(key) {
                     let height=state.position.y-BTTablePhysics.surfaceY-BallPhysics.radius
                     peak=max(peak,height)
-                    if height>0.0001 { flew=true }
-                    if flew, landing == nil, SpatialPracticeGeometry.isOnBed(state.position), state.velocity.y <= 0 {
-                        landing = .init(state.position)
-                    }
                 }
                 previous=state;lastTime=time
             }

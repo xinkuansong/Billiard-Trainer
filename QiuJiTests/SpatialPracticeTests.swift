@@ -86,6 +86,16 @@ final class SpatialPracticeTests: XCTestCase {
             maxEvents:3000,maxTime:40,simulationModel:.spatialPractice,elevation:50 * .pi/180)
         XCTAssertEqual(result.termination,.settled)
         XCTAssertEqual(result.finalPositions.count,3)
+        let recorder=try XCTUnwrap(result.recorder)
+        let landing=try XCTUnwrap(SpatialPracticeRecord.firstLanding(recorder))
+        let spans=recorder.localIntervalsByBallName[ShotInput.cueBallName] ?? []
+        let bounce=try XCTUnwrap(spans.first { span in
+            span.start.time>0.01 && span.end.velocity.y>0.05 &&
+            abs(span.end.position.y-Double(y))<0.00001 &&
+            (span.sample(at:span.end.time,beforeEndpoint:true)?.velocity.y ?? 0)<(-0.05)
+        })
+        XCTAssertEqual(Double(landing.x),bounce.end.position.x,accuracy:0.00001)
+        XCTAssertEqual(Double(landing.z),bounce.end.position.z,accuracy:0.00001)
     }
     func testHighBallClearsObjectAndLowBallContactsIt() throws {
         func contacts(height:Float)->Bool {
