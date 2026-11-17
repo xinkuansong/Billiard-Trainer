@@ -258,6 +258,7 @@ struct MainTabView: View {
         case .threeBallPractice3D:
             ThreeBallPracticeView(is3D: true)
         case .kBallPractice2D: KBallPracticeView(is3D: false)
+        case .masseJump: SpatialPracticeView()
         case .kickPractice2D: KickPracticeView(is3D: false)
         case .defensePractice2D: DefensePracticeView(is3D: false)
         case .bankPractice2D: BankPracticeView(is3D: false)

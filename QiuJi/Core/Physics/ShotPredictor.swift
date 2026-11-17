@@ -574,7 +574,9 @@ enum ShotPredictor {
         earlyStopBallNames: Set<String>? = nil,
         simulationModel:EventDrivenEngine.SimulationModel = .appDefault,
         cancellation: PredictionCancellation? = nil,
-        recordedStrikeDirection: SCNVector3? = nil
+        recordedStrikeDirection: SCNVector3? = nil,
+        elevation: Float = 0,
+        initialSpatialPositions: [String: SCNVector3] = [:]
     ) -> ShotPrediction {
         if cancellation?.isCancelled == true { return cancelledPrediction() }
         let y = surfaceY
@@ -582,10 +584,20 @@ enum ShotPredictor {
         let len = sqrtf(aimDir.x * aimDir.x + aimDir.z * aimDir.z)
         let dir = recordedStrikeDirection ?? (len > 1e-5 ? SCNVector3(aimDir.x / len, 0, aimDir.z / len) : SCNVector3(1, 0, 0))
 
-        let strike = CueBallStrike.executeStrike(
-            aimDirection: dir, velocity: velocity,
-            spinX: spinX, spinY: spinY, elevation: 0
-        )
+        let strike: (velocity: SCNVector3, angularVelocity: SCNVector3, squirtAngle: Float)
+        if simulationModel == .spatialPractice {
+            do {
+                strike = try CueBallStrike.executeSpatialStrike(aimDirection:dir,velocity:velocity,
+                    spinX:spinX,spinY:spinY,elevation:elevation)
+            } catch {
+                var failure = ShotPrediction()
+                failure.termination = .failed("击球参数无效")
+                return failure
+            }
+        } else {
+            strike = CueBallStrike.executeStrike(aimDirection:dir,velocity:velocity,
+                spinX:spinX,spinY:spinY,elevation:0)
+        }
         let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
         let engine = EventDrivenEngine(tableGeometry: geometry)
         engine.getTrajectoryRecorder().cueStrikeSpeed = velocity
@@ -597,7 +609,7 @@ enum ShotPredictor {
         ))
         for b in balls where b.name != ShotInput.cueBallName {
             engine.setBall(BallState(
-                position: SCNVector3(b.position.x, y + r, b.position.z),
+                position: simulationModel == .spatialPractice ? (initialSpatialPositions[b.name] ?? SCNVector3(b.position.x,y+r,b.position.z)) : SCNVector3(b.position.x, y + r, b.position.z),
                 velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero,
                 state: .stationary, name: b.name
             ))

@@ -179,7 +179,7 @@ enum AtmosphereCatalog {
         case .aimingPrinciple: return .coverPracticeAimingPrinciple
         case .aimingMethods: return .coverPracticeAimingMethods
         case .aimingCorrection: return .coverPracticeAimingCorrection
-        case .spinAndEnglish: return .coverPracticeSpinAndEnglish
+        case .masseJump, .spinAndEnglish: return .coverPracticeSpinAndEnglish
         case .pocketTolerance: return .coverTemplate11
         case .angleDynamic: return .coverPracticeAngleDynamic
         case .separationAngleAtlas: return .coverPracticeSeparationAtlas
@@ -228,7 +228,7 @@ enum AtmosphereCatalog {
         case .aimingPrinciple: multicolor.aimingPrinciple
         case .aimingMethods: multicolor.aimingMethods
         case .aimingCorrection: multicolor.aimingCorrection
-        case .spinAndEnglish: multicolor.spinAndEnglish
+        case .masseJump, .spinAndEnglish: multicolor.spinAndEnglish
         case .separationAngleAtlas: multicolor.separationAngleAtlas
         case .cushionEnglishAtlas: multicolor.cushionEnglishAtlas
         case .pocketTolerance, .angleDynamic: multicolor.angleDynamic

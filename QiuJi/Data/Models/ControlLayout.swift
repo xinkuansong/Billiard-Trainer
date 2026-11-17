@@ -123,6 +123,8 @@ enum FreeControlCatalog {
             let legend = page == .separationAngleAtlas ? "separation.legend." : "cushion.legend."
             ids = Set((0..<8).map { legend + String($0) })
             ids.formUnion(["shot.spin", "shot.power", "atlas.cushionCount"])
+        case .masseJump:
+            ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike", "shot.elevation"]
         case .shotSimulation:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike"]
         case .composer:
@@ -241,7 +243,7 @@ extension TablePreferencePage {
     }
     var controlLayoutFamily: ControlLayoutFamily? {
         switch self {
-        case .defensePractice2D, .defensePractice3D, .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .multiBallPractice, .multiBallPractice3D, .composer, .drillTryout, .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D, .bankPractice2D, .bankPractice3D, .kickPractice2D, .kickPractice3D, .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return .shot
+        case .masseJump, .defensePractice2D, .defensePractice3D, .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .multiBallPractice, .multiBallPractice3D, .composer, .drillTryout, .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D, .bankPractice2D, .bankPractice3D, .kickPractice2D, .kickPractice3D, .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return .shot
         case .silu, .planThree, .bankShot, .diamondSystem: return .planning
         case .pocketTolerance, .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas: return .teaching
         case .sceneAiming2D, .sceneAiming3D: return .angleQuiz

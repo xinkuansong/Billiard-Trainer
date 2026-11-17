@@ -101,6 +101,8 @@ enum PracticeCoverCatalog {
 
     static func visual(for route: AngleRoute) -> PracticeCoverVisual {
         switch route {
+        case .masseJump:
+            return .geometric(spinFanGeometry(tint: "spinAndEnglish"))
         case .aimingPrinciple:
             return .geometric(cutGeometry(
                 tint: "aimingPrinciple",

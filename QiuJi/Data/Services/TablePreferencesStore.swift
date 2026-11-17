@@ -4,6 +4,7 @@ import Combine
 extension TablePreferencePage {
     var fields: Set<TablePreferenceField> {
         switch self {
+        case .masseJump: return [.view3D, .grid, .transparency]
         case .diamondSystem: return Set(TablePreferenceField.allCases).subtracting([.closeup, .separation])
         case .multiBallPractice, .multiBallPractice3D: return Set(TablePreferenceField.allCases)
         case .sceneAiming2D, .sceneAiming3D: return [.view3D, .grid]
@@ -33,6 +34,7 @@ enum TablePreferenceField: String, CaseIterable, Codable {
     }
     var initialValue: Double { self == .transparency ? 0.5 : (self == .shows3DTrajectory ? 1 : 0) }
     func initialValue(for page: TablePreferencePage?) -> Double {
+        if page == .masseJump, self == .view3D { return 1 }
         guard self == .closeup else { return initialValue }
         switch page {
         case .aimPointScene2D, .aimPointScene3D, .accuracy2D, .accuracy3D,

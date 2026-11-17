@@ -2,6 +2,7 @@ import Foundation
 
 /// Stable product entry identities shared by display preferences and control layouts.
 enum TablePreferencePage: String, CaseIterable, Codable {
+    case masseJump
     case dailyClearance, freePlay, shotSimulation, snakePractice, multiBallPractice, multiBallPractice3D, composer, drillTryout
     case customFormationPractice, customFormationEditor
     case bankShot, diamondSystem, silu, planThree

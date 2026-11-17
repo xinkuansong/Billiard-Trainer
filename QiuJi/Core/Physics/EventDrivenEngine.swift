@@ -24,6 +24,7 @@ class EventDrivenEngine {
 
     enum SimulationModel: Equatable {
         case planarReference
+        case spatialPractice
         case localPockets(material:PocketStaticMaterial)
 
         /// Shared immutable policy for prediction, search, break shots and rule
@@ -52,11 +53,15 @@ class EventDrivenEngine {
             return simulate(maxEvents:maxEvents,maxTime:maxTime,highFidelityBounds:highFidelityBounds,
                 earlyStopBallNames:earlyStopBallNames,stopAfterContactBetween:stopAfterContactBetween,
                 rejectCushionBeforeAnyContactFor:rejectCushionBeforeAnyContactFor)
-        case .localPockets(let material):
+        case .localPockets, .spatialPractice:
+            let material: PocketStaticMaterial
+            if case .localPockets(let value) = model { material = value }
+            else { material = .tablePhysics(clothRestitution: 0.3) }
             do {
                 if spatialTime == nil { separateOverlappingBalls(maxIterations:50) }
                 return try simulateMixedWithLocalPockets(maxTime:Double(maxTime),
                     pairRestitution:Double(BallPhysics.restitution),pairFriction:0,maxEvents:maxLocalSteps,
+                    includesExterior:model == .spatialPractice,
                     collectsPocketedBalls:true,ballMaterial:.ballPhysics,staticMaterial:material,
                     earlyStopBallNames:earlyStopBallNames,stopAfterContactBetween:stopAfterContactBetween,
                     maxResolvedEvents:maxEvents,rejectCushionBeforeAnyContactFor:rejectCushionBeforeAnyContactFor)
@@ -381,6 +386,7 @@ class EventDrivenEngine {
     @discardableResult
     func simulateMixedWithLocalPockets(maxTime:Double,maxStep:Double=0.0025,
                                       pairRestitution:Double,pairFriction:Double,maxEvents:Int=100000,
+                                      includesExterior:Bool=false,
                                       collectsPocketedBalls:Bool=false,
                                       ballMaterial:SpatialBallContact.MaterialSource = .supplied,
                                       staticMaterial:PocketStaticMaterial = .prototype,
@@ -408,7 +414,9 @@ class EventDrivenEngine {
                   guard let r=asset.regionsByPocketID[p.id] else { return false }
                   return r.center.x==Double(p.center.x) && r.center.z==Double(p.center.z)
               }) else { throw LocalIntegrationFailure.geometryMismatch }
-        let solver=try asset.localSimulation(material:staticMaterial,ballMaterial:ballMaterial)
+        let solver = try includesExterior
+            ? SpatialPracticeGeometry.solver(asset:asset,material:staticMaterial,ballMaterial:ballMaterial)
+            : asset.localSimulation(material:staticMaterial,ballMaterial:ballMaterial)
         func state(_ ball:BallState,at t:Double)->State {
             .init(time:t,position:v(ball.position),velocity:v(ball.velocity),omega:v(ball.angularVelocity))
         }
@@ -441,6 +449,11 @@ class EventDrivenEngine {
         defer { phaseClock.flush() }
         recordSnapshot()
         while time<maxTime {
+            if includesExterior, balls.values.contains(where: { !$0.isPocketed &&
+                (abs($0.position.x)>SpatialPracticeGeometry.domainHalfExtent || abs($0.position.z)>SpatialPracticeGeometry.domainHalfExtent || $0.position.y < -0.1 || $0.position.y > 8) }) {
+                termination = .failed("超出练习空间，请降低杆速或调整方向")
+                break
+            }
             if predictionCancellationRequested?() == true { termination = .cancelled; break }
             if rejectsDirectCandidate(cue: rejectCushionBeforeAnyContactFor) {
                 termination = .candidateRejected; break
@@ -565,7 +578,8 @@ class EventDrivenEngine {
                 }
                 for contact in contacts.sorted(by:{$0.contact.time<$1.contact.time}) {
                     trajectoryRecorder.recordLocalStaticContact(contact)
-                    guard surfaceRoles[contact.contact.surface] == .cushion else { continue }
+                    guard surfaceRoles.indices.contains(contact.contact.surface),
+                          surfaceRoles[contact.contact.surface] == .cushion else { continue }
                     let t=contact.contact.time,name=contact.ballName,n=contact.contact.normal
                     let horizontal=sqrt(n.x*n.x+n.z*n.z)
                     guard horizontal>0 else { continue }

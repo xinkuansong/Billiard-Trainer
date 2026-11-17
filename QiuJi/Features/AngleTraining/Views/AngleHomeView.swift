@@ -5,6 +5,7 @@ import OSLog
 
 enum AngleRoute: Hashable {
     /// 球理索引（v30 W0 / v32 理区）：分组列出 T01–T10 + 流程 + 速查表。
+    case masseJump
     case theoryIndex
     /// 球理详情页（v30 W0）：12 篇共用一个参数化 case，载荷见 `TheoryPageID`；
     /// 目的地在 `MainTabView.theoryDestination` 的 switch 中逐页注册（W1–W4）。
@@ -66,7 +67,7 @@ enum AngleRoute: Hashable {
              .snakePractice, .positionPlaySolver,
              .ballExtraction, .planThree, .bankShot, .diamondSystem:
             return true
-        case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D,
+        case .masseJump, .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D,
              .theoryIndex, .theoryPage, .contactPointTable, .aimingPrinciple,
              .aimingMethods, .aimingCorrection, .spinAndEnglish, .angleDynamic, .pocketTolerance,
              .geometricQuiz, .multiBallPractice, .customFormationPractice, .sceneAiming2D,
@@ -298,6 +299,7 @@ struct AngleHomeView: View {
     }
 
     private let advancedEntries: [AngleEntry] = [
+        .init(route: .masseJump, title: "扎杆与跳球", subtitle: "自由摆球，探索弧线、腾空与落台", contentKind: .striking, difficulty: .integrated, topics: [.position, .english]),
         .init(route: .bankShot, title: "翻袋", subtitle: "摆球求解目标球翻库入袋", contentKind: .striking, difficulty: .applied, topics: [.cushion, .accuracy]),
         .init(route: .diamondSystem, title: "颗星解球", subtitle: "摆球求解母球绕库碰球", contentKind: .striking, difficulty: .applied, topics: [.cushion]),
         .init(route: .bankPractice2D, title: "翻袋练习", subtitle: "按指定库序将目标球翻进袋", contentKind: .quiz, difficulty: .integrated, topics: [.accuracy, .english, .cushion]),

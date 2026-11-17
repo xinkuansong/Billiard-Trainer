@@ -1666,6 +1666,37 @@ final class CameraRig: ObservableObject {
         currentViewMode = .observation
     }
 
+    /// Explicit spatial-practice observation; never selected by existing page presets.
+    /// World +Y up; bearing is the back vector's atan2(z,x), perpendicular to the shot.
+    func observeSpatialSide(aim: SCNVector3) {
+        guard viewportSize.width>1,viewportSize.height>1 else { return }
+        beginManualOrbit()
+        mergedGlobalActive = usesMergedCamera
+        surfaceOverviewActive = false
+        targetYaw = atan2(aim.z,aim.x) + .pi/2
+        let elevation:Float = 18 * .pi/180
+        let fov=Float(Self.dailyFOV(viewport:viewportSize))
+        let back=SCNVector3(cos(targetYaw)*cos(elevation),sin(elevation),sin(targetYaw)*cos(elevation))
+        let right=SCNVector3(-sin(targetYaw),0,cos(targetYaw))
+        let up=SCNVector3(-cos(targetYaw)*sin(elevation),cos(elevation),-sin(targetYaw)*sin(elevation))
+        let tanV=tan(fov * .pi/360),tanH=tanV*Float(viewportSize.width/viewportSize.height)
+        var distance:Float=2
+        for x in [-Float(tableOuterHalfLength),Float(tableOuterHalfLength)] {
+            for z in [-Float(tableOuterHalfWidth),Float(tableOuterHalfWidth)] {
+                for y:Float in [-0.15,0.6] {
+                    let p=SCNVector3(x,y,z),depth=p.dot(back)
+                    distance=max(distance,depth+abs(p.dot(right))/tanH,depth+abs(p.dot(up))/tanV)
+                }
+            }
+        }
+        targetPivot=SCNVector3(0,tableSurfaceY+0.15,0)
+        targetOrbit = .init(distance:distance*1.15,elevation:elevation,pitchOffset:0,fov:fov)
+        currentPivot=targetPivot;currentYaw=targetYaw;currentOrbit=targetOrbit
+        dailyObservationMaximumDistance=nil;dailyObservationControls=false;dailyObservationSubjects=[]
+        dailyZoomBaseDistance=targetOrbit?.distance
+        applyCameraTransform()
+    }
+
     /// Observation is a camera intent; it has no access to selected balls or shot parameters.
     func observe(at point: SCNVector3) {
         guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { return }

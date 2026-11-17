@@ -210,6 +210,7 @@ extension AngleTrainingScene {
         velocity: Float,
         rehearsalEnabled: Bool? = nil,
         switchesPlayerCameraOnContact: Bool = false,
+        elevationOverride: Float? = nil,
         clearanceProbe: ((TimeInterval) -> [String: SCNVector3])? = nil,
         onContact: @escaping () -> Void
     ) {
@@ -230,13 +231,13 @@ extension AngleTrainingScene {
         let access = cueStrikeAccess(aim: aim)
         let flat = CueClearance.normalizeFlat(aim)
         let r = AngleSceneCalculator.ballRadius
-        let resolvedPose = access.flatMap { context in
+        let resolvedPose = (elevationOverride == nil ? access : nil).flatMap { context in
             context.resolvedPose(
                 spinX: Double(((strikePosition.x-context.cue.x)*flat.z-(strikePosition.z-context.cue.z)*flat.x)/r),
                 spinY: Double((strikePosition.y-context.cue.y)/r))
         }
         let renderStrike = resolvedPose?.pivot ?? strikePosition
-        let elevResult = resolvedPose.map { CueElevation.angle($0.elevation) } ?? CueStick.requiredElevation(
+        let elevResult = elevationOverride.map { CueElevation.angle($0) } ?? resolvedPose.map { CueElevation.angle($0.elevation) } ?? CueStick.requiredElevation(
             cueBallPosition: renderStrike, aimDirection: aim, obstacleCenters: obstacles, surfaceY: surfaceY
         )
         guard case .angle(let elevation) = elevResult else {
