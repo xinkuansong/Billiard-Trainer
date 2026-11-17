@@ -1087,9 +1087,6 @@ extension CueClearanceTests {
         let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
         renderer.scene = scene; renderer.pointOfView = scene.cameraNode
         let size = CGSize(width: 480, height: 320)
-        let output = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("output/cue-stroke-20261014/r3/realtime-\(enabled ? "on" : "off")")
-        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         let velocity: Float = 3
         let timing = CueStroke.timing(velocity: velocity, rehearsalEnabled: enabled)
         var contacts = 0
@@ -1104,7 +1101,9 @@ extension CueClearanceTests {
             if frame == 2 { UserDefaults.standard.set(!enabled, forKey: CueRehearsalPreference.key) }
             if time < timing.contactTime { XCTAssertEqual(contacts, 0, "Premature launch on frame \(frame)") }
             if [1, 16, 30, 45, 65, contactFrames, contactFrames + 12].contains(frame) {
-                try XCTUnwrap(picture.pngData()).write(to: output.appendingPathComponent("frame-\(frame).png"))
+                let attachment=XCTAttachment(image:picture)
+                attachment.name="realtime-\(enabled ? "on" : "off")-frame-\(frame)"
+                attachment.lifetime = .keepAlways;add(attachment)
             }
         }
         // The callback is enqueued onto the main actor, as in the actual app.
@@ -1129,12 +1128,10 @@ extension CueClearanceTests {
 extension CueClearanceTests {
     @MainActor
     func test_singleRehearsal_exportUsesSameContactTimeAtBothPlaybackSpeeds() throws {
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        let sequences = root.appendingPathComponent("content/position_play/sequences")
-        let file = try XCTUnwrap(FileManager.default.contentsOfDirectory(atPath: sequences.path)
-            .sorted().first { $0.hasPrefix("drill_c001__") && $0.hasSuffix(".json") })
+        let file=try XCTUnwrap(Bundle.main.urls(forResourcesWithExtension:"json",subdirectory:"DrillBoards")?
+            .sorted(by:{ $0.lastPathComponent<$1.lastPathComponent }).first(where:{ $0.lastPathComponent.hasPrefix("drill_c001__") }))
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
-        let source = try decoder.decode(PositionPlaySequence.self, from: Data(contentsOf: sequences.appendingPathComponent(file)))
+        let source = try decoder.decode(PositionPlaySequence.self, from: Data(contentsOf:file))
         var step = try XCTUnwrap(source.steps.first)
         step.shot.velocity = 3
         let sequence = PositionPlaySequence(name: "Single rehearsal regression", initial: step.before, steps: [step])
@@ -1155,16 +1152,15 @@ extension CueClearanceTests {
                 phase = current; phases[current, default: 0] += 1
             }
             var frames = 0
-            let output = root.appendingPathComponent("output/cue-stroke-20261014/r3/export-\(enabled ? "on" : "off")-\(Int(speed))x")
-            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
             try SequenceVideoExporter.renderFrames(sequence: sequence, options: options) { frame in
                 frames += 1
                 // Even a change during export must not alter its frozen timeline.
                 if frames == 1 { UserDefaults.standard.set(!enabled, forKey: CueRehearsalPreference.key) }
                 let count = phases[phase, default: 0]
                 if phase == "stroke", [1, expectedStrokeFrames / 4, expectedStrokeFrames / 2, expectedStrokeFrames - 1].contains(count) {
-                    try XCTUnwrap(UIImage(cgImage: frame).pngData())
-                        .write(to: output.appendingPathComponent("stroke-\(count).png"))
+                    let attachment=XCTAttachment(image:UIImage(cgImage:frame))
+                    attachment.name="export-\(enabled ? "on" : "off")-\(Int(speed))x-stroke-\(count)"
+                    attachment.lifetime = .keepAlways;add(attachment)
                 }
             }
             XCTAssertEqual(phases["stroke"], expectedStrokeFrames)
