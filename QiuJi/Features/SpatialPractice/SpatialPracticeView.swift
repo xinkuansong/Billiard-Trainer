@@ -14,8 +14,8 @@ struct SpatialPracticeView: View {
             spinY:Binding(get:{ vm.input.spinY },set:{ vm.setSpin(vm.input.spinX,$0) }),
             transparency:Binding(get:{ preferences.snapshot(for:.masseJump)[.transparency] },set:{ preferences.apply(.transparency,value:$0,to:.masseJump) }),
             velocityRange:0.1...8,instrumentsEnabled:enabled,
-            defersStrikeAccessUntilSubmission:true,locksSceneInteraction:vm.busy || showsElevation || showsDetails,
-            isAnimating:vm.busy,paletteEnabled:enabled,allowsPocketSelection:false,
+            defersStrikeAccessUntilSubmission:true,locksSceneInteraction:showsElevation || showsDetails,
+            isAnimating:vm.busy,allowsObservationWhileAnimating:true,paletteEnabled:enabled,allowsPocketSelection:false,
             primaryTitle:vm.phase == .calculating ? "计算中" : (vm.busy ? "停止" : "击球"),
             primaryEnabled:vm.busy || (enabled && vm.canStrike),
             onPrimary:{ if vm.busy { vm.stopPlayback() } else { vm.strike() } },
@@ -37,6 +37,7 @@ struct SpatialPracticeView: View {
             .init(id:"masseJump.example.right",title:"右弧扎杆示例",disabled:vm.busy,action:{ replacement=2 }),
             .init(id:"masseJump.retrieve",title:"取回桌外球（\(vm.outsideKeys.count)）",disabled:vm.busy || vm.outsideKeys.isEmpty,action:{ vm.retrieveOutside() }),
             .init(id:"masseJump.clear",title:"清空桌面",disabled:vm.busy,action:{ replacement = -1 }),
+            .init(id:"masseJump.route",title:"上一杆路线",selected:vm.showsLastRoute,disabled:vm.busy || vm.record.lastShot == nil,action:{ vm.toggleLastRoute() }),
             .init(id:"masseJump.details",title:"上一杆详情",disabled:vm.record.lastShot == nil,action:{ showsDetails=true }),
             .init(id:"masseJump.speed",title:"回放速度 · \(vm.playbackSpeed == 1 ? "正常" : "1/4")",disabled:vm.busy,action:{ vm.playbackSpeed = vm.playbackSpeed == 1 ? 0.25 : 1 })
         ]
@@ -107,7 +108,18 @@ struct SpatialPracticeView: View {
                 }.navigationTitle("上一杆").toolbar { ToolbarItem(placement:.confirmationAction) { Button("完成") { showsDetails=false } } }
             }
         }
-        .accessibilityValue("抬杆\(Int(vm.input.elevation))度，在桌\(vm.onTableKeys.count)球，\(String(describing:vm.phase))")
+        .accessibilityValue("抬杆\(Int(vm.input.elevation))度，在桌\(vm.onTableKeys.count)球")
+        .overlay(alignment:.topLeading) {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-masseJump.probe") {
+                TimelineView(.animation(minimumInterval:0.1,paused:!vm.busy)) { _ in
+                    Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
+                        .accessibilityIdentifier("masseJump.probe")
+                        .accessibilityValue("\(String(describing:vm.phase))|\(vm.scene.cueBallNode?.presentation.position.y ?? 0)")
+                }
+            }
+            #endif
+        }
     }
     private func labels(_ keys:[String])->String { keys.isEmpty ? "无" : keys.map { PositionPlayBall.isCue($0) ? "母球" : PositionPlayBall.shortLabel(for:$0)+"号" }.joined(separator:"、") }
 }

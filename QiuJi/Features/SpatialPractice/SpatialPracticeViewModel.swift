@@ -18,6 +18,8 @@ final class SpatialPracticeViewModel: TeachingTableHost {
     @Published private(set) var record=Record(board:[:],input:.init())
     @Published var message:String?
     @Published var playbackSpeed:Float=1
+    @Published var showsLastRoute=false
+    private var routeNodes:[SCNNode]=[]
     private var setup=false
     private var cancellation:PredictionCancellation?
     private var generation=UUID()
@@ -49,6 +51,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
     }
     func ownerChanged() {
         suspendTeachingActivity()
+        clearRoute();showsLastRoute=false
         ownerKey=CurrentOwnerContext.shared.ownerKey
         if let data=defaults.data(forKey:storageKey), let saved=try? PropertyListDecoder().decode(Record.self,from:data), saved.valid {
             record=saved;input=saved.input;apply(saved.board)
@@ -70,7 +73,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
     }
     func updateInput(_ update:(inout Record.Input)->Void) {
         guard !busy else { return }
-        update(&input)
+        update(&input);message=nil
         cancelCalculation();refreshAim();save()
     }
     func nudgeAim(_ degrees:Float) { updateInput { $0.yaw += Double(degrees) * .pi / 180 } }
@@ -150,6 +153,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
         topDownContentRevision += 1
     }
     private func play(_ shot:Record.Shot,replay:Bool) {
+        clearRoute()
         phase = replay ? .replaying : .playing
         let request=UUID();generation=request
         apply(shot.before);if replay { scene.hideCueStick() };scene.setFreeAimPreviewLine(nil)
@@ -188,7 +192,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
                     if replay { self.restoreReplay() }
                     else {
                         self.record.board=shot.after;self.record.lastShot=shot
-                        self.apply(shot.after);self.phase = .ready;self.save();self.refreshAim()
+                        self.apply(shot.after);self.phase = .ready;self.save();self.refreshAim();self.renderLastRoute()
                     }
                 }
             }
@@ -203,7 +207,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
     private func restoreReplay() {
         if let replayReturn { apply(replayReturn) };replayReturn=nil
         replayCamera.finish(in:scene)
-        phase = .ready;refreshAim()
+        phase = .ready;refreshAim();renderLastRoute()
     }
     func stopPlayback() {
         generation=UUID();audioItems.forEach { $0.cancel() };audioItems=[];scene.cueStick?.cancelAnimations();scene.hideCueStick()
@@ -223,6 +227,24 @@ final class SpatialPracticeViewModel: TeachingTableHost {
         record.board=[PositionPlayBall.cueKey:pose(-0.65,0),"_1":pose(-0.25,0),"_2":pose(0.6,0)]
         input = .init(yaw:0,speed:index==0 ? 4 : 2,spinX:index==0 ? 0 : (index==1 ? 0.55 : -0.55),spinY:0,elevation:index==0 ? 50 : 70)
         apply(record.board);save();refreshAim()
+    }
+    func toggleLastRoute() { showsLastRoute.toggle();renderLastRoute() }
+    private func clearRoute() { routeNodes.forEach { $0.removeFromParentNode() };routeNodes=[] }
+    private func renderLastRoute() {
+        clearRoute()
+        guard showsLastRoute,!busy,let shot=record.lastShot else { return }
+        for key in shot.paths.keys.sorted() {
+            let points=(shot.paths[key] ?? []).prefix(while:{ !$0.hidden }).map { $0.position.scene }
+            guard points.count>1 else { continue }
+            let indices=(0..<(points.count-1)).flatMap { [Int32($0),Int32($0+1)] }
+            let geometry=SCNGeometry(sources:[SCNGeometrySource(vertices:points)],
+                elements:[SCNGeometryElement(indices:indices,primitiveType:.line)])
+            let material=SCNMaterial();material.lightingModel = .constant
+            material.diffuse.contents=PositionPlayBall.isCue(key) ? TrajectoryStyle.aimColor : TrajectoryStyle.potColor(for:key)
+            geometry.materials=[material]
+            let node=SCNNode(geometry:geometry);node.castsShadow=false;node.name="spatialLastShotRoute"
+            scene.rootNode.addChildNode(node);routeNodes.append(node)
+        }
     }
     func selectPocket(at index:Int) {}
     func selectTarget(key:String) {

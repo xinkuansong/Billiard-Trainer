@@ -160,6 +160,8 @@ struct BTTablePlanningControls {
     var defersStrikeAccessUntilSubmission = false
     var locksSceneInteraction = false
     var isAnimating: Bool
+    /// Spatial free practice permits camera observation while its balls move.
+    var allowsObservationWhileAnimating = false
     var paletteEnabled: Bool
     var showsPlacementHint = true
     var allowsPocketSelection: Bool = true
@@ -877,7 +879,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @ViewBuilder private var cameraButtons: some View {
         if let rig = vm.scene.cameraRig {
             ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
-                isEnabled: objectObservationOnly || vm.temporaryTopDownActive || (planning.map { !$0.isAnimating } ?? (vm.currentPlayerAim != nil)),
+                isEnabled: objectObservationOnly || vm.temporaryTopDownActive || planning?.allowsObservationWhileAnimating == true || (planning.map { !$0.isAnimating } ?? (vm.currentPlayerAim != nil)),
                 onWholeTable: { planning?.onObservation?("wholeTable"); vm.requestSurfaceOverview() }, usesTwoViewControls: rig.usesTwoViewCameraControls,
                 temporaryTopDownActive: vm.temporaryTopDownActive,
                 onTemporaryTopDownBegan: { vm.beginTemporaryTopDown() },

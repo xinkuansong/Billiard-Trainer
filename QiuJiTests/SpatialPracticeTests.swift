@@ -59,8 +59,51 @@ final class SpatialPracticeTests: XCTestCase {
         XCTAssertEqual(ball.position.y,BTSceneLayout.groundLevelY+BallPhysics.radius,accuracy:0.00002)
         XCTAssertFalse(SpatialPracticeGeometry.isOnBed(ball.position))
         XCTAssertFalse(engine.getTrajectoryRecorder().localStaticContacts.isEmpty)
-        XCTAssertNotNil(solver.planarSupport(from:.init(time:0,position:SIMD3(0,Double(BTTablePhysics.surfaceY+BallPhysics.radius),0),
+        XCTAssertNil(solver.planarSupport(from:.init(time:0,position:SIMD3(Double(ball.position.x),Double(ball.position.y),Double(ball.position.z)),
             velocity:.zero,omega:.zero),surfaceY:Double(BTTablePhysics.surfaceY)))
+    }
+    func testDefaultJumpExampleFinishesWithThreeBalls() throws {
+        let y=BTTablePhysics.surfaceY+BallPhysics.radius
+        let result=ShotPredictor.simulateFree(cueBall:SCNVector3(-0.65,y,0),aimDir:SCNVector3(1,0,0),velocity:4,
+            spinX:0,spinY:0,surfaceY:BTTablePhysics.surfaceY,
+            balls:[.init(name:"_1",position:SCNVector3(-0.25,y,0)),.init(name:"_2",position:SCNVector3(0.6,y,0))],
+            maxEvents:3000,maxTime:40,simulationModel:.spatialPractice,elevation:50 * .pi/180)
+        XCTAssertEqual(result.termination,.settled)
+        XCTAssertEqual(result.finalPositions.count,3)
+    }
+    func testHighBallClearsObjectAndLowBallContactsIt() throws {
+        func contacts(height:Float)->Bool {
+            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:BTTablePhysics.surfaceY))
+            engine.setBall(.init(position:SCNVector3(-0.3,height,0),velocity:SCNVector3(3,0,0),
+                angularVelocity:SCNVector3Zero,state:.sliding,name:"cue"))
+            engine.setBall(.init(position:SCNVector3(0,BTTablePhysics.surfaceY+BallPhysics.radius,0),velocity:SCNVector3Zero,
+                angularVelocity:SCNVector3Zero,state:.stationary,name:"object"))
+            let result=engine.simulatePrediction(model:.spatialPractice,maxTime:0.18)
+            XCTAssertTrue(result == .timeLimit || result == .settled,"\(result)")
+            return engine.firstBallBallCollisionTime != nil
+        }
+        XCTAssertFalse(contacts(height:1.05))
+        XCTAssertTrue(contacts(height:BTTablePhysics.surfaceY+BallPhysics.radius+0.01))
+    }
+    @MainActor
+    func testPaletteCapacityOverlapAndInterruptedCalculationRestoreStableDraft() async throws {
+        let suite="v66-edit-"+UUID().uuidString
+        let defaults=try XCTUnwrap(UserDefaults(suiteName:suite));defer { defaults.removePersistentDomain(forName:suite) }
+        let vm=SpatialPracticeViewModel(defaults:defaults);vm.setupScene();vm.clear()
+        for key in PositionPlayBall.allKeys { vm.placeFromPalette(key) }
+        XCTAssertEqual(vm.onTableKeys.count,16)
+        let cue=try XCTUnwrap(vm.record.board[PositionPlayBall.cueKey])
+        XCTAssertNil(vm.palettePlacement("_1",atWorld:cue.position.scene))
+        vm.loadExample(0)
+        let before=vm.record.board.mapValues(\.position)
+        vm.strike();vm.suspendTeachingActivity()
+        try await Task.sleep(for:.milliseconds(500))
+        XCTAssertEqual(vm.phase,.ready)
+        XCTAssertEqual(vm.record.board.mapValues(\.position),before)
+        XCTAssertNil(vm.record.lastShot)
+        let restored=SpatialPracticeViewModel(defaults:defaults);restored.setupScene()
+        XCTAssertEqual(restored.record.board.mapValues(\.position),before)
+        restored.suspendTeachingActivity()
     }
     func testBudgetAndCancellationNeverPublishSettledShot() {
         let token=PredictionCancellation();token.cancel()
