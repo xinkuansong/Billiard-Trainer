@@ -92,7 +92,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
     }
     var cueAccessible:Bool {
         guard let strikePoint else { return false }
-        let obstacles=onTableKeys.filter { !PositionPlayBall.isCue($0) }.compactMap { record.board[$0]?.position.scene }
+        let obstacles=record.board.keys.filter { !PositionPlayBall.isCue($0) && ["bed","outside"].contains(record.board[$0]?.disposition ?? "") }.sorted().compactMap { record.board[$0]?.position.scene }
         return CueStick.clearsAtElevation(strike:strikePoint,aim:input.aim,obstacles:obstacles,
             surfaceY:scene.surfaceY,elevation:input.radians)
     }

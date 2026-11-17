@@ -189,6 +189,24 @@ final class SpatialPracticeTests: XCTestCase {
         XCTAssertNotNil(restored.message)
         restored.suspendTeachingActivity()
     }
+    @MainActor
+    func testCueClearanceIncludesVisibleBallsRestingOutsideBed() throws {
+        let suite="v66-clearance-"+UUID().uuidString
+        let defaults=try XCTUnwrap(UserDefaults(suiteName:suite));defer { defaults.removePersistentDomain(forName:suite) }
+        let owner=CurrentOwnerContext(defaults:defaults)
+        let cue=SCNVector3(-1.2,BTTablePhysics.surfaceY+BallPhysics.radius,0)
+        let outside=SCNVector3(-1.32,0.88,0)
+        let input=SpatialPracticeRecord.Input(yaw:0,speed:2,spinX:0,spinY:0,elevation:20)
+        let board=[PositionPlayBall.cueKey:SpatialPracticeRecord.Pose(position:.init(cue),rotation:[0,0,0,1],disposition:"bed"),
+            "_1":SpatialPracticeRecord.Pose(position:.init(outside),rotation:[0,0,0,1],disposition:"outside")]
+        defaults.set(try PropertyListEncoder().encode(SpatialPracticeRecord(board:board,input:input)),forKey:"spatialPractice.v1."+owner.ownerKey)
+        let vm=SpatialPracticeViewModel(defaults:defaults,ownerContext:owner);vm.setupScene()
+        XCTAssertTrue(CueStick.clearsAtElevation(strike:cue,aim:input.aim,obstacles:[],surfaceY:BTTablePhysics.surfaceY,elevation:input.radians))
+        XCTAssertFalse(vm.cueAccessible)
+        vm.updateInput { $0.elevation=70 }
+        XCTAssertTrue(vm.cueAccessible)
+        vm.suspendTeachingActivity()
+    }
     func testFrozenShotRoundTripPreservesThreeDimensionalSamples() throws {
         let result=prediction(model:.spatialPractice,elevation:.pi/4)
         let before=[PositionPlayBall.cueKey:SpatialPracticeRecord.Pose(position:.init(SCNVector3(-0.65,BTTablePhysics.surfaceY+BallPhysics.radius,0)),rotation:[0,0,0,1],disposition:"bed")]
