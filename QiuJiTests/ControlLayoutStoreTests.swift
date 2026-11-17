@@ -724,11 +724,12 @@ final class ControlLayoutStoreTests: XCTestCase {
         XCTAssertEqual(active[.keyboard, .lane], .lane(.leading))
         XCTAssertEqual(reloaded.archive.revision, revision)
         XCTAssertTrue(resolve(reloaded.archive, .sceneAiming2D, .twoD, .padPortrait, [.keyboard]).values.isEmpty)
-        XCTAssertEqual(TablePreferencePage.allCases.filter(\.supportsControlLayoutEditing).count, 36)
+        XCTAssertEqual(TablePreferencePage.allCases.filter(\.supportsControlLayoutEditing).count, 38)
         XCTAssertTrue(TablePreferencePage.separationPractice2D.supportsControlLayoutEditing)
         XCTAssertTrue(TablePreferencePage.separationPractice3D.supportsControlLayoutEditing)
         XCTAssertFalse(TablePreferencePage.drillRecordPreview.supportsControlLayoutEditing)
         XCTAssertTrue(TablePreferencePage.customFormationEditor.supportsControlLayoutEditing)
+        XCTAssertTrue(TablePreferencePage.masseJump.supportsControlLayoutEditing)
         XCTAssertEqual(TablePreferencePage.customFormationEditor.fixedControlLayoutMode, .twoD)
     }
 
