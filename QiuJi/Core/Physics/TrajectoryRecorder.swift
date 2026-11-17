@@ -244,6 +244,9 @@ final class TrajectoryRecorder {
         let geometryID:String
         let contact:LocalPocketSimulation.Contact
     }
+    /// Exclusive to spatial free practice: a boundary exit is neither a pot nor a numerical failure.
+    private(set) var spatialDomainExits:[String:LocalPocketSimulation.State]=[:]
+    func recordSpatialDomainExit(ballName:String,state:LocalPocketSimulation.State) { spatialDomainExits[ballName]=state }
     private(set) var localStaticContacts:[LocalStaticContact]=[]
     func recordLocalStaticContact(_ contact:LocalStaticContact) { localStaticContacts.append(contact) }
     private(set) var localHandoffs:[LocalHandoff]=[]
@@ -368,6 +371,8 @@ struct LocalPocketOwnership {
         entries.removeValue(forKey:ballName)
         return owner.state
     }
+
+    mutating func leaveSpatialDomain(ballName:String) { entries.removeValue(forKey:ballName) }
 
     mutating func returnAirborneToPlanar(ballName:String,revision:UInt64,solver:LocalPocketSimulation,
                                          surfaceY:Double) throws -> LocalPocketSimulation.State? {

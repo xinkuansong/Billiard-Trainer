@@ -105,7 +105,8 @@ struct SpatialPracticeView: View {
                         LabeledContent("最高离台",value:String(format:"%.1f cm",shot.maximumHeight*100))
                         LabeledContent("首次落台",value:shot.landing.map { String(format:"X %.2f m · Z %.2f m",$0.x,$0.z) } ?? "未发生")
                         LabeledContent("进袋球",value:labels(shot.after.filter { $0.value.disposition == "pocket" && shot.before[$0.key]?.disposition != "pocket" }.keys.sorted()))
-                        LabeledContent("桌外球",value:labels(shot.after.filter { $0.value.disposition == "outside" }.keys.sorted()))
+                        LabeledContent("离开范围",value:labels(shot.after.filter { $0.value.disposition == "escaped" }.keys.sorted()))
+                        LabeledContent("桌外球",value:labels(shot.after.filter { ["outside","escaped"].contains($0.value.disposition) }.keys.sorted()))
                         Text("回放保留本杆实际路线，可切换俯视或侧面观察。").font(.btCaption).foregroundStyle(.secondary)
                     }
                 }.navigationTitle("上一杆").toolbar { ToolbarItem(placement:.confirmationAction) { Button("完成") { showsDetails=false } } }

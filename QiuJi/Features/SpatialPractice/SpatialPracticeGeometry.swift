@@ -4,8 +4,21 @@ import simd
 /// Value-only geometry, exclusively requested by the spatial practice model.
 /// World coordinates: X/Z horizontal, Y up, metres; bed and ground share scene constants.
 enum SpatialPracticeGeometry {
-    static let version = "bundled-table-exterior-v1"
-    static let domainHalfExtent: Float = 8
+    static let version = "bundled-table-exterior-v2"
+    static let domainHalfExtent: Float = 3
+    // Stop before the nearest room furniture / walls; room decorations have no collider.
+    static func contains(_ p:SIMD3<Double>)->Bool {
+        abs(p.x)<=3 && abs(p.z)<=2 && p.y >= -0.1 && p.y<=3.3
+    }
+    static func exitState(_ spans:[LocalPocketSimulation.Interval],fallback:LocalPocketSimulation.State)->LocalPocketSimulation.State {
+        guard let span=spans.last,contains(span.start.position),!contains(span.end.position) else { return fallback }
+        var low=span.start.time,high=span.end.time
+        for _ in 0..<48 {
+            let mid=(low+high)/2
+            if let state=span.sample(at:mid,beforeEndpoint:true),contains(state.position) { low=mid } else { high=mid }
+        }
+        return span.sample(at:low,beforeEndpoint:true) ?? fallback
+    }
     private static let lock = NSLock()
     private static let solverLock = NSLock()
     private struct Key: Hashable { let material: PocketStaticMaterial; let ball: SpatialBallContact.MaterialSource }

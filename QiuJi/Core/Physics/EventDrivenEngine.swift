@@ -449,10 +449,22 @@ class EventDrivenEngine {
         defer { phaseClock.flush() }
         recordSnapshot()
         while time<maxTime {
-            if includesExterior, balls.values.contains(where: { !$0.isPocketed &&
-                (abs($0.position.x)>SpatialPracticeGeometry.domainHalfExtent || abs($0.position.z)>SpatialPracticeGeometry.domainHalfExtent || $0.position.y < -0.1 || $0.position.y > 8) }) {
-                termination = .failed("超出练习空间，请降低杆速或调整方向")
-                break
+            if includesExterior,pendingMixedStep == nil {
+                let exits=ballOrder.filter { name in
+                    guard let ball=balls[name],!ball.isPocketed else { return false }
+                    return !SpatialPracticeGeometry.contains(localOwnership.entries[name]?.state.position ?? v(ball.position))
+                }
+                for name in exits {
+                    guard let ball=balls[name] else { continue }
+                    let boundary=SpatialPracticeGeometry.exitState(trajectoryRecorder.localIntervalsByBallName[name] ?? [],fallback:state(ball,at:time))
+                    trajectoryRecorder.recordSpatialDomainExit(ballName:name,state:boundary)
+                    localOwnership.leaveSpatialDomain(ballName:name)
+                    balls.removeValue(forKey:name);ballOrder.removeAll { $0 == name }
+                    ballInputRevision+=1;eventCache.clear()
+                }
+                if !exits.isEmpty,balls.values.allSatisfy({ $0.isPocketed || $0.state == .stationary }) && localOwnership.entries.isEmpty {
+                    termination = .settled;break
+                }
             }
             if predictionCancellationRequested?() == true { termination = .cancelled; break }
             if rejectsDirectCandidate(cue: rejectCushionBeforeAnyContactFor) {

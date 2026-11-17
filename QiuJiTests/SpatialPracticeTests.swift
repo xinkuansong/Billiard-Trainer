@@ -121,6 +121,27 @@ final class SpatialPracticeTests: XCTestCase {
         XCTAssertEqual(restored.record.board.mapValues(\.position),before)
         restored.suspendTeachingActivity()
     }
+    func testDomainExitIsDistinctFromPocketAndOtherBallsFinish() throws {
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:BTTablePhysics.surfaceY))
+        engine.setBall(.init(position:SCNVector3(2.99,0.4,0),velocity:SCNVector3(4,0,0),
+            angularVelocity:SCNVector3Zero,state:.sliding,name:"escaped"))
+        engine.setBall(.init(position:SCNVector3(0,BTTablePhysics.surfaceY+BallPhysics.radius,0),velocity:SCNVector3(0.1,0,0),
+            angularVelocity:SCNVector3Zero,state:.sliding,name:"remaining"))
+        XCTAssertEqual(engine.simulatePrediction(model:.spatialPractice,maxTime:8),.settled)
+        let recorder=engine.getTrajectoryRecorder()
+        let exit=try XCTUnwrap(recorder.spatialDomainExits["escaped"])
+        XCTAssertEqual(exit.position.x,3,accuracy:1e-6)
+        XCTAssertFalse(recorder.isBallPocketed("escaped"))
+        XCTAssertEqual(engine.getBall("remaining")?.state,.stationary)
+        XCTAssertGreaterThan(recorder.duration,Float(exit.time))
+    }
+    func testLandingSoundsUseAcceptedContactTimes() throws {
+        let result=prediction(model:.spatialPractice,elevation:.pi/4)
+        let recorder=try XCTUnwrap(result.recorder)
+        let sounds=SpatialPracticeRecord.spatialSounds(recorder)
+        XCTAssertFalse(sounds.isEmpty)
+        XCTAssertTrue(sounds.allSatisfy { sound in recorder.localStaticContacts.contains { abs(Float($0.contact.time)-sound.time)<1e-6 } })
+    }
     func testBudgetAndCancellationNeverPublishSettledShot() {
         let token=PredictionCancellation();token.cancel()
         let result=ShotPredictor.simulateFree(cueBall:SCNVector3Zero,aimDir:SCNVector3(1,0,0),velocity:3,spinX:0,spinY:0,
@@ -146,6 +167,27 @@ final class SpatialPracticeTests: XCTestCase {
         XCTAssertEqual(restored.input.elevation,72);XCTAssertEqual(restored.input.speed,2.5)
         XCTAssertTrue(restored.onTableKeys.isEmpty)
         vm.suspendTeachingActivity();restored.suspendTeachingActivity()
+    }
+    @MainActor
+    func testOwnerSwitchAndCorruptArchiveKeepIndependentRecoverableBoards() throws {
+        let suite="v66-owner-"+UUID().uuidString
+        let defaults=try XCTUnwrap(UserDefaults(suiteName:suite));defer { defaults.removePersistentDomain(forName:suite) }
+        let owner=CurrentOwnerContext(defaults:defaults)
+        owner.useAccount(userID:"A")
+        let vm=SpatialPracticeViewModel(defaults:defaults,ownerContext:owner);vm.setupScene()
+        vm.clear();vm.updateInput { $0.elevation=72 }
+        owner.useAccount(userID:"B");vm.ownerChanged()
+        XCTAssertEqual(vm.onTableKeys.count,3);XCTAssertEqual(vm.input.elevation,50)
+        owner.useAccount(userID:"A");vm.ownerChanged()
+        XCTAssertTrue(vm.onTableKeys.isEmpty);XCTAssertEqual(vm.input.elevation,72)
+        vm.suspendTeachingActivity()
+        let key="spatialPractice.v1."+owner.ownerKey,bad=Data("broken".utf8)
+        defaults.set(bad,forKey:key)
+        let restored=SpatialPracticeViewModel(defaults:defaults,ownerContext:owner);restored.setupScene()
+        XCTAssertEqual(defaults.data(forKey:key+".unreadable"),bad)
+        XCTAssertEqual(restored.onTableKeys.count,3)
+        XCTAssertNotNil(restored.message)
+        restored.suspendTeachingActivity()
     }
     func testFrozenShotRoundTripPreservesThreeDimensionalSamples() throws {
         let result=prediction(model:.spatialPractice,elevation:.pi/4)

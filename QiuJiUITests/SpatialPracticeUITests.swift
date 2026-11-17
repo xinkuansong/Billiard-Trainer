@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 final class SpatialPracticeUITests:XCTestCase {
     private var app:XCUIApplication!
@@ -19,6 +20,16 @@ final class SpatialPracticeUITests:XCTestCase {
         let entry=app.buttons["扎杆与跳球"];ready(entry);entry.tap()
         let elevation=element("masseJump.elevation");ready(elevation)
         capture("v66-ready")
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            XCUIDevice.shared.orientation = .portrait;ready(elevation);capture("v66-ipad-portrait")
+            XCUIDevice.shared.orientation = .landscapeLeft;ready(elevation);capture("v66-ipad-landscape")
+        }
+        let viewMenu=element("masseJump.more");ready(viewMenu);viewMenu.tap()
+        let mode=element("masseJump.cameraMode");ready(mode);mode.tap()
+        capture("v66-topdown")
+        ready(mode);mode.tap()
+        element("masseJump.dismissMenu").tap()
+        ready(elevation)
         elevation.tap()
         let slider=element("masseJump.elevationSlider");ready(slider)
         slider.adjust(toNormalizedSliderPosition:0.59)
@@ -39,6 +50,8 @@ final class SpatialPracticeUITests:XCTestCase {
         capture("v66-rendered-flight-observed")
         let replay=element("masseJump.replay");ready(replay)
         capture("v66-settled")
+        let replayMenu=element("masseJump.more");ready(replayMenu);replayMenu.tap()
+        let slow=element("masseJump.speed");ready(slow);slow.tap()
         replay.tap();ready(element("masseJump.retry"))
         element("masseJump.retry").tap();ready(strike)
         capture("v66-retry")

@@ -664,6 +664,11 @@ enum ShotPredictor {
                 if pathLengthXZ(pts) > 0.02 { extraPaths[name] = pts }
             }
         }
+        if simulationModel == .spatialPractice {
+            for (name,exit) in recorder.spatialDomainExits {
+                finals[name]=SCNVector3(Float(exit.position.x),Float(exit.position.y),Float(exit.position.z))
+            }
+        }
         result.finalPositions = finals
         result.pocketedBalls = pocketed
         result.extraBallPaths = extraPaths

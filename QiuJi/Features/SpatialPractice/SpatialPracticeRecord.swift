@@ -12,7 +12,7 @@ struct SpatialPracticeRecord: Codable {
     struct Pose: Codable {
         var position: Vector
         var rotation: [Float]
-        var disposition: String // bed / pocket / outside
+        var disposition: String // bed / pocket / outside / escaped
     }
     struct Input: Codable {
         var yaw: Double = 0
@@ -54,11 +54,9 @@ struct SpatialPracticeRecord: Codable {
     private static func validBoard(_ board:[String:Pose])->Bool {
         board.count<=16 && board.allSatisfy { key,pose in
             PositionPlayBall.allKeys.contains(key) && pose.position.finite &&
-            abs(pose.position.x)<=SpatialPracticeGeometry.domainHalfExtent &&
-            abs(pose.position.z)<=SpatialPracticeGeometry.domainHalfExtent &&
-            pose.position.y >= -0.1 && pose.position.y<=8 &&
+            SpatialPracticeGeometry.contains(SIMD3(Double(pose.position.x),Double(pose.position.y),Double(pose.position.z))) &&
             pose.rotation.count==4 && pose.rotation.allSatisfy(\.isFinite) &&
-            ["bed","pocket","outside"].contains(pose.disposition)
+            ["bed","pocket","outside","escaped"].contains(pose.disposition)
         }
     }
     var valid: Bool {
@@ -80,6 +78,24 @@ struct SpatialPracticeRecord: Codable {
             $0.speed.isFinite && $0.speed>=0 && ShotSoundKind(rawValue:$0.kind) != nil }
     }
 
+    /// Exact accepted contact times, with the existing soft impact sample as an
+    /// explicit auditory approximation for cloth / wood / floor (not a measured recording).
+    static func spatialSounds(_ recorder:TrajectoryRecorder)->[Sound] {
+        guard let roles=try? PocketGeometryAsset.load().surfaceRoles() else { return [] }
+        var emitted:[String:Double]=[:],sounds:[Sound]=[]
+        for event in recorder.localStaticContacts.sorted(by:{$0.contact.time<$1.contact.time}) {
+            let c=event.contact
+            if roles.indices.contains(c.surface),roles[c.surface] == .cushion { continue } // legacy timeline already carries these
+            guard c.time>0,let span=recorder.localIntervalsByBallName[event.ballName]?.first(where:{$0.start.time<c.time && $0.end.time>=c.time}),
+                  let state=span.sample(at:c.time,beforeEndpoint:true) else { continue }
+            let speed=max(0,-simd_dot(state.velocity,c.normal))
+            guard speed>0.04,c.time-(emitted[event.ballName] ?? -1)>1e-6 else { continue }
+            emitted[event.ballName]=c.time
+            sounds.append(.init(time:Float(c.time),kind:ShotSoundKind.cushion.rawValue,speed:Float(speed)))
+        }
+        return sounds
+    }
+
     /// Presentation sampling only: physics is solved once. Include committed event times,
     /// with a 240 Hz ceiling between events (gravity chord error <= 0.022 mm).
     static func freeze(prediction: ShotPrediction, input: Input, before: [String: Pose]) -> Shot? {
@@ -97,8 +113,9 @@ struct SpatialPracticeRecord: Codable {
         var paths:[String:[Sample]]=[:], after=before
         var peak:Float=0, landing:Vector?
         var flew=false
-        for key in before.keys.sorted() where before[key]?.disposition != "pocket" {
+        for key in before.keys.sorted() where before[key]?.disposition != "pocket" && before[key]?.disposition != "escaped" {
             let name=PositionPlayBall.isCue(key) ? ShotInput.cueBallName : key
+            let exit=recorder.spatialDomainExits[name]
             var rotation=simd_quatf(vector:SIMD4(before[key]!.rotation[0],before[key]!.rotation[1],before[key]!.rotation[2],before[key]!.rotation[3]))
             var previous:PlaybackBallState?, lastTime:Float=0, samples:[Sample]=[]
             for time in sorted {
@@ -107,13 +124,17 @@ struct SpatialPracticeRecord: Codable {
                     state=PlaybackBallState(position:final,velocity:SCNVector3Zero,motionState:.stationary,
                         angularVelocity:SCNVector3Zero,moveDirection:SCNVector3Zero)
                 }
+                if let exit,Double(time)>=exit.time {
+                    state=PlaybackBallState(position:SCNVector3(Float(exit.position.x),Float(exit.position.y),Float(exit.position.z)),velocity:SCNVector3Zero,
+                        motionState:.stationary,angularVelocity:SCNVector3Zero,moveDirection:SCNVector3Zero)
+                }
                 if let previous {
                     rotation=simd_normalize(BallSpinIntegrator.delta(angularVelocity:(previous.angularVelocity+state.angularVelocity)*0.5,
                         dt:time-lastTime)*rotation)
                 }
                 let q=rotation.vector
                 samples.append(.init(time:time,position:.init(state.position),rotation:[q.x,q.y,q.z,q.w],
-                    hidden:recorder.isBallPocketed(name,at:Double(time))))
+                    hidden:recorder.isBallPocketed(name,at:Double(time)) || exit.map { Double(time)>=$0.time } == true))
                 if PositionPlayBall.isCue(key) {
                     let height=state.position.y-BTTablePhysics.surfaceY-BallPhysics.radius
                     peak=max(peak,height)
@@ -125,7 +146,7 @@ struct SpatialPracticeRecord: Codable {
                 previous=state;lastTime=time
             }
             guard let final=prediction.finalPositions[name], let last=samples.last else { return nil }
-            let disposition=prediction.pocketedBalls.contains(name) ? "pocket" : (SpatialPracticeGeometry.isOnBed(final) ? "bed" : "outside")
+            let disposition=exit != nil ? "escaped" : prediction.pocketedBalls.contains(name) ? "pocket" : (SpatialPracticeGeometry.isOnBed(final) ? "bed" : "outside")
             after[key] = .init(position:.init(final),rotation:last.rotation,disposition:disposition)
             paths[key]=samples
         }

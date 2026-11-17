@@ -25,6 +25,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
     private var generation=UUID()
     private var ownerKey=""
     private let defaults:UserDefaults
+    private let ownerContext:CurrentOwnerContext
     private var replayReturn:[String:Record.Pose]?
     private var replayCamera=ShotReplayCamera()
     private var audioItems:[DispatchWorkItem]=[]
@@ -38,10 +39,10 @@ final class SpatialPracticeViewModel: TeachingTableHost {
     var onTableKeys:[String] { PositionPlayBall.allKeys.filter { record.board[$0]?.disposition == "bed" } }
     var draggableBalls:[SCNNode] { canEdit ? onTableKeys.compactMap { scene.allBallNodes[$0] } : [] }
     var selectableBalls:[SCNNode] { draggableBalls }
-    var outsideKeys:[String] { record.board.keys.filter { record.board[$0]?.disposition == "outside" }.sorted() }
+    var outsideKeys:[String] { record.board.keys.filter { ["outside","escaped"].contains(record.board[$0]?.disposition ?? "") }.sorted() }
     var canStrike:Bool { canEdit && phase != .calculating && input.valid && currentPlayerAim != nil && cueAccessible }
     private var storageKey:String { "spatialPractice.v1." + ownerKey }
-    init(defaults:UserDefaults = .standard) { self.defaults=defaults }
+    init(defaults:UserDefaults = .standard,ownerContext:CurrentOwnerContext = .shared) { self.defaults=defaults;self.ownerContext=ownerContext }
 
     func setupScene() {
         guard !setup else { return };setup=true
@@ -52,7 +53,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
     func ownerChanged() {
         suspendTeachingActivity()
         clearRoute();showsLastRoute=false
-        ownerKey=CurrentOwnerContext.shared.ownerKey
+        ownerKey=ownerContext.ownerKey
         if let data=defaults.data(forKey:storageKey), let saved=try? PropertyListDecoder().decode(Record.self,from:data), saved.valid {
             record=saved;input=saved.input;apply(saved.board)
         } else {
@@ -111,7 +112,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
         let request=UUID();generation=request
         let token=PredictionCancellation();cancellation=token
         let frozen=input,before=record.board
-        let balls=before.keys.sorted().filter { !PositionPlayBall.isCue($0) && before[$0]?.disposition != "pocket" }.compactMap { key in
+        let balls=before.keys.sorted().filter { !PositionPlayBall.isCue($0) && before[$0]?.disposition != "pocket" && before[$0]?.disposition != "escaped" }.compactMap { key in
             before[key].map { ObstacleBall(name:key,position:$0.position.scene) }
         }
         Task { [weak self] in
@@ -131,7 +132,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
                 return
             }
             if let recorder=shot.1.recorder {
-                result.sounds=ShotAudioScheduler.timeline(recorder:recorder,legacyEvents:shot.1.events).map { .init(time:$0.time,kind:$0.kind.rawValue,speed:$0.speed) }
+                result.sounds=(ShotAudioScheduler.timeline(recorder:recorder,legacyEvents:shot.1.events).map { Record.Sound(time:$0.time,kind:$0.kind.rawValue,speed:$0.speed) } + Record.spatialSounds(recorder)).sorted { $0.time<$1.time }
             }
             guard let strikePoint=self.strikePoint else { self.phase = .ready;return }
             self.phase = .playing
@@ -146,7 +147,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
         scene.hideAllBalls()
         for (key,pose) in board {
             guard let node=scene.allBallNodes[key] else { continue }
-            node.removeAllActions();node.opacity=1;node.isHidden=pose.disposition == "pocket"
+            node.removeAllActions();node.opacity=1;node.isHidden=pose.disposition == "pocket" || pose.disposition == "escaped"
             node.position=pose.position.scene
             if pose.rotation.count==4 { node.simdOrientation=simd_quatf(vector:SIMD4(pose.rotation[0],pose.rotation[1],pose.rotation[2],pose.rotation[3])) }
         }
@@ -192,6 +193,9 @@ final class SpatialPracticeViewModel: TeachingTableHost {
                     if replay { self.restoreReplay() }
                     else {
                         self.record.board=shot.after;self.record.lastShot=shot
+                        if shot.after.values.contains(where:{ $0.disposition == "escaped" }) {
+                            self.message="球已离开练习范围，可从菜单取回桌外球"
+                        }
                         self.apply(shot.after);self.phase = .ready;self.save();self.refreshAim();self.renderLastRoute()
                     }
                 }
