@@ -51,7 +51,12 @@ final class SpatialPracticeUITests:XCTestCase {
         let replay=element("masseJump.replay");ready(replay)
         capture("v66-settled")
         let replayMenu=element("masseJump.more");ready(replayMenu);replayMenu.tap()
-        let slow=element("masseJump.speed");ready(slow);slow.tap()
+        let slow=element("masseJump.speed")
+        let menuScroll=app.scrollViews["dailyClearance.menuScroll"]
+        for _ in 0..<5 where !slow.isHittable {
+            if menuScroll.exists { menuScroll.swipeUp() }
+        }
+        ready(slow);slow.tap()
         replay.tap();ready(element("masseJump.retry"))
         element("masseJump.retry").tap();ready(strike)
         capture("v66-retry")
