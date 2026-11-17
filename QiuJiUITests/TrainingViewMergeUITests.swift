@@ -108,7 +108,7 @@ final class TrainingViewMergeUITests: XCTestCase {
             return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         }
         app.switchTab(.angle); app.buttons["angleHomeTab_准度"].tap()
-        let card = app.buttons["准度"]
+        let card = app.buttons["准度练习"]
         if !card.isHittable { app.swipeUp() }
         XCTAssertTrue(card.waitForExistence(timeout: 8)); card.tap()
         let start = app.buttons["accuracy.start"]
