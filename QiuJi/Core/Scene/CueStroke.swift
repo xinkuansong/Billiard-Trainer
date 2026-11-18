@@ -211,6 +211,7 @@ extension AngleTrainingScene {
         rehearsalEnabled: Bool? = nil,
         switchesPlayerCameraOnContact: Bool = false,
         elevationOverride: Float? = nil,
+        tipInsetOverride: Float? = nil,
         clearanceProbe: ((TimeInterval) -> [String: SCNVector3])? = nil,
         onContact: @escaping () -> Void
     ) {
@@ -246,7 +247,7 @@ extension AngleTrainingScene {
             contact()
             return
         }
-        let tipInset = resolvedPose?.inset ?? cueTipInset(forStrike: strikePosition) ?? 0
+        let tipInset = tipInsetOverride ?? resolvedPose?.inset ?? cueTipInset(forStrike: strikePosition) ?? 0
         let clearanceLimit = CueStroke.clampedFollowThroughPull(
             cueBallPosition: renderStrike, aimDirection: aim, obstacleCenters: obstacles,
             elevation: elevation, tipInset: tipInset, surfaceY: surfaceY, profile: stick.clearanceProfile

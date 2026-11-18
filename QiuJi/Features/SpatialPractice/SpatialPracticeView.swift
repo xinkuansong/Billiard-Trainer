@@ -1,70 +1,107 @@
 import SwiftUI
+import SceneKit
 
 struct SpatialPracticeView: View {
     @StateObject private var vm=SpatialPracticeViewModel()
     @ObservedObject private var preferences=TablePreferencesStore.shared
     @ObservedObject private var owner=CurrentOwnerContext.shared
-    @State private var showsElevation=false
-    @State private var showsDetails=false
-    @State private var replacement:Int?
+    @State private var detail:String?
+    @State private var confirmation:Confirmation?
     @State private var layoutEditing=false
+    private enum Confirmation { case clear, reset }
     #if DEBUG
     @State private var observedPeak:Float=0
     #endif
-    private var enabled:Bool { vm.canEdit && !layoutEditing && !showsElevation && !showsDetails }
+    private var enabled:Bool { vm.canTune && !layoutEditing && detail == nil && confirmation == nil }
+    private var boardEnabled:Bool { vm.canEdit && !layoutEditing && detail == nil && confirmation == nil }
+    private var missingCue:Bool { vm.currentPlayerAim == nil }
     private var controls:BTTablePlanningControls {
-        .init(spinX:Binding(get:{ vm.input.spinX },set:{ vm.setSpin($0,vm.input.spinY) }),
-            spinY:Binding(get:{ vm.input.spinY },set:{ vm.setSpin(vm.input.spinX,$0) }),
+        .init(spinX:Binding(get:{ vm.displayedInput.spinX },set:{ vm.setSpin($0,vm.input.spinY) }),
+            spinY:Binding(get:{ vm.displayedInput.spinY },set:{ vm.setSpin(vm.input.spinX,$0) }),
             transparency:Binding(get:{ preferences.snapshot(for:.masseJump)[.transparency] },set:{ preferences.apply(.transparency,value:$0,to:.masseJump) }),
-            velocityRange:0.1...8,instrumentsEnabled:enabled,
-            defersStrikeAccessUntilSubmission:true,locksSceneInteraction:showsElevation || showsDetails,
-            isAnimating:vm.busy,allowsObservationWhileAnimating:true,paletteEnabled:enabled,allowsPocketSelection:false,
-            primaryTitle:vm.phase == .calculating ? "计算中" : (vm.busy ? "停止" : "击球"),
-            primaryEnabled:vm.busy || (enabled && vm.canStrike),
-            onPrimary:{ if vm.busy { vm.stopPlayback() } else { vm.strike() } },
+            hides3DAssists:$vm.hidesAssists,velocityRange:vm.velocityRange,instrumentsEnabled:enabled,
+            defersStrikeAccessUntilSubmission:false,locksSceneInteraction:detail != nil || confirmation != nil,
+            isAnimating:vm.busy,allowsObservationWhileAnimating:true,paletteEnabled:boardEnabled && !vm.isBreakMode,
+            showsPlacementHint:vm.message == nil && vm.archiveMessage == nil,allowsPocketSelection:false,
+            primaryTitle:vm.busy ? "停止" : (missingCue ? "放回母球" : (vm.isBreakMode ? "开球" : "击球")),
+            primaryEnabled:vm.busy || (enabled && (missingCue || vm.canStrike)),
+            onPrimary:{
+                if vm.busy { vm.stopPlayback() }
+                else if missingCue { vm.placeFromPalette(PositionPlayBall.cueKey) }
+                else { vm.strike() }
+            },
             onPaletteTap:{ key in if vm.onTableKeys.contains(key) { vm.removeFromTable(key) } else { vm.placeFromPalette(key) } },
-            menuItems:menu,refreshTrajectory:{ vm.refreshAim() },
+            menuItems:menu,refreshTrajectory:{ vm.refreshAim() },applyPreferences:{ vm.applyPreferences($0) },
             onLayoutEditingChanged:{ layoutEditing=$0 },layoutEditingBlocked:vm.busy || vm.phase == .calculating,
-            onAimNudged:{ vm.nudgeAim($0) },showsAimCloseupSetting:false,showsTrajectorySetting:false,showsSeparationSetting:false,
-            onSpinChange:{ vm.setSpin($0,$1) })
+            onAimNudged:{ vm.nudgeAim($0) },showsAimCloseupSetting:false,showsTrajectorySetting:true,showsSeparationSetting:false,
+            onSpinChange:{ vm.setSpin($0,$1) },
+            overlay:{ projector,_ in
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-masseJump.probe") {
+                    return AnyView(SpatialPlacementProbe(vm:vm,projector:projector))
+                }
+                #endif
+                return AnyView(EmptyView())
+            },
+            breakGameSelection:Binding(get:{ vm.breakGameBallCount },set:{ vm.prepareBreak(ballCount:$0) }),
+            breakGameDisabled:!vm.canPrepareBreak,
+            secondaryMenu:.init(id:"masseJump.lastShot",title:"上一杆",disabled:vm.busy || vm.record.lastShot == nil,items:historyMenu))
     }
     private var menu:[DailyHUDMenuItem] {
         [
-            .init(id:"masseJump.side",title:"侧面观察",disabled:vm.temporaryTopDownActive,action:{
-                preferences.apply(.view3D,value:1,to:.masseJump)
-                vm.setCameraMode(.perspective3D)
-                vm.scene.cameraRig?.observeSpatialSide(aim:vm.input.aim)
-            }),
-            .init(id:"masseJump.example.jump",title:"跳球示例",disabled:vm.busy,action:{ replacement=0 }),
-            .init(id:"masseJump.example.left",title:"左弧扎杆示例",disabled:vm.busy,action:{ replacement=1 }),
-            .init(id:"masseJump.example.right",title:"右弧扎杆示例",disabled:vm.busy,action:{ replacement=2 }),
-            .init(id:"masseJump.retrieve",title:"取回桌外球（\(vm.outsideKeys.count)）",disabled:vm.busy || vm.outsideKeys.isEmpty,action:{ vm.retrieveOutside() }),
-            .init(id:"masseJump.clear",title:"清空桌面",disabled:vm.busy,action:{ replacement = -1 }),
-            .init(id:"masseJump.route",title:"上一杆路线",selected:vm.showsLastRoute,disabled:vm.busy || vm.record.lastShot == nil,action:{ vm.toggleLastRoute() }),
-            .init(id:"masseJump.details",title:"上一杆详情",disabled:vm.record.lastShot == nil,action:{ showsDetails=true }),
-            .init(id:"masseJump.speed",title:"回放速度 · \(vm.playbackSpeed == 1 ? "正常" : "1/4")",disabled:vm.busy,action:{ vm.playbackSpeed = vm.playbackSpeed == 1 ? 0.25 : 1 })
+            .init(id:"masseJump.clear",title:"清空桌面",disabled:!boardEnabled,action:{ confirmation = .clear }),
+            .init(id:"masseJump.reset",title:"恢复默认",disabled:!enabled,action:{ confirmation = .reset })
         ]
     }
+    private var historyMenu:[DailyHUDMenuItem] {
+        [
+            .init(id:"masseJump.route",title:"上一杆路线",selected:vm.showsLastRoute,action:{ vm.toggleLastRoute() }),
+            .init(id:"masseJump.details",title:"上一杆详情",action:{ detail=shotDetails }),
+            .init(id:"masseJump.speed.normal",title:"正常速度",selected:vm.playbackSpeed == 1,action:{ vm.playbackSpeed=1 }),
+            .init(id:"masseJump.speed.slow",title:"1/4 慢放",selected:vm.playbackSpeed == 0.25,action:{ vm.playbackSpeed=0.25 })
+        ]
+    }
+    private var shotDetails:String {
+        guard let shot=vm.record.lastShot else { return "暂无上一杆" }
+        return [
+            "最高离台　"+String(format:"%.1f cm",shot.maximumHeight*100),
+            "首次落台　"+(shot.landing == nil ? "未发生" : "已标记在台面"),
+            "进袋球　"+labels(shot.after.filter { $0.value.disposition == "pocket" && shot.before[$0.key]?.disposition != "pocket" }.keys.sorted()),
+            "飞出台面　"+labels(shot.after.filter { ["outside","escaped"].contains($0.value.disposition) }.keys.sorted())
+        ].joined(separator:"\n")
+    }
     private var information:[BTTeachingInformation] {
-        if vm.phase == .calculating { return [.init(text:"正在计算本杆，可调参取消重算",kind:.notice,symbol:"hourglass",identifier:"masseJump.calculating")] }
-        if let message=vm.message { return [.init(text:message,kind:.notice,symbol:"info.circle",identifier:"masseJump.notice")] }
-        if !vm.busy,vm.currentPlayerAim == nil { return [.init(text:"从球库放回母球后击球",kind:.notice,symbol:"info.circle",identifier:"masseJump.missingCue")] }
+        if let message=vm.message ?? vm.archiveMessage { return [.init(text:message,kind:.notice,symbol:"info.circle",identifier:"masseJump.notice")] }
+        if !vm.busy,missingCue { return [.init(text:"点“放回母球”后继续练习",kind:.notice,symbol:"info.circle",identifier:"masseJump.missingCue")] }
         if !vm.busy,!vm.cueAccessible { return [.init(text:"球杆受阻，请调整打点、方向或抬杆角度",kind:.notice,symbol:"info.circle",identifier:"masseJump.blocked")] }
         return []
     }
     var body:some View {
         BTTeachingTablePage(vm:vm,titleLabel:"扎杆与跳球",identifier:"masseJump",preferencePage:.masseJump,
-            velocity:Binding(get:{ vm.input.speed },set:{ value in vm.updateInput { $0.speed=value } }),
-            planning:controls,information:information,usesStandardTitle:true,fitsLongTitle:true,
+            fixedView3D:true,velocity:Binding(get:{ vm.displayedInput.speed },set:{ value in vm.updateInput { $0.speed=value } }),
+            planning:controls,supplementalDetail:$detail,supplementalDetailTitle:"上一杆详情",
+            information:information,usesStandardTitle:true,fitsLongTitle:true,
             pairedLeftContent:{ layout in
                 AnyView(VStack(spacing:layout.groupSpacing) {
-                    Button { showsElevation=true } label: {
-                        VStack(spacing:2) { Text("抬杆").foregroundStyle(HUDStyle.labelColor);Text("\(Int(vm.input.elevation.rounded()))°").foregroundStyle(.white) }
-                            .font(.btCaption).monospacedDigit().frame(width:layout.columnWidth,height:layout.topDiameter+14).contentShape(Rectangle())
-                    }.buttonStyle(.plain).disabled(!enabled).accessibilityIdentifier("masseJump.elevation")
-                        .freeControlItem("shot.elevation",name:"抬杆角度")
-                    BTTeachingAimRuler(layout:layout,enabled:enabled,onNudge:{ vm.nudgeAim($0) },degreesPerPoint:0.2)
-                        .accessibilityIdentifier("masseJump.aimWheel")
+                    Button { vm.prepareBreak() } label: {
+                        VStack(spacing:2) {
+                            BreakRackGlyph(color:HUDStyle.valueMeasured,size:layout.topDiameter-1,hollowBalls:true)
+                                .btHUDActionContent().frame(width:layout.topDiameter,height:layout.topDiameter)
+                                .background { BTHUDControlBackground(shape:Circle()) }
+                                .overlay(Circle().stroke(HUDStyle.hairline,lineWidth:1))
+                            Text(vm.isBreakMode ? "重开" : "开球").font(.btMicro).btHUDActionContent()
+                        }.contentShape(Rectangle())
+                    }.buttonStyle(BTHUDPressStyle()).disabled(!enabled || !vm.canPrepareBreak)
+                        .accessibilityElement(children:.ignore).accessibilityLabel(vm.isBreakMode ? "重开" : "开球")
+                        .accessibilityIdentifier(vm.isBreakMode ? "break.rerack" : "break.entry")
+                        .freeControlItem(vm.isBreakMode ? "break.rerack" : "break.entry",name:vm.isBreakMode ? "重开" : "开球")
+                    HStack(alignment:.center,spacing:0) {
+                        BTTeachingAimRuler(layout:layout,enabled:enabled,onNudge:{ vm.nudgeAim($0) },degreesPerPoint:0.2)
+                            .accessibilityIdentifier("masseJump.aimWheel")
+                        SpatialElevationWheel(value:vm.displayedInput.elevation,enabled:enabled,height:max(44,min(110,layout.rulerLength-36)),onNudge:{ delta in
+                            vm.updateInput { $0.elevation=min(SpatialPracticeRecord.Input.maximumPracticeElevation,max(0,$0.elevation+Double(delta))) }
+                        })
+                    }.frame(width:layout.columnWidth,alignment:.leading)
                     let actions=layout.horizontalActions ? AnyLayout(HStackLayout(spacing:layout.groupSpacing)) : AnyLayout(VStackLayout(spacing:layout.groupSpacing))
                     actions {
                         BTHUDCompactAction(title:"重打",symbol:"arrow.uturn.backward",size:layout.auxiliarySize) { vm.retry() }
@@ -76,47 +113,41 @@ struct SpatialPracticeView: View {
             },title:{ Text("扎杆与跳球") },leftContent:{ _ in EmptyView() },status:{ EmptyView() },
             onPalettePlace:{ vm.place($0,at:$1) })
         .onChange(of:owner.ownerKey) { _,_ in vm.ownerChanged() }
-        .confirmationDialog("替换当前球形？",isPresented:Binding(get:{ replacement != nil },set:{ if !$0 { replacement=nil } }),titleVisibility:.visible) {
-            Button("替换",role:.destructive) { if let value=replacement { if value<0 { vm.clear() } else { vm.loadExample(value) } };replacement=nil }
-            Button("取消",role:.cancel) { replacement=nil }
-        }
-        .sheet(isPresented:$showsElevation) {
-            NavigationStack {
-                VStack(spacing:Spacing.md) {
-                    Text("\(Int(vm.input.elevation.rounded()))°").font(.largeTitle).monospacedDigit()
-                    Slider(value:Binding(get:{ vm.input.elevation },set:{ value in vm.updateInput { $0.elevation=value } }),in:0...85,step:1)
-                        .accessibilityLabel("抬杆角度").accessibilityIdentifier("masseJump.elevationSlider")
-                    HStack {
-                        Button("−1°") { vm.updateInput { $0.elevation=max(0,$0.elevation-1) } }
-                        Spacer()
-                        Button("平杆") { vm.updateInput { $0.elevation=0 } }
-                        Spacer()
-                        Button("+1°") { vm.updateInput { $0.elevation=min(85,$0.elevation+1) } }
-                    }.buttonStyle(.bordered).frame(minHeight:44)
-                    Text("角度越大，球杆越接近竖直；同时调整打点与杆速，观察弧线和腾空。").font(.btCaption).foregroundStyle(.secondary)
-                }.padding(Spacing.lg).navigationTitle("抬杆角度").navigationBarTitleDisplayMode(.inline)
-                    .toolbar { ToolbarItem(placement:.confirmationAction) { Button("完成") { showsElevation=false } } }
-            }.presentationDetents([.height(280)])
-        }
-        .sheet(isPresented:$showsDetails) {
-            NavigationStack {
-                Form {
-                    if let shot=vm.record.lastShot {
-                        LabeledContent("最高离台",value:String(format:"%.1f cm",shot.maximumHeight*100))
-                        LabeledContent("首次落台",value:shot.landing.map { String(format:"X %.2f m · Z %.2f m",$0.x,$0.z) } ?? "未发生")
-                        LabeledContent("进袋球",value:labels(shot.after.filter { $0.value.disposition == "pocket" && shot.before[$0.key]?.disposition != "pocket" }.keys.sorted()))
-                        LabeledContent("离开范围",value:labels(shot.after.filter { $0.value.disposition == "escaped" }.keys.sorted()))
-                        LabeledContent("桌外球",value:labels(shot.after.filter { ["outside","escaped"].contains($0.value.disposition) }.keys.sorted()))
-                        Text("回放保留本杆实际路线，可切换俯视或侧面观察。").font(.btCaption).foregroundStyle(.secondary)
+        .onChange(of:detail) { _,value in vm.showLandingMarker(value != nil) }
+        .confirmationDialog(confirmation == .clear ? "清空桌面？" : "恢复本页默认输入与显示？",
+            isPresented:Binding(get:{ confirmation != nil },set:{ if !$0 { confirmation=nil } }),titleVisibility:.visible) {
+            if confirmation == .clear {
+                Button("清空桌面",role:.destructive) { vm.clear();confirmation=nil }
+            } else {
+                Button("恢复默认",role:.destructive) {
+                    vm.resetInputs()
+                    for field in TablePreferencePage.masseJump.fields {
+                        preferences.apply(field,value:field.initialValue(for:.masseJump),to:.masseJump)
                     }
-                }.navigationTitle("上一杆").toolbar { ToolbarItem(placement:.confirmationAction) { Button("完成") { showsDetails=false } } }
+                    confirmation=nil
+                }
             }
+            Button("取消",role:.cancel) { confirmation=nil }
         }
-        .accessibilityValue("抬杆\(Int(vm.input.elevation))度，在桌\(vm.onTableKeys.count)球")
         .overlay(alignment:.topLeading) {
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-masseJump.timing") {
+                TimelineView(.periodic(from:.now,by:0.25)) { _ in
+                    Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
+                        .accessibilityIdentifier("masseJump.timingProbe").accessibilityValue(vm.timingProbeJSON)
+                }
+            }
             if ProcessInfo.processInfo.arguments.contains("-masseJump.probe") {
+                GeometryReader { proxy in
+                    Color.clear.frame(width:1,height:1).accessibilityElement()
+                        .accessibilityIdentifier("masseJump.viewport")
+                        .accessibilityValue("\(proxy.size.width),\(proxy.size.height)")
+                }.allowsHitTesting(false)
+                Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
+                    .accessibilityIdentifier("masseJump.motionTrace").accessibilityValue(vm.motionProbeJSON)
                 TimelineView(.animation(minimumInterval:0.1,paused:!vm.busy)) { _ in
+                    Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
+                        .accessibilityIdentifier("masseJump.previewProbe").accessibilityValue(vm.previewProbeJSON)
                     let height=vm.scene.cueBallNode?.presentation.position.y ?? 0
                     Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
                         .accessibilityIdentifier("masseJump.probe")
@@ -129,3 +160,63 @@ struct SpatialPracticeView: View {
     }
     private func labels(_ keys:[String])->String { keys.isEmpty ? "无" : keys.map { PositionPlayBall.isCue($0) ? "母球" : PositionPlayBall.shortLabel(for:$0)+"号" }.joined(separator:"、") }
 }
+
+private struct SpatialElevationWheel:View {
+    @Environment(\.teachingInstrumentActivity) private var reportActivity
+    let value:Double
+    let enabled:Bool
+    let height:CGFloat
+    let onNudge:(Float)->Void
+    var body:some View {
+        VStack(spacing:4) {
+            BTAimWheel(onNudge:onNudge,degreesPerPoint:0.3,degreeHapticEnabled:false,travelHapticEnabled:true,
+                onDragActiveChanged:{ reportActivity?($0) },visibleWidth:24,showsDirectionLabel:false)
+                .frame(width:44,height:height)
+                .accessibilityLabel("抬杆角度").accessibilityValue("\(Int(value.rounded()))度")
+                .accessibilityHint("上划增大抬杆角度，下划减小抬杆角度")
+                .accessibilityIdentifier("masseJump.elevation")
+            Text("\(Int(value.rounded()))°").font(.btMicro).monospacedDigit().foregroundStyle(.white)
+            Text("抬杆").font(.btMicro).foregroundStyle(.btTextSecondary)
+        }.padding(.vertical,6)
+            .background {
+                RoundedRectangle(cornerRadius:BTRadius.xl).fill(HUDStyle.controlBackground)
+                    .overlay(RoundedRectangle(cornerRadius:BTRadius.xl).stroke(HUDStyle.hairline,lineWidth:HUDStyle.hairlineWidth))
+                    .frame(width:36)
+            }
+            .frame(width:44).disabled(!enabled).opacity(enabled ? 1 : 0.3)
+            .freeControlItem("shot.elevation",name:"抬杆角度")
+    }
+}
+
+#if DEBUG
+private struct SpatialPlacementProbe:View {
+    @ObservedObject var vm:SpatialPracticeViewModel
+    let projector:TableProjector
+    var body:some View {
+        TimelineView(.periodic(from:.now,by:0.2)) { _ in
+            Color.clear.frame(width:1,height:1).allowsHitTesting(false).accessibilityElement()
+                .accessibilityIdentifier("masseJump.placementProbe").accessibilityValue(value)
+        }
+    }
+    private var value:String {
+        guard let cue=vm.scene.cueBallNode else { return "{}" }
+        let target=SCNVector3(-0.7,vm.scene.surfaceY+BallPhysics.radius,0.25)
+        var result:[String:Any]=["world":[cue.position.x,cue.position.z]]
+        for (key,world) in [("cue",cue.position),("target",target),("flyoutTarget",SCNVector3(1,vm.scene.surfaceY+BallPhysics.radius,0))] {
+            if var point=projector.projectInWindow?(world) {
+                if key != "cue",let origin=projector.projectInWindow?(cue.position) {
+                    // Native temporary-table drags keep the shared finger gap.
+                    // Supply the finger endpoint, not the desired ball endpoint.
+                    let dx=point.x-origin.x,dy=point.y-origin.y,distance=hypot(dx,dy)
+                    if distance>0 {
+                        point.x += dx/distance*BTBallDragMetrics.fingerClearance
+                        point.y += dy/distance*BTBallDragMetrics.fingerClearance
+                    }
+                }
+                result[key]=[point.x,point.y]
+            }
+        }
+        return (try? JSONSerialization.data(withJSONObject:result)).map { String(decoding:$0,as:UTF8.self) } ?? "{}"
+    }
+}
+#endif

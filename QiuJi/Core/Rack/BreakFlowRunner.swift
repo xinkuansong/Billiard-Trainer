@@ -106,13 +106,18 @@ final class BreakFlowRunner: ObservableObject {
     private var aimManuallyAdjusted = false
 
     private(set) var isMemoryDragging = false
-    struct SavedInput: Codable {
+    struct SavedInput: Codable, Equatable {
         let count: Int
         let seed: UInt64
         let cue: CanvasPoint
         let direction: [Float]?
         let manual: Bool
         let velocity, spinX, spinY: Double
+        static func == (lhs:Self,rhs:Self)->Bool {
+            lhs.count==rhs.count && lhs.seed==rhs.seed && lhs.cue.x==rhs.cue.x && lhs.cue.y==rhs.cue.y &&
+            lhs.direction==rhs.direction && lhs.manual==rhs.manual && lhs.velocity==rhs.velocity &&
+            lhs.spinX==rhs.spinX && lhs.spinY==rhs.spinY
+        }
     }
     var savedInput: SavedInput? {
         guard phase == .racked, !isMemoryDragging, let cue = scene.cueBallNode else { return nil }
@@ -161,6 +166,10 @@ final class BreakFlowRunner: ObservableObject {
     var showsAimAssist = true {
         didSet { if oldValue != showsAimAssist, phase == .racked { drawAimLine() } }
     }
+    /// A host with its own strike model may reuse preparation without changing
+    /// its explicit contact point/cue pose or cancelling another audio owner.
+    var managesCuePresentation = true
+    var managesPlaybackAudio = true
     private let breakQueue = DispatchQueue(label: "com.qiuji.break-flow", qos: .userInitiated)
     private var breakGeneration = 0
     private var breakFinishTask: Task<Void, Never>?
@@ -287,6 +296,7 @@ final class BreakFlowRunner: ObservableObject {
 
     private func drawAimLine() {
         scene.clearResultNodes(nodes: &aimNodes)
+        guard managesCuePresentation else { return }
         guard phase == .racked,
               let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else {
             scene.hideCueStick()
@@ -602,7 +612,7 @@ final class BreakFlowRunner: ObservableObject {
     }
 
     private func cancelPlayback(stopAudio: Bool = true) {
-        if stopAudio { ShotAudioScheduler.shared.cancel() }
+        if stopAudio && managesPlaybackAudio { ShotAudioScheduler.shared.cancel() }
         breakGeneration += 1
         scene.hideCueStick()
         breakFinishTask?.cancel()

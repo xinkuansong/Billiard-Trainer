@@ -14,6 +14,7 @@ protocol TeachingCameraHost: ObservableObject {
     var currentPlayerAim: SCNVector3? { get }
     var targetNode: SCNNode? { get }
     var selectedPocketIndex: Int { get }
+    func teachingTopDownDidEnd(contentChanged: Bool)
     func trainingObservedTopDown()
 }
 
@@ -69,6 +70,7 @@ extension TeachingTableHost {
 
 extension TeachingCameraHost {
     func trainingObservedTopDown() {}
+    func teachingTopDownDidEnd(contentChanged: Bool) {}
     func configureTeachingCamera() {
         scene.cameraRig?.configurePlayerCameraControls(daily: true)
         scene.cameraRig?.setTwoViewViewingContext(UUID())
@@ -152,6 +154,7 @@ extension TeachingCameraHost {
         // The rig restores the saved perspective pose. Refresh candidates without
         // replacing that pose with an automatic third-person entry after editing.
         refreshObservationCameraContext()
+        teachingTopDownDidEnd(contentChanged: topDownSelectionChanged)
         topDownSelectionChanged = false
     }
 

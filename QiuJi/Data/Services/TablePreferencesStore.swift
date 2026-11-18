@@ -4,7 +4,7 @@ import Combine
 extension TablePreferencePage {
     var fields: Set<TablePreferenceField> {
         switch self {
-        case .masseJump: return [.view3D, .grid, .transparency]
+        case .masseJump: return [.grid, .transparency, .trajectory, .shows3DTrajectory]
         case .diamondSystem: return Set(TablePreferenceField.allCases).subtracting([.closeup, .separation])
         case .multiBallPractice, .multiBallPractice3D: return Set(TablePreferenceField.allCases)
         case .sceneAiming2D, .sceneAiming3D: return [.view3D, .grid]

@@ -124,7 +124,7 @@ enum FreeControlCatalog {
             ids = Set((0..<8).map { legend + String($0) })
             ids.formUnion(["shot.spin", "shot.power", "atlas.cushionCount"])
         case .masseJump:
-            ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike", "shot.elevation"]
+            ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike", "shot.elevation", "break.entry", "break.rerack", "break.strike"]
         case .shotSimulation:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike"]
         case .composer:

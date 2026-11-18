@@ -14,6 +14,10 @@ enum TableRenderRecipe: String {
 /// manages camera (2D/3D), lighting, USDZ ball nodes, and cue stick.
 final class AngleTrainingScene: SCNScene, ObservableObject {
     let frameReceipt = TableFrameReceipt()
+    #if DEBUG
+    // Installed by the spatial host before a renderer is created; nil elsewhere.
+    var interactionTimingProbe: TableInteractionTimingProbe?
+    #endif
     /// Nil for authoring/export scenes, which retain their explicit configuration.
     var tablePreferencePage: TablePreferencePage?
     /// Only the full-screen 2D phone view supplies its own carpet.
@@ -55,6 +59,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// Set before setup so material highlight headroom matches the camera.
     var sceneExposureOffset: CGFloat?
     var usesDailyPerspective = false
+    /// The spatial practice overlay has frequently replaced prediction meshes.
+    /// Give its renderer independent material resources as well as mesh caches.
+    /// Legacy pages retain their existing sharing policy.
+    var isolatesTemporaryTopDownMaterials = false
     /// Scene-local controls keep other training and export consumers unchanged.
     private(set) var avoidsDailyRedundantCameraWrites = false
     /// Older diagnostic variants remain opt-in; the audited support optimization is shared.
@@ -240,13 +248,19 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
     private(set) var lastCueAim: SCNVector3?
     @Published private(set) var cueAccessSnapshot: CueStrikeAccess?
+    /// Page-local opt-in; automatic-angle hosts leave nil.
+    var explicitCueElevation: Float? = nil
+    func refreshCueAccess(aim: SCNVector3) {
+        let next=cueStrikeAccess(aim:aim)
+        if cueAccessSnapshot?.geometryKey != next?.geometryKey { cueAccessSnapshot=next }
+    }
 
     func cueStrikeAccess(aim: SCNVector3? = nil) -> CueStrikeAccess? {
         guard let direction = aim ?? lastCueAim,
               let cue = [allBallNodes[PositionPlayBall.cueKey], cueBallNode].compactMap({ $0 }).first(where: { !$0.isHidden }) else { return nil }
         return CueStrikeAccess(cue: cue.position, aim: direction,
             obstacles: cueObstacleCenters(), surfaceY: surfaceY,
-            profile: cueStick?.clearanceProfile ?? CueSection.fallback)
+            profile: cueStick?.clearanceProfile ?? CueSection.fallback, fixedElevation: explicitCueElevation)
     }
 
     /// Only returns a replacement when needed; callers commit both coordinates
@@ -885,7 +899,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         cueBallPosition: SCNVector3,
         aimDirection: SCNVector3,
         pullBack: Float = CueStroke.addressPull,
-        elevationOverride: Float? = nil
+        elevationOverride: Float? = nil,
+        tipInsetOverride: Float? = nil
     ) {
         // 显式重新摆杆（如击球后复位重新瞄准）会取消尚未结束的出杆/跟杆/收杆序列，
         // 避免延迟收杆把刚摆好的瞄准杆又隐藏（收杆/复位竞态）。
@@ -931,7 +946,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             aimDirection: aimDirection,
             pullBack: pullBack,
             elevation: elevation,
-            tipInset: resolvedCueTipInset(forStrike: cueBallPosition)
+            tipInset: tipInsetOverride ?? resolvedCueTipInset(forStrike: cueBallPosition)
         )
         cueStick?.show()
         cueStick?.rootNode.opacity = 1
@@ -1490,6 +1505,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     }
 
     private static var topDownSourceGeometryKey: UInt8 = 0
+    private static var topDownContactKey: UInt8 = 0
 
     /// Each renderer owns its mesh caches. Sharing immutable bytes/materials is fine,
     /// but sharing SCNGeometry lets two renderers lazily build the same C3DMesh at once.
@@ -1497,7 +1513,9 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         // Native copying preserves USDZ/Model I/O mesh metadata not represented by
         // the public sources/elements API (including the imported cloth mesh).
         let copy = source.copy() as! SCNGeometry
-        copy.materials = source.materials
+        copy.materials = isolatesTemporaryTopDownMaterials
+            ? source.materials.map { $0.copy() as! SCNMaterial }
+            : source.materials
         return copy
     }
 
@@ -1571,6 +1589,18 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         }
         for id in Array(copies.keys) where !seen.contains(id) {
             copies.removeValue(forKey: id)?.removeFromParentNode()
+        }
+        if isolatesTemporaryTopDownMaterials, let tableNode, let tableCopy = copies[tableNode] {
+            let contact: MobileContactOcclusion
+            if let existing = objc_getAssociatedObject(result, &Self.topDownContactKey) as? MobileContactOcclusion {
+                contact = existing
+            } else {
+                contact = MobileContactOcclusion(tableNode: tableCopy, surfaceY: surfaceY,
+                    balls: allBallNodes.sorted { $0.key < $1.key }.compactMap { copies[$0.value] },
+                    installsShader: false)
+                objc_setAssociatedObject(result, &Self.topDownContactKey, contact, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            }
+            contact.updateClonedPositions()
         }
     }
 

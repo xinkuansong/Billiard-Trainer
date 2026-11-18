@@ -576,7 +576,8 @@ enum ShotPredictor {
         cancellation: PredictionCancellation? = nil,
         recordedStrikeDirection: SCNVector3? = nil,
         elevation: Float = 0,
-        initialSpatialPositions: [String: SCNVector3] = [:]
+        initialSpatialPositions: [String: SCNVector3] = [:],
+        buildPolylines: Bool = true
     ) -> ShotPrediction {
         if cancellation?.isCancelled == true { return cancelledPrediction() }
         let y = surfaceY
@@ -630,7 +631,9 @@ enum ShotPredictor {
         let postStart = Date()   // B0 分段计时：simulateFree 后处理（polyline/extraPaths 等）
 #endif
         let recorder = engine.getTrajectoryRecorder()
-        let playback: TrajectoryPlayback? = includePresentation
+        // Spatial practice freezes its own XYZ paths. Skip only duplicate line
+        // construction, retaining the presentation spin-tail completion above.
+        let playback: TrajectoryPlayback? = includePresentation && buildPolylines
             ? TrajectoryPlayback(recorder: recorder, surfaceY: y + r)
             : nil
         let duration = recorder.duration

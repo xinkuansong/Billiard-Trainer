@@ -202,7 +202,41 @@ final class TrajectoryRecorder {
     func spatialStateAt(ballName:String,time:Double)->LocalPocketSimulation.State? {
         guard time.isFinite,time>=0 else { return nil }
         if let tail=collectionTailsByBallName[ballName],time>=tail.start.time { return tail.sample(at:time) }
-        return localIntervalsByBallName[ballName]?.last(where:{$0.start.time<=time && $0.end.time>=time})?.sample(at:time)
+        return localInterval(ballName:ballName,time:time,incoming:false)?.sample(at:time)
+    }
+    /// Explicitly prepared by spatial free practice after solving. Legacy readers
+    /// retain their insertion-order scan; append invalidates the cached count.
+    private var indexedLocalCounts:[String:Int]=[:]
+    func prepareLocalIntervalIndex() {
+        indexedLocalCounts.removeAll(keepingCapacity:true)
+        for (name,spans) in localIntervalsByBallName {
+            var start = -Double.infinity,end = -Double.infinity
+            let ordered=spans.allSatisfy { span in
+                guard span.start.time.isFinite,span.end.time.isFinite,
+                      span.start.time<=span.end.time,span.start.time>=start,span.end.time>=end else {return false}
+                start=span.start.time;end=span.end.time;return true
+            }
+            if ordered {indexedLocalCounts[name]=spans.count}
+        }
+    }
+    func localInterval(ballName:String,time:Double,incoming:Bool)->LocalPocketSimulation.Interval? {
+        guard let spans=localIntervalsByBallName[ballName],!spans.isEmpty else {return nil}
+        guard time.isFinite,indexedLocalCounts[ballName]==spans.count else {
+            return incoming ? spans.first(where:{$0.start.time<time && $0.end.time>=time}) :
+                spans.last(where:{$0.start.time<=time && $0.end.time>=time})
+        }
+        var low=0,high=spans.count
+        if incoming {
+            // First incoming interval: lower bound of end >= time, excluding start.
+            while low<high {let mid=(low+high)/2;if spans[mid].end.time<time {low=mid+1} else {high=mid}}
+            guard low<spans.count,spans[low].start.time<time else {return nil}
+        } else {
+            // Last outgoing interval wins shared endpoints, just like last(where:).
+            while low<high {let mid=(low+high)/2;if spans[mid].start.time<=time {low=mid+1} else {high=mid}}
+            guard low>0 else {return nil};low-=1
+            guard spans[low].end.time>=time else {return nil}
+        }
+        return spans[low]
     }
     var confirmedCaptures:[ConfirmedCapture] {
         capturesByBall.values.sorted {

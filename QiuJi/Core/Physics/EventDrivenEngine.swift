@@ -653,6 +653,7 @@ class EventDrivenEngine {
             // A supported ball may return only after leaving its region and
             // separating from the spatial contact group.
             let tReturn=MixedLoopPhaseClock.now()
+            var returnedToPlanar=false
             for name in ballOrder {
                 guard let owner=localOwnership.entries[name] else { continue }
                 let touching=localOwnership.entries.contains { other in
@@ -672,8 +673,14 @@ class EventDrivenEngine {
                 if let returned {
                     mirror(name,returned);balls[name]!.state=EngineNumerics.determineMotionState(balls[name]!)
                     trajectoryRecorder.recordLocalHandoff(.init(ballName:name,domain:owner.domain,kind:.returned,state:returned))
+                    returnedToPlanar=true
                 }
             }
+            // Spatial practice must publish the new analytical motion owner at
+            // the handoff time. The preceding local mirror is tagged sliding;
+            // evolving that stale frame with zero slip freezes a rolling ball
+            // until the next event. Legacy planar/pocket recorders are unchanged.
+            if includesExterior && returnedToPlanar { recordSnapshot() }
             phaseClock.add(.returnCheck,since:tReturn)
             eventCache.clear()
             let owners=Set(localOwnership.entries.keys)

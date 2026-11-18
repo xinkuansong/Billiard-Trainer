@@ -21,6 +21,7 @@ struct BTSpinPad: View {
     /// A host can submit both axes as one intent; nil preserves the binding behavior.
     var onSpinChange: ((Double, Double) -> Void)? = nil
 
+    @State private var fixedBlockedCells:[CGPoint]=[]
     @State private var dragSession: SpinPadDragSession?
     @GestureState private var dragIsActive = false
 
@@ -62,6 +63,14 @@ struct BTSpinPad: View {
                     .position(x: cx, y: cy)
                 if !isReadOnly, let access = strikeAccess {
                     Path { path in
+                        if access.fixedElevation != nil {
+                            let step=miscue*2/32
+                            for point in fixedBlockedCells {
+                                path.addRect(CGRect(x:cx-CGFloat((point.x+step/2)/pull)*ballR,
+                                    y:cy-CGFloat((point.y+step/2)/pull)*ballR,
+                                    width:CGFloat(step/pull)*ballR+0.5,height:CGFloat(step/pull)*ballR+0.5))
+                            }
+                        } else {
                         let columns = 48
                         let step = miscue * 2 / Double(columns)
                         for column in 0..<columns {
@@ -72,6 +81,7 @@ struct BTSpinPad: View {
                             let top = cy-CGFloat(minimum/pull)*ballR
                             path.addRect(CGRect(x:left,y:top,width:CGFloat(step/pull)*ballR+0.5,
                                                 height:CGFloat((minimum+edge)/pull)*ballR))
+                        }
                         }
                     }
                     .fill(Color.black.opacity(0.48))
@@ -118,6 +128,14 @@ struct BTSpinPad: View {
             )
             .onChange(of: dragIsActive) { _, active in
                 if !active { dragSession = nil }
+            }
+            .onChange(of:strikeAccess?.geometryKey,initial:true) { _,_ in
+                guard let access=strikeAccess,access.fixedElevation != nil else { fixedBlockedCells=[];return }
+                let step=miscue*2/32
+                fixedBlockedCells=(0..<32).flatMap { row in (0..<32).compactMap { column -> CGPoint? in
+                    let x = -miscue+(Double(column)+0.5)*step, y = -miscue+(Double(row)+0.5)*step
+                    return access.isAvailable(spinX:x,spinY:y) ? nil : CGPoint(x:x,y:y)
+                } }
             }
             .onDisappear { dragSession = nil }
         }

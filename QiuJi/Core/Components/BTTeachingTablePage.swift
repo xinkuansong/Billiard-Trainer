@@ -137,6 +137,13 @@ enum BTTeachingBallRole: String {
 }
 import SceneKit
 
+struct BTTableMenuSection {
+    var id: String
+    var title: String
+    var disabled = false
+    var items: [DailyHUDMenuItem]
+}
+
 /// Business actions supplied by solver/planning pages; the table layout and camera remain shared.
 struct BTTablePlanningControls {
     var spinX: Binding<Double>
@@ -200,6 +207,8 @@ struct BTTablePlanningControls {
     var onPaletteClearRole: ((String) -> Void)? = nil
     var headerTrailing: ((CGFloat) -> AnyView)? = nil
     var breakGameSelection: Binding<Int>? = nil
+    var breakGameDisabled = false
+    var secondaryMenu: BTTableMenuSection? = nil
 }
 
 /// Display-only controls for the two trajectory atlases.
@@ -363,7 +372,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @State private var systemStatusVisible = false
     @State private var menu: MenuPage?
     @State private var titleSize = CGSize(width: 60, height: 34)
-    private enum MenuPage { case settings, transparency, trajectory, breakGame }
+    private enum MenuPage { case settings, transparency, trajectory, breakGame, secondary }
     private var usesPhone2DEntry: Bool { ScreenAnchoredCarpet.applies && !is3D }
     @State private var entryRendered = false
     @State private var cameraReadableFrame: CGRect?
@@ -638,7 +647,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                             availableSize: CGSize(width: size.width - 2 * (side + windowControls.right), height: size.height - DailyLayoutMetrics.Panels.top - 8),
                             onClose: { menu = nil })
                     } else {
-                        DailyHUDMenuPanel(title: menu == .trajectory ? "轨迹显示" : (menu == .breakGame ? "开球玩法" : nil), items: settingsItems,
+                        DailyHUDMenuPanel(title: menu == .trajectory ? "轨迹显示" : (menu == .breakGame ? "开球玩法" : (menu == .secondary ? planning?.secondaryMenu?.title : nil)), items: settingsItems,
                             availableSize: CGSize(width: size.width - 2 * (side + windowControls.right), height: size.height - DailyLayoutMetrics.Panels.top - 8),
                             onBack: { self.menu = .settings }, onClose: { self.menu = nil },
                             fitsShortOptions: menu == .trajectory)
@@ -741,8 +750,18 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     }
 
     private var settingsItems: [DailyHUDMenuItem] {
+        if menu == .secondary, let section = planning?.secondaryMenu {
+            return section.items.map { item in
+                var result = item
+                if item.selected == nil, item.segments.isEmpty, let action = item.action {
+                    result.action = { menu = nil; action() }
+                }
+                return result
+            }
+        }
         if menu == .breakGame, let selection = planning?.breakGameSelection {
-            return BreakFlowRunner.gameSettingItems(selection: selection, disabled: planning?.isAnimating == true)
+            return BreakFlowRunner.gameSettingItems(selection: selection,
+                disabled: planning?.isAnimating == true || planning?.breakGameDisabled == true)
         }
         if menu == .trajectory, let planning {
             var items: [DailyHUDMenuItem] = []
@@ -790,7 +809,11 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             if let selection = planning.breakGameSelection {
                 items.append(.init(id: "break.settings", title: "开球玩法",
                     detail: BreakFlowRunner.title(for: BreakFlowRunner.game(forBallCount: selection.wrappedValue)),
-                    disclosure: true, disabled: planning.isAnimating, action: { menu = .breakGame }))
+                    disclosure: true, disabled: planning.isAnimating || planning.breakGameDisabled, action: { menu = .breakGame }))
+            }
+            if let section = planning.secondaryMenu {
+                items.append(.init(id: section.id, title: section.title, disclosure: true,
+                    disabled: section.disabled, action: { menu = .secondary }))
             }
             items += planning.menuItems.map { item in
                 var closingItem = item

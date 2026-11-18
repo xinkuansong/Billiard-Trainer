@@ -41,6 +41,7 @@
 		09D3D6DAF2485A60A57D5AC5 /* AngleDynamicViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 628D6A2BF862AD3210A9355E /* AngleDynamicViewModel.swift */; };
 		0A911DBCF419494E034439FE /* V22W2PlanAccuracyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E13CC0F58FF9C40B9C3379E7 /* V22W2PlanAccuracyTests.swift */; };
 		0C43782CD614AC7F03A2B35D /* PlanThreeSectorSolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AA1551768B93A7FFD03537C /* PlanThreeSectorSolverTests.swift */; };
+		0CBFE59BBFBBEE7C0847AAEE /* SpatialPracticeRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE574D1126781F6893BF40C /* SpatialPracticeRecoveryTests.swift */; };
 		0D06A52BA674F857F6B53B88 /* S1_FreePlayLayoutUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 119F110DC7609361E716C44B /* S1_FreePlayLayoutUITests.swift */; };
 		0D09240C134A60F427BB544F /* BankKickDifficultyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 404C8B7344157461D56E69CB /* BankKickDifficultyTests.swift */; };
 		0D17DD1FC1D6CF94E27C8F13 /* BilliardRulesEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A716CA41D3FF2A3E7E93BA01 /* BilliardRulesEngine.swift */; };
@@ -317,6 +318,7 @@
 		5116CD77DCDF9E5B1EC27FED /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BCDAF924A7000A3825AE3554 /* PrivacyInfo.xcprivacy */; };
 		51A65EE6C0A3F09343581231 /* V52DailyClearanceHomeSettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61FEE3BC9BFEC032B8E60334 /* V52DailyClearanceHomeSettingsUITests.swift */; };
 		523CFD96A3510E8C4E2900D1 /* EnhancedEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78D9196447D748818E29107C /* EnhancedEnvironment.swift */; };
+		5281BC413F6529D022BCF87C /* SpatialPracticeRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 087BC2D4F04674F23F21545F /* SpatialPracticeRecovery.swift */; };
 		52853F9D462E83CBA369656B /* ReflectionSolverCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F20148642C939BCBF1BB04 /* ReflectionSolverCore.swift */; };
 		5309E6599C64CABEF3013769 /* BTEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AD5ADD9C93EBB528619CC02 /* BTEmptyState.swift */; };
 		5324A49237C1939E06CB0CDE /* BallStickerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE69409D930FC074787F26F /* BallStickerUITests.swift */; };
@@ -386,6 +388,7 @@
 		604D53BDE0B56EC63D59BC1F /* SpatialPracticeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBFE2A312996CD94DA5D1D39 /* SpatialPracticeUITests.swift */; };
 		60698F7D822990C047CECF5A /* Carpet_walnut.png in Resources */ = {isa = PBXBuildFile; fileRef = 143CF8C328DEE215AB3D768B /* Carpet_walnut.png */; };
 		60879A0CA38BDF2FE723A685 /* KBallPracticeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E047D53B6526FF10B2038902 /* KBallPracticeView.swift */; };
+		60C1CBAE1B33D194E098E5D7 /* SpatialPracticeArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BAE38C8D77945EBA83BDDFE /* SpatialPracticeArchive.swift */; };
 		614470B4F2DDBC0592A8E26E /* TrainingBankStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0DBF807E8AA922FC5D04CD /* TrainingBankStore.swift */; };
 		614D60ACDAF873F581E505F0 /* TableAssistDR296Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 930406ECEF01E7D2FF9464A3 /* TableAssistDR296Tests.swift */; };
 		6174B24CD42431BB76600F00 /* PositionPlayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECB2782050AD8B15112112EC /* PositionPlayViewModel.swift */; };
@@ -1060,6 +1063,7 @@
 		07B466FA95BA6DABC1671606 /* BTPhysicsConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTPhysicsConstants.swift; sourceTree = "<group>"; };
 		0837D5140856ADAF5A1290A7 /* TrainingBankProductionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingBankProductionTests.swift; sourceTree = "<group>"; };
 		0853E67CB75FD8136EEC1F26 /* DailyHUDPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyHUDPanel.swift; sourceTree = "<group>"; };
+		087BC2D4F04674F23F21545F /* SpatialPracticeRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialPracticeRecovery.swift; sourceTree = "<group>"; };
 		08B378BF24882FCA9DFD327C /* BTShotPageChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTShotPageChrome.swift; sourceTree = "<group>"; };
 		08B946B7315BFC40926810C0 /* AimingMethodsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AimingMethodsView.swift; sourceTree = "<group>"; };
 		08F3D6350193F662217EF8E6 /* DiamondSystemCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiamondSystemCalculator.swift; sourceTree = "<group>"; };
@@ -1410,6 +1414,7 @@
 		59E91E70F8603C42EF54EAA9 /* CueStick.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueStick.swift; sourceTree = "<group>"; };
 		5A48C16FC960AD321EC36B58 /* CueStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueStyle.swift; sourceTree = "<group>"; };
 		5A834A2DA8335EA47A492229 /* StaticClothIrradiance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaticClothIrradiance.swift; sourceTree = "<group>"; };
+		5BAE38C8D77945EBA83BDDFE /* SpatialPracticeArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialPracticeArchive.swift; sourceTree = "<group>"; };
 		5BC22414380E86B37E93B76B /* CognitiveSessionBackfill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CognitiveSessionBackfill.swift; sourceTree = "<group>"; };
 		5BD856BF4399A6618A07ED75 /* SpatialPracticeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialPracticeViewModel.swift; sourceTree = "<group>"; };
 		5BDBA306EBCB9281B022BCE6 /* LocalKBallPracticeRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalKBallPracticeRepository.swift; sourceTree = "<group>"; };
@@ -1564,6 +1569,7 @@
 		7E996B31A7F2BF13E4BF84A2 /* AimingCorrectionZ2UITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AimingCorrectionZ2UITests.swift; sourceTree = "<group>"; };
 		7EA56407C88CE01124D695F8 /* TrainingAnswerRepositoryStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingAnswerRepositoryStub.swift; sourceTree = "<group>"; };
 		7EDF8FB4E2C310FDC9C19B13 /* ClothSupportPageResearchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClothSupportPageResearchUITests.swift; sourceTree = "<group>"; };
+		7EE574D1126781F6893BF40C /* SpatialPracticeRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialPracticeRecoveryTests.swift; sourceTree = "<group>"; };
 		7F54F6A25E7639876879998B /* V53OwnerIsolationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V53OwnerIsolationTests.swift; sourceTree = "<group>"; };
 		7FFEA13E41431C3E47275866 /* V49W8CopyEvidenceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V49W8CopyEvidenceUITests.swift; sourceTree = "<group>"; };
 		8045F1E1F8A41B963BFE5901 /* RoomReflectionProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomReflectionProbeTests.swift; sourceTree = "<group>"; };
@@ -2713,6 +2719,7 @@
 				3D31DE92A13926DDF78B9BB7 /* SixTrainingUnifiedTests.swift */,
 				302B212CB1DF0C0DEBFCC25A /* SnakePracticeTests.swift */,
 				44A671D23AD7A6ABFD34EFB5 /* SolverPerformanceTests.swift */,
+				7EE574D1126781F6893BF40C /* SpatialPracticeRecoveryTests.swift */,
 				03B597B83D99AF139183D682 /* SpatialPracticeTests.swift */,
 				20B52561EBE93905BE10DD4F /* SpinAndEnglishGeometryTests.swift */,
 				E5184013701F558307E39612 /* SpinExportParityTests.swift */,
@@ -3677,8 +3684,10 @@
 		FB4BE20FE1261D609E94A084 /* SpatialPractice */ = {
 			isa = PBXGroup;
 			children = (
+				5BAE38C8D77945EBA83BDDFE /* SpatialPracticeArchive.swift */,
 				B192898204D030C385AE9BAB /* SpatialPracticeGeometry.swift */,
 				9F7A215111F70B6110E97211 /* SpatialPracticeRecord.swift */,
+				087BC2D4F04674F23F21545F /* SpatialPracticeRecovery.swift */,
 				1B3C31892FC54315B48CF08A /* SpatialPracticeView.swift */,
 				5BD856BF4399A6618A07ED75 /* SpatialPracticeViewModel.swift */,
 			);
@@ -4408,8 +4417,10 @@
 				DD1EF5B78DD5881D33BD1B72 /* SolveConstraintDrawingOverlay.swift in Sources */,
 				717988ADCCE3B9894870BACC /* SolverStageChrome.swift in Sources */,
 				1CCE1E5DB44636A1D0ECEA8C /* Spacing.swift in Sources */,
+				60C1CBAE1B33D194E098E5D7 /* SpatialPracticeArchive.swift in Sources */,
 				8C2208527D45031E82A69DCC /* SpatialPracticeGeometry.swift in Sources */,
 				F99C11BFF8C8D963025AAE53 /* SpatialPracticeRecord.swift in Sources */,
+				5281BC413F6529D022BCF87C /* SpatialPracticeRecovery.swift in Sources */,
 				362604B70778374EDC9FFB42 /* SpatialPracticeView.swift in Sources */,
 				412C2274A62A298DAF4C3E08 /* SpatialPracticeViewModel.swift in Sources */,
 				ADCB4146B1194F7137A73D1E /* SpinAndEnglishGeometry.swift in Sources */,
@@ -4842,6 +4853,7 @@
 				3B1E472FB1C2DB65D166BCA3 /* SixTrainingUnifiedTests.swift in Sources */,
 				D9F412A08FDD14771462D662 /* SnakePracticeTests.swift in Sources */,
 				82872D6EC08777170995EFB7 /* SolverPerformanceTests.swift in Sources */,
+				0CBFE59BBFBBEE7C0847AAEE /* SpatialPracticeRecoveryTests.swift in Sources */,
 				078092EF816AE1C5A7841A58 /* SpatialPracticeTests.swift in Sources */,
 				57FEB43B4A7E103D6CE20DAC /* SpinAndEnglishGeometryTests.swift in Sources */,
 				AA79557CFA77C381B1A83388 /* SpinExportParityTests.swift in Sources */,

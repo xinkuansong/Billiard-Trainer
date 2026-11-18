@@ -367,6 +367,11 @@ final class CueStick {
     private var modelNode: SCNNode?
     private var shaftNode: SCNNode?
     private var tipNode: SCNNode?
+    #if DEBUG
+    /// The root remains at the strike pivot during a stroke. Observe a moving
+    /// rendered child when measuring first motion, for model and procedural cues.
+    var timingMotionNode: SCNNode? { tipNode ?? modelNode ?? shaftNode }
+    #endif
     private var ferruleNode: SCNNode?
     private var modelPoleOffset: SCNVector3 = SCNVector3Zero
     private var modelTipLocalPoint: SCNVector3 = SCNVector3Zero
@@ -675,9 +680,12 @@ struct CueStrikeAccess {
     let obstacles: [SCNVector3]
     let surfaceY: Float
     var profile: [CueSection] = CueSection.fallback
+    /// Opt-in fixed angle. Nil preserves legacy automatic elevation.
+    var fixedElevation: Float? = nil
 
     var geometryKey: [Float] {
         [cue.x,cue.y,cue.z,aim.x,aim.y,aim.z,surfaceY] + obstacles.flatMap { [$0.x,$0.y,$0.z] }
+            + (fixedElevation.map { [$0] + profile.flatMap { [$0.start,$0.end,$0.radius] } } ?? [])
     }
 
     struct Pose {
@@ -710,6 +718,10 @@ struct CueStrikeAccess {
               spinX*spinX+spinY*spinY <= Double(CuePhysics.miscueLimitFraction*CuePhysics.miscueLimitFraction)+1e-6 else { return false }
         // Contact must lie on the finite crown, not beyond its rim.
         guard Float(spinX*spinX+spinY*spinY) <= powf(CuePhysics.tipContactRadius/CuePhysics.tipCurvatureRadius,2) else { return false }
+        if let fixedElevation {
+            guard fixedElevation.isFinite, (0...Float.pi/2).contains(fixedElevation) else { return false }
+            return clears(pose(spinX:spinX,spinY:spinY,elevation:fixedElevation))
+        }
         if clears(pose(spinX:spinX,spinY:spinY,elevation:CueStick.minElevationRadians)) { return true }
         if clears(pose(spinX:spinX,spinY:spinY,elevation:Self.maximumElevation)) { return true }
         for i in 1..<16 {
@@ -737,6 +749,8 @@ struct CueStrikeAccess {
             (AngleSceneCalculator.innerWidth/2+tip.z,back.z)]
         for section in profile {
             let start=section.start+follow
+            let end=fixedElevation == nil ? Float.infinity : section.end+CueStroke.maximumPullBack
+            func clamp(_ t:Float)->Float { min(end,max(start,t)) }
             let radius=section.radius+Self.railSurfaceGap
             if tip.y+back.y*start-radius < surfaceY { return false }
             for (gap,inward) in rails {
@@ -749,16 +763,16 @@ struct CueStrikeAccess {
                     hypotf(max(0,gap+inward*t),max(0,h+back.y*t))
                 }
                 var nearest=distance(start)
-                if abs(inward)>1e-7 { nearest=min(nearest,distance(max(start,-gap/inward))) }
-                nearest=min(nearest,distance(max(start,-h/back.y)))
+                if abs(inward)>1e-7 { nearest=min(nearest,distance(clamp(-gap/inward))) }
+                if back.y != 0 { nearest=min(nearest,distance(clamp(-h/back.y))) }
                 let denominator=inward*inward+back.y*back.y
-                nearest=min(nearest,distance(max(start,-(gap*inward+h*back.y)/denominator)))
+                if denominator != 0 { nearest=min(nearest,distance(clamp(-(gap*inward+h*back.y)/denominator))) }
                 if nearest < radius { return false }
             }
             for ball in obstacles {
                 if tip.y+back.y*start-section.radius-CueClearance.ballClearance >= ball.y+AngleSceneCalculator.ballRadius { continue }
                 let delta=SCNVector3(ball.x-tip.x,ball.y-tip.y,ball.z-tip.z)
-                let t=max(start,delta.x*back.x+delta.y*back.y+delta.z*back.z)
+                let t=clamp(delta.x*back.x+delta.y*back.y+delta.z*back.z)
                 let dx=delta.x-back.x*t,dy=delta.y-back.y*t,dz=delta.z-back.z*t
                 if sqrtf(dx*dx+dy*dy+dz*dz) < section.radius+CueClearance.ballClearance+AngleSceneCalculator.ballRadius { return false }
             }
@@ -768,6 +782,7 @@ struct CueStrikeAccess {
 
     func resolvedPose(spinX: Double, spinY: Double) -> Pose? {
         guard isAvailable(spinX:spinX,spinY:spinY) else { return nil }
+        if let fixedElevation { return pose(spinX:spinX,spinY:spinY,elevation:fixedElevation) }
         var low=CueStick.minElevationRadians
         let minimum=pose(spinX:spinX,spinY:spinY,elevation:low)
         if clears(minimum) { return minimum }
@@ -792,6 +807,7 @@ struct CueStrikeAccess {
     func automaticPoint(spinX: Double, spinY: Double, allowSideAdjustment: Bool = true) -> (x: Double, y: Double)? {
         if isAvailable(spinX:spinX,spinY:spinY) { return (spinX,spinY) }
         guard let nearest=constrained(spinX:spinX,spinY:spinY,allowSideAdjustment:allowSideAdjustment) else { return nil }
+        if fixedElevation != nil { return nearest }
         let limit=Double(CuePhysics.miscueLimitFraction)
         let edge=sqrt(max(0,limit*limit-nearest.x*nearest.x))
         var best=nearest, bestScore=Double.infinity
@@ -816,6 +832,7 @@ struct CueStrikeAccess {
     func constrained(spinX: Double, spinY: Double, allowSideAdjustment: Bool = true) -> (x: Double, y: Double)? {
         if isAvailable(spinX:spinX,spinY:spinY) { return (spinX,spinY) }
         guard spinX.isFinite, spinY.isFinite else { return nil }
+        if fixedElevation != nil { return fixedPoint(spinX:spinX,spinY:spinY,allowSideAdjustment:allowSideAdjustment) }
         let limit = Double(CuePhysics.miscueLimitFraction)
         func column(_ x: Double) -> (x: Double, y: Double)? {
             guard abs(x) <= limit else { return nil }
@@ -855,4 +872,31 @@ struct CueStrikeAccess {
         }
         return best
     }
+
+    private func fixedPoint(spinX:Double,spinY:Double,allowSideAdjustment:Bool)->(x:Double,y:Double)? {
+        let limit=Double(CuePhysics.miscueLimitFraction)
+        var best:(x:Double,y:Double)?,distance=Double.infinity
+        func consider(_ x:Double,_ y:Double) {
+            let d=pow(x-spinX,2)+pow(y-spinY,2)
+            guard d<distance,isAvailable(spinX:x,spinY:y) else { return }
+            best=(x,y);distance=d
+        }
+        if allowSideAdjustment {
+            for row in 0...32 { for column in 0...32 {
+                consider(-limit+2*limit*Double(column)/32,-limit+2*limit*Double(row)/32)
+            } }
+        } else {
+            for row in 0...64 { consider(spinX,-limit+2*limit*Double(row)/64) }
+        }
+        var step=limit/16
+        for _ in 0..<10 {
+            guard let center=best else { return nil }
+            for dy in -1...1 { for dx in (allowSideAdjustment ? -1 : 0)...(allowSideAdjustment ? 1 : 0) {
+                consider(center.x+Double(dx)*step,center.y+Double(dy)*step)
+            } }
+            step /= 2
+        }
+        return best
+    }
+
 }

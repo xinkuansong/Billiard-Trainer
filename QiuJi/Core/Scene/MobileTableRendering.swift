@@ -166,14 +166,23 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
             + "};\n#pragma arguments\nQiuJiContactUniforms contactUniforms;\n" : fields
     }
 
-    init(scene: AngleTrainingScene, batchesUniforms: Bool = true, trackedBalls: [SCNNode]? = nil) {
-        self.batchesUniforms = batchesUniforms
-        balls = trackedBalls ?? scene.allBallNodes.sorted { $0.key < $1.key }.map(\.value)
+    convenience init(scene: AngleTrainingScene, batchesUniforms: Bool = true, trackedBalls: [SCNNode]? = nil) {
+        var balls = trackedBalls ?? scene.allBallNodes.sorted { $0.key < $1.key }.map(\.value)
         if trackedBalls != nil {
             let capacity = ((balls.count + 15) / 16) * 16
             balls += (balls.count..<capacity).map { _ in SCNNode() }
         }
-        surfaceY = scene.surfaceY
+        self.init(tableNode: scene.tableNode, surfaceY: scene.surfaceY,
+                  balls: balls, batchesUniforms: batchesUniforms)
+    }
+
+    /// A renderer-local copy tracks its own nodes/materials. The primary renderer
+    /// must never replace an NSData shader argument while another renderer reads it.
+    init(tableNode: SCNNode?, surfaceY: Float, balls: [SCNNode], batchesUniforms: Bool = true,
+         installsShader: Bool = true) {
+        self.batchesUniforms = batchesUniforms
+        self.balls = balls
+        self.surfaceY = surfaceY
         previous = Array(repeating: SIMD4<Float>(repeating: .nan), count: balls.count)
         var shader = "#pragma arguments\n"
         let railTexture = MobileTableRendering.railOcclusion
@@ -217,13 +226,15 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
         _surface.diffuse.rgb *= clothFiber;
         """
         var targets: [SCNMaterial] = []
-        scene.tableNode?.enumerateChildNodes { node, _ in
+        tableNode?.enumerateChildNodes { node, _ in
             for material in node.geometry?.materials ?? [] where material.name == "TaiNi" {
-                var modifiers = material.shaderModifiers ?? [:]
-                modifiers[.surface] = shader
-                material.shaderModifiers = modifiers
-                if let railTexture {
-                    material.setValue(SCNMaterialProperty(contents: railTexture), forKey: "bakedRailAO")
+                if installsShader {
+                    var modifiers = material.shaderModifiers ?? [:]
+                    modifiers[.surface] = shader
+                    material.shaderModifiers = modifiers
+                    if let railTexture {
+                        material.setValue(SCNMaterialProperty(contents: railTexture), forKey: "bakedRailAO")
+                    }
                 }
                 targets.append(material)
             }
@@ -244,6 +255,9 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
     func renderer(_ renderer: SCNSceneRenderer, didApplyAnimationsAtTime time: TimeInterval) {
         update(usePresentation: true)
     }
+
+    /// Used inside the clone reconciliation transaction; that scene has no actions.
+    func updateClonedPositions() { update(usePresentation: false) }
 
     /// Keep the existing shader capacity while rebinding its slots to user-owned balls.
     /// Render callbacks and editor changes may arrive on different threads.

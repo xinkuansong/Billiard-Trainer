@@ -2378,6 +2378,9 @@ private struct FPSReadout: View {
 class FrameDelegate: NSObject, SCNSceneRendererDelegate {
     func renderer(_ renderer: SCNSceneRenderer, willRenderScene scene: SCNScene, atTime time: TimeInterval) {
         (scene as? AngleTrainingScene)?.frameReceipt.willRender()
+        #if DEBUG
+        (scene as? AngleTrainingScene)?.interactionTimingProbe?.willRender()
+        #endif
     }
     private let lock = NSLock()
     private var completedFrames = 0
@@ -2416,6 +2419,11 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
     }
     func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
         (scene as? AngleTrainingScene)?.frameReceipt.didRender()
+        #if DEBUG
+        if let table=scene as? AngleTrainingScene {
+            table.interactionTimingProbe?.didRender(cue:table.cueStick?.timingMotionNode)
+        }
+        #endif
         (scene as? AngleTrainingScene)?.closeupRenderUpdates.requestUpdate()
         // This callback runs after this renderer has applied/completed actions.
         // Keep SceneKit action inspection on that queue; publish only a Bool to
