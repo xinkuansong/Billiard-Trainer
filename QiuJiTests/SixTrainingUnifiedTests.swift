@@ -398,9 +398,13 @@ final class SixTrainingUnifiedTests: XCTestCase {
             let rig = try XCTUnwrap(vm.scene.cameraRig)
             rig.viewportSize = CGSize(width: 874, height: 402)
             rig.setTwoViewReadableInsets(UIEdgeInsets(top: 44, left: 116, bottom: 24, right: 116))
+            XCTAssertTrue(rig.p01AnchoredTransitions)
+            XCTAssertTrue(vm.canPanToAim)
             let question = vm.record?.current?.id
+            let fixedTip = vm.tip
             for view: CameraRig.PlayerView in [.thirdPerson, .firstPerson] {
                 XCTAssertTrue(vm.requestPlayerView(view, animated: false))
+                if view == .thirdPerson { try assertTeachingRollingCameraLifecycle(vm) }
                 XCTAssertTrue(vm.canAim)
                 let initial = try XCTUnwrap(vm.record?.draftDirection)
                 for delta: Float in Array(repeating: 0.2, count: 20) + Array(repeating: -0.2, count: 20) {
@@ -409,6 +413,10 @@ final class SixTrainingUnifiedTests: XCTestCase {
                     XCTAssertTrue(vm.canAim, "\(view): a direction sample must not cancel the wheel gesture")
                     XCTAssertFalse(vm.cameraTransitionBusy)
                     XCTAssertNotEqual(vm.record?.draftDirection, previous)
+                    let direction = try XCTUnwrap(vm.currentPlayerAim)
+                    let camera = try XCTUnwrap(rig.p01Snapshot)
+                    XCTAssertEqual(camera.shot.aim.x, direction.x, accuracy: 0.00001)
+                    XCTAssertEqual(camera.shot.aim.z, direction.z, accuracy: 0.00001)
                     rig.update(deltaTime: 1 / 60)
                 }
                 XCTAssertEqual(try XCTUnwrap(vm.record?.draftDirection.x), initial.x, accuracy: 0.00001)
@@ -416,6 +424,14 @@ final class SixTrainingUnifiedTests: XCTestCase {
                 XCTAssertEqual(vm.record?.current?.id, question)
                 XCTAssertEqual(rig.twoViewMode, view)
             }
+            XCTAssertEqual(vm.tip, fixedTip)
+            vm.beginTemporaryTopDown()
+            XCTAssertTrue(vm.temporaryTopDownActive)
+            XCTAssertFalse(vm.canPanToAim)
+            let draft = vm.record?.draftDirection
+            vm.nudgeAim(20)
+            XCTAssertEqual(vm.record?.draftDirection, draft)
+            vm.endTemporaryTopDown()
         }
     }
 

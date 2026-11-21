@@ -70,7 +70,7 @@ struct BallExtractionView: View {
             }
         }
         .navigationDestination(isPresented: $goComposer) {
-            PositionPlayComposerView(initialBoard: confirmedBoard)
+            PositionPlayComposerView(initialBoard: confirmedBoard, cameraPolicy: .p01Replayable)
         }
         .navigationDestination(isPresented: $goSilu) {
             SiluTrainerView(initialBoard: confirmedBoard)

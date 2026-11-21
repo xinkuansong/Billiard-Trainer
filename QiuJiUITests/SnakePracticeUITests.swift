@@ -445,6 +445,7 @@ final class LegalBallMovementUITests: XCTestCase {
         }
         let balls: [Ball]
         let camera: [Double]
+        let panCount: Int
         let diagramSurface: String
     }
     override func setUpWithError() throws { continueAfterFailure = false }
@@ -468,9 +469,11 @@ final class LegalBallMovementUITests: XCTestCase {
         prefix = ["bank": "bankshot", "diamond": "reflection", "separation": "separationAngleAtlas", "cushion": "cushionEnglishAtlas"][page] ?? page
         var args = ["-forcePremium", "-v50.inMemoryStore", "-3dDrag.probe", "-v54.forceDark", "-drillTryout.hasSeenGestureHint", "YES"]
         switch page {
+        case "formalComposer": prefix = "freeplay"
         case "freeplay": args += ["-deeplink.freePlay"]
         case "daily": prefix = "freeplay"; args += ["-deeplink.dailyClearance", "-dailyClearance.resetState", "-dailyClearance.resetHomeState"]
         case "snake": prefix = "freeplay"; args += ["-deeplink.snakePractice", "-snakePractice.count", "3"]
+        case "multiball": prefix = "freeplay"; args += ["-pro.route=multiBall", "-multiBall.fixedSeed"]
         case "silu": args += ["-deeplink.silu"]
         case "planthree": args += ["-deeplink.planThree", "-planThree.twoBall"]
         case "tryout": prefix = "freeplay"; args += ["-deeplink.tryout=drill_c042"]
@@ -480,6 +483,13 @@ final class LegalBallMovementUITests: XCTestCase {
             args += ["-dailyInteraction.sharedPage=" + page]
         }
         app = .launchClean(extraArgs: args + extra)
+        if page == "formalComposer" {
+            app.switchTab(.angle)
+            let tab = app.buttons["angleHomeTab_走位"]
+            ready(tab); tab.tap()
+            let card = app.buttons["分离角与走位"]
+            ready(card); card.tap()
+        }
         if page == "formation" {
             ready(app.buttons["formation.new"]); app.buttons["formation.new"].tap()
             ready(app.buttons["paletteBall__1"]); app.buttons["paletteBall__1"].tap()
@@ -489,6 +499,12 @@ final class LegalBallMovementUITests: XCTestCase {
             ready(app.buttons["formation.start"]); app.buttons["formation.start"].tap()
         }
         if page == "snake" { ready(app.buttons["snake.start"]); app.buttons["snake.start"].tap() }
+        if page == "multiball" {
+            let game = app.segmentedControls["multiBall.game"]
+            ready(game.buttons["追分"]); game.buttons["追分"].tap()
+            let start = app.buttons["multiBall.start"]
+            ready(start); start.tap()
+        }
         XCTAssertTrue(table.waitForExistence(timeout: 45))
         XCUIDevice.shared.orientation = .landscapeLeft
         if page == "tryout" {
@@ -514,8 +530,141 @@ final class LegalBallMovementUITests: XCTestCase {
         // Solver pages apply stored view changes when the pending solve finishes.
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: button)], timeout: 15), .completed)
         closeMenu()
-        if value == "3D" { ready(app.buttons["dailyClearance.observeTable"]); app.buttons["dailyClearance.observeTable"].tap() }
+        if value == "3D" {
+            let third = app.buttons["shotCamera.thirdPerson"]
+            let observe = app.buttons["dailyClearance.observeTable"]
+            if third.waitForExistence(timeout: 5) && !observe.exists {
+                ready(third); third.tap()
+            } else {
+                ready(observe); observe.tap()
+            }
+        }
     }
+    private func verifyFormalCamera(_ page: String, extra: [String] = []) throws {
+        try launch(page, extra: extra + ["-v63.cameraDiagnostics"])
+        let first = app.buttons["shotCamera.firstPerson"]
+        let third = app.buttons["shotCamera.thirdPerson"]
+        let top = app.buttons["shotCamera.temporaryTopDown"]
+        if !third.waitForExistence(timeout: 3) {
+            openMenu()
+            let viewMode = app.buttons[prefix + ".cameraMode"]
+            ready(viewMode)
+            XCTAssertEqual(viewMode.value as? String, "2D")
+            viewMode.tap()
+            closeMenu()
+        }
+        ready(first)
+        ready(third)
+        ready(top)
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        third.tap()
+        waitForCameraToSettle()
+        let before = try probe()
+        try capture("camera-before-swipe")
+        let size = table.frame.size
+        // Stay below the centre rule-information button and away from the HUD columns.
+        let candidates = [CGPoint(x: 0.30, y: 0.44), CGPoint(x: 0.62, y: 0.44),
+                          CGPoint(x: 0.30, y: 0.65), CGPoint(x: 0.62, y: 0.65)]
+        func clearance(_ point: CGPoint) -> CGFloat {
+            before.balls.filter { $0.screen.count >= 2 }.map {
+                hypot(point.x * size.width - $0.screen[0], point.y * size.height - $0.screen[1])
+            }.min() ?? .infinity
+        }
+        let point = try XCTUnwrap(candidates.max { clearance($0) < clearance($1) })
+        XCTAssertGreaterThan(clearance(point), 45, "Start the camera swipe outside the ball pickup zone")
+        let start = table.coordinate(withNormalizedOffset: .init(dx: point.x, dy: point.y))
+        let direction: CGFloat = point.x < 0.5 ? 1 : -1
+        let end = start.withOffset(.init(dx: direction * size.width * 0.17, dy: 0))
+        start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+        waitForCameraToSettle()
+        let observed = try probe()
+        try capture("camera-after-swipe")
+        XCTAssertGreaterThan(observed.panCount, before.panCount, "The scene must receive the real swipe")
+        XCTAssertTrue(zip(before.camera, observed.camera).contains { abs($0 - $1) > 0.01 })
+        try assertRetained(before, observed)
+        XCTAssertEqual(third.value as? String, "已选中")
+        XCTAssertTrue(first.isHittable)
+        first.tap()
+        waitForCameraToSettle()
+        let aimed = try probe()
+        try capture("camera-first-person")
+        let diagnostic = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch
+        let details = XCTAttachment(string: "first: \(first.debugDescription)\n" +
+            "third: \(third.debugDescription)\n" + "scene: \(diagnostic.debugDescription)")
+        details.name = page + "-camera-first-person-controls"
+        details.lifetime = .keepAlways
+        add(details)
+        XCTAssertEqual(first.value as? String, "已选中")
+        XCTAssertTrue(zip(observed.camera, aimed.camera).contains { abs($0 - $1) > 0.01 })
+        top.tap()
+        XCTAssertEqual(top.value as? String, "已选中")
+        XCTAssertFalse(first.isEnabled)
+        XCTAssertFalse(third.isEnabled)
+        waitForCameraToSettle()
+        try capture("camera-temporary-top-down")
+        top.tap()
+        XCTAssertEqual(top.value as? String, "未选中")
+        XCTAssertEqual(first.value as? String, "已选中")
+        waitForCameraToSettle()
+        let returned = try probe()
+        try assertRetained(before, returned)
+        XCTAssertEqual(returned.camera.count, aimed.camera.count)
+        for (actual, expected) in zip(returned.camera, aimed.camera) {
+            XCTAssertEqual(actual, expected, accuracy: 0.002)
+        }
+    }
+
+    func testDailyAimLensAcrossWindowOrientations() throws {
+        try launch("daily", extra: ["-dailyClearance.fixture=cueAccessRoom", "-dailyClearance.fixtureSettled", "-v63.cameraDiagnostics"])
+        let third = app.buttons["shotCamera.thirdPerson"]
+        let first = app.buttons["shotCamera.firstPerson"]
+        if !third.waitForExistence(timeout: 3) { mode("3D") }
+        app.maximizeTrainingTestWindow()
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        let orientations: [UIDeviceOrientation] = isPad ? [.landscapeLeft, .portrait] : [.landscapeLeft]
+        var referenceBoard: [Probe.Ball]?
+        for orientation in orientations {
+            XCUIDevice.shared.orientation = orientation
+            let landscape = orientation.isLandscape
+            let oriented = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let size = self.table.frame.size
+                return size.width > 0 && (size.width > size.height) == landscape
+            }, object: table)
+            XCTAssertEqual(XCTWaiter.wait(for: [oriented], timeout: 15), .completed)
+            let window = (isPad ? "ipad" : "iphone") + (landscape ? "-landscape" : "-portrait")
+            for (button, name, lens) in [(third, "third", 32.0705), (first, "first", 27.48525)] {
+                ready(button); button.tap(); waitForCameraToSettle()
+                XCTAssertEqual(button.value as? String, "已选中")
+                try capture(window + "-" + name)
+                let raw = try XCTUnwrap(table.value as? String)
+                let frame = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+                XCTAssertEqual(try XCTUnwrap(frame["verticalFOV"] as? Double), lens, accuracy: 0.03)
+                let board = try probe().balls
+                if let referenceBoard {
+                    XCTAssertEqual(board.map(\.key), referenceBoard.map(\.key))
+                    XCTAssertEqual(board.map(\.world), referenceBoard.map(\.world))
+                } else { referenceBoard = board }
+                let diag = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch
+                let attachment = XCTAttachment(string: diag.debugDescription)
+                attachment.name = window + "-" + name + "-selection"
+                attachment.lifetime = .keepAlways; add(attachment)
+            }
+        }
+    }
+
+    func testV681FormalCustomCamera() throws { try verifyFormalCamera("formation") }
+    func testV681FormalDailyCamera() throws {
+        try verifyFormalCamera("daily", extra: ["-dailyClearance.fixture=cueAccessRoom", "-dailyClearance.fixtureSettled"])
+    }
+    func testV681FormalDailyProgressCamera() throws {
+        try verifyFormalCamera("daily", extra: ["-dailyClearance.fixture=progress"])
+    }
+    func testV681FormalDailyLegalRailCamera() throws {
+        try verifyFormalCamera("daily", extra: ["-dailyClearance.fixture=progressLegalRail"])
+    }
+    func testV681FormalSnakeCamera() throws { try verifyFormalCamera("snake") }
+    func testV681FormalMultiBallCamera() throws { try verifyFormalCamera("multiball") }
+
     private func permissions(_ p: Probe) -> Set<String> { Set(p.balls.filter(\.draggable).map(\.key)) }
     private func assertRetained(_ before: Probe, _ after: Probe) throws {
         for ball in before.balls {
@@ -580,7 +729,8 @@ final class LegalBallMovementUITests: XCTestCase {
             if dimension == "temporary" { ready(app.buttons["shotCamera.temporaryTopDown"]); app.buttons["shotCamera.temporaryTopDown"].tap() }
             let current = try probe()
             try assertRetained(prior, current)
-            XCTAssertEqual(permissions(current), allowed, dimension + " changed movement permissions")
+            let expected = dimension == "3D" && page != "daily" ? allowed.intersection(["cueBall"]) : allowed
+            XCTAssertEqual(permissions(current), expected, dimension + " drag permissions")
             if dimension == "temporary" { XCTAssertEqual(current.diagramSurface, "temporaryTopDown") }
             for key in keys {
                 if dimension != "3D" && !restricted { try drag(key, label: dimension + "-short-" + key, distance: 30, moves: false) }
@@ -588,7 +738,7 @@ final class LegalBallMovementUITests: XCTestCase {
                 // sideways on the table before the perspective pass, so its centre
                 // is not covered by the nearer ball (which correctly wins the hit).
                 let separateTryoutTarget = page == "tryout" && key != "cueBall" && dimension == "2D"
-                try drag(key, label: dimension + "-" + key, moves: !restricted,
+                try drag(key, label: dimension + "-" + key, moves: expected.contains(key),
                          vertical: (kitchen && dimension != "3D") || separateTryoutTarget)
                 if kitchen {
                     let cue = try XCTUnwrap(probe().balls.first { $0.key == "cueBall" })
@@ -604,6 +754,43 @@ final class LegalBallMovementUITests: XCTestCase {
         try assertRetained(held, probe())
         try capture("returned-2D")
     }
+    private func checkPerspectivePlacement(_ page: String) throws {
+        try launch(page)
+        mode("3D")
+        waitForCameraToSettle()
+        let target = try XCTUnwrap(probe().balls.first { $0.key != "cueBall" })
+        let before = try probe()
+        try drag(target.key, label: "3D-target-swipe", distance: 84, moves: false)
+        XCTAssertNotEqual(try probe().camera, before.camera, "A swipe from the target must reach the camera")
+        try drag("cueBall", label: "3D-direct-cue", distance: 85)
+
+        waitForCameraToSettle()
+        let slot = app.buttons["paletteBall__7"]
+        ready(slot)
+        let slotCenter = slot.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5))
+        // Release near an existing ball to guarantee a visible part of the table.
+        let cue = try XCTUnwrap(probe().balls.first { $0.key == "cueBall" })
+        let origin = table.coordinate(withNormalizedOffset: .zero)
+        let drop = origin.withOffset(.init(dx: cue.screen[0] + 38, dy: cue.screen[1]))
+        slotCenter.press(forDuration: 0.1, thenDragTo: drop)
+        XCTAssertTrue(try probe().balls.contains { $0.key == "_7" })
+        let top = app.buttons["shotCamera.temporaryTopDown"]
+        ready(top); top.tap()
+        let added = try XCTUnwrap(probe().balls.first { $0.key == "_7" })
+        XCTAssertTrue(added.draggable)
+        try drag("_7", label: "temporary-target", distance: 90)
+        let moved = try XCTUnwrap(probe().balls.first { $0.key == "_7" })
+        origin.withOffset(.init(dx: moved.screen[0], dy: moved.screen[1]))
+            .press(forDuration: 0.1, thenDragTo: slotCenter)
+        XCTAssertFalse(try probe().balls.contains { $0.key == "_7" })
+        try capture("temporary-returned-to-palette")
+        top.tap()
+        XCTAssertEqual(permissions(try probe()), ["cueBall"])
+    }
+
+    func testComposerPerspectivePlacementAndReturn() throws { try checkPerspectivePlacement("formalComposer") }
+    func testSolverPerspectivePlacementAndReturn() throws { try checkPerspectivePlacement("silu") }
+
     func testAngleDiagram() throws { try check("angleDynamic") }
     func testSeparationDiagram() throws { try check("separation") }
     func testCushionDiagram() throws { try check("cushion") }
@@ -647,7 +834,11 @@ final class LegalBallMovementUITests: XCTestCase {
             let entry = self.app.buttons["break.entry"]
             if !entry.exists { self.openMenu() }
             self.ready(entry); entry.tap()
-            self.ready(self.app.buttons["break.game.9"]); self.app.buttons["break.game.9"].tap()
+            if page == "freeplay" {
+                self.ready(self.app.buttons["break.game.9"]); self.app.buttons["break.game.9"].tap()
+            } else {
+                self.ready(self.app.buttons["break.rerack"])
+            }
             self.ready(self.app.buttons[self.prefix == "freeplay" ? "break.strike" : self.prefix + ".strike"])
         })
     }

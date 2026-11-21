@@ -422,7 +422,7 @@ final class DailyLayoutLifecycleUITests: XCTestCase {
         let window = app.windows.firstMatch.frame
         let ids = ["break.entry", "shotStage.spinEntry", "shotStage.aimWheel", "shotStage.powerBar",
                    "dailyClearance.strike", "dailyClearance.playback"]
-            + (dimension == "3D" ? ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.temporaryTopDown"] : [])
+            + (dimension == "3D" ? ["shotCamera.firstPerson", "shotCamera.thirdPerson", "shotCamera.temporaryTopDown"] : [])
         var frames = [(String, CGRect)]()
         for id in ids {
             let node = element(app, id)
@@ -607,7 +607,7 @@ final class DailyLayoutLifecycleUITests: XCTestCase {
             try assertControlsFit(app, dimension: dimension)
             let before = try shotCount(app)
             if dimension == "3D" {
-                for id in ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.temporaryTopDown"] {
+                for id in ["shotCamera.firstPerson", "shotCamera.thirdPerson", "shotCamera.temporaryTopDown"] {
                     try waitForControl(app, id, state: "camera-\(id)-ready")
                     app.buttons[id].tap()
                     try capture(app, "camera-\(id)-selected")

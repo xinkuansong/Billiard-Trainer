@@ -281,9 +281,9 @@ struct MainTabView: View {
         case .diamondSystem:
             DiamondSystemView()
         case .shotSimulation:
-            PositionPlayComposerView(onBack: closeComposer)
+            PositionPlayComposerView(cameraPolicy: .p01Replayable, onBack: closeComposer)
         case .positionPlayComposer:
-            PositionPlayComposerView(onBack: closeComposer)
+            PositionPlayComposerView(cameraPolicy: .p01Replayable, onBack: closeComposer)
         case .freePlay:
             ContentUnavailableView("此练习入口已移除", systemImage: "info.circle",
                 description: Text("返回练习页，选择「分离角与走位」继续练习。"))

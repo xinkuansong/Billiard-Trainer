@@ -214,7 +214,11 @@ final class DailyClearanceControllerTests: XCTestCase {
 
     func test_realHostKeepsRackEditableUntilPlayerStrikes() throws {
         let vm = PositionPlayViewModel()
+        vm.scene.configureShotAwareCamera()
         vm.setupScene()
+        vm.enablePlayerCameraControls(policy: .p01Replayable)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
         defer { vm.cancelDailyAttempt() }
         let controller = makeController()
         controller.start(host: vm, defaultGame: .nineBall)
@@ -227,7 +231,13 @@ final class DailyClearanceControllerTests: XCTestCase {
         runner.velocity = 7.5
         runner.spinX = 0.1
         runner.spinY = 0.2
-        runner.nudgeAim(byDegrees: 0.1)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+        let heading = try XCTUnwrap(runner.aimDir)
+        XCTAssertTrue(vm.canNudgeP01TableAim)
+        vm.nudgeP01TableFreeAim(byDegrees: 0.1)
+        let adjusted = try XCTUnwrap(runner.aimDir)
+        XCTAssertNotEqual(SIMD2(adjusted.x, adjusted.z), SIMD2(heading.x, heading.z))
         XCTAssertEqual(runner.phase, .racked)
         XCTAssertEqual(runner.velocity, 7.5)
         XCTAssertEqual(runner.spinX, 0.1, accuracy: 0.001)
@@ -238,6 +248,83 @@ final class DailyClearanceControllerTests: XCTestCase {
         XCTAssertEqual(controller.phase, .playing)
         XCTAssertEqual(controller.playedVisitCount, 1, "开球计入规则杆数")
         XCTAssertEqual(controller.shotCount, 0, "开球不增加散局后的击球次数")
+    }
+
+    func testRestoredDailyProgressCanEnterFirstPersonAfterTablePan() async throws {
+        var draft = store.makeDraft(game: .chineseEightBall, seed: 52)
+        draft.phase = .playing
+        draft.shotCount = 2
+        draft.foulCount = 1
+        draft.board = .init(onTable: [
+            PositionPlayBall.cueKey: .init(x: 0.72, y: 0.50),
+            "_1": .init(x: 0.30, y: 0.42),
+            "_8": .init(x: 0.43, y: 0.56)
+        ])
+        store.saveDraft(draft)
+
+        let vm = PositionPlayViewModel()
+        vm.scene.configureDailyClearanceRendering(asynchronousReflection: true)
+        let controller = makeController()
+        let rules = FreePlayRulesSession()
+        let notices = BTRuleNoticeCenter()
+        FreePlayRulesSession.connect(vm: vm, rules: rules, daily: controller, notices: notices,
+                                     mode: .dailyClearance, isEditor: false, isTryout: false)
+        vm.setupScene(loadsDefaultLayout: false)
+        vm.enablePlayerCameraControls(policy: .p01Replayable)
+        vm.usesContinuousTrajectoryPreview = true
+        defer { vm.suspendAuthoringActivity() }
+        controller.start(host: vm, defaultGame: .chineseEightBall)
+        controller.syncPlanAim()
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(controller.phase, .playing)
+        XCTAssertEqual(controller.shotCount, 2)
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
+        XCTAssertTrue(ShotPlayCamera.setMode(.perspective3D, on: vm))
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, resetThirdPerson: true))
+        for _ in 0..<480 { rig.update(deltaTime: 1 / 120) }
+        let before = try XCTUnwrap(rig.p01Snapshot)
+        let board = vm.currentSnapshot().onTable.mapValues { SIMD2($0.x, $0.y) }
+        var pan = P01PanInput(position: .zero, aimReversalTolerance: 1 / 3)
+        var observing = false
+        for index in 1...30 {
+            switch pan.move(to: SIMD2(148.6 * Float(index) / 30, 0),
+                            prefersAim: vm.canNudgeP01TableAim, ended: index == 30) {
+            case .observation(let delta, _):
+                if !observing { vm.beginCameraObservation(); observing = true }
+                rig.handleSurfacePan(delta: delta)
+            case .aim(let delta):
+                vm.setAimTableDragging(true)
+                vm.nudgeP01TableFreeAim(byDegrees: delta * P01CameraMotion.panRadiansPerPoint * 180 / .pi)
+            case nil:
+                break
+            }
+            rig.update(deltaTime: 1 / 60)
+        }
+        if observing { vm.endCameraObservation() }
+        vm.setAimTableDragging(false)
+        for _ in 0..<100 where vm.isComputing { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertFalse(vm.isComputing)
+        let observed = try XCTUnwrap(rig.p01Snapshot)
+        XCTAssertNotEqual(observed.pose, before.pose)
+        let pocket = vm.selectedPocketIndex
+        let mode = vm.aimMode
+        let aim = try XCTUnwrap(vm.playerViewDirection)
+        XCTAssertTrue(vm.playerCameraButtonsEnabled)
+        XCTAssertTrue(vm.requestPlayerView(.firstPerson),
+                      "mode: \(mode), pocket: \(pocket), rig: \(rig.p01CameraDiagnostic ?? "none")")
+        for _ in 0..<480 { rig.update(deltaTime: 1 / 120) }
+        let first = try XCTUnwrap(rig.p01Snapshot)
+        XCTAssertEqual(rig.playerView, .firstPerson)
+        XCTAssertNotEqual(first.pose, observed.pose)
+        XCTAssertEqual(first.shot.aim, SIMD3(aim.x, aim.y, aim.z))
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertEqual(vm.aimMode, mode)
+        XCTAssertEqual(vm.currentSnapshot().onTable.mapValues { SIMD2($0.x, $0.y) }, board)
+        XCTAssertEqual(controller.shotCount, 2)
     }
 
     func test_legacyTerminalBreakNeverRetriesAutomatically() {

@@ -99,14 +99,15 @@ final class BreakFlowRunnerV6Tests: XCTestCase {
         return m
     }
 
-    private var evidenceDir: URL {
-        // worktree 根：…/QiuJiTests → …/
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let dir = root.appendingPathComponent("build/x3-screenshots", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+    private func keepAimScreenshot(_ png:Data,name:String) throws {
+        let attachment=XCTAttachment(data:png,uniformTypeIdentifier:"public.png")
+        attachment.name=name;attachment.lifetime = .keepAlways;add(attachment)
+        #if targetEnvironment(simulator)
+        let root=URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let dir=root.appendingPathComponent("build/x3-screenshots",isDirectory:true)
+        try FileManager.default.createDirectory(at:dir,withIntermediateDirectories:true)
+        try png.write(to:dir.appendingPathComponent(name))
+        #endif
     }
 
     // MARK: - 球堆间距：唯一保留的随机源（seed 驱动、确定性）
@@ -313,16 +314,12 @@ final class BreakFlowRunnerV6Tests: XCTestCase {
 
         // 默认锁顶球：垂距 ≈ 0 < R ⇒ 接触态（线停球面 + 红点）。
         let touchPNG = try snapshotPNG(scene: scene, device: device)
-        let touchURL = evidenceDir.appendingPathComponent("x3-k8-aim-touch-reddot.png")
-        try touchPNG.write(to: touchURL)
-        print("X3 K8 wrote \(touchURL.path)")
+        try keepAimScreenshot(touchPNG,name:"x3-k8-aim-touch-reddot.png")
 
         // 大幅偏转瞄准 ⇒ 垂距 ≥ R ⇒ 未接触，线延伸库边、无红点。
         runner.nudgeAim(byDegrees: 28)
         let missPNG = try snapshotPNG(scene: scene, device: device)
-        let missURL = evidenceDir.appendingPathComponent("x3-k8-aim-miss-to-rail.png")
-        try missPNG.write(to: missURL)
-        print("X3 K8 wrote \(missURL.path)")
+        try keepAimScreenshot(missPNG,name:"x3-k8-aim-miss-to-rail.png")
 
         // 数值不变量：锁顶球应 touches；大偏转应 miss（与草稿一致）。
         let rack = RackLayout.make(.chineseEightBall, seed: 21)

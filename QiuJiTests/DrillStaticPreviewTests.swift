@@ -201,9 +201,9 @@ final class DrillStaticPreviewTests: XCTestCase {
             controller.setCameraMode(mode)
             if mode == .perspective3D {
                 let rig = try XCTUnwrap(controller.scene.cameraRig)
-                XCTAssertTrue(rig.usesSurfaceCamera)
-                XCTAssertEqual(rig.twoViewSnapshot?.mode, .thirdPerson)
-                XCTAssertNotNil(rig.twoViewSnapshot?.simpleShot?.surface)
+                XCTAssertTrue(rig.p01AnchoredTransitions)
+                XCTAssertEqual(rig.p01Snapshot?.state.view, .thirdPerson)
+                XCTAssertEqual(rig.p01Snapshot?.state.distance, P01CameraMotion.State().distance)
             }
             XCTAssertEqual(controller.cameraMode, mode)
             XCTAssertEqual(controller.playbackState, .playing)
@@ -349,11 +349,11 @@ final class DrillSequenceCameraTests: XCTestCase {
         c.togglePlayback()
         try await pump(c, renderer: r) { c.playbackState == .paused }
         XCTAssertTrue(target.isHidden, "The first shot actually potted the repeated target")
-        let heldCamera = try XCTUnwrap(c.scene.cameraRig?.twoViewSnapshot?.pose)
+        let heldCamera = try XCTUnwrap(c.scene.cameraRig?.p01Snapshot?.pose)
         let cueRest = cue.simdPosition
         c.togglePlayback()
         try await pump(c, renderer: r) { c.playbackPhase == .arranging }
-        XCTAssertEqual(c.scene.cameraRig?.twoViewSnapshot?.pose.eye, heldCamera.eye)
+        XCTAssertEqual(c.scene.cameraRig?.p01Snapshot?.pose.eye, heldCamera.eye)
         XCTAssertEqual(cue.simdPosition, cueRest, "Reseating must begin at the visible rest position")
         XCTAssertFalse(target.isHidden)
         XCTAssertEqual(target.opacity, 0, accuracy: 0.0001, "The potted target reappears by fading in")
@@ -365,7 +365,7 @@ final class DrillSequenceCameraTests: XCTestCase {
         try await Task.sleep(nanoseconds: 150_000_000)
         r.update(atTime: ProcessInfo.processInfo.systemUptime)
         XCTAssertEqual(cue.simdPosition, pausedPosition)
-        XCTAssertEqual(c.scene.cameraRig?.twoViewSnapshot?.pose.eye, heldCamera.eye)
+        XCTAssertEqual(c.scene.cameraRig?.p01Snapshot?.pose.eye, heldCamera.eye)
         c.togglePlayback()
         try await pump(c, renderer: r) { c.playbackPhase == .transitioning }
         XCTAssertFalse(target.isHidden)
@@ -376,7 +376,7 @@ final class DrillSequenceCameraTests: XCTestCase {
             XCTAssertEqual(node.position.x, expected.x, accuracy: 0.00001)
             XCTAssertEqual(node.position.z, expected.z, accuracy: 0.00001)
         }
-        XCTAssertEqual(c.scene.cameraRig?.twoViewSnapshot?.pose.eye, heldCamera.eye,
+        XCTAssertEqual(c.scene.cameraRig?.p01Snapshot?.pose.eye, heldCamera.eye,
             "The connector must start only after the new board is completely seated")
         try await pump(c, renderer: r, timeout: 120) { c.playbackState == .idle }
         XCTAssertNil(c.playbackMessage)
@@ -423,14 +423,17 @@ final class DrillSequenceCameraTests: XCTestCase {
         let step = try XCTUnwrap(c.availableFormations.first { $0.token == "manual02" }?.steps.first)
         let pred = try XCTUnwrap(PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: c.scene.surfaceY))
         let cue = try XCTUnwrap(c.scene.cueBallNode).position
-        let expected = CameraSurface(cue: SIMD2(cue.x, cue.z), surfaceY: c.scene.surfaceY,
-            viewport: CGSize(width: 390, height: 220),
-            bearing: CameraSurface.bearing(cue: SIMD2(cue.x, cue.z), backwards: SIMD2(-pred.aimDirection.x, -pred.aimDirection.z))).pose
-        let actual = try XCTUnwrap(c.scene.cameraRig?.twoViewSnapshot)
-        XCTAssertEqual(actual.mode, .thirdPerson)
-        XCTAssertLessThan(simd_distance(actual.pose.eye, expected.eye), 0.0001)
-        XCTAssertLessThan(simd_distance(actual.pose.forward, expected.forward), 0.0001)
-        XCTAssertEqual(actual.pose.fov, expected.fov, accuracy: 0.0001)
+        let actual = try XCTUnwrap(c.scene.cameraRig?.p01Snapshot)
+        let layout = try XCTUnwrap(actual.layout)
+        let shot = actual.shot
+        XCTAssertEqual(actual.state.view, .thirdPerson)
+        XCTAssertLessThan(simd_distance(shot.cue, SIMD3(cue)), 0.0001)
+        XCTAssertLessThan(simd_distance(shot.aim, SIMD3(pred.aimDirection)), 0.0001)
+        let reference = try XCTUnwrap(P01CameraMotion(shot: shot, layout: layout, anchoredTransitions: true))
+        XCTAssertLessThan(simd_distance(actual.pose.eye, reference.pose.eye), 0.0001)
+        XCTAssertLessThan(simd_distance(actual.pose.forward, reference.pose.forward), 0.0001)
+        XCTAssertEqual(actual.pose.verticalFOV, reference.pose.verticalFOV, accuracy: 0.0001)
+
     }
 
     func testContinuousFourShotCameraPauseAndFinalBoard() async throws {
@@ -445,7 +448,7 @@ final class DrillSequenceCameraTests: XCTestCase {
         rig.update(deltaTime: 0.08)
         XCTAssertTrue(rig.twoViewOwnerIsManual)
         c.togglePlayback() // Aiming/motion requests finish the whole shot.
-        let firstView = try XCTUnwrap(c.scene.cameraRig?.twoViewSnapshot?.pose)
+        let firstView = try XCTUnwrap(c.scene.cameraRig?.p01Snapshot?.pose)
         try await pump(c, renderer: r) { c.playbackPhase == .moving }
         c.suspendPlayback() // Backgrounding must freeze actual in-flight ball poses.
         let flight = c.scene.allBallNodes.mapValues(\.simdPosition)
@@ -458,7 +461,7 @@ final class DrillSequenceCameraTests: XCTestCase {
         c.togglePlayback() // Re-request the boundary pause after background resume.
         try await pump(c, renderer: r) { c.playbackState == .paused }
         XCTAssertEqual(c.playbackPhase, .holding)
-        XCTAssertLessThan(simd_distance(try XCTUnwrap(c.scene.cameraRig?.twoViewSnapshot?.pose.eye), firstView.eye), 0.0001)
+        XCTAssertLessThan(simd_distance(try XCTUnwrap(c.scene.cameraRig?.p01Snapshot?.pose.eye), firstView.eye), 0.0001)
         let stopped = c.scene.allBallNodes.mapValues(\.simdPosition)
         let poses = c.scene.captureBallPoses()
         c.togglePlayback()
@@ -468,12 +471,12 @@ final class DrillSequenceCameraTests: XCTestCase {
         c.scene.cameraRig?.update(deltaTime: 0.1)
         c.togglePlayback() // Transition pause is immediate and preserves displayed pose.
         XCTAssertEqual(c.playbackState, .paused)
-        let pausedView = try XCTUnwrap(c.scene.cameraRig?.twoViewSnapshot?.pose)
+        let pausedView = try XCTUnwrap(c.scene.cameraRig?.p01Snapshot?.pose)
         c.scene.cameraRig?.update(deltaTime: 1)
-        XCTAssertEqual(c.scene.cameraRig?.twoViewSnapshot?.pose.eye, pausedView.eye)
+        XCTAssertEqual(c.scene.cameraRig?.p01Snapshot?.pose.eye, pausedView.eye)
         c.setCameraMode(.topDown2D)
         c.setCameraMode(.perspective3D)
-        XCTAssertEqual(c.scene.cameraRig?.twoViewSnapshot?.pose.eye, pausedView.eye)
+        XCTAssertEqual(c.scene.cameraRig?.p01Snapshot?.pose.eye, pausedView.eye)
         c.togglePlayback()
         try await pump(c, renderer: r) { c.playbackPhase == .aiming }
         XCTAssertFalse(rig.twoViewOwnerIsManual, "The next shot resumes automatic framing")

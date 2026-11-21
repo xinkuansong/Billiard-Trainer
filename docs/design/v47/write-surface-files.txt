@@ -58,6 +58,7 @@ QiuJiTests/SixPocketV4ProbeTests.swift
 QiuJiTests/SixPocketV4RefineTests.swift
 QiuJiTests/SixPocketV4Round2ProbeTests.swift
 QiuJiTests/SixPocketV5VideoTests.swift
+QiuJiTests/SpatialPracticeRecoveryTests.swift
 QiuJiTests/SpinExportParityTests.swift
 QiuJiTests/SpinRenderEvidenceTests.swift
 QiuJiTests/StatisticsViewModelTests.swift
@@ -108,7 +109,6 @@ QiuJiUITests/DailyStandardFreePlayUITests.swift
 QiuJiUITests/DailyStandardQuizEditorUITests.swift
 QiuJiUITests/DeviceMatrixUITests.swift
 QiuJiUITests/DrillSceneThreeBeatUITests.swift
-QiuJiUITests/DrillTryoutUITests.swift
 QiuJiUITests/Helpers/TheoryFigureEvidence.swift
 QiuJiUITests/MultiBallPracticeUITests.swift
 QiuJiUITests/OnboardingProUITests.swift

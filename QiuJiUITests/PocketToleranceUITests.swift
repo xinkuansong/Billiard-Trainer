@@ -83,11 +83,22 @@ final class PocketToleranceUITests: XCTestCase {
         let before = element("pocketTolerance.angle").value as? String
         view("3D");waitProbe("target=_3 pocket=4 count=2 edges=2")
         XCTAssertEqual(element("pocketTolerance.angle").value as? String,before)
-        XCTAssertFalse(app.buttons["shotCamera.firstPerson"].exists)
-        ready(app.buttons["shotCamera.target"]);try waitCamera(overview:true);capture("pocket-3D-window")
-        app.buttons["shotCamera.target"].tap();try waitCamera();capture("pocket-3D-target")
+        XCTAssertTrue(app.buttons["shotCamera.firstPerson"].exists)
+        XCTAssertFalse(app.buttons["shotCamera.firstPerson"].isEnabled)
+        let targetCamera = app.buttons["shotCamera.thirdPerson"]
+        ready(targetCamera); try waitCamera()
+        XCTAssertEqual(targetCamera.value as? String, "已选中")
+        capture("pocket-3D-window")
+        let peek = app.buttons["shotCamera.temporaryTopDown"]
+        ready(peek); peek.tap()
+        XCTAssertEqual(peek.value as? String, "已选中")
+        waitProbe("target=_3 pocket=4 count=2 edges=2")
+        peek.tap(); try waitCamera()
+        XCTAssertEqual(targetCamera.value as? String, "已选中")
+        targetCamera.tap(); try waitCamera(); capture("pocket-3D-target")
         app.buttons["paletteBall__1"].tap();waitProbe("target=_1 pocket=2 count=2 edges=2")
-        app.buttons["dailyClearance.observeTable"].tap();try waitCamera(overview:true);capture("pocket-3D-overview")
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        targetCamera.tap(); try waitCamera(); capture("pocket-3D-selected-target")
         view("2D"); waitProbe("target=_1 pocket=2 count=2 edges=2")
     }
     func testRemovalBackgroundAndReentry() throws {
@@ -103,10 +114,10 @@ final class PocketToleranceUITests: XCTestCase {
                 withVelocity:XCUIGestureVelocity(rawValue:150),thenHoldForDuration:0.2)
         waitProbe("target=none pocket=-1 count=0 edges=0")
         view("3D");try waitCamera(overview:true)
-        XCTAssertFalse(app.buttons["shotCamera.target"].isEnabled)
+        XCTAssertFalse(app.buttons["shotCamera.thirdPerson"].isEnabled)
         capture("pocket-no-balls-3D")
         app.buttons["paletteBall__3"].tap();waitProbe("target=_3 pocket=-1 count=1 edges=0")
-        XCTAssertTrue(app.buttons["shotCamera.target"].isEnabled)
+        XCTAssertTrue(app.buttons["shotCamera.thirdPerson"].isEnabled)
         app.buttons["pocketTolerance.back"].tap()
         let card = app.buttons["进球容错角"];ready(card);card.tap()
         waitProbe("target=_3 pocket=-1 count=1 edges=0")
@@ -127,7 +138,7 @@ final class PocketToleranceUITests: XCTestCase {
                 }
                 waitProbe("target=_3 pocket=4 count=1 edges=2")
                 XCTAssertTrue(app.windows.firstMatch.frame.contains(element("pocketTolerance.angle").frame))
-                if mode == "3D" { try waitCamera(overview:true) }
+                if mode == "3D" { try waitCamera(); XCTAssertTrue(app.buttons["shotCamera.thirdPerson"].isEnabled) }
                 capture("pocket-\(mode)-\(direction.rawValue)")
             }
         }

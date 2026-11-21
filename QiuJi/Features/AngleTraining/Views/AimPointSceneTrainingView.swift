@@ -47,6 +47,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     var targetNode: SCNNode? { scene.targetBallNodes.first }
     var selectedPocketIndex: Int { question?.pocketIndex ?? -1 }
     var currentPlayerAim: SCNVector3? { question == nil ? nil : aimDir }
+    var permitsFirstPersonAddress: Bool { question != nil && scene.cueStick?.rootNode.isHidden == false }
     let scene = AngleTrainingScene()
     let limiter: AngleUsageLimiter
     /// "aimPoint2D" / "aimPoint3D"
@@ -108,7 +109,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         scene.setupScene(enhancedRendering: false)
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
-        configureTeachingCamera()
+        configureTeachingCamera(policy: .p01Replayable)
         scene.setCameraMode(cameraMode, animated: false)
         if autoStart { startTest() }
     }
@@ -201,6 +202,28 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         aimDir = SCNVector3(aimDir.x * cosD - aimDir.z * sinD, 0,
                             aimDir.x * sinD + aimDir.z * cosD)
         redrawLines(); saveDraft()
+    }
+
+    var canNudgeP01DraftAim: Bool {
+        phase == .aiming && canAdvance && question != nil && !finished && !showSettings
+            && !temporaryTopDownActive && cameraMode == .perspective3D
+            && scene.cameraRig?.p01AnchoredTransitions == true && scene.cameraRig?.overviewControlSelected == false
+    }
+
+    func nudgeP01DraftAim(byDegrees delta: Float) {
+        guard phase == .aiming, canAdvance, question != nil, !finished, !showSettings,
+              !temporaryTopDownActive, delta.isFinite, delta != 0 else { return }
+        guard cameraMode == .perspective3D, let rig = scene.cameraRig, rig.p01AnchoredTransitions,
+              let cue = scene.cueBallNode, !cue.isHidden else {
+            nudgeAim(byDegrees: delta)
+            return
+        }
+        let aim = AngleSceneCalculator.rotatedAim(aimDir, byDegrees: delta)
+        rig.followP01TableAim(cue: cue.position, aim: aim, fallbackStrike: {
+            CueStroke.strikePosition(cue: cue.position, aim: aim, spinX: 0)
+        }) {
+            nudgeAim(byDegrees: delta)
+        }
     }
 
     func setAimWheelDragging(_ active: Bool) {
@@ -344,7 +367,8 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         setCameraMode(is3D ? .perspective3D : .topDown2D); redrawLines()
         return true
     }
-    func observeTemporaryView() {
+    func trainingObservedTopDown() {
+        if phase == .aiming && !isRetrying { run.assistance.insert("observation") }
         presentation.observe(.twoD, questionID: run.current?.id); saveDraft()
     }
     func restoreSession() {
@@ -562,8 +586,10 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     // MARK: - Camera（3D 站位视角随题取景）
 
     func applyAimingPoseIfNeeded() {
-        guard cameraMode == .perspective3D else { return }
-        requestPlayerView(scene.cameraRig?.twoViewMode ?? .thirdPerson, animated: false)
+        guard cameraMode == .perspective3D, phase == .aiming else { return }
+        let view = permitsFirstPersonAddress && scene.cameraRig?.twoViewMode == .firstPerson
+            ? CameraRig.PlayerView.firstPerson : .thirdPerson
+        requestPlayerView(view, animated: false, resetThirdPerson: view == .thirdPerson)
     }
 
     func stopTraining() {
@@ -814,7 +840,7 @@ struct AimPointSceneTrainingView: View {
                     .overlay { questionInformation }
                 BTTeachingAimRuler(layout: instruments,
                     enabled: canAim && !vm.temporaryTopDownActive,
-                    onNudge: { vm.nudgeAim(byDegrees: $0) }, degreesPerPoint: vm.aimWheelDegreesPerPoint,
+                    onNudge: { vm.nudgeP01DraftAim(byDegrees: $0) }, degreesPerPoint: vm.aimWheelDegreesPerPoint,
                     onDragActiveChanged: { draggingAimWheel = $0; vm.setAimWheelDragging($0) })
                     .accessibilityIdentifier("aimPointTraining.aimWheel")
                 BTHUDCompactAction(title: "重打", symbol: "arrow.uturn.backward", size: instruments.auxiliarySize) { vm.retry() }
@@ -901,7 +927,7 @@ struct AimPointSceneTrainingView: View {
                     .buttonStyle(.plain).accessibilityLabel("关闭菜单").accessibilityIdentifier("aimPointTraining.dismissMenu")
                 DailyHUDMenuPanel(title: nil, items: settingsItems,
                     availableSize: CGSize(width: size.width - 2 * side, height: size.height - DailyLayoutMetrics.Panels.top - 8),
-                    onBack: { showMenu = false }, onClose: { showMenu = false })
+                    onBack: { showMenu = false }, onClose: { showMenu = false }, grouping: .tableRoot)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, DailyLayoutMetrics.Panels.top).padding(.trailing, side + windowControls.right)
             }
@@ -968,11 +994,13 @@ struct AimPointSceneTrainingView: View {
         if scenePrepared {
             AngleSceneView(scene: vm.scene, cameraMode: .constant(cameraMode),
                 pocketDisplayOrientation: .init(portrait: portrait),
-                interactionMode: canAim ? (is3D ? .cameraControl : .tapsOnly) : .none,
+                interactionMode: canAim ? (is3D ? .cameraControl : .tapsOnly)
+                    : (is3D && vm.phase == .showingResult && !showMenu && !editingControlLayout
+                       && !vm.showSettings && !vm.finished ? .cameraControl : .none),
                 autoFitsLandscapeTable: !is3D, backgroundColor: is3D ? .black : .clear,
                 onPocketTapped: nil,
-                onTableTapped: is3D ? { vm.aimToward(worldPoint: $0) } : nil,
-                onAimNudged: is3D ? nil : { vm.nudgeAim(byDegrees: $0) },
+                onTableTapped: is3D && canAim ? { vm.aimToward(worldPoint: $0) } : nil,
+                onAimNudged: !is3D && canAim ? { vm.nudgeAim(byDegrees: $0) } : nil,
                 onAimDragActiveChanged: { draggingAimTable = $0; vm.setAimTableDragging($0) },
                 contentIsAnimating: vm.cameraTransitionBusy,
                 fpsReadoutState: fps, twoViewReadableFrameInWindow: cameraReadableFrame,
@@ -982,6 +1010,7 @@ struct AimPointSceneTrainingView: View {
                     vm.beginCameraObservation()
                 },
                 onCameraObservationEnded: { observingCamera = false; vm.endCameraObservation() },
+                resolveP01AimPan: { canAim && vm.canNudgeP01DraftAim ? { vm.nudgeP01DraftAim(byDegrees: $0) } : nil },
                 onTemporaryTopDownDismiss: { vm.endTemporaryTopDown() },
                 topDownContentRevision: vm.topDownContentRevision, usesStandardTemporaryTable: is3D)
                 .clipped().accessibilityIdentifier("aimPointTraining.scene")
@@ -992,17 +1021,20 @@ struct AimPointSceneTrainingView: View {
         if let rig = vm.scene.cameraRig {
             ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
                 isEnabled: !showMenu && !editingControlLayout && !vm.finished && !vm.showSettings,
-                onWholeTable: { vm.markObservation(); vm.requestSurfaceOverview() }, usesTwoViewControls: rig.usesTwoViewCameraControls,
                 temporaryTopDownActive: vm.temporaryTopDownActive,
-                onTemporaryTopDownBegan: { vm.markObservation(); vm.beginTemporaryTopDown(); vm.observeTemporaryView() },
+                onTemporaryTopDownBegan: { vm.beginTemporaryTopDown() },
                 onTemporaryTopDownEnded: { vm.endTemporaryTopDown() },
-                onSelect: { if $0 == .thirdPerson { vm.markObservation() }; vm.requestPlayerView($0) })
+                firstPersonAvailable: vm.permitsFirstPersonAddress,
+                onSelect: { view in
+                    if view == .thirdPerson { vm.markObservation() }
+                    vm.requestPlayerView(view, resetThirdPerson: view == .thirdPerson)
+                })
         }
     }
 
     private var settingsItems: [DailyHUDMenuItem] {
         let items: [DailyHUDMenuItem] = [.init(id: "aimPointTraining.display", title: "显示"),
-         .init(id: "aimPointTraining.cameraMode", title: "视图", detail: is3D ? "3D" : "2D", segments: ["2D", "3D"],
+         .init(id: "aimPointTraining.cameraMode", group: .table, title: "视图", detail: is3D ? "3D" : "2D", segments: ["2D", "3D"],
             disabled: vm.isSaving || vm.cameraTransitionBusy || vm.temporaryTopDownActive || editingControlLayout || draggingAimTable || draggingAimWheel,
             action: {
                 endLayoutTouches()
@@ -1012,20 +1044,20 @@ struct AimPointSceneTrainingView: View {
                     if !mode { vm.setCameraMode(portrait ? .topDown2DRotated : .topDown2D) }
                 }
             }),
-         .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
+         .init(id: "menu.tableGrid", group: .table, title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
              togglePreference(.grid)
          }),
-         .init(id: "menu.aimCloseup", title: "瞄准特写", selected: pagePreferences.enabled(.closeup), action: {
+         .init(id: "menu.aimCloseup", group: .shot, title: "瞄准特写", selected: pagePreferences.enabled(.closeup), action: {
              togglePreference(.closeup)
          }),
-         .init(id: "controlLayout.open", title: "操作布局", detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
+         .init(id: "controlLayout.open", group: .controls, title: "操作布局", detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
             disabled: controlLayoutBusy, action: {
                 guard !controlLayoutBusy else { return }
                 showMenu = false; editingControlLayout = true
             }),
-         .init(id: "aimPointTraining.trainingSettings", title: "训练设置", disclosure: true, action: { showMenu = false; vm.showSettings = true }),
-         .init(id: "aimPointTraining.finish", title: "结束练习", action: { showMenu = false; vm.finish() }),
-         .init(id: "aimPointTraining.coverage", title: vm.run.coverage)]
+         .init(id: "aimPointTraining.trainingSettings", group: .practice, title: "训练设置", disclosure: true, action: { showMenu = false; vm.showSettings = true }),
+         .init(id: "aimPointTraining.finish", group: .practice, title: "结束练习", action: { showMenu = false; vm.finish() }),
+         .init(id: "aimPointTraining.coverage", group: .practice, title: vm.run.coverage)]
         return items.filter { $0.id != "controlLayout.open" || preferencePage.usesFreeControlLayout }
     }
 

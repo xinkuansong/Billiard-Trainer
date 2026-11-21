@@ -29,13 +29,14 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
         if cameraMode == .perspective3D && hides3DShotAssists {
             (pathNodes + freeAimNodes + freePreviewNodes).forEach { $0.isHidden = true }
             scene.ghostBallNode?.isHidden = true
-            scene.contactDotNode?.isHidden = true
+            scene.hideContactDot()
         }
         topDownContentRevision &+= 1
         refreshObservationCameraContext()
     }
     func stopForDismissal() {
         guard !activitySuspended else { return }
+        retirePlaybackFrames()
         activitySuspended = true
         resumeAdjustment = isAdjustingSolution
         resumeSolve = isSolving && !isAdjustingSolution
@@ -63,7 +64,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
     }
     var observationPocket: Int? { selectedPocket }
     var observationAim: SCNVector3? {
-        if mode == .free { return canFreeStrike ? freeAimDir : nil }
+        if mode == .free { return freeAimDir }
         return canStrike ? currentSolution?.prediction.aimDirection : nil
     }
 
@@ -95,7 +96,9 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
     /// 拖动中：只清线不重算（松手后自动求解），pill 隐藏。
     @Published private(set) var isDragging: Bool = false
     /// 击打演示 / 自由击球回放中（W5/W6）：拖球/chips/力度柱/球库锁定。
-    @Published private(set) var isPlaying: Bool = false
+    @Published private(set) var isPlaying: Bool = false {
+        didSet { updateTeachingStrokeCamera(locked: isPlaying) }
+    }
     @Published private(set) var simulationNotice: String?
 
     // MARK: - Mode（W6：求解 / 自由，方案 §1.1）
@@ -292,7 +295,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
         scene.configureReferenceTableRendering()
         scene.configureShotAwareCamera()
         scene.setupScene()
-        configureTeachingCamera()
+        configureTeachingCamera(policy: .p01Replayable)
         // L0 假想球虚线圈 + 接触点绿点（与思路训练 / 编排台 / 打三同口径）。
         // 未调用则 `ghostBallNode == nil`，TrajectoryRenderer 的 showGhost 静默空转。
         scene.setupVisualizationNodes()
@@ -338,7 +341,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
         freePreviewKey = nil
         if mode == .free {
             freeAimDir = defaultFreeAim()
-            refreshFreeAim()
+            presentP01SolverSelection { refreshFreeAim() }
         } else {
             finishGuideRefresh()
         }
@@ -491,6 +494,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
     private func finishReplay() -> Bool {
         guard let board = replayReturnBoard else { return false }
         replayReturnBoard = nil
+        retirePlaybackFrames()
         ShotAudioScheduler.shared.cancel()
         playbackFinishTask?.cancel()
         playbackFinishTask = nil
@@ -526,6 +530,13 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
 
     /// 击打前球形快照（复位真源）：cue/target 用固定键，障碍球用球键。
     private var strikeRails = PocketRailSnapshot()
+    private var activeBallPlayback: TrajectoryPlayback?
+
+    private func retirePlaybackFrames() {
+        activeBallPlayback?.cancelFrameWrites()
+        activeBallPlayback = nil
+    }
+
     private var freeBeforeRails = PocketRailSnapshot()
     private var lastShotRails = PocketRailSnapshot()
     private var solveSnapshotRails = PocketRailSnapshot()
@@ -550,11 +561,11 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
         lastSolveUndo = makeSolveUndo()
         canUndoSolve = false
         canReplaySolve = false
-        runSolveDemo(sol, switchesPlayerCamera: true)
+        runSolveDemo(sol)
     }
 
     /// 运行一次求解模式演示（出杆 → 回放 → 自动复位），不捕获上下文（供击打与「回放」复用）。
-    private func runSolveDemo(_ sol: BankEngineSolution, switchesPlayerCamera: Bool = false) {
+    private func runSolveDemo(_ sol: BankEngineSolution, replaying: Bool = false) {
         guard let cueNode = scene.cueBallNode,
               sol.prediction.hasFinalTableState, sol.prediction.recorder != nil, sol.prediction.duration > 0.05 else { return }
         cancelSolve()
@@ -575,10 +586,11 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
             strikePosition: strikePos,
             aim: aim,
             velocity: Float(reflectionPower),
-            switchesPlayerCameraOnContact: switchesPlayerCamera
+            switchesPlayerCameraOnContact: !replaying
         ) { [weak self, generation = adjustGeneration] in
-            guard self?.adjustGeneration == generation else { return }
-            self?.launchPlayback(sol)
+            guard let self, self.adjustGeneration == generation, self.isPlaying else { return }
+            self.beginTeachingRollingCamera(aim: aim, replaying: replaying)
+            self.launchPlayback(sol)
         }
     }
 
@@ -669,7 +681,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
             return
         }
         replayCamera.showShot(ctx.perspectiveView, in: scene, aim: sol.prediction.aimDirection)
-        runSolveDemo(sol)
+        runSolveDemo(sol, replaying: true)
         if !isPlaying { finishReplay() }
     }
 
@@ -690,13 +702,14 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
         // Keep the selected prediction visible throughout its strike and replay.
         // Only contact markers retire at impact; both ball paths remain as reference.
         scene.ghostBallNode?.isHidden = true
-        scene.contactDotNode?.isHidden = true
+        scene.hideContactDot()
         ShotAudioScheduler.shared.play(prediction: sol.prediction)
 
         let playback = TrajectoryPlayback(
             recorder: recorder, surfaceY: scene.surfaceY + AngleSceneCalculator.ballRadius,
-            railInventory: scene.railInventory
+            railInventory: scene.railInventory, cancellableFrameWrites: true
         )
+        activeBallPlayback = playback
         // G15：播到引擎自然静止（不做 0.07 感知截断），球停止前无最后一跳/瞬移。
         let settle = playback.duration
 
@@ -729,6 +742,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
     /// 复位：快照即真源（演示不改变球形）；解列表/序号不变，重绘当前解线。
     private func finishStrike() {
         if finishReplay() { return }
+        retirePlaybackFrames()
         playbackFinishTask = nil
         scene.hideCueStick()
         applyBoard(strikeSnapshot)
@@ -994,7 +1008,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
             freeAimContact = nil
             closeupGate.reset()
             scene.ghostBallNode?.isHidden = true
-            scene.contactDotNode?.isHidden = true
+            scene.hideContactDot()
             if mode == .free { scene.hideCueStick() }
             return
         }
@@ -1033,7 +1047,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
             }
         } else {
             scene.ghostBallNode?.isHidden = true
-            scene.contactDotNode?.isHidden = true
+            scene.hideContactDot()
         }
         scene.updateCueStick(
             cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX, spinY: spinY),
@@ -1083,7 +1097,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
         scene.clearResultNodes(nodes: &freeAimNodes)
         scene.clearResultNodes(nodes: &referenceNodes)
         scene.ghostBallNode?.isHidden = true
-        scene.contactDotNode?.isHidden = true
+        scene.hideContactDot()
         freeAimContact = nil
     }
 
@@ -1118,8 +1132,9 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
             let strikePos = CueStroke.strikePosition(cue: cuePos, aim: dir, spinX: Double(sx), spinY: Double(sy))
             scene.runCueStroke(strikePosition: strikePos, aim: dir,
                                     velocity: velocity, switchesPlayerCameraOnContact: true) { [weak self, generation = adjustGeneration] in
-                guard self?.adjustGeneration == generation else { return }
-                self?.launchFreePlayback(pred, before: before)
+                guard let self, self.adjustGeneration == generation, self.isPlaying else { return }
+                self.beginTeachingRollingCamera(aim: dir, replaying: false)
+                self.launchFreePlayback(pred, before: before)
             }
     }
 
@@ -1184,8 +1199,9 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
         ShotAudioScheduler.shared.play(prediction: pred)
         let playback = TrajectoryPlayback(
             recorder: recorder, surfaceY: scene.surfaceY + AngleSceneCalculator.ballRadius,
-            railInventory: scene.railInventory
+            railInventory: scene.railInventory, cancellableFrameWrites: true
         )
+        activeBallPlayback = playback
         let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
 
         var pairs: [(SCNNode, String)] = []
@@ -1217,6 +1233,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
     ///（母球自动回台；目标球进袋保留试手事实，靠上一杆 / 恢复球形找回）。
     private func settleFreeShot(_ pred: ShotPrediction, before: BoardSnapshot) {
         if finishReplay() { return }
+        retirePlaybackFrames()
         scene.railInventory.finishPlayback()
         playbackFinishTask = nil
         scene.hideCueStick()
@@ -1365,7 +1382,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
         } else if currentIndex >= displayed.count {
             currentIndex = 0
         }
-        showSolution(at: currentIndex)
+        presentP01SolverSelection(preservingObservation: true) { showSolution(at: currentIndex) }
     }
 
     func nextSolution() {
@@ -1378,7 +1395,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
         adjustmentDraft = nil
         adjustmentIsValid = true
         currentIndex = index
-        showSolution(at: index)
+        presentP01SolverSelection { showSolution(at: index) }
     }
 
     /// K11 微调草稿层：改打点/力度后按当前解库序正向 `ShotPredictor.predict` 重算，
@@ -1621,7 +1638,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
     private func clearPath() {
         scene.clearResultNodes(nodes: &pathNodes)
         scene.ghostBallNode?.isHidden = true
-        scene.contactDotNode?.isHidden = true
+        scene.hideContactDot()
     }
 }
 

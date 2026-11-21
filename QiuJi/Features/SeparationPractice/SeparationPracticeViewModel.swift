@@ -20,6 +20,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
     @Published private(set) var record: SeparationPracticeRecord?
     @Published private(set) var phase: Phase = .loading {
         didSet {
+            updateTeachingStrokeCamera(locked: isBusy)
             if phase == .result || phase == .summary || phase == .settings { geometryReference.complete() }
             else if phase == .aiming { geometryReference.cancelFreeze() }
         }
@@ -197,6 +198,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         record?.draftInput = next; redrawCue(); scheduleSave()
     }
     var isBusy: Bool { [.preparing, .playing, .saveFailed].contains(phase) }
+    var permitsTemporaryTopDown: Bool { !isBusy }
     var canAdjust: Bool { phase == .aiming && !temporaryTopDownActive && !cameraTransitionBusy }
     var canRetry: Bool { phase == .result && record?.latestShot != nil && !temporaryTopDownActive && !cameraTransitionBusy }
     var canPlayback: Bool { (phase == .result || phase == .aiming) && record?.latestShot != nil && !temporaryTopDownActive && !cameraTransitionBusy }
@@ -285,7 +287,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         builtScene = true; scene.configureReferenceTableRendering()
         scene.configureShotAwareCamera()
         scene.setupScene(enhancedRendering: false); scene.setupVisualizationNodes()
-        markers = scene.addPocketMarkers(); configureTeachingCamera(); installQuestion()
+        markers = scene.addPocketMarkers(); configureTeachingCamera(policy: .p01Replayable); installQuestion()
     }
     private func seatBalls() {
         guard let question = record?.current else { return }
@@ -316,12 +318,8 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         if record?.showingResult == true { showFinal(); drawActual(); phase = .result }
         else { phase = .aiming; drawActual(showsObjectRoute: false); redrawCue() }
         refreshObservationCameraContext()
-        if is3D {
-            requestPlayerView(.thirdPerson, animated: false)
-            if let saved = record?.viewBookmark, let cue = scene.cueBallNode?.position, let aim = currentPlayerAim {
-                scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: aim)
-            }
-        }
+        scene.discardSavedPerspectiveView()
+        if is3D { requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true) }
         refreshNextQuestion()
     }
     /// Fixed geometric references belong to the question, like its target route.
@@ -567,6 +565,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
             rehearsalEnabled: false,
             clearanceProbe: { playback.allBallCentersByName(at: Float($0)) }) { [weak self] in
             guard let self, self.generation == token, self.phase == .playing else { return }
+            self.beginTeachingRollingCamera(aim: shot.direction.vector, replaying: self.isReplaying)
             var actions: [(SCNNode, SCNAction)] = []
             for (node, name) in [(self.scene.cueBallNode, ShotInput.cueBallName), (self.targetNode, ShotInput.targetBallName)] {
                 if let node, let action = playback.action(for: node, ballName: name, removeOnPocket: false,
@@ -885,9 +884,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         do { try repository?.save(next) } catch { message = error.localizedDescription; return false }
         record = next
         setCameraMode(is3D ? .perspective3D : .topDown2D)
-        if is3D, let saved = next.viewBookmark, let cue = scene.cueBallNode?.position, let aim = currentPlayerAim {
-            scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: aim)
-        }
+
         return true
     }
     func trainingObservedTopDown() {

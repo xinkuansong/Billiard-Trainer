@@ -110,7 +110,7 @@ struct KBallPracticeView: View {
             showsReadOnlyDemonstration: vm.demonstrationInput != nil,
             assessmentMode: true, allowsAssessmentSpinEditing: true,
             defersStrikeAccessUntilSubmission: false,
-            locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, paletteEnabled: false,
+            locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, allowsObservationWhileAnimating: vm.isTeachingShotRolling, paletteEnabled: false,
             allowsPocketSelection: false, primaryTitle: vm.primaryTitle,
             primaryEnabled: (vm.isReplaying || !vm.isBusy || vm.phase == .saveFailed)
                 && !vm.cameraTransitionBusy && !vm.temporaryTopDownActive,
@@ -121,9 +121,9 @@ struct KBallPracticeView: View {
                 else { vm.strike() }
             }, onPaletteTap: { _ in },
             menuItems: [
-                .init(id: "kBall.trainingSettings", title: "训练设置", disclosure: true, disabled: vm.isBusy,
+                .init(id: "kBall.trainingSettings", group: .practice, title: "训练设置", disclosure: true, disabled: vm.isBusy,
                       action: { vm.openSettings() }),
-                .init(id: "kBall.finish", title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
+                .init(id: "kBall.finish", group: .practice, title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
             ], refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: vm.isBusy,
             onSpinChange: { vm.setSpin($0, $1) }, paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)", "_\($0.secondBallNumber)"] } ?? [], maximumPaletteCount: 2, paletteRoles: vm.paletteRoles, showsPaletteRoleNumbers: true,

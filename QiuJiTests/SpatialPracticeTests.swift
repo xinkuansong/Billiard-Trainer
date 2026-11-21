@@ -744,6 +744,74 @@ private extension SpatialPracticeRecord.Shot {
 
 final class SpatialPracticePreviewTests:XCTestCase {
     @MainActor
+    func testSelectionResolvesElevationAndCueMovePreservesReachableManualAngle() throws {
+        let suite="spatial-selection-"+UUID().uuidString
+        let defaults=try XCTUnwrap(UserDefaults(suiteName:suite))
+        defer { defaults.removePersistentDomain(forName:suite) }
+        let vm=SpatialPracticeViewModel(defaults:defaults,ownerContext:CurrentOwnerContext(defaults:defaults))
+        vm.setupScene();defer { vm.suspendTeachingActivity() }
+        vm.clear()
+        let y=vm.scene.surfaceY+BallPhysics.radius
+        vm.place(PositionPlayBall.cueKey,at:SCNVector3(-1.12,y,0))
+        vm.place("_1",at:SCNVector3(0.45,y,0))
+        vm.updateInput { $0.elevation=0 }
+        XCTAssertTrue(vm.cueAccessible)
+        XCTAssertEqual(vm.input.preferredElevation,0)
+        vm.selectTarget(key:"_1")
+        XCTAssertEqual(vm.selectedTargetKey,"_1")
+        XCTAssertTrue(vm.canStrike);XCTAssertGreaterThan(vm.input.elevation,0)
+        vm.updateInput { $0.elevation=40 }
+        vm.place(PositionPlayBall.cueKey,at:SCNVector3(-0.5,y,0))
+        XCTAssertTrue(vm.canStrike);XCTAssertEqual(vm.input.elevation,40)
+        vm.updateInput { $0.elevation=0 }
+        vm.place(PositionPlayBall.cueKey,at:SCNVector3(-1.12,y,0))
+        XCTAssertTrue(vm.canStrike);XCTAssertGreaterThan(vm.input.elevation,0)
+    }
+
+    @MainActor
+    func testDraggingCueRestoresRequestedAngleAfterClearingObstacle() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "spatial-drag-" + UUID().uuidString))
+        let vm = SpatialPracticeViewModel(defaults: defaults, ownerContext: CurrentOwnerContext(defaults: defaults))
+        vm.setupScene()
+        defer { vm.suspendTeachingActivity() }
+        vm.clear()
+        let cueKey = PositionPlayBall.cueKey
+        let y = vm.scene.surfaceY + BallPhysics.radius
+        let open = SCNVector3(0, y, 0.30)
+        let blocked = SCNVector3(0, y, 0)
+        vm.place(cueKey, at: open)
+        vm.place("_1", at: SCNVector3(0.55, y, open.z))
+        vm.place("_2", at: SCNVector3(-0.092, y, 0))
+        vm.selectTarget(key: "_1")
+        let cue = try XCTUnwrap(vm.scene.cueBallNode)
+        for requested in [6.25, 12.5] {
+            vm.updateInput { $0.elevation = requested }
+            XCTAssertEqual(vm.input.elevation, requested)
+            vm.dragBegan(node: cue)
+            vm.dragMoved(node: cue, worldPosition: blocked)
+            XCTAssertGreaterThan(vm.input.elevation, requested)
+            XCTAssertEqual(vm.input.preferredElevation, requested)
+            XCTAssertEqual(vm.scene.explicitCueElevation, vm.displayedInput.radians)
+            XCTAssertTrue(vm.cueAccessible)
+            vm.dragEnded(node: cue)
+            XCTAssertTrue(vm.canStrike)
+            vm.suspendTeachingActivity()
+            vm.resumeTeachingActivity()
+            XCTAssertEqual(vm.input.preferredElevation, requested)
+            vm.dragBegan(node: cue)
+            vm.dragMoved(node: cue, worldPosition: open)
+            vm.dragEnded(node: cue)
+            XCTAssertEqual(vm.input.elevation, requested)
+            XCTAssertNil(vm.input.preferredElevation)
+            XCTAssertTrue(vm.canStrike)
+        }
+        vm.place(cueKey, at: blocked)
+        vm.updateInput { $0.elevation = 58.5 }
+        vm.place(cueKey, at: open)
+        XCTAssertEqual(vm.input.elevation, 58.5)
+    }
+
+    @MainActor
     func testPracticeElevationLimitClampsDraftAndRetryButPreservesOriginalShot() async throws {
         typealias R=SpatialPracticeRecord
         let suite="v66-angle-limit-"+UUID().uuidString
@@ -765,7 +833,7 @@ final class SpatialPracticePreviewTests:XCTestCase {
         XCTAssertEqual(vm.input.elevation,75)
         XCTAssertEqual(vm.record.lastShot?.input.elevation,85)
         XCTAssertEqual(vm.record.lastShot?.id,shot.id)
-        vm.updateInput { $0.elevation = -20 };XCTAssertEqual(vm.input.elevation,0)
+        vm.updateInput { $0.elevation = -20 };XCTAssertEqual(vm.input.preferredElevation ?? vm.input.elevation,0);XCTAssertTrue(vm.canStrike)
         vm.updateInput { $0.elevation = 100 };XCTAssertEqual(vm.input.elevation,75)
         vm.retry();XCTAssertEqual(vm.input.elevation,75);XCTAssertNotNil(vm.message)
         for _ in 0..<500 where vm.archiveForTesting.pendingHistory { try await Task.sleep(for:.milliseconds(10)) }
@@ -1051,6 +1119,9 @@ final class SpatialPracticeBreakTests:XCTestCase {
     }
     @MainActor
     func testRealSixteenBallPlaybackDeliversThenRetryAndStopRestoreRack() async throws {
+        let sound = UserPreferences.shared.soundEffectsEnabled
+        UserPreferences.shared.soundEffectsEnabled = false
+        defer { UserPreferences.shared.soundEffectsEnabled = sound }
         let suite="v66-break-play-"+UUID().uuidString
         let defaults=try XCTUnwrap(UserDefaults(suiteName:suite));defer { defaults.removePersistentDomain(forName:suite) }
         let owner=CurrentOwnerContext(defaults:defaults)
@@ -1063,14 +1134,34 @@ final class SpatialPracticeBreakTests:XCTestCase {
         let shot=try await waitForPreview(vm),before=vm.record.board
         let renderer=SCNRenderer(device:MTLCreateSystemDefaultDevice(),options:nil)
         renderer.scene=vm.scene;renderer.pointOfView=vm.scene.cameraNode
+        vm.setCameraMode(.perspective3D)
         vm.strike();XCTAssertTrue(vm.busy)
         let start=CACurrentMediaTime()
+        var observedPose: P01CameraMotion.Pose?
         while vm.record.lastShot == nil && CACurrentMediaTime()-start<65 {
             _=renderer.snapshot(atTime:CACurrentMediaTime(),with:CGSize(width:64,height:64),antialiasingMode:.none)
+            if observedPose == nil, vm.isTeachingShotRolling {
+                XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated:false))
+                vm.beginCameraObservation()
+                let rig = try XCTUnwrap(vm.scene.cameraRig)
+                let pose = try XCTUnwrap(rig.p01Snapshot).pose
+                rig.handleHorizontalSwipe(delta:48)
+                vm.endCameraObservation()
+                XCTAssertNotEqual(rig.p01Snapshot?.pose,pose)
+                observedPose = try XCTUnwrap(rig.p01Snapshot).pose
+            }
             try await Task.sleep(for:.milliseconds(16))
         }
+        let lastRollingPose = try XCTUnwrap(observedPose)
+        if !UIAccessibility.isReduceMotionEnabled {
+            XCTAssertEqual(vm.scene.cameraRig?.p01Snapshot?.motion?.origin, lastRollingPose)
+        }
         XCTAssertEqual(vm.record.lastShot?.id,shot.id)
-        XCTAssertFalse(vm.busy);XCTAssertFalse(vm.isBreakMode);XCTAssertEqual(vm.input,ordinary)
+        XCTAssertFalse(vm.busy);XCTAssertFalse(vm.isBreakMode)
+        XCTAssertEqual(vm.input.speed,ShotTuning.defaultVelocity)
+        XCTAssertEqual(vm.input.spinX,0);XCTAssertEqual(vm.input.spinY,0)
+        XCTAssertNotNil(vm.selectedTargetKey);XCTAssertTrue(vm.cueAccessible)
+        XCTAssertEqual(shot.breakContext?.ordinaryInput,ordinary)
         XCTAssertEqual(vm.record.board,SpatialPracticeRecovery.recover(shot.after,before:shot.before).board)
         XCTAssertEqual(vm.record.lastShot?.after,shot.after,"Recovery must not rewrite physics")
         XCTAssertTrue(vm.record.valid)

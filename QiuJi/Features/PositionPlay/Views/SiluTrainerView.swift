@@ -6,7 +6,8 @@ struct SiluTrainerView: View {
     let initialBoard: BoardSnapshot?
     init(initialBoard: BoardSnapshot? = nil) { self.initialBoard = initialBoard }
     @State private var informationPanel: PlanningPanel?
-    @StateObject private var vm = SiluTrainerViewModel()
+    @StateObject private var vm = SiluTrainerViewModel(
+        automaticRecommendationEnabled: TablePreferencesStore.shared.automaticRecommendation(for: .silu))
     @AppStorage("silu.breakGameBallCount") private var breakGameBallCount = 15
     @State private var showsToolChoices = false
     @ScaledMetric(relativeTo: .body) private var toolChoicesWidth = 112
@@ -102,6 +103,7 @@ struct SiluTrainerView: View {
             hides3DAssists: Binding(get: { hides3DAssists }, set: { tablePreferences.apply(.shows3DTrajectory, value: $0 ? 0 : 1, to: .silu) }),
             velocityRange: vm.isBreakMode ? BreakFlowRunner.breakVelocityRange : ShotTuning.velocityRange,
             instrumentsEnabled: (!busy || vm.isAdjustingSolution) && (vm.isBreakMode || vm.hasSolutions), isAnimating: busy,
+            allowsObservationWhileAnimating: true,
             paletteEnabled: !busy && !vm.isBreakMode,
             showsPlacementHint: vm.informationEvent.kind != .failure,
             primaryTitle: vm.isBreakMode ? "开球" : (vm.isComputing ? "计算中" : "击球"),
@@ -117,6 +119,11 @@ struct SiluTrainerView: View {
             boardMemoryImported: initialBoard != nil, onDisappear: { vm.stopForDismissal() },
             layoutEditingBlocked: showsToolChoices || vm.isDrawingConstraint,
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
+            resolveP01AimPan: {
+                guard !busy, !vm.temporaryTopDownActive, let runner = vm.breakRunner,
+                      !runner.isBusy else { return nil }
+                return { runner.nudgeAim(byDegrees: $0) }
+            },
             closeupSnapshot: vm.canStrike ? vm.solvedContactCloseup : nil,
             closeupUnavailableReason: vm.canStrike && vm.solvedContactCloseup != nil ? nil : "当前首碰暂无特写",
             onSpinChange: { x, y in
@@ -227,12 +234,17 @@ struct SiluTrainerView: View {
     }
     private var menuItems: [DailyHUDMenuItem] {
         var items: [DailyHUDMenuItem] = [
-            .init(id: "silu.help", title: "操作说明", disclosure: true, disabled: vm.isBreakMode, action: { informationPanel = .help }),
+            .init(id: "silu.help", group: .help, title: "操作说明", disclosure: true, disabled: vm.isBreakMode, action: { informationPanel = .help }),
+            .automaticRecommendation(enabled: vm.automaticRecommendationEnabled, disabled: busy || vm.isBreakMode) {
+                let enabled = !vm.automaticRecommendationEnabled
+                vm.setAutomaticRecommendation(enabled)
+                tablePreferences.setAutomaticRecommendation(enabled, for: .silu)
+            },
             .init(id: "silu.solveOptions", title: "求解范围"),
-            .init(id: "silu.sideSpin", title: "允许左右塞", selected: vm.allowSideSpin, disabled: busy || vm.isBreakMode, action: { vm.allowSideSpin.toggle(); savedAllowSideSpin = vm.allowSideSpin }),
-            .init(id: "silu.basicOnly", title: "仅基础走位（≤1库）", selected: vm.basicPositionOnly, disabled: busy || vm.isBreakMode, action: { vm.basicPositionOnly.toggle(); savedBasicPositionOnly = vm.basicPositionOnly })]
+            .init(id: "silu.sideSpin", group: .solve, title: "允许左右塞", selected: vm.allowSideSpin, disabled: busy || vm.isBreakMode, action: { vm.allowSideSpin.toggle(); savedAllowSideSpin = vm.allowSideSpin }),
+            .init(id: "silu.basicOnly", group: .solve, title: "仅基础走位（≤1库）", selected: vm.basicPositionOnly, disabled: busy || vm.isBreakMode, action: { vm.basicPositionOnly.toggle(); savedBasicPositionOnly = vm.basicPositionOnly })]
         if !vm.isBreakMode {
-            items += [.init(id: "silu.clear", title: "清空桌面", disabled: busy, action: { vm.clearTable() })]
+            items += [.init(id: "silu.clear", group: .formation, title: "清空桌面", disabled: busy, action: { vm.clearTable() })]
         }
         return items
     }

@@ -80,13 +80,50 @@ enum DailyHUDPresentation: Equatable {
     case more, aim, trajectory, games, transparency, rerack, breakRerack
     case gameChange(DailyClearanceGame)
 
+    var menuTitle: String? {
+        switch self {
+        case .aim: "瞄准模式"
+        case .trajectory: "轨迹显示"
+        case .games: "开球玩法"
+        default: nil
+        }
+    }
+
     var isDecision: Bool {
         switch self { case .rerack, .gameChange, .breakRerack: return true; default: return false }
     }
 }
 
+/// Shared order for table-side settings. A page only renders groups that have rows.
+enum TableMenuGroup: String, CaseIterable {
+    case table, shot, diagram, tryout, aim, controls, solve, solutions, practice, formation, help, gameplay
+
+    var title: String {
+        switch self {
+        case .table: "桌面显示"
+        case .shot: "击球显示"
+        case .diagram: "教学图解"
+        case .tryout: "试打模式"
+        case .aim: "瞄准辅助"
+        case .controls: "操作控件"
+        case .solve: "求解范围"
+        case .solutions: "求解结果"
+        case .practice: "本次练习"
+        case .help: "使用说明"
+        case .formation: "球形操作"
+        case .gameplay: "玩法"
+        }
+    }
+}
+
 struct DailyHUDMenuItem: Identifiable {
+    static func automaticRecommendation(enabled: Bool, disabled: Bool, action: @escaping () -> Void) -> Self {
+        .init(id: "table.automaticRecommendation", group: .aim, title: "自动推荐", detail: enabled ? "是" : "否",
+              segments: ["是", "否"], disabled: disabled, action: action)
+    }
+
     let id: String
+    var group: TableMenuGroup? = nil
     let title: String
     var detail: String? = nil
     var segments: [String] = []
@@ -97,6 +134,22 @@ struct DailyHUDMenuItem: Identifiable {
     var action: (() -> Void)? = nil
 }
 
+extension Array where Element == DailyHUDMenuItem {
+    @MainActor
+    mutating func insertTargetContactPoint(for page: TablePreferencePage, scene: AngleTrainingScene,
+                                           preferences: TablePreferencesStore) {
+        guard let enabled = preferences.snapshot(for: page).showsTargetContactPoint else { return }
+        let anchor = firstIndex { $0.id == "menu.aimCloseup" } ?? firstIndex { $0.id == "menu.tableGrid" }
+        guard let anchor else { return }
+        insert(.init(id: "menu.targetContactPoint", group: .shot, title: "目标球接触点", selected: enabled, action: {
+            preferences.setTargetContactPoint(!enabled, for: page)
+            // Other settings may be deferred during playback or a camera gesture.
+            // This visibility-only change can apply to the current frame immediately.
+            scene.tablePreferences?.showsTargetContactPoint = !enabled
+        }), at: anchor + 1)
+    }
+}
+
 struct DailyHUDMenuPanel: View {
     let title: String?
     let items: [DailyHUDMenuItem]
@@ -105,6 +158,9 @@ struct DailyHUDMenuPanel: View {
     let onClose: () -> Void
     var followsAppearance = false
     var fitsShortOptions = false
+    enum Grouping { case flat, dailyRoot, tableRoot }
+    var grouping: Grouping = .flat
+    private var showsCards: Bool { grouping != .flat }
     @Environment(\.colorScheme) private var colorScheme
     @State private var measuredHeight: CGFloat = 1
     @State private var measuredHeaderHeight: CGFloat = 44
@@ -175,7 +231,14 @@ struct DailyHUDMenuPanel: View {
             if followsAppearance {
                 RoundedRectangle(cornerRadius: BTRadius.md).fill(Color.btBGSecondary)
                     .overlay(RoundedRectangle(cornerRadius: BTRadius.md).stroke(Color.btSeparator, lineWidth: 0.75))
-            } else { Color.clear.modifier(DailyPanelSurface()) }
+            } else {
+                Color.clear.modifier(DailyPanelSurface())
+                if showsCards {
+                    RoundedRectangle(cornerRadius: BTRadius.md)
+                        .inset(by: 0.5)
+                        .fill(HUDStyle.panelBackground.opacity(0.74))
+                }
+            }
         }
         .environment(\.colorScheme, followsAppearance ? colorScheme : .dark)
         .buttonStyle(.plain)
@@ -196,59 +259,125 @@ struct DailyHUDMenuPanel: View {
         .onAppear { headingFocused = true }
     }
 
-    private var content: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                if index > 0 { separator(strong: item.action == nil) }
-                if let action = item.action {
-                    Button(action: action) {
-                        HStack(spacing: 8) {
-                            Text(item.title).fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: 0)
-                            if !item.segments.isEmpty {
-                                HStack(spacing: 0) {
-                                    ForEach(item.segments, id: \.self) { segment in
-                                        Text(segment).font(.btFootnote.weight(.semibold))
-                                            .foregroundStyle(segment == item.detail ? Color.white : .btTextSecondary)
-                                            .frame(width: 44, height: 34)
-                                            .background(segment == item.detail ? HUDStyle.selectedBackground : .clear, in: Capsule())
-                                    }
+    private struct MenuSection: Identifiable {
+        let header: DailyHUDMenuItem
+        var rows: [DailyHUDMenuItem] = []
+        var id: String { header.id }
+    }
+
+    private var sections: [MenuSection] {
+        if grouping == .tableRoot {
+            // Unlabelled static items are legacy section headings. Labelled static rows
+            // (e.g. the current question coverage) are content and stay with their group.
+            let rows = items.filter { $0.action != nil || $0.group != nil }
+            let grouped = Dictionary(grouping: rows) { $0.group ?? .practice }
+            return TableMenuGroup.allCases.compactMap { group in
+                guard let rows = grouped[group] else { return nil }
+                return MenuSection(header: .init(id: "tableMenu.group." + group.rawValue,
+                                                 title: group.title), rows: rows)
+            }
+        }
+        var result: [MenuSection] = []
+        for item in items {
+            if item.action == nil {
+                result.append(MenuSection(header: item))
+            } else if !result.isEmpty {
+                result[result.count - 1].rows.append(item)
+            }
+        }
+        return result
+    }
+
+    @ViewBuilder private var content: some View {
+        if showsCards {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(sections) { section in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(section.header.title)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.84))
+                            .padding(.leading, 5)
+                            .accessibilityAddTraits(.isHeader)
+                            .accessibilityIdentifier(section.header.id)
+                        VStack(spacing: 0) {
+                            ForEach(section.rows) { item in
+                                if item.id != section.rows.first?.id { separator(strong: false) }
+                                if let action = item.action {
+                                    menuRow(item, action: action)
+                                } else {
+                                    Text(item.title).font(.caption).foregroundStyle(.white.opacity(0.72))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.horizontal, 11).padding(.vertical, 8)
+                                        .accessibilityIdentifier(item.id)
                                 }
-                                .padding(3)
-                                .background { BTHUDControlBackground(shape: Capsule()) }
-                                .overlay(Capsule().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-                            } else if let detail = item.detail {
-                                Text(detail).foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.7))
-                            }
-                            if let selected = item.selected {
-                                BTSelectionIndicator(isSelected: selected,
-                                    selectedColor: followsAppearance ? .btPrimary : HUDStyle.accent,
-                                    unselectedColor: followsAppearance ? .btTextSecondary : .white.opacity(0.6))
-                            }
-                            if item.disclosure {
-                                Image(systemName: "chevron.right")
-                                    .foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.6))
-                                    .frame(width: 20).accessibilityHidden(true)
                             }
                         }
-                        .font(.subheadline)
-                        .padding(.horizontal, 16).padding(.vertical, 8)
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                        .contentShape(Rectangle())
+                        .background(.white.opacity(0.085), in: RoundedRectangle(cornerRadius: BTRadius.sm))
                     }
-                    .disabled(item.disabled)
-                    .opacity(item.disabled ? 0.4 : 1)
-                    .accessibilityIdentifier(item.id)
-                    .accessibilityValue(item.selected.map { $0 ? "已选" : "未选" } ?? (item.detail ?? ""))
-                    .accessibilityAddTraits(item.selected == true ? .isSelected : [])
-                } else {
-                    Text(item.title).font(.caption).foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.6))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16).padding(.vertical, 4)
-                        .accessibilityAddTraits(.isHeader)
+                }
+            }
+            .padding(.horizontal, 10)
+        } else {
+            VStack(spacing: 0) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    if index > 0 { separator(strong: item.action == nil) }
+                    if let action = item.action {
+                        menuRow(item, action: action)
+                    } else {
+                        Text(item.title).font(.caption).foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.6))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16).padding(.vertical, 4)
+                            .accessibilityAddTraits(.isHeader)
+                    }
                 }
             }
         }
+    }
+
+    private func menuRow(_ item: DailyHUDMenuItem, action: @escaping () -> Void) -> some View {
+        let spokenDetail = grouping == .dailyRoot && item.disclosure ? item.detail : nil
+        return Button(action: action) {
+            HStack(spacing: 8) {
+                Text(item.title).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(spokenDetail.map { "\(item.title) · \($0)" } ?? item.title)
+                Spacer(minLength: 0)
+                if !item.segments.isEmpty {
+                    HStack(spacing: 0) {
+                        ForEach(item.segments, id: \.self) { segment in
+                            Text(segment).font(.btFootnote.weight(.semibold))
+                                .foregroundStyle(segment == item.detail ? Color.white : .btTextSecondary)
+                                .frame(width: 44, height: 34)
+                                .background(segment == item.detail ? HUDStyle.selectedBackground : .clear, in: Capsule())
+                        }
+                    }
+                    .padding(3)
+                    .background { BTHUDControlBackground(shape: Capsule()) }
+                    .overlay(Capsule().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+                } else if let detail = item.detail {
+                    Text(detail).foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.7))
+                        .accessibilityHidden(spokenDetail != nil)
+                }
+                if let selected = item.selected {
+                    BTSelectionIndicator(isSelected: selected,
+                        selectedColor: followsAppearance ? .btPrimary : HUDStyle.accent,
+                        unselectedColor: followsAppearance ? .btTextSecondary : .white.opacity(0.6))
+                }
+                if item.disclosure {
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.6))
+                        .frame(width: 20).accessibilityHidden(true)
+                }
+            }
+            .font(.subheadline)
+            .padding(.horizontal, showsCards ? 11 : 16).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .disabled(item.disabled)
+        .opacity(item.disabled ? 0.4 : 1)
+        .accessibilityIdentifier(item.id)
+        .accessibilityValue(item.selected.map { $0 ? "已选" : "未选" } ?? (item.detail ?? ""))
+        .accessibilityAddTraits(item.selected == true ? .isSelected : [])
     }
 
     private func separator(strong: Bool) -> some View {

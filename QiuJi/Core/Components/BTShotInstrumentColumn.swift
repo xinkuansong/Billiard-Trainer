@@ -315,101 +315,43 @@ struct ShotPlayerCameraButtons: View {
     var controlSpacing: CGFloat = Spacing.sm
     @ObservedObject var rig: CameraRig
     var isEnabled: Bool
-    var onWholeTable: (() -> Void)? = nil
-    /// Explicit host opt-in; other shot/quiz pages retain their existing camera controls.
-    var usesTwoViewControls = false
     var temporaryTopDownActive = false
     var onTemporaryTopDownBegan: (() -> Void)? = nil
     var onTemporaryTopDownEnded: (() -> Void)? = nil
     var observationOnly = false
     var observationTargetAvailable = true
+    var firstPersonAvailable = true
+    var thirdPersonAvailable = true
+    var temporaryTopDownAvailable = true
     var onSelect: (CameraRig.PlayerView) -> Void
 
     var body: some View {
         VStack(spacing: controlSpacing) {
-            if observationOnly {
-                cameraButton(label: "全局观察", id: "dailyClearance.observeTable", selected: rig.keepsWholeTableFramed, action: { onWholeTable?() }) {
-                    Image(systemName: "eye").font(.btHeadline)
-                }
-                cameraButton(label: "目标球观察", id: "shotCamera.target", selected: observationTargetAvailable && !rig.keepsWholeTableFramed, action: { onSelect(.thirdPerson) }) {
-                    Image(systemName: "scope").font(.btHeadline)
-                }.disabled(!observationTargetAvailable)
-            } else if rig.usesMergedCamera {
-                cameraButton(label: "全局观察", id: "dailyClearance.observeTable",
-                    selected: rig.overviewControlSelected && !temporaryTopDownActive,
-                    action: { onWholeTable?() }) {
-                    Image(systemName: "eye").font(.btHeadline)
-                }.disabled(temporaryTopDownActive)
-                cameraButton(label: rig.usesSurfaceCamera ? "沿杆观察" : "第三人称", id: "shotCamera.thirdPerson",
-                    selected: !rig.overviewControlSelected && rig.playerView == .thirdPerson && !temporaryTopDownActive,
-                    action: { onSelect(.thirdPerson) }) {
-                    BTPlayerViewGlyph(pose: .standing).frame(width: 28, height: 28)
-                }.disabled(temporaryTopDownActive)
-                if rig.usesSurfaceCamera {
-                    cameraButton(label: "第一人称瞄准", id: "shotCamera.firstPerson",
-                        selected: rig.playerView == .firstPerson && !temporaryTopDownActive,
-                        action: { onSelect(.firstPerson) }) {
-                        BTPlayerViewGlyph(pose: .aiming).frame(width: 28, height: 28)
-                    }.disabled(temporaryTopDownActive)
-                }
-                cameraButton(label: "临时俯视", id: "shotCamera.temporaryTopDown",
-                    selected: temporaryTopDownActive,
-                    action: { if temporaryTopDownActive { onTemporaryTopDownEnded?() }
-                        else { onTemporaryTopDownBegan?() } }) {
-                    TemporaryTopDownFigure().frame(width: 28, height: 28)
-                }.onDisappear { onTemporaryTopDownEnded?() }
-            } else if usesTwoViewControls {
-                twoViewButton(.thirdPerson, label: "第三人称") {
-                    BTPlayerViewGlyph(pose: .standing).frame(width: 28, height: 28)
-                }
-                twoViewButton(.firstPerson, label: "第一人称") {
-                    BTPlayerViewGlyph(pose: .aiming).frame(width: 28, height: 28)
-                }
-                TemporaryTopDownFigure()
-                    .frame(width: 28, height: 28)
-                    .foregroundStyle(HUDStyle.valueMeasured)
-                    .frame(width: 44, height: 44)
-                    .background(temporaryTopDownActive ? HUDStyle.selectedBackground : HUDStyle.controlBackground, in: Circle())
-                    .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-                    .overlay {
-                        BTTemporaryTopDownPressControl(isEnabled: isEnabled,
-                            isActive: temporaryTopDownActive,
-                            onBegin: { onTemporaryTopDownBegan?() },
-                            onEnd: { onTemporaryTopDownEnded?() })
-                    }
-                    .onDisappear { onTemporaryTopDownEnded?() }
-                    .freeControlItem("camera.temporaryTopDown", name: "临时俯视")
-            } else if let onWholeTable {
-                cameraButton(label: "全局观察", id: "dailyClearance.observeTable",
-                             selected: rig.keepsWholeTableFramed, action: onWholeTable) {
-                    Image(systemName: "eye").font(.btHeadline)
-                }
-                button(.thirdPerson, symbol: "figure.stand", label: "观察")
-                cameraButton(label: "第一人称瞄准", id: "shotCamera.firstPerson",
-                             selected: rig.playerView == .firstPerson,
-                             action: { onSelect(.firstPerson) }) {
-                    BTPlayerViewGlyph(pose: .aiming).frame(width: 28, height: 28)
-                }
-            } else {
-                button(.firstPerson, symbol: "eye", label: "第一人称瞄准")
-                button(.thirdPerson, symbol: "figure.stand", label: "第三人称观察")
+            Color.clear.frame(width: 44, height: 44)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            cameraButton(label: "临时俯视", id: "shotCamera.temporaryTopDown",
+                         selected: temporaryTopDownActive, action: {
+                if temporaryTopDownActive { onTemporaryTopDownEnded?() }
+                else { onTemporaryTopDownBegan?() }
+            }) {
+                Image(systemName: "eye").font(.btHeadline)
             }
-        }
-    }
-
-    private func twoViewButton<Icon: View>(_ view: CameraRig.PlayerView, label: String,
-                                          @ViewBuilder icon: () -> Icon) -> some View {
-        cameraButton(label: label, id: "shotCamera.\(view.rawValue)",
-                     selected: rig.twoViewMode == view && !temporaryTopDownActive,
-                     action: { onSelect(view) }, icon: icon)
-            .disabled(temporaryTopDownActive)
-    }
-
-    private func button(_ view: CameraRig.PlayerView, symbol: String, label: String) -> some View {
-        cameraButton(label: label, id: "shotCamera.\(view.rawValue)",
-                     selected: rig.playerView == view, action: { onSelect(view) }) {
-            if view == .thirdPerson { BTPlayerViewGlyph(pose: .standing).frame(width: 28, height: 28) }
-            else { Image(systemName: symbol).font(.btHeadline) }
+            .disabled(!temporaryTopDownActive && (!temporaryTopDownAvailable || rig.p01RollingShot != nil))
+            .onDisappear { onTemporaryTopDownEnded?() }
+            cameraButton(label: observationOnly ? "第三人称观察" : "第三人称", id: "shotCamera.thirdPerson",
+                         selected: !temporaryTopDownActive && !rig.overviewControlSelected && rig.playerView == .thirdPerson,
+                         action: { onSelect(.thirdPerson) }) {
+                BTPlayerViewGlyph(pose: .standing).frame(width: 28, height: 28)
+            }
+            .disabled(temporaryTopDownActive || !thirdPersonAvailable || (observationOnly && !observationTargetAvailable))
+            cameraButton(label: "第一人称瞄准", id: "shotCamera.firstPerson",
+                         selected: !temporaryTopDownActive && rig.playerView == .firstPerson,
+                         action: { onSelect(.firstPerson) }) {
+                BTPlayerViewGlyph(pose: .aiming).frame(width: 28, height: 28)
+            }
+            .disabled(temporaryTopDownActive || observationOnly || !firstPersonAvailable)
+            .accessibilityHint(observationOnly || !firstPersonAvailable ? "当前没有可用的沿杆机位" : "")
         }
     }
 
@@ -430,138 +372,7 @@ struct ShotPlayerCameraButtons: View {
         .accessibilityLabel(label)
         .accessibilityValue(selected ? "已选中" : "未选中")
         .accessibilityIdentifier(id)
-        .freeControlItem(id == "dailyClearance.observeTable" ? "camera.overview" : id.replacingOccurrences(of: "shotCamera.", with: "camera."), name: label)
-    }
-}
-
-/// Top-down table outline with three hollow balls; no directional arrow.
-private struct TemporaryTopDownFigure: View {
-    var body: some View {
-        Canvas { context, size in
-            let t = CGAffineTransform(scaleX: size.width / 28, y: size.height / 28)
-            var path = Path(roundedRect: CGRect(x: 5, y: 2, width: 18, height: 24), cornerRadius: 3)
-            for c in [CGPoint(x: 10, y: 8), CGPoint(x: 18, y: 13), CGPoint(x: 12, y: 21)] {
-                path.addEllipse(in: CGRect(x: c.x - 2, y: c.y - 2, width: 4, height: 4))
-            }
-            context.stroke(path.applying(t), with: .color(HUDStyle.valueMeasured),
-                           style: StrokeStyle(lineWidth: size.width / 28 * 1.8, lineCap: .round, lineJoin: .round))
-        }.accessibilityHidden(true)
-    }
-}
-
-#Preview("Temporary top-down Light") {
-    TemporaryTopDownFigure().frame(width: 28, height: 28)
-        .padding(Spacing.sm).background(HUDStyle.panelBackground)
-        .preferredColorScheme(.light)
-}
-
-#Preview("Temporary top-down Dark") {
-    TemporaryTopDownFigure().frame(width: 28, height: 28)
-        .padding(Spacing.sm).background(HUDStyle.panelBackground)
-        .preferredColorScheme(.dark)
-}
-
-/// Owns the entire touch; a short tap has no action and leaving the hit rect never rearms it.
-private struct BTTemporaryTopDownPressControl: UIViewRepresentable {
-    let isEnabled: Bool
-    let isActive: Bool
-    let onBegin: () -> Void
-    let onEnd: () -> Void
-
-    func makeUIView(context: Context) -> HoldControl { HoldControl() }
-
-    func updateUIView(_ view: HoldControl, context: Context) {
-        view.onBegin = onBegin
-        view.onEnd = onEnd
-        view.isEnabled = isEnabled
-        view.accessibilityValue = isActive ? "正在临时俯视" : "本杆视角"
-        view.accessibilityTraits = isEnabled ? .button : [.button, .notEnabled]
-    }
-
-    static func dismantleUIView(_ view: HoldControl, coordinator: ()) { view.finishHold() }
-
-    final class HoldControl: UIControl {
-        var onBegin: (() -> Void)?
-        var onEnd: (() -> Void)?
-        private var pending: DispatchWorkItem?
-        private var holding = false
-        private var trackingInside = false
-        private var pressRevision: UInt64 = 0
-
-        override var isEnabled: Bool { didSet { if !isEnabled { finishHold() } } }
-
-        override init(frame: CGRect) {
-            super.init(frame: frame)
-            isAccessibilityElement = true
-            accessibilityLabel = "临时俯视球桌"
-            accessibilityHint = "按住查看，松手返回本杆视角；辅助功能激活暂时查看两秒"
-            accessibilityIdentifier = "shotCamera.temporaryTopDown"
-            accessibilityCustomActions = [UIAccessibilityCustomAction(name: "结束临时俯视", target: self, selector: #selector(endAccessibleHold))]
-            NotificationCenter.default.addObserver(self, selector: #selector(cancelForInactiveScene),
-                name: UIApplication.willResignActiveNotification, object: nil)
-        }
-
-        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-        override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-            guard isEnabled, bounds.contains(touch.location(in: self)) else { return false }
-            finishHold()
-            trackingInside = true
-            let revision = pressRevision
-            let work = DispatchWorkItem { [weak self] in
-                guard let self, self.pressRevision == revision,
-                      self.isEnabled, self.trackingInside else { return }
-                self.pending = nil
-                self.holding = true
-                self.onBegin?()
-            }
-            pending = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
-            return true
-        }
-
-        override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-            guard trackingInside, bounds.contains(touch.location(in: self)) else {
-                finishHold()
-                return false
-            }
-            return true
-        }
-
-        override func endTracking(_ touch: UITouch?, with event: UIEvent?) { finishHold() }
-        override func cancelTracking(with event: UIEvent?) { finishHold() }
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            if window == nil { finishHold() }
-        }
-
-        func finishHold() {
-            pressRevision &+= 1
-            pending?.cancel()
-            pending = nil
-            trackingInside = false
-            guard holding else { return }
-            holding = false
-            onEnd?()
-        }
-
-        override func accessibilityActivate() -> Bool {
-            guard isEnabled else { return false }
-            finishHold()
-            holding = true
-            onBegin?()
-            let revision = pressRevision
-            let work = DispatchWorkItem { [weak self] in
-                guard let self, self.pressRevision == revision else { return }
-                self.finishHold()
-            }
-            pending = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
-            return true
-        }
-
-        @objc private func endAccessibleHold() -> Bool { finishHold(); return true }
-        @objc private func cancelForInactiveScene() { finishHold() }
+        .freeControlItem(id.replacingOccurrences(of: "shotCamera.", with: "camera."), name: label)
     }
 }
 
@@ -575,13 +386,16 @@ struct ShotSceneCameraButtons: View {
 
     var body: some View {
         if let rig = scene.cameraRig {
-            ShotPlayerCameraButtons(rig: rig, isEnabled: isEnabled && aim != nil) { view in
+            ShotPlayerCameraButtons(rig: rig, isEnabled: isEnabled && aim != nil,
+                temporaryTopDownActive: rig.temporaryTopDownActive,
+                onTemporaryTopDownBegan: { if let aim { _ = rig.beginTemporaryTopDown(aim: aim) } },
+                onTemporaryTopDownEnded: { rig.endTemporaryTopDown() }) { view in
                 guard let cue = scene.cueBallNode, !cue.isHidden, let aim else { return }
                 onSelect()
                 scene.discardSavedPerspectiveView()
                 rig.usesRailCameraControls = true
                 rig.enterPlayerView(view, cue: cue.position, aim: aim,
-                    duration: UIAccessibility.isReduceMotionEnabled ? 0.1 : 0.95)
+                    duration: UIAccessibility.isReduceMotionEnabled ? 0 : 0.95, resetThirdPerson: view == .thirdPerson)
             }
         }
     }

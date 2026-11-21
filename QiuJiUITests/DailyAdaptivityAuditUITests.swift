@@ -428,8 +428,8 @@ final class DailyAdaptivityAuditUITests: XCTestCase {
         }
         XCTAssertEqual(try renderer(),identity)
         try capture(app,"v4-shared-3D")
-        let primaryCamera = app.buttons["dailyClearance.observeTable"].exists ? "dailyClearance.observeTable" : "shotCamera.firstPerson"
-        for id in [primaryCamera,"shotCamera.thirdPerson","shotCamera.temporaryTopDown"] {
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        for id in ["shotCamera.firstPerson", "shotCamera.thirdPerson", "shotCamera.temporaryTopDown"] {
             let button = app.buttons[id]
             XCTAssertTrue(button.exists,id)
             XCTAssertTrue(button.isHittable,id)
@@ -437,9 +437,12 @@ final class DailyAdaptivityAuditUITests: XCTestCase {
             XCTAssertTrue(try app.windows.firstMatch.snapshot().frame.contains(frame),id)
             XCTAssertGreaterThanOrEqual(frame.width,44)
             XCTAssertGreaterThanOrEqual(frame.height,44)
-            if id == "shotCamera.temporaryTopDown", primaryCamera == "shotCamera.firstPerson" { button.press(forDuration:0.5) }
-            else if id == "shotCamera.temporaryTopDown" { button.tap(); button.tap() }
-            else { button.tap() }
+            button.tap()
+            if id == "shotCamera.temporaryTopDown" {
+                XCTAssertEqual(button.value as? String, "已选中")
+                button.tap()
+                XCTAssertEqual(button.value as? String, "未选中")
+            }
         }
         try capture(app,"v4-shared-camera")
         XCTAssertEqual(try renderer(),identity)

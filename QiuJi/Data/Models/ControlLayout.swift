@@ -21,6 +21,48 @@ struct FreeControlPlacement: Codable, Equatable {
 
 typealias FreeControlValues = [String: FreeControlPlacement]
 
+/// Restore an old camera column against today's measured slots. Missing overrides
+/// take their native positions; unrelated controls keep their saved coordinates.
+enum FreeCameraColumnLayout {
+    static let ids = ["camera.temporaryTopDown", "camera.thirdPerson", "camera.firstPerson"]
+
+    static func ordered(_ saved: FreeControlValues, frames: [String: CGRect], window: CGSize) -> FreeControlValues {
+        var result = saved
+        result.removeValue(forKey: "camera.overview")
+        result.removeValue(forKey: "camera.target")
+        guard ids.contains(where: { result[$0] != nil }), window.width > 0, window.height > 0 else { return result }
+        let slots = ids.compactMap { frames[$0] }
+        guard slots.count == ids.count, slots.allSatisfy({ $0.height > 0 }) else { return result }
+        let placements = zip(ids, slots).map { id, frame in
+            result[id] ?? .init(x: frame.midX / window.width, y: frame.midY / window.height)
+        }
+        let heights: [CGFloat] = zip(placements, slots).map { placement, slot in CGFloat(placement.scale) * slot.height }
+        let spacing = max(0, slots[1].minY - slots[0].maxY)
+        let centers: [CGFloat] = placements.map { CGFloat($0.y) * window.height }
+        let overlaps = (1..<ids.count).contains { index in
+            let upperBottom = centers[index - 1] + heights[index - 1] / 2
+            let lowerTop = centers[index] - heights[index] / 2
+            return lowerTop + 0.5 < upperBottom
+        }
+        guard overlaps else { return result }
+
+        let extent = heights.reduce(0, +) + 2 * spacing
+        guard extent <= window.height else {
+            for id in ids { result.removeValue(forKey: id) }
+            return result
+        }
+        let middleOffset = heights[0] + spacing + heights[1] / 2
+        var top = min(max(0, centers[1] - middleOffset), window.height - extent)
+        for i in ids.indices {
+            var placement = placements[i]
+            placement.y = (top + heights[i] / 2) / window.height
+            result[ids[i]] = placement
+            top += heights[i] + spacing
+        }
+        return result
+    }
+}
+
 /// Capacity fallback for opted-in pages after an actual window size change.
 /// It never writes back or rescales the saved layout.
 enum FreeControlResizeSafety {
@@ -141,7 +183,7 @@ enum FreeControlCatalog {
         default: return []
         }
         if mode == .threeD {
-            ids.formUnion(["camera.overview", "camera.thirdPerson", "camera.firstPerson", "camera.temporaryTopDown"])
+            ids.formUnion(["camera.thirdPerson", "camera.firstPerson", "camera.temporaryTopDown"])
         }
         return ids
     }

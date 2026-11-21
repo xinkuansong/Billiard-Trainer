@@ -163,7 +163,8 @@ private struct CustomFormationTableView: View {
             title: session.name, isTryout: false,
             loadsDefaultLayout: false, setup: session.setup, onInteraction: {}, onRearrange: session.reset,
             menuItems: menuItems, overlay: AnyView(CustomFormationNotice(session: session)),
-            formation: session, onBack: requestBack))
+            formation: session, onBack: requestBack,
+            cameraPolicy: session.isTemplateEditor ? .legacy : .p01Replayable))
         .onChange(of: scenePhase) { _, phase in if phase != .active { session.saveProgress() } }
         .onDisappear { session.finishPractice() }
         .alert("保存模板", isPresented: $session.showSave) {
@@ -218,34 +219,34 @@ private struct CustomFormationTableView: View {
         if !session.isTemplateEditor {
             return [
                 .init(id: "formation.practice", title: "练习"),
-                .init(id: "formation.playback", title: "回放", disabled: session.busy || !session.vm.canPlayback || session.vm.temporaryTopDownActive,
+                .init(id: "formation.playback", group: .practice, title: "回放", disabled: session.busy || !session.vm.canPlayback || session.vm.temporaryTopDownActive,
                     action: { session.vm.cancelPowerRelease(); session.vm.replayLastShot() }),
-                .init(id: "formation.save", title: "将当前球形另存为模板", disabled: !session.canSave,
+                .init(id: "formation.save", group: .formation, title: "将当前球形另存为模板", disabled: !session.canSave,
                     action: { session.saveAsNew = true; session.showSave = true })
             ]
         }
         var items: [DailyHUDMenuItem] = [.init(id: "formation.heading", title: session.isTemplateEditor ? "模板" : "练习")]
         if session.trialBoard != nil {
             items += [
-                .init(id: "formation.returnDraft", title: "返回摆球", disabled: session.busy, action: { session.resumeArrangement() }),
-                .init(id: "formation.adoptTrial", title: "采用当前球形继续编辑", disabled: session.busy, action: { session.resumeArrangement(adoptTrial: true) })]
+                .init(id: "formation.returnDraft", group: .formation, title: "返回摆球", disabled: session.busy, action: { session.resumeArrangement() }),
+                .init(id: "formation.adoptTrial", group: .formation, title: "采用当前球形继续编辑", disabled: session.busy, action: { session.resumeArrangement(adoptTrial: true) })]
         } else {
-            items.append(.init(id: "formation.save", title: session.isTemplateEditor ? "保存模板" : "将当前球形另存为模板",
+            items.append(.init(id: "formation.save", group: .formation, title: session.isTemplateEditor ? "保存模板" : "将当前球形另存为模板",
                 disabled: !session.canSave, action: { session.saveAsNew = !session.isTemplateEditor; session.showSave = true }))
             if session.isTemplateEditor && session.original != nil {
-                items.append(.init(id: "formation.saveCopy", title: "另存为新模板", disabled: !session.canSave,
+                items.append(.init(id: "formation.saveCopy", group: .formation, title: "另存为新模板", disabled: !session.canSave,
                     action: { session.saveAsNew = true; session.showSave = true }))
             }
         }
         items += [
-            .init(id: "formation.arrange", title: session.toolsActive ? "完成摆球" : "摆球工具", disabled: session.busy,
+            .init(id: "formation.arrange", group: .formation, title: session.toolsActive ? "完成摆球" : "摆球工具", disabled: session.busy,
                   action: { if session.toolsActive { session.clearTools(); session.toolsActive = false } else { session.resumeArrangement() } }),
-            .init(id: "formation.line", title: session.guide.phase == .off ? "直线工具" : "清除辅助线", disabled: session.busy,
+            .init(id: "formation.line", group: .formation, title: session.guide.phase == .off ? "直线工具" : "清除辅助线", disabled: session.busy,
                   action: { if session.guide.phase == .off { session.startLine() } else { session.guide.clear(scene: session.vm.scene) } }),
-            .init(id: "formation.cue", title: "放回母球", disabled: session.busy, action: { session.place(PositionPlayBall.cueKey, world: nil) }),
-            .init(id: "formation.clear", title: "清空目标球", disabled: session.busy, action: { session.showClear = true })]
+            .init(id: "formation.cue", group: .formation, title: "放回母球", disabled: session.busy, action: { session.place(PositionPlayBall.cueKey, world: nil) }),
+            .init(id: "formation.clear", group: .formation, title: "清空目标球", disabled: session.busy, action: { session.showClear = true })]
         if !session.isTemplateEditor {
-            items.append(.init(id: "formation.settings", title: "训练设置", disclosure: true, disabled: session.busy, action: { onDismiss() }))
+            items.append(.init(id: "formation.settings", group: .practice, title: "训练设置", disclosure: true, disabled: session.busy, action: { onDismiss() }))
         }
         return items
     }

@@ -740,10 +740,21 @@ final class DailyClearanceController: ObservableObject {
                     "_2":CanvasPoint(x:0.4-Double(2*AngleSceneCalculator.ballRadius)/2.54,y:0.25),
                     "_1":CanvasPoint(x:0.6,y:0.25),"_8":CanvasPoint(x:0.75,y:0.35)])
             }
-        case "progress":
+        case "progress", "progressLegalRail":
             fixtureDraft.phase = .playing
             fixtureDraft.shotCount = 2
             fixtureDraft.foulCount = 1
+            if fixture == "progressLegalRail" {
+                let longRailCenter = AngleSceneCalculator.innerWidth / 2 - AngleSceneCalculator.ballRadius
+                let cue = AngleSceneCalculator.sceneToNormalized(position: .init(x: 0, y: 0, z: longRailCenter))
+                let eight = AngleSceneCalculator.sceneToNormalized(position: .init(x: 0, y: 0, z: 0.4))
+                fixtureDraft.board?.onTable[PositionPlayBall.cueKey] = board.onTable[PositionPlayBall.cueKey].map {
+                    CanvasPoint(x: $0.x, y: Double(cue.y))
+                }
+                fixtureDraft.board?.onTable[defaultGame.terminalBallKey] = board.onTable[defaultGame.terminalBallKey].map {
+                    CanvasPoint(x: $0.x, y: Double(eight.y))
+                }
+            }
         case "failed":
             fixtureDraft.phase = .failed
             fixtureDraft.shotCount = 3

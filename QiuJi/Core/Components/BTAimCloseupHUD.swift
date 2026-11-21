@@ -318,8 +318,7 @@ struct BTAimCloseupOverlay: View {
         #if DEBUG
         if AimCloseupWorkCounts.enabled { AimCloseupWorkCounts.projections += 1 }
         #endif
-        var current = snapshot
-        current.idealLine = includesSceneIdealLine ? scene.idealObjectLine : nil
+        let current = snapshot.applyingSceneGuides(from: scene, includesIdealLine: includesSceneIdealLine)
         return current.projected(in: view, surfaceY: scene.surfaceY, destinationRect: protectsDailySight
             ? DailyCloseupProjection.destinationRect(in: view, frameInWindow: frameInWindow) : nil,
             preservesPlanarTangency: protectsDailySight)
@@ -420,6 +419,13 @@ struct AimCloseupSnapshot: Equatable {
     var idealLine: AimCloseupSegment? = nil
     var cueRadiusScale: CGFloat = 1
     var ghostRadiusScale: CGFloat = 1
+
+    func applyingSceneGuides(from scene: AngleTrainingScene, includesIdealLine: Bool) -> Self {
+        var displayed = self
+        if scene.tablePreferences?.showsTargetContactPoint == false { displayed.contactMarker = nil }
+        displayed.idealLine = includesIdealLine ? scene.idealObjectLine : nil
+        return displayed
+    }
 }
 
 struct AimCloseupSegment: Equatable {

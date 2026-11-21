@@ -262,6 +262,21 @@ final class KBallPracticeTests: XCTestCase {
             XCTAssertEqual(actual.position.z, point.position.z, accuracy: 0.00001)
         }
         XCTAssertTrue(vm.switchTrainingView(to: true))
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = .init(width: 874, height: 402)
+        XCTAssertTrue(rig.p01AnchoredTransitions)
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+        try assertTeachingRollingCameraLifecycle(vm)
+        let direction = try XCTUnwrap(vm.currentPlayerAim)
+        let cameraBeforeObservation = try XCTUnwrap(rig.p01Snapshot).pose
+        let questionBeforeObservation = vm.record?.current?.id
+        let pocketBeforeObservation = vm.selectedPocketIndex
+        rig.handleHorizontalSwipe(delta: 90)
+        XCTAssertNotEqual(rig.p01Snapshot?.pose, cameraBeforeObservation)
+        XCTAssertEqual(vm.currentPlayerAim?.x, direction.x)
+        XCTAssertEqual(vm.currentPlayerAim?.z, direction.z)
+        XCTAssertEqual(vm.record?.current?.id, questionBeforeObservation)
+        XCTAssertEqual(vm.selectedPocketIndex, pocketBeforeObservation)
         vm.suspendTeachingActivity(); vm.resumeTeachingActivity()
         for _ in 0..<200 where vm.referenceTrajectory == nil { try await Task.sleep(for: .milliseconds(50)) }
         XCTAssertTrue(vm.shouldShowReference)

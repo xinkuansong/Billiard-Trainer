@@ -43,12 +43,25 @@ enum SequenceSceneTransition {
         rig.restorePerspectiveState(rig.capturePerspectiveState())
     }
 
+    struct Address {
+        let cue: SCNVector3
+        let aim: SCNVector3
+        let strike: SCNVector3
+
+        init(cue: SCNVector3, aim: SCNVector3, shot: PlannedShot) {
+            self.cue = cue
+            self.aim = aim
+            strike = CueStroke.strikePosition(cue: cue, aim: aim, spinX: shot.spinX, spinY: shot.spinY)
+        }
+    }
+
     @discardableResult
-    static func enterThirdPerson(in scene: AngleTrainingScene, cue: SCNVector3,
-                                 aim: SCNVector3, animated: Bool) -> Bool {
+    static func enterThirdPerson(in scene: AngleTrainingScene, address: Address, animated: Bool) -> Bool {
         scene.discardSavedPerspectiveView()
-        return scene.cameraRig?.enterPlayerView(.thirdPerson, cue: cue, aim: aim,
-                                                duration: animated ? 0.95 : 0) == true
+        return scene.cameraRig?.enterPlayerView(.thirdPerson, cue: address.cue, aim: address.aim,
+                                                duration: animated ? 0.95 : 0, resetThirdPerson: true,
+                                                strikeOverride: address.strike) == true
+            || scene.cameraRig?.thirdPersonEntryAwaitsLayout == true
     }
 
     /// Caller owns cancellation/generation checks; finishing must precede camera entry.

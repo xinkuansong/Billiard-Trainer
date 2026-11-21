@@ -250,7 +250,7 @@ final class PlanThreeViewModel: TeachingTableHost, BoardMemoryHosting {
     var targetNode: SCNNode? { isBreakMode ? nil : selectedTargetKey.flatMap { scene.allBallNodes[$0] } }
     var currentPlayerAim: SCNVector3? {
         if let runner = breakRunner { return runner.aimDir }
-        if let lastAimDirection { return lastAimDirection }
+        if let lastAimDirection, scene.cueStick?.rootNode.isHidden == false { return lastAimDirection }
         guard let cue = scene.cueBallNode, !cue.isHidden, let targetNode, !targetNode.isHidden,
               selectedPocketIndex >= 0 else { return nil }
         let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: targetNode.position,
@@ -261,6 +261,33 @@ final class PlanThreeViewModel: TeachingTableHost, BoardMemoryHosting {
         let length = sqrtf(dx * dx + dz * dz)
         return length > 0.0001 ? SCNVector3(dx / length, 0, dz / length) : nil
     }
+    var permitsFirstPersonAddress: Bool {
+        if let runner = breakRunner { return runner.phase == .racked && runner.aimDir != nil }
+        return lastAimDirection != nil && scene.cueStick?.rootNode.isHidden == false
+    }
+
+    var canNudgeP01BreakAim: Bool {
+        cameraMode == .perspective3D && !temporaryTopDownActive
+            && scene.cameraRig?.p01AnchoredTransitions == true
+            && scene.cameraRig?.playerView == .firstPerson && breakRunner?.phase == .racked
+    }
+
+    func nudgeP01BreakAim(byDegrees delta: Float) {
+        guard !temporaryTopDownActive, let runner = breakRunner, runner.phase == .racked,
+              delta.isFinite, delta != 0 else { return }
+        guard cameraMode == .perspective3D, let rig = scene.cameraRig, rig.p01AnchoredTransitions,
+              let cue = scene.cueBallNode, !cue.isHidden, let base = runner.aimDir else {
+            runner.nudgeAim(byDegrees: delta)
+            return
+        }
+        let aim = AngleSceneCalculator.rotatedAim(base, byDegrees: delta)
+        rig.followP01TableAim(cue: cue.position, aim: aim, fallbackStrike: {
+            CueStroke.strikePosition(cue: cue.position, aim: aim, spinX: runner.spinX, spinY: runner.spinY)
+        }) {
+            runner.nudgeAim(byDegrees: delta)
+        }
+    }
+
     func selectTarget(key: String) {
         guard !isBreakMode, activeTool == .none, let node = scene.allBallNodes[key] else { return }
         selectBall(node: node)
@@ -378,6 +405,7 @@ final class PlanThreeViewModel: TeachingTableHost, BoardMemoryHosting {
     }
     @Published private(set) var isPlaying = false {
         didSet {
+            updateTeachingStrokeCamera(locked: isPlaying)
             if isPlaying {
                 scene.clearPocketHighlights()
                 scene.clearResultNodes(nodes: &selectionNodes)
@@ -484,7 +512,7 @@ final class PlanThreeViewModel: TeachingTableHost, BoardMemoryHosting {
         scene.configureShotAwareCamera()
         scene.usesAdaptiveDiagramLabels = true
         scene.setupScene()
-        configureTeachingCamera()
+        configureTeachingCamera(policy: .p01Replayable)
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
         scene.hideAllBalls()
@@ -1136,7 +1164,7 @@ extension PlanThreeViewModel {
                         positionHint: "未找到解（试着放大区域或换第1杆目标袋）"), kind: .failure)
                     self.velocity = 3.0; self.spinX = 0; self.spinY = 0
                 } else {
-                    self.showSolution(at: 0)
+                    self.showP01SelectedSolution(at: 0, preservingObservation: true)
                 }
                 self.applyRememberedInput()
             }
@@ -1186,7 +1214,20 @@ extension PlanThreeViewModel {
         guard !isPlaying, !isComputing, solutions.indices.contains(index) else { return }
         adjustmentDraft = nil
         currentIndex = index
-        showSolution(at: index)
+        showP01SelectedSolution(at: index)
+    }
+
+    private func showP01SelectedSolution(at index: Int, preservingObservation: Bool = false) {
+        guard cameraMode == .perspective3D, !temporaryTopDownActive,
+              let rig = scene.cameraRig, rig.p01AnchoredTransitions else {
+            showSolution(at: index)
+            return
+        }
+        _ = rig.updateP01TargetCue(resolved: true, align: true,
+            preservePose: rig.preservesP01SideView || (preservingObservation && rig.twoViewOwnerIsManual),
+            animated: !UIAccessibility.isReduceMotionEnabled) {
+            showSolution(at: index)
+        }
     }
 
     private func showSolution(at index: Int) {
@@ -1549,8 +1590,9 @@ extension PlanThreeViewModel {
             switchesPlayerCameraOnContact: true,
             clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
         ) { [weak self, generation = playbackGeneration] in
-            guard self?.playbackGeneration == generation else { return }
-            self?.launchBalls(sol: sol, recorder: recorder)
+            guard let self, self.playbackGeneration == generation, self.isPlaying else { return }
+            self.beginTeachingRollingCamera(aim: aim, replaying: false)
+            self.launchBalls(sol: sol, recorder: recorder)
         }
     }
 

@@ -363,11 +363,14 @@ final class TrajectoryPlayback {
     let railInventory: PocketRailInventory?
     /// Rail occupancy the tails were laid out against (per pocket id).
     let railShot: PocketRailInventory.Shot?
+    private let frameWrites: FrameWrites?
 
-    init(recorder: TrajectoryRecorder, surfaceY: Float, railInventory: PocketRailInventory? = nil) {
+    init(recorder: TrajectoryRecorder, surfaceY: Float, railInventory: PocketRailInventory? = nil,
+         cancellableFrameWrites: Bool = false) {
         self.recorder = recorder
         self.surfaceY = surfaceY
         self.railInventory = railInventory
+        self.frameWrites = cancellableFrameWrites ? FrameWrites() : nil
         // W17-D: planar pots get their scripted net descent here, once per recorder.
         // Presentation only — verdicts and frames are untouched. Rail residents from earlier
         // shots occupy the lowest slots and are the first the FIFO recycles.
@@ -550,7 +553,7 @@ final class TrajectoryPlayback {
             if let railAction=railResidencyAction(for:node,ballName:ballName,tail:tail,speed:spd,end:end,cursor:cursor) {
                 return railAction
             }
-            let spatialAction=SCNAction.customAction(duration:end/Double(spd)) { node,elapsed in
+            let spatialAction=frameAction(duration:end/Double(spd)) { node,elapsed in
                 let t=min(Float(end),Float(elapsed)*spd)
                 guard let state=self.stateAt(ballName:ballName,time:t) else { return }
                 node.position=state.position
@@ -567,7 +570,7 @@ final class TrajectoryPlayback {
 
         // 强引用 self：动画存续期间（绑定在节点上）保证 playback 不被释放；
         // playback 不持有节点，节点 `removeAllActions` 后即解除引用，无循环。
-        let evaluate = SCNAction.customAction(duration: realDuration) { node, elapsed in
+        let evaluate = frameAction(duration: realDuration) { node, elapsed in
             // 进袋后位置/透明度由「沉入 → 停顿 → 淡出」子动作接管，逐帧求值不再覆盖。
             if cursor.didFade { return }
 
@@ -629,7 +632,7 @@ final class TrajectoryPlayback {
         inventory.bind(node, alias: ballName, to: shot)
         // The clone is sampled by the board's action, so removing the board action also
         // stops its flight. No independent clone action can outlive a cancelled shot.
-        let motion = SCNAction.customAction(duration: end / Double(spd)) { node, elapsed in
+        let motion = frameAction(duration: end / Double(spd)) { node, elapsed in
             inventory.withActiveShot(shot) {
                 let t = min(end, Double(elapsed) * Double(spd))
                 let tableTime = Float(min(t, tail.start.time))
@@ -648,6 +651,36 @@ final class TrajectoryPlayback {
             }
         }
         return .sequence([motion, .run { _ in inventory.render(shot, at: end, complete: true) }])
+    }
+
+    /// Retire pending and in-flight custom writes before restoring a reusable board node.
+    func cancelFrameWrites() {
+        frameWrites?.cancel()
+    }
+
+    private func frameAction(duration: TimeInterval, update: @escaping (SCNNode, CGFloat) -> Void) -> SCNAction {
+        guard let frameWrites else { return SCNAction.customAction(duration: duration, action: update) }
+        return SCNAction.customAction(duration: duration) { node, elapsed in
+            frameWrites.perform { update(node, elapsed) }
+        }
+    }
+
+    private final class FrameWrites {
+        private let lock = NSLock()
+        private var cancelled = false
+
+        func cancel() {
+            lock.lock()
+            defer { lock.unlock() }
+            cancelled = true
+        }
+
+        func perform(_ update: () -> Void) {
+            lock.lock()
+            defer { lock.unlock() }
+            guard !cancelled else { return }
+            update()
+        }
     }
 
     /// 逐帧回放的跨帧可变游标（`customAction` 闭包按帧调用，需在闭包外保存状态）。

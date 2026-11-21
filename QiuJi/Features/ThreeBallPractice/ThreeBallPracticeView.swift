@@ -110,7 +110,7 @@ struct ThreeBallPracticeView: View {
             velocityRange: ShotTuning.velocityRange, instrumentsEnabled: vm.canAdjust,
             assessmentMode: true, allowsAssessmentSpinEditing: true,
             defersStrikeAccessUntilSubmission: false,
-            locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, paletteEnabled: false,
+            locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, allowsObservationWhileAnimating: vm.isTeachingShotRolling, paletteEnabled: false,
             allowsPocketSelection: vm.canSelectPocket, primaryTitle: vm.primaryTitle,
             primaryEnabled: (vm.isReplaying || vm.canAdjust || vm.phase == .result || vm.phase == .saveFailed)
                 && !vm.cameraTransitionBusy && !vm.temporaryTopDownActive,
@@ -121,9 +121,9 @@ struct ThreeBallPracticeView: View {
                 else { vm.strike() }
             }, onPaletteTap: { _ in },
             menuItems: [
-                .init(id: "threeBall.trainingSettings", title: "训练设置", disclosure: true, disabled: vm.isBusy,
+                .init(id: "threeBall.trainingSettings", group: .practice, title: "训练设置", disclosure: true, disabled: vm.isBusy,
                       action: { vm.openSettings() }),
-                .init(id: "threeBall.finish", title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
+                .init(id: "threeBall.finish", group: .practice, title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
             ], refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: vm.isBusy,
             onSpinChange: { vm.setSpin($0, $1) },

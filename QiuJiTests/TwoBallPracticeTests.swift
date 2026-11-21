@@ -432,6 +432,23 @@ extension TwoBallPracticeTests {
         XCTAssertEqual(vm.secondNode?.name, "_8")
         XCTAssertEqual(Set(vm.onTableKeys), Set(["cueBall", "_\(q.ballNumber)", "_8"]))
         XCTAssertEqual(Set(vm.scene.allBallNodes.filter { !$0.value.isHidden }.keys), Set(vm.onTableKeys))
+        XCTAssertTrue(vm.switchTrainingView(to: true))
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = .init(width: 874, height: 402)
+        XCTAssertTrue(rig.p01AnchoredTransitions)
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+        try assertTeachingRollingCameraLifecycle(vm)
+        let direction = try XCTUnwrap(vm.currentPlayerAim)
+        let cameraBeforeObservation = try XCTUnwrap(rig.p01Snapshot).pose
+        let questionBeforeObservation = vm.record?.current?.id
+        let pocketBeforeObservation = vm.selectedPocketIndex
+        rig.handleHorizontalSwipe(delta: 90)
+        XCTAssertNotEqual(rig.p01Snapshot?.pose, cameraBeforeObservation)
+        XCTAssertEqual(vm.currentPlayerAim?.x, direction.x)
+        XCTAssertEqual(vm.currentPlayerAim?.z, direction.z)
+        XCTAssertEqual(vm.record?.current?.id, questionBeforeObservation)
+        XCTAssertEqual(vm.selectedPocketIndex, pocketBeforeObservation)
+        XCTAssertTrue(vm.switchTrainingView(to: false))
         vm.velocity=2.6;repo.failSubmissions=true;vm.strike()
         for _ in 0..<1000 where vm.phase == .preparing { try await Task.sleep(for:.milliseconds(10)) }
         XCTAssertEqual(vm.phase,.saveFailed);XCTAssertEqual(limiter.questionsUsedToday,14)

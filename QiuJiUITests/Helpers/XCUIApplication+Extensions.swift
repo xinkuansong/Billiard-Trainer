@@ -13,7 +13,8 @@ extension XCUIApplication {
         func isFullscreen() -> Bool {
             let frame = window.frame
             return abs(frame.minX - display.minX) < 1 && abs(frame.minY - display.minY) < 1
-                && abs(frame.width - display.width) < 1 && abs(frame.height - display.height) < 1
+                && abs(min(frame.width, frame.height) - min(display.width, display.height)) < 1
+                && abs(max(frame.width, frame.height) - max(display.width, display.height)) < 1
         }
         print("TRAINING_WINDOW display=\(display) window=\(window.frame)")
         guard window.waitForExistence(timeout: 5), !isFullscreen() else { return }

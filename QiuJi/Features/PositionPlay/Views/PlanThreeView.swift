@@ -47,7 +47,7 @@ struct PlanThreeView: View {
         VStack(spacing: metrics.groupSpacing) {
             breakEntry(metrics)
             BTTeachingAimRuler(layout: metrics, enabled: !busy && !vm.temporaryTopDownActive,
-                onNudge: { vm.breakRunner?.nudgeAim(byDegrees: $0) },
+                onNudge: { vm.nudgeP01BreakAim(byDegrees: $0) },
                 degreesPerPoint: vm.breakRunner?.aimWheelDegreesPerPoint ?? AimWheelGain.defaultDegreesPerPoint)
         }
     }
@@ -99,6 +99,7 @@ struct PlanThreeView: View {
             hides3DAssists: Binding(get: { hides3DAssists }, set: { tablePreferences.apply(.shows3DTrajectory, value: $0 ? 0 : 1, to: .planThree) }),
             velocityRange: vm.isBreakMode ? BreakFlowRunner.breakVelocityRange : ShotTuning.velocityRange,
             instrumentsEnabled: (!busy || vm.isAdjustingSolution) && (vm.isBreakMode || vm.hasSolutions), isAnimating: busy,
+            allowsObservationWhileAnimating: vm.isTeachingShotRolling,
             paletteEnabled: !busy && !vm.isBreakMode,
             showsPlacementHint: !vm.canUndoShot && vm.informationEvent.kind != .failure,
             primaryTitle: vm.isBreakMode ? "开球" : vm.primaryActionTitle,
@@ -117,6 +118,7 @@ struct PlanThreeView: View {
             boardMemoryImported: initialBoard != nil, onDisappear: { vm.stopForDismissal() },
             layoutEditingBlocked: informationPanel != nil || vm.breakRunner?.showsConfirm == true,
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
+            resolveP01AimPan: { vm.canNudgeP01BreakAim ? { vm.nudgeP01BreakAim(byDegrees: $0) } : nil },
             showsAimCloseupSetting: false,
             showsTrajectorySetting: false,
             showsSeparationSetting: false,
@@ -166,7 +168,7 @@ struct PlanThreeView: View {
 
     private var menuItems: [DailyHUDMenuItem] {
         var items: [DailyHUDMenuItem] = []
-        items.append(.init(id: "planthree.help", title: "操作说明", disclosure: true, disabled: vm.isBreakMode,
+        items.append(.init(id: "planthree.help", group: .help, title: "操作说明", disclosure: true, disabled: vm.isBreakMode,
                            action: { informationPanel = .help }))
         return items
     }

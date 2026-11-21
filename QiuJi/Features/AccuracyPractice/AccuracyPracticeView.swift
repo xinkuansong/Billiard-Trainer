@@ -125,7 +125,7 @@ struct AccuracyPracticeView: View {
             allowsAssessmentSpinEditing: vm.allowsVerticalSpinEditing || vm.allowsSideSpinEditing,
             allowsVerticalSpinEditing: vm.allowsVerticalSpinEditing,
             allowsSideSpinEditing: vm.allowsSideSpinEditing,
-            isAnimating: vm.phase == .playing || vm.phase == .computing, paletteEnabled: false,
+            isAnimating: vm.phase == .playing || vm.phase == .computing, allowsObservationWhileAnimating: vm.isTeachingShotRolling, paletteEnabled: false,
             allowsPocketSelection: false, primaryTitle: vm.primaryTitle,
             primaryEnabled: (vm.isReplaying || (vm.phase != .computing && vm.phase != .playing)) && !vm.cameraTransitionBusy,
             onPrimary: {
@@ -135,14 +135,18 @@ struct AccuracyPracticeView: View {
                 else { vm.strike() }
             }, onPaletteTap: { _ in },
             menuItems: [
-                .init(id: "accuracy.trainingSettings", title: "训练设置", disclosure: true, disabled: vm.isBusy, action: { vm.openSettings() }),
-                .init(id: "accuracy.finish", title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
+                .init(id: "accuracy.trainingSettings", group: .practice, title: "训练设置", disclosure: true, disabled: vm.isBusy, action: { vm.openSettings() }),
+                .init(id: "accuracy.finish", group: .practice, title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
             ], refreshTrajectory: {},
             applyPreferences: { preferences in
                 if preferences.enabled(.grid) { vm.markObservation("grid") }
                 if preferences.enabled(.closeup) { vm.markObservation("closeup") }
             },
             layoutEditingBlocked: vm.isBusy, onAimNudged: { vm.nudgeAim($0) },
+            resolveP01AimPan: {
+                guard vm.canPanToAim else { return nil }
+                return { vm.nudgeAim($0) }
+            },
             onObservation: { vm.markObservation($0) },
             closeupSnapshot: vm.canAim ? vm.closeupSnapshot : nil,
             onSpinChange: { vm.updateSpin($0, $1) }, paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)"] } ?? [], maximumPaletteCount: 1)

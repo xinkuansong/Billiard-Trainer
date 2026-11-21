@@ -289,6 +289,20 @@ final class DefensePracticeTests: XCTestCase {
         let count=attached();vm.nudgeAim(2);vm.setSpin(0,0.2)
         XCTAssertEqual(attached(),count)
         XCTAssertTrue(vm.switchTrainingView(to:true));XCTAssertEqual(attached(),count)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = .init(width: 874, height: 402)
+        XCTAssertTrue(rig.p01AnchoredTransitions)
+        XCTAssertTrue(vm.canPanToAim)
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+        try assertTeachingRollingCameraLifecycle(vm)
+        let current = vm.record?.current?.id
+        vm.nudgeAim(0.25)
+        let aimAfterNudge = try XCTUnwrap(vm.currentPlayerAim)
+        let camera = try XCTUnwrap(rig.p01Snapshot).shot
+        XCTAssertEqual(camera.aim.x, aimAfterNudge.x, accuracy: 0.00001)
+        XCTAssertEqual(camera.aim.z, aimAfterNudge.z, accuracy: 0.00001)
+        XCTAssertEqual(vm.record?.current?.id, current)
+        vm.nudgeAim(-0.25)
     }
     @MainActor func testRouteColorsSolidCueAndDemoKeepUserComparison() async throws {
         let suite = "DefenseRoutes.\(UUID())", defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

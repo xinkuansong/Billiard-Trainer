@@ -29,7 +29,14 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     }
     var usesFullWindowTableViewport: Bool { tablePreferencePage?.trainingProject != nil }
     var usesSceneFloorInTopDown: Bool { usesFullWindowTableViewport && !usesScreenCarpet }
-    var tablePreferences: TablePreferenceSnapshot?
+    var tablePreferences: TablePreferenceSnapshot? {
+        didSet {
+            if oldValue?.showsTargetContactPoint != tablePreferences?.showsTargetContactPoint {
+                refreshContactDotVisibility()
+                closeupRenderUpdates.requestUpdate()
+            }
+        }
+    }
     @MainActor var effectiveTrajectoryDetail: TrajectoryDetail {
         tablePreferences?.trajectoryDetail ?? UserPreferences.shared.trajectoryDetail
     }
@@ -205,6 +212,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         return true
     }
     private(set) var cameraNode: SCNNode!
+    var teachingTopDownEntry: TeachingTableCameraReference?
     private(set) var cameraRig: CameraRig?
     private(set) var surfaceY: Float = 0.5
     private(set) var currentCameraMode: CameraMode = .topDown2D
@@ -214,6 +222,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// Invalidates delayed transaction callbacks when a newer mode takes ownership.
     private var cameraTransitionID = UUID()
     private var savedPerspectiveState: CameraRig.PerspectiveState?
+    private var savedPerspectiveRestoresBoard = false
     private(set) var hasPerspectiveView = false
 
     /// Studio-look pipeline flag. Default `false` so existing pages
@@ -281,11 +290,11 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     private var lastCueTipInset: Float = 0
     /// Place the quiz assist cue along the displayed shot, independently of the camera.
     /// The same world-space direction is used in both top-down and perspective modes.
-    func showAuxiliaryCue() {
+    func showAuxiliaryCue(updatesCamera: Bool = true) {
         guard let cue = cueBallNode, let ghost = ghostBallNode, !ghost.isHidden else { return }
         let direction = unitXZ(from: cue.position, to: ghost.position)
         updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: direction, spinX: 0),
-                       aimDirection: direction)
+                       aimDirection: direction, updatesCamera: updatesCamera)
     }
 
     // MARK: - Fallback Procedural Balls (when USDZ balls not available)
@@ -900,7 +909,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         aimDirection: SCNVector3,
         pullBack: Float = CueStroke.addressPull,
         elevationOverride: Float? = nil,
-        tipInsetOverride: Float? = nil
+        tipInsetOverride: Float? = nil,
+        updatesCamera: Bool = true
     ) {
         // 显式重新摆杆（如击球后复位重新瞄准）会取消尚未结束的出杆/跟杆/收杆序列，
         // 避免延迟收杆把刚摆好的瞄准杆又隐藏（收杆/复位竞态）。
@@ -921,7 +931,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             cueStick?.update(cueBallPosition: pose.pivot, aimDirection: aimDirection,
                 pullBack: pullBack, elevation: pose.elevation, tipInset: pose.inset)
             cueStick?.show()
-            cameraRig?.updateCuePose(strike: pose.pivot, aim: aimDirection, elevation: pose.elevation, cue: access.cue)
+            if updatesCamera {
+                cameraRig?.updateCuePose(strike: pose.pivot, aim: aimDirection, elevation: pose.elevation, cue: access.cue,
+                                         addressButtOffset: cameraRig?.p01AnchoredTransitions == true ? cueStick?.addressButtOffset : nil)
+            }
             return
         }
         let elevation: Float
@@ -950,7 +963,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         )
         cueStick?.show()
         cueStick?.rootNode.opacity = 1
-        cameraRig?.updateCuePose(strike: cueBallPosition, aim: aimDirection, elevation: elevation, cue: cueBallNode?.position)
+        if updatesCamera {
+            cameraRig?.updateCuePose(strike: cueBallPosition, aim: aimDirection, elevation: elevation, cue: cueBallNode?.position,
+                                     addressButtOffset: cameraRig?.p01AnchoredTransitions == true ? cueStick?.addressButtOffset : nil)
+        }
     }
 
     /// Tip inset for an off-centre strike, inferred from the pivot's offset to the nearest
@@ -975,6 +991,18 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     private func resolvedCueTipInset(forStrike strike: SCNVector3) -> Float {
         if let inset = cueTipInset(forStrike: strike) { lastCueTipInset = inset }
         return lastCueTipInset
+    }
+
+    /// Show the provisional shaft without replacing a selection camera transition or enabling a shot.
+    @discardableResult
+    func previewSelectionCue(toward point: SCNVector3?, spinX: Double, spinY: Double) -> SCNVector3? {
+        guard let cue = cueBallNode, !cue.isHidden, let point else { hideCueStick(); return nil }
+        let delta = SCNVector3(point.x - cue.position.x, 0, point.z - cue.position.z)
+        guard delta.length() > 0.00001 else { hideCueStick(); return nil }
+        let aim = delta.normalized()
+        let strike = CueStroke.strikePosition(cue: cue.position, aim: aim, spinX: spinX, spinY: spinY)
+        updateCueStick(cueBallPosition: strike, aimDirection: aim, updatesCamera: false)
+        return aim
     }
 
     func hideCueStick(preservingStrikeAccess: Bool = false) {
@@ -1464,12 +1492,14 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         // Interactive rail-camera pages preserve the user's view across shots and racks.
         guard cameraRig?.usesRailCameraControls != true else { return }
         savedPerspectiveState = nil
+        savedPerspectiveRestoresBoard = false
         hasPerspectiveView = false
     }
 
     /// Explicit refocusing supersedes a saved observation pose in the same context.
     func discardSavedPerspectiveView() {
         savedPerspectiveState = nil
+        savedPerspectiveRestoresBoard = false
         hasPerspectiveView = currentCameraMode == .perspective3D
     }
 
@@ -1483,11 +1513,12 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// Restore a board's view now in 3D, or on its next 2D-to-3D switch.
     func restorePerspectiveView(_ state: CameraRig.PerspectiveState) {
         savedPerspectiveState = state
+        savedPerspectiveRestoresBoard = cameraRig?.usesP01Camera == true
         hasPerspectiveView = true
         if currentCameraMode == .perspective3D {
             cameraTransitionID = UUID()
             isCameraModeTransitioning = false
-            cameraRig?.restorePerspectiveState(state)
+            cameraRig?.restorePerspectiveState(state, restoringBoard: true)
         }
     }
 
@@ -1627,6 +1658,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
         if previousMode == .perspective3D, mode != .perspective3D, hasPerspectiveView {
             savedPerspectiveState = rig.capturePerspectiveState()
+            savedPerspectiveRestoresBoard = false
         }
         cameraTransitionID = UUID()
         currentCameraMode = mode
@@ -1639,7 +1671,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             isCameraModeTransitioning = false
             switch mode {
             case .perspective3D:
-                if let saved = savedPerspectiveState { rig.restorePerspectiveState(saved) }
+                if let saved = savedPerspectiveState { rig.restorePerspectiveState(saved, restoringBoard: savedPerspectiveRestoresBoard) }
                 else if initializePerspective?() == true {
                     rig.update(deltaTime: 1)
                 }
@@ -1663,10 +1695,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
                     guard let self, self.cameraTransitionID == transitionID else { return }
                     self.isCameraModeTransitioning = false
                 }
-                rig.restorePerspectiveState(saved)
+                rig.restorePerspectiveState(saved, restoringBoard: savedPerspectiveRestoresBoard)
                 SCNTransaction.commit()
             } else {
-                rig.restorePerspectiveState(saved)
+                rig.restorePerspectiveState(saved, restoringBoard: savedPerspectiveRestoresBoard)
             }
             return
         }
@@ -1995,8 +2027,25 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         return node
     }
 
-    /// Cloth-clipped ribbon triangles for one straight segment (world coordinates).
-    /// Empty when the segment lies entirely off the cloth footprint.
+    var tableRouteHeight:Float { (loadedAssistSurface().map(displayedClothY) ?? surfaceY) + 0.001 }
+
+    /// One clipped mesh for a continuous rolling curve, even with many recorded samples.
+    func addTablePolyline(_ points:[SCNVector3], color:UIColor, radius:Float, into nodes:inout [SCNNode]) {
+        guard let surface=loadedAssistSurface() else {
+            for (a,b) in zip(points,points.dropFirst()) {
+                nodes.append(addLine(from:a,to:b,color:color,radius:radius,placement:.table))
+            }
+            return
+        }
+        let vertices=zip(points,points.dropFirst()).flatMap { a,b in
+            tableRibbonVertices(from:a,to:b,radius:radius,surface:surface)
+        }
+        guard !vertices.isEmpty else { return }
+        let node=makeTableAssistNode(vertices:vertices,color:color,layer:.route)
+        rootNode.addChildNode(node)
+        nodes.append(node)
+    }
+
     private func tableRibbonVertices(from start: SCNVector3, to end: SCNVector3,
                                      radius: Float, surface: TableAssistSurface) -> [SCNVector3] {
         surface.ribbon(from: start, to: end, width: radius * 2, at: displayedClothY(surface) + 0.001)
@@ -2683,6 +2732,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         dot.renderingOrder = usesTrainingAssistStyle ? 100 : 0
         rootNode.addChildNode(dot)
         contactDotNode = dot
+        hasContactDot = false
 
         let arc = SCNNode()
         arc.isHidden = true
@@ -2746,6 +2796,18 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         didSet { if oldValue != idealObjectLine { closeupRenderUpdates.requestUpdate() } }
     }
 
+    /// Draw the center-to-center reference while the player is choosing a pocket.
+    func setSelectionAimLine(toward point: SCNVector3?) {
+        guard let cue = cueBallNode, !cue.isHidden, let point,
+              hypotf(point.x - cue.position.x, point.z - cue.position.z) > 0.00001 else {
+            setFreeAimPreviewLine(nil)
+            return
+        }
+        setFreeAimPreviewLine(.init(
+            start: CGPoint(x: CGFloat(cue.position.x), y: CGFloat(cue.position.z)),
+            end: CGPoint(x: CGFloat(point.x), y: CGFloat(point.z))))
+    }
+
     /// One retained preview node; unchanged inputs do not allocate geometry/materials.
     @discardableResult
     func setFreeAimPreviewLine(_ line: AimCloseupSegment?) -> SCNNode? {
@@ -2798,7 +2860,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         ghostBallNode?.isHidden = true
         pocketLineNode?.isHidden = true
         strikeLineNode?.isHidden = true
-        contactDotNode?.isHidden = true
+        hideContactDot()
         angleArcNode?.isHidden = true
         perpLineNode?.isHidden = true
     }
@@ -2884,13 +2946,12 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
         if showOverlapMarkers {
             let contact = AngleSceneCalculator.contactPointPosition(targetBall: targetBall, pocket: pocket)
-            contactDotNode?.position = SCNVector3(contact.x, contact.y + 0.001, contact.z)
-            contactDotNode?.isHidden = false
+            showContactDot(at: SCNVector3(contact.x, contact.y + 0.001, contact.z))
 
             updatePerpLine(ghost: ghostPos, targetBall: targetBall, pocket: pocket)
             perpLineNode?.isHidden = false
         } else {
-            contactDotNode?.isHidden = true
+            hideContactDot()
             perpLineNode?.isHidden = true
         }
 
@@ -2909,23 +2970,34 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// 重叠标注 L0：把共享接触点绿点摆到「假想球→目标球」连线上的切点。
     /// 自由瞄准 / 解叠加等不走 `updateVisualization` 的路径共用本方法补齐 L0。
     func updateContactDot(ghostCenter: SCNVector3, targetCenter: SCNVector3) {
-        guard let dot = contactDotNode else { return }
         let r = AngleSceneCalculator.ballRadius
         let dx = targetCenter.x - ghostCenter.x
         let dz = targetCenter.z - ghostCenter.z
         let len = sqrtf(dx * dx + dz * dz)
         guard len > 1e-5 else {
-            dot.isHidden = true
+            hideContactDot()
             return
         }
-        dot.position = SCNVector3(ghostCenter.x + dx / len * r,
+        showContactDot(at: SCNVector3(ghostCenter.x + dx / len * r,
                                   ghostCenter.y + 0.001,
-                                  ghostCenter.z + dz / len * r)
-        dot.isHidden = false
+                                  ghostCenter.z + dz / len * r))
+    }
+
+    private var hasContactDot = false
+
+    private func showContactDot(at position: SCNVector3) {
+        contactDotNode?.position = position
+        hasContactDot = true
+        refreshContactDotVisibility()
     }
 
     func hideContactDot() {
-        contactDotNode?.isHidden = true
+        hasContactDot = false
+        refreshContactDotVisibility()
+    }
+
+    private func refreshContactDotVisibility() {
+        contactDotNode?.isHidden = !hasContactDot || tablePreferences?.showsTargetContactPoint == false
     }
 
     private func unitXZ(from a: SCNVector3, to b: SCNVector3) -> SCNVector3 {

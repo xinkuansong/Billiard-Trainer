@@ -54,9 +54,6 @@ final class MultiBallPracticeUITests: XCTestCase {
         // Geometry is valid in either iPad window shape; orientation is covered
         // by the dedicated matrix, not a prerequisite for this interaction test.
         app.maximizeTrainingTestWindow(); mode(is3D)
-        if is3D, app.buttons["dailyClearance.observeTable"].exists {
-            ready(app.buttons["dailyClearance.observeTable"]); app.buttons["dailyClearance.observeTable"].tap()
-        }
         func handle() throws -> [String: Any] {
             let value = try XCTUnwrap(table.value as? String)
             let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(value.utf8)) as? [String: Any])
@@ -797,4 +794,25 @@ final class MultiBallPracticeUITests: XCTestCase {
         try capture("planning-chinese-reassign-first")
     }
 
+}
+
+extension MultiBallPracticeUITests {
+    func testAutomaticRecommendationScope() throws {
+        launch()
+        start()
+        menu()
+        let row = app.recommendationMenuRow()
+        let original = try XCTUnwrap(row.value as? String)
+        row.tap()
+        XCTAssertNotEqual(row.value as? String, original)
+        row.tap()
+        app.terminate()
+        launch()
+        let picker = app.segmentedControls["multiBall.positionMode"]
+        revealInSettings(picker)
+        picker.buttons["规划走位"].tap()
+        start()
+        menu()
+        XCTAssertFalse(app.buttons["table.automaticRecommendation"].exists)
+    }
 }

@@ -35,6 +35,7 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
         vm.nextSolution()
         let rig = try XCTUnwrap(vm.scene.cameraRig)
         let camera = try XCTUnwrap(vm.scene.cameraNode)
+        XCTAssertTrue(rig.p01AnchoredTransitions)
         rig.viewportSize = CGSize(width: 375, height: 480)
         for free in [false, true] {
             if free { vm.toggleMode(); vm.spinY = 0.2; vm.spinX = 0.1 }
@@ -50,6 +51,11 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
             rig.snapToTarget()
             rig.update(deltaTime: 1)
             let observed = camera.transform
+            let observedPose = rig.p01Snapshot?.pose
+            vm.beginTemporaryTopDown()
+            XCTAssertTrue(vm.temporaryTopDownActive)
+            vm.endTemporaryTopDown()
+            XCTAssertEqual(rig.p01Snapshot?.pose, observedPose)
             vm.setCameraMode(.topDown2DRotated)
             XCTAssertTrue(try XCTUnwrap(camera.camera).usesOrthographicProjection)
             vm.setCameraMode(.perspective3D)
@@ -73,6 +79,31 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
             }
             vm.setCameraMode(.topDown2DRotated)
         }
+    }
+
+    func testPlanThreeUnsolvedRolesOfferObservationWithoutAnAddress() throws {
+        let vm = PlanThreeViewModel(); vm.setupScene()
+        vm.loadBoard(BoardSnapshot(onTable: [PositionPlayBall.cueKey: .init(x: 0.33, y: 0.48),
+                                              "_1": .init(x: 0.50, y: 0.28), "_2": .init(x: 0.70, y: 0.55)]))
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
+        vm.setCameraMode(.perspective3D)
+        XCTAssertTrue(rig.p01AnchoredTransitions)
+        XCTAssertFalse(vm.requestPlayerView(.firstPerson, animated: false))
+        vm.selectTarget(key: "_1")
+        vm.selectPocket(at: 1)
+        XCTAssertEqual(vm.ball1Key, "_1")
+        XCTAssertEqual(vm.pocket1Index, 1)
+        XCTAssertFalse(vm.permitsFirstPersonAddress)
+        XCTAssertFalse(vm.requestPlayerView(.firstPerson, animated: false))
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+        let observed = try XCTUnwrap(rig.p01Snapshot?.pose)
+        vm.beginTemporaryTopDown()
+        XCTAssertTrue(vm.temporaryTopDownActive)
+        vm.endTemporaryTopDown()
+        XCTAssertEqual(rig.p01Snapshot?.pose, observed)
+        XCTAssertEqual(vm.ball1Key, "_1")
+        XCTAssertEqual(vm.pocket1Index, 1)
     }
 
     private func seedRail(in scene: AngleTrainingScene) throws -> PocketRailSnapshot {
@@ -149,6 +180,7 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
             let rig = try XCTUnwrap(vm.scene.cameraRig)
             rig.viewportSize = CGSize(width: 375, height: 480)
             vm.setCameraMode(.perspective3D)
+            XCTAssertTrue(rig.p01AnchoredTransitions)
             XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
             rig.update(deltaTime: 1)
             let before = try XCTUnwrap(vm.scene.cameraNode).transform
@@ -157,7 +189,14 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
             let solution = stubSolution(velocity: 2, spinX: 0, spinY: 0)
             let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
             XCTAssertNotNil(context.perspectiveView)
-            XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+            XCTAssertFalse(vm.requestPlayerView(.firstPerson, animated: false))
+            vm.beginCameraObservation()
+            rig.handleHorizontalSwipe(delta: 80)
+            vm.endCameraObservation()
+            XCTAssertEqual(vm.selectedTargetKey, context.selectedTargetKey)
+            XCTAssertEqual(vm.selectedPocketIndex, context.selectedPocketIndex)
+            XCTAssertFalse(vm.isComputing)
+            XCTAssertFalse(vm.hasSolutions)
             rig.update(deltaTime: 1)
             XCTAssertFalse(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
             if restoreIn2D {
@@ -192,8 +231,9 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
             let solution = stubSolution(velocity: 2, spinX: 0, spinY: 0)
             let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
             XCTAssertNotNil(context.perspectiveView)
-            XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
-            rig.update(deltaTime: 1)
+            vm.requestSurfaceOverview()
+            rig.snapToTarget()
+            XCTAssertTrue(rig.overviewControlSelected)
             XCTAssertFalse(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
             if restoreIn2D {
                 vm.setCameraMode(.topDown2DRotated)

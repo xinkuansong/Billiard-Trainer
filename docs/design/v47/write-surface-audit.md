@@ -271,3 +271,7 @@ ProfileView 路由签名仅因同步/游客合并说明加入自定义球形而�
 ## 2026-11-16 七页球形记忆测试登记
 
 `DailyComfortRecommendationTests.swift` 的球形记忆用例在系统 temporaryDirectory 下创建独立 UUID 目录，写入版本、损坏、原子提交和 owner/page 隔离 fixture；defer 仅尝试移除本用例目录，清理失败不代表成功。原生恢复测试使用 DEBUG 专用 `BOARD_MEMORY_TEST_DOMAIN` 临时存储域跨启动读取，截图写入 XCTAttachment/本轮 xcresult。生产存储为 Application Support/QiuJi/BoardMemory，按 owner 和页面隔离；这些测试不写用户真实存档、Bundle、内容资产或设计基线。受管构建与证据目录由 local-test / simulator 生命周期工具收尾。
+
+2026-11-19 · SpatialPracticeRecoveryTests.swift 在临时目录下创建 UUID 隔离的归档和写入障碍，写损坏样本来验证恢复，使用独立 defaults suite。测试结束清理专用目录及偏好域；输出不进入资源包。
+
+2026-11-20 · 动作库试打截图改由 XCTest 附件随结果包保存，已移除固定输出目录的直接文件写入。

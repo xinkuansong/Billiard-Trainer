@@ -372,7 +372,12 @@ final class PocketLeatherFlowUITests: XCTestCase {
             let app=launch(["-extract.confirmDemo"]);open("拍照建球形",in:app)
             let send=app.buttons["使用球形"];XCTAssertTrue(send.waitForExistence(timeout:20));send.tap()
             let action=app.buttons[title];XCTAssertTrue(action.waitForExistence(timeout:5));action.tap()
-            assertTable(app);try snap(app,"external-\(index)");app.terminate()
+            assertTable(app)
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            attachment.name = "external-\(index)-\(title)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            app.terminate()
         }
     }
 

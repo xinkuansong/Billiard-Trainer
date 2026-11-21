@@ -12,6 +12,7 @@ final class KickPracticeViewModel: ObservableObject, TeachingTableHost {
     @Published private(set) var record: KickPracticeRecord?
     @Published private(set) var phase: Phase = .loading {
         didSet {
+            updateTeachingStrokeCamera(locked: isBusy)
             if phase == .result || phase == .summary || phase == .settings { geometryReference.complete() }
             else if phase == .aiming { geometryReference.cancelFreeze() }
         }
@@ -165,6 +166,7 @@ final class KickPracticeViewModel: ObservableObject, TeachingTableHost {
         record?.draftInput = next; redrawCue(); scheduleSave()
     }
     var isBusy: Bool { [.preparing, .playing, .saveFailed].contains(phase) }
+    var permitsTemporaryTopDown: Bool { !isBusy }
     var canAdjust: Bool { phase == .aiming && !temporaryTopDownActive && !cameraTransitionBusy }
     var canRetry: Bool { phase == .result && record?.latestShot != nil && !temporaryTopDownActive && !cameraTransitionBusy }
     var canPlayback: Bool { (phase == .result || phase == .aiming) && record?.latestShot != nil && !temporaryTopDownActive && !cameraTransitionBusy }
@@ -260,7 +262,7 @@ final class KickPracticeViewModel: ObservableObject, TeachingTableHost {
         builtScene = true; scene.configureReferenceTableRendering()
         scene.configureShotAwareCamera()
         scene.setupScene(enhancedRendering: false); scene.setupVisualizationNodes()
-        markers = scene.addPocketMarkers(); configureTeachingCamera(); installQuestion()
+        markers = scene.addPocketMarkers(); configureTeachingCamera(policy: .p01Replayable); installQuestion()
     }
     private func seatBalls() {
         guard let question = record?.current else { return }
@@ -287,21 +289,19 @@ final class KickPracticeViewModel: ObservableObject, TeachingTableHost {
         if record?.showingResult == true { showFinal(); drawActual(); phase = .result }
         else { phase = .aiming; drawActual(showsObjectRoute: false); redrawCue() }
         refreshObservationCameraContext()
-        if is3D {
-            requestPlayerView(.thirdPerson, animated: false)
-            if let saved = record?.viewBookmark, let cue = scene.cueBallNode?.position, let aim = currentPlayerAim {
-                scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: aim)
-            }
-        }
+        scene.discardSavedPerspectiveView()
+        if is3D { requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true) }
         activeSince = Date(); refreshNextQuestion()
     }
     private var aimLine: SCNNode?
+    var canPanToAim: Bool { canAdjust && !isDragging && currentPlayerAim != nil }
     func nudgeAim(_ degrees: Float) {
         guard canAdjust, degrees.isFinite, let direction = record?.draftDirection else { return }
         let moved = direction.vector.rotatedY(degrees * .pi / 180)
         record?.draftDirection = .init(moved * (1 / hypot(moved.x, moved.z)))
-        drawAimingGuides(); redrawCue(); scheduleSave()
-        if is3D { requestPlayerView(scene.cameraRig?.twoViewMode ?? .thirdPerson, animated: false) }
+        drawAimingGuides()
+        followTeachingAim(spinX: Double(input.spinX), spinY: Double(input.spinY), updateCue: redrawCue)
+        scheduleSave()
     }
     private func drawAimingGuides() {
         aimLine?.removeFromParentNode(); aimLine = nil
@@ -514,6 +514,7 @@ final class KickPracticeViewModel: ObservableObject, TeachingTableHost {
             rehearsalEnabled: false,
             clearanceProbe: { playback.allBallCentersByName(at: Float($0)) }) { [weak self] in
             guard let self, self.generation == token, self.phase == .playing else { return }
+            self.beginTeachingRollingCamera(aim: shot.direction.vector, replaying: self.isReplaying)
             var actions: [(SCNNode, SCNAction)] = []
             for (node, name) in [(self.scene.cueBallNode, ShotInput.cueBallName), (self.targetNode, ShotInput.targetBallName)] {
                 if let node, let action = playback.action(for: node, ballName: name, removeOnPocket: false,
@@ -833,9 +834,7 @@ final class KickPracticeViewModel: ObservableObject, TeachingTableHost {
         geometryReference.endDrag()
         record = next
         setCameraMode(is3D ? .perspective3D : .topDown2D)
-        if is3D, let saved = next.viewBookmark, let cue = scene.cueBallNode?.position, let aim = currentPlayerAim {
-            scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: aim)
-        }
+
         return true
     }
     func trainingObservedTopDown() {

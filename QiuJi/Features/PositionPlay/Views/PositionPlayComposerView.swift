@@ -19,6 +19,7 @@ struct PositionPlayEditorConfiguration {
     var onBack: (() -> Void)? = nil
     var usesAttackRecommendations = false
     var savesBoardMemory = false
+    var cameraPolicy: ShotCameraPolicy = .legacy
 }
 
 /// Free layout / drill tryout retain their board and sequence semantics inside the daily table shell.
@@ -28,12 +29,15 @@ struct PositionPlayComposerView: View {
     let sourceDrill: DrillContent?
     let tryoutFormation: DrillTryoutFormation?
     var onBack: (() -> Void)?
+    let cameraPolicy: ShotCameraPolicy
 
     init(initialBoard: BoardSnapshot? = nil,
          initialMode: PositionPlayViewModel.AimMode? = nil,
          sourceDrill: DrillContent? = nil,
          tryoutFormation: DrillTryoutFormation? = nil,
+         cameraPolicy: ShotCameraPolicy = .legacy,
          onBack: (() -> Void)? = nil) {
+        self.cameraPolicy = cameraPolicy
         self.initialBoard = initialBoard
         self.initialMode = initialMode
         self.sourceDrill = sourceDrill
@@ -51,6 +55,9 @@ struct PositionPlayComposerView: View {
     @AppStorage("drillTryout.hasSeenGestureHint") private var hasSeenGestureHint = false
     private var isTryout: Bool { sourceDrill != nil }
     var usesAttackRecommendations: Bool { !isTryout }
+    private var activeCameraPolicy: ShotCameraPolicy {
+        isTryout ? .p01Replayable : cameraPolicy
+    }
     private var openingBoard: BoardSnapshot? {
         if let sourceDrill { return tryoutFormation?.initial ?? DrillBoardBuilder.board(for: sourceDrill) }
         return initialBoard ?? Self.defaultBoard
@@ -63,7 +70,7 @@ struct PositionPlayComposerView: View {
             onInteraction: dismissBriefOnInteraction, onRearrange: rearrange,
             modeItem: tryoutModeItem, aimItems: tryoutAimItems, menuItems: editorMenuItems, overlay: AnyView(briefOverlay),
             layoutEditingBlocked: showClearTableConfirm, onBack: { if let onBack { onBack() } else { dismiss() } },
-            usesAttackRecommendations: usesAttackRecommendations, savesBoardMemory: !isTryout))
+            usesAttackRecommendations: usesAttackRecommendations, savesBoardMemory: !isTryout, cameraPolicy: activeCameraPolicy))
         .modifier(BoardMemoryNotice(memory: vm.boardMemory))
         .onChange(of: memoryOwner.ownerKey) { _, _ in
             guard !isTryout else { return }
@@ -111,8 +118,7 @@ struct PositionPlayComposerView: View {
             if let openingBoard { vm.loadBoard(openingBoard) }
             vm.setPreferredAimMode(initialMode ?? .pocket)
             if initialBoard == nil {
-                _ = vm.selectTarget(key: "_1")
-                vm.selectPocket(at: 1)
+                vm.selectDefaultPair(target: "_1", pocket: 1)
             }
             vm.beginBoardMemory(imported: initialBoard != nil)
         }
@@ -125,8 +131,7 @@ struct PositionPlayComposerView: View {
         vm.setPreferredAimMode(.pocket)
         vm.velocity = 2
         vm.spinX = 0; vm.spinY = 0
-        _ = vm.selectTarget(key: "_1")
-        vm.selectPocket(at: 1)
+        vm.selectDefaultPair(target: "_1", pocket: 1)
     }
 
     private func dismissBriefOnInteraction() {
@@ -153,11 +158,11 @@ struct PositionPlayComposerView: View {
 
     private var editorMenuItems: [DailyHUDMenuItem] {
         if isTryout {
-            return [.init(id: "tryout.info", title: "试打说明", disclosure: true, action: { showBrief.toggle() })]
+            return [.init(id: "tryout.info", group: .help, title: "试打说明", disclosure: true, action: { showBrief.toggle() })]
         }
         let busy = vm.isPlaying || vm.isBreakMode
-        return [.init(id: "composer.clear", title: "清空桌面", disabled: busy, action: { showClearTableConfirm = true }),
-                .init(id: "composer.reset", title: "恢复默认球形", disabled: vm.isPlaying,
+        return [.init(id: "composer.clear", group: .formation, title: "清空桌面", disabled: busy, action: { showClearTableConfirm = true }),
+                .init(id: "composer.reset", group: .formation, title: "恢复默认球形", disabled: vm.isPlaying,
                       action: { vm.boardMemory.reset { restoreDefaultBoard() } })]
     }
 
@@ -172,7 +177,7 @@ struct PositionPlayComposerView: View {
 
     private var tryoutModeItem: DailyHUDMenuItem? {
         guard isTryout else { return nil }
-        return .init(id: "tryout.mode", title: "击球模式", detail: vm.isSequenceMode ? "序列" : "自由",
+        return .init(id: "tryout.mode", group: .tryout, title: "击球模式", detail: vm.isSequenceMode ? "序列" : "自由",
                      segments: ["序列", "自由"], disabled: !vm.hasSequence || vm.isPlaying || vm.isSequencePlaying,
                      action: {
             dismissBriefOnInteraction()

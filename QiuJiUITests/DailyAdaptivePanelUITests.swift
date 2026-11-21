@@ -79,8 +79,8 @@ final class DailyAdaptivePanelUITests: XCTestCase {
             try capture(app, "template-" + dimension + "-spin")
             app.buttons["shotStage.spinEntry"].tap()
             if dimension == "3D" {
-                for (id, name) in [("dailyClearance.observeTable", "overview"),
-                    ("shotCamera.thirdPerson", "third"), ("shotCamera.firstPerson", "first"),
+                XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+                for (id, name) in [("shotCamera.thirdPerson", "third"), ("shotCamera.firstPerson", "first"),
                     ("shotCamera.temporaryTopDown", "peek")] {
                     let button = app.buttons[id]; button.tap(); waitValue(button, "已选中")
                     try capture(app, "template-3D-" + name)
@@ -138,7 +138,7 @@ final class DailyAdaptivePanelUITests: XCTestCase {
         try capture(app, "c56-idle-fps", extraIDs: ["dailyClearance.renderFPS"])
     }
 
-    func testC54ActionStatesAndFourCameraRoundTrip() throws {
+    func testC54ActionStatesAndThreeCameraRoundTrip() throws {
         let app = try launch()
         let original = try state(app)
         let stage = element(app, "freeplay.stage").frame
@@ -149,31 +149,33 @@ final class DailyAdaptivePanelUITests: XCTestCase {
         let window = app.windows.firstMatch.frame
         app.coordinate(withNormalizedOffset: .zero)
             .withOffset(CGVector(dx: window.midX, dy: window.midY)).tap()
-        let ids = ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson", "shotCamera.temporaryTopDown"]
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        let ids = ["shotCamera.thirdPerson", "shotCamera.firstPerson", "shotCamera.temporaryTopDown"]
         let buttons = ids.map { app.buttons[$0] }
         for button in buttons { contain(app, button, hit: true); XCTAssertTrue(button.isEnabled) }
         let shell = element(app, "shotStage.powerShell").frame
         try capture(app, "c54-alignment-measured")
-        XCTAssertEqual((buttons[0].frame.minY + buttons[3].frame.maxY) / 2, shell.midY, accuracy: 0.75)
+        let stack = buttons.map(\.frame).reduce(CGRect.null) { $0.union($1) }
+        // P01 centers the four-slot lane, whose first slot has no control.
+        let slotPitch = abs(buttons[0].frame.midY - buttons[1].frame.midY)
+        XCTAssertEqual(stack.midY - slotPitch / 2, shell.midY, accuracy: 0.75)
         for button in buttons { XCTAssertEqual(button.frame.midX, buttons[0].frame.midX, accuracy: 0.5) }
         try capture(app, "c54-third-person")
-        buttons[2].tap()
+        buttons[1].tap()
         let diagnostics = element(app, "v63.cameraDiagnostics")
         let firstPerson = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", "twoViewMode=firstPerson"), object: diagnostics)
         XCTAssertEqual(XCTWaiter.wait(for: [firstPerson], timeout: 5), .completed)
-        waitValue(buttons[2], "已选中")
+        waitValue(buttons[1], "已选中")
         try capture(app, "c54-first-person")
-        buttons[3].tap()
-        waitValue(buttons[3], "已选中")
-        for button in buttons.prefix(3) { XCTAssertFalse(button.isEnabled) }
+        buttons[2].tap()
+        waitValue(buttons[2], "已选中")
+        for button in buttons.prefix(2) { XCTAssertFalse(button.isEnabled) }
         XCTAssertFalse(app.buttons["dailyClearance.undo"].exists)
         XCTAssertFalse(app.buttons["dailyClearance.playback"].isEnabled)
         try capture(app, "c54-peek-disabled")
-        buttons[3].tap()
-        waitValue(buttons[2], "已选中")
+        buttons[2].tap()
+        waitValue(buttons[1], "已选中")
         buttons[0].tap(); waitValue(buttons[0], "已选中")
-        try capture(app, "c54-overview")
-        buttons[1].tap(); waitValue(buttons[1], "已选中")
         unchanged(original, try state(app))
         XCTAssertEqual(element(app, "freeplay.stage").frame, stage)
         try capture(app, "c54-restored")
@@ -641,7 +643,7 @@ final class DailyAdaptivePanelUITests: XCTestCase {
             openTransparency(app)
             XCTAssertTrue(panel.exists)
             let center = CGPoint(x: originalFrame.midX, y: originalFrame.midY)
-            let travel = try XCTUnwrap(cameraField("surfaceTravel"))
+            let player = try XCTUnwrap(cameraField("twoViewMode"))
             let temporary = try XCTUnwrap(cameraField("twoViewTemporary2D"))
             try capture(app, "camera-" + tag + "-settings-open")
             // The established full-page dismissal layer owns this first tap.
@@ -654,14 +656,15 @@ final class DailyAdaptivePanelUITests: XCTestCase {
             let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: panel)
             XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 3), .completed)
             unchanged(before, try state(app))
-            XCTAssertEqual(cameraField("surfaceTravel"), travel)
+            XCTAssertEqual(cameraField("twoViewMode"), player)
             XCTAssertEqual(cameraField("twoViewTemporary2D"), temporary)
             try capture(app, "camera-" + tag + "-dismissed-no-through")
             XCTAssertEqual(control.frame, originalFrame)
             tap(app, at: center)
         }
-        try dismissThenActivate("dailyClearance.observeTable", "overview")
-        try waitCamera("surfaceTravel", "1.0")
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        try dismissThenActivate("shotCamera.firstPerson", "first-person")
+        try waitCamera("twoViewMode", "firstPerson")
         unchanged(before, try state(app))
         try dismissThenActivate("shotCamera.temporaryTopDown", "topdown")
         try waitCamera("twoViewTemporary2D", "true")
@@ -669,7 +672,7 @@ final class DailyAdaptivePanelUITests: XCTestCase {
         try waitCamera("twoViewTemporary2D", "false")
         unchanged(before, try state(app))
         try dismissThenActivate("shotCamera.thirdPerson", "player")
-        try waitCamera("surfaceTravel", "0.5")
+        try waitCamera("twoViewMode", "thirdPerson")
         unchanged(before, try state(app))
         XCTAssertFalse(element(app, "spinPad.disc").exists)
         try capture(app, "camera-player-after")
@@ -1687,14 +1690,20 @@ extension DailyAdaptivePanelUITests {
             app.buttons["shotStage.spinEntry"].tap()
             unchanged(originalState, try state(app))
         }
-        let ids = ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson", "shotCamera.temporaryTopDown"]
+        let third = app.buttons["shotCamera.thirdPerson"]
+        let first = app.buttons["shotCamera.firstPerson"]
+        let peek = app.buttons["shotCamera.temporaryTopDown"]
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
         let shell = element(app, "shotStage.powerShell").frame
-        XCTAssertEqual((app.buttons[ids[0]].frame.minY + app.buttons[ids[3]].frame.maxY)/2, shell.midY, accuracy: 1)
-        for id in ids {
-            app.buttons[id].tap(); waitValue(app.buttons[id], "已选中")
-            try capture(app, "p01-3D-" + id)
+        let step = third.frame.midY - peek.frame.midY
+        XCTAssertGreaterThan(step, 0)
+        XCTAssertEqual(first.frame.midY - third.frame.midY, step, accuracy: 1)
+        XCTAssertEqual(first.frame.midY, shell.midY + 1.5 * step, accuracy: 1)
+        for button in [third, first, peek] {
+            button.tap(); waitValue(button, "已选中")
+            try capture(app, "p01-3D-" + button.identifier)
         }
-        app.buttons[ids[3]].tap(); waitValue(app.buttons[ids[2]], "已选中")
+        peek.tap(); waitValue(first, "已选中")
         assertP01BallsEqual(try p01Balls(app), originalBalls)
         XCTAssertEqual(try p01Scene(app)["rendererID"] as? String, renderer)
         // Palette in 3D is a status/reference surface, while existing table drag remains supported.
@@ -1918,4 +1927,956 @@ extension DailyAdaptivePanelUITests {
         assertP01BallsEqual(try p01Balls(app), original)
         try capture(app, "p01-shot-replay-retry")
     }
+}
+
+/// The v67 control recording uses the actual training card, never a direct scene fixture.
+final class CameraV67BaselineUITests: XCTestCase {
+    private var originalBoard: [String: [Double]]?
+
+    private func node(_ app: XCUIApplication, _ id: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: id).firstMatch
+    }
+
+    private func settle(_ app: XCUIApplication) {
+        let probe = node(app, "v63.cameraDiagnostics")
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard let value = probe.value as? String else { return false }
+            return value.contains("twoViewComputing=false") && value.contains("twoViewMoving=false")
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
+    }
+
+    @discardableResult
+    private func capture(_ app: XCUIApplication, _ name: String) throws -> [String: Any] {
+        settle(app)
+        let raw = try XCTUnwrap(node(app, "v63.cameraDiagnostics").value as? String)
+        let encoded = try XCTUnwrap(raw.split(separator: " ").first { $0.hasPrefix("v67Baseline=") })
+        let data = try XCTUnwrap(Data(base64Encoded: String(encoded.dropFirst("v67Baseline=".count))))
+        var row = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        row["name"] = name
+        row["timestamp"] = Date().timeIntervalSince1970
+        row["diagnostics"] = raw
+        let rawScene = try XCTUnwrap(node(app, "table.scene").value as? String)
+        row["scene"] = rawScene
+        let scene = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(rawScene.utf8)) as? [String: Any])
+        let balls = try XCTUnwrap(scene["balls"] as? [[String: Any]])
+        let board = try Dictionary(uniqueKeysWithValues: balls.map {
+            (try XCTUnwrap($0["key"] as? String), try XCTUnwrap($0["world"] as? [Double]))
+        })
+        if let originalBoard { XCTAssertEqual(board, originalBoard, "Camera baseline must never move a ball") }
+        else { originalBoard = board }
+        XCTAssertEqual(scene["grabCount"] as? Int, 0, "A camera gesture must not grab a ball")
+        row["controls"] = node(app, "dailyLayout.controlsProbe").value as? String
+        row["page"] = node(app, "composer.landscape").label
+        var frames: [String: [CGFloat]] = [:]
+        for id in ["table.scene", "freeplay.stage", "shotStage.aimWheel", "shotStage.powerBar", "shotCamera.firstPerson", "shotCamera.thirdPerson"] {
+            let f = node(app, id).frame
+            frames[id] = [f.minX, f.minY, f.width, f.height]
+        }
+        row["frames"] = frames
+        let json = XCTAttachment(data: try JSONSerialization.data(withJSONObject: row, options: [.prettyPrinted, .sortedKeys]), uniformTypeIdentifier: "public.json")
+        json.name = name + ".json"; json.lifetime = .keepAlways; add(json)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = name; shot.lifetime = .keepAlways; add(shot)
+        return row
+    }
+
+    func testFormalP01OriginalCameraBaseline() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyLayout.probe", "-3dDrag.probe", "-v63.cameraDiagnostics", "-v67.cameraBaseline"])
+        defer { app.terminate() }
+        app.switchTab(.angle)
+        let tab = app.buttons["angleHomeTab_走位"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 5)); tab.tap()
+        let card = app.buttons["分离角与走位"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        card.tap()
+        XCTAssertTrue(node(app, "composer.landscape").waitForExistence(timeout: 15))
+        XCTAssertTrue(node(app, "composer.landscape").label.contains("分离角与走位"))
+        // The route's orientation lock may still rotate after the AX page appears.
+        // Wait for the actual window and menu frame to remain landscape and stable.
+        var stableSince: Date?
+        var previousMenuFrame = CGRect.zero
+        let landscapeReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frame = app.frame
+            let menu = app.buttons["freeplay.moreMenu"]
+            guard frame.width > frame.height, menu.isHittable else { stableSince = nil; return false }
+            let current = menu.frame
+            if current != previousMenuFrame { previousMenuFrame = current; stableSince = nil }
+            if stableSince == nil { stableSince = Date() }
+            return Date().timeIntervalSince(stableSince!) >= 2
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscapeReady], timeout: 15), .completed)
+        app.buttons["freeplay.moreMenu"].tap()
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        if mode.value as? String != "3D" { mode.tap() }
+        let close = app.buttons["dailyClearance.menuClose"]
+        if close.exists { close.tap() } else { app.buttons["关闭菜单"].firstMatch.tap() }
+        let third = app.buttons["shotCamera.thirdPerson"]
+        XCTAssertTrue(third.waitForExistence(timeout: 5)); third.tap()
+        let base = try capture(app, "v67-01-original-third")
+        XCTAssertEqual(base["surface"] as? Bool, true)
+        XCTAssertEqual(base["orthographic"] as? Bool, false)
+        let stage = node(app, "table.scene")
+        // Choose a measured empty point outside the production 48pt ball-grab zone.
+        func drag(_ dx: CGFloat, _ dy: CGFloat) throws {
+            let raw = try XCTUnwrap(stage.value as? String)
+            let scene = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+            let balls = try XCTUnwrap(scene["balls"] as? [[String: Any]])
+            let projected = try balls.map { try XCTUnwrap($0["screen"] as? [Double]) }
+            let candidates = [CGPoint(x: 0.35, y: 0.22), CGPoint(x: 0.65, y: 0.22),
+                              CGPoint(x: 0.35, y: 0.35), CGPoint(x: 0.65, y: 0.35)]
+            func clearance(_ p: CGPoint) -> CGFloat {
+                projected.map { hypot(p.x * stage.frame.width - $0[0], p.y * stage.frame.height - $0[1]) }.min() ?? .infinity
+            }
+            let point = try XCTUnwrap(candidates.max { clearance($0) < clearance($1) })
+            XCTAssertGreaterThan(clearance(point), 60)
+            let start = stage.coordinate(withNormalizedOffset: .init(dx: point.x, dy: point.y))
+            start.press(forDuration: 0.1, thenDragTo: start.withOffset(.init(dx: dx, dy: dy)), withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
+        try drag(100, 0); try capture(app, "v67-02-original-orbit-right")
+        try drag(-100, 0); try capture(app, "v67-03-original-orbit-return")
+        try drag(0, -60); try capture(app, "v67-04-original-drag-up")
+        try drag(0, 60); try capture(app, "v67-05-original-drag-down")
+        third.tap(); try capture(app, "v67-06-third-reset")
+        let wheel = node(app, "shotStage.aimWheel")
+        let wheelStart = wheel.coordinate(withNormalizedOffset: .init(dx: 0.55, dy: 0.5))
+        wheelStart.press(forDuration: 0.1, thenDragTo: wheelStart.withOffset(.init(dx: 0, dy: -60)), withVelocity: .slow, thenHoldForDuration: 0.1)
+        let wheelState = try capture(app, "v67-07-third-wheel")
+        XCTAssertNotEqual(base["aim"] as? [Double], wheelState["aim"] as? [Double], "The direction ruler must actually change the shaft direction")
+        app.buttons["shotCamera.firstPerson"].tap()
+        try capture(app, "v67-08-original-first")
+        try drag(80, 0); try capture(app, "v67-09-original-first-head-right")
+        try drag(-80, 0); try capture(app, "v67-10-original-first-head-left")
+        let fpStart = wheel.coordinate(withNormalizedOffset: .init(dx: 0.45, dy: 0.5))
+        fpStart.press(forDuration: 0.1, thenDragTo: fpStart.withOffset(.init(dx: 0, dy: 60)), withVelocity: .slow, thenHoldForDuration: 0.1)
+        try capture(app, "v67-11-first-wheel")
+        app.buttons["dailyClearance.observeTable"].tap()
+        try capture(app, "v67-12-original-observation")
+        try drag(100, 0); try capture(app, "v67-13-observation-orbit")
+    }
+}
+
+/// Native pilot, reached through the public practice card without a policy launch flag.
+final class CameraV67PilotUITests: XCTestCase {
+    private var originalBoard: [String: [Double]]?
+    private var expectedGrabs = 0
+
+    private func node(_ app: XCUIApplication, _ id: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", id)).firstMatch
+    }
+
+    private func settle(_ app: XCUIApplication) {
+        let probe = node(app, "v63.cameraDiagnostics")
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard let value = probe.value as? String else { return false }
+            return value.contains("twoViewComputing=false") && value.contains("twoViewMoving=false")
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
+    }
+
+    @discardableResult
+    private func capture(_ app: XCUIApplication, _ name: String, input: [String: Any]? = nil) throws -> [String: Any] {
+        settle(app)
+        let raw = try XCTUnwrap(node(app, "v63.cameraDiagnostics").value as? String)
+        let encoded = try XCTUnwrap(raw.split(separator: " ").first { $0.hasPrefix("v67Baseline=") })
+        let data = try XCTUnwrap(Data(base64Encoded: String(encoded.dropFirst("v67Baseline=".count))))
+        var row = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        row["name"] = name
+        row["timestamp"] = Date().timeIntervalSince1970
+        row["input"] = input
+        row["diagnostics"] = raw
+        let rawScene = try XCTUnwrap(node(app, "table.scene").value as? String)
+        row["scene"] = rawScene
+        let scene = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(rawScene.utf8)) as? [String: Any])
+        let balls = try XCTUnwrap(scene["balls"] as? [[String: Any]])
+        let board = try Dictionary(uniqueKeysWithValues: balls.map {
+            (try XCTUnwrap($0["key"] as? String), try XCTUnwrap($0["world"] as? [Double]))
+        })
+        if let originalBoard { XCTAssertEqual(board, originalBoard, "Camera baseline must never move a ball") }
+        else { originalBoard = board }
+        XCTAssertEqual(scene["grabCount"] as? Int, expectedGrabs, "A camera gesture must not grab a ball")
+        row["controls"] = node(app, "dailyLayout.controlsProbe").value as? String
+        row["page"] = node(app, "composer.landscape").label
+        row["business"] = node(app, "composer.landscape").value as? String
+        var frames: [String: [CGFloat]] = [:]
+        for id in ["table.scene", "freeplay.stage", "shotStage.aimWheel", "shotStage.powerBar", "shotCamera.firstPerson", "shotCamera.thirdPerson"] {
+            let element=node(app,id)
+            guard element.exists else { continue } // 2D intentionally omits 3D camera buttons.
+            let f = element.frame
+            frames[id] = [f.minX, f.minY, f.width, f.height]
+        }
+        row["frames"] = frames
+        try attachCapture(row, name: name)
+        return row
+    }
+
+    private func attachCapture(_ row: [String: Any], name: String) throws {
+        let json = XCTAttachment(data: try JSONSerialization.data(withJSONObject: row, options: [.prettyPrinted, .sortedKeys]), uniformTypeIdentifier: "public.json")
+        json.name = name + ".json"; json.lifetime = .keepAlways; add(json)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = name; shot.lifetime = .keepAlways; add(shot)
+    }
+
+    private func launchFormal(traceTouches: Bool = false, lightCapture: Bool = false) throws -> XCUIApplication {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let diagnostics = lightCapture ? [] : ["-dailyLayout.probe", "-3dDrag.probe", "-v63.cameraDiagnostics", "-v67.cameraBaseline"]
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"] + diagnostics)
+        // Each case starts from the real default board, not the previous case's saved edits.
+        app.terminate()
+        app.launchEnvironment["BOARD_MEMORY_TEST_DOMAIN"] = UUID().uuidString
+        if traceTouches, let library = ProcessInfo.processInfo.environment["FRAME_PAN_UIKIT_TRACE_LIBRARY"] {
+            let existing = app.launchEnvironment["DYLD_INSERT_LIBRARIES"]
+            app.launchEnvironment["DYLD_INSERT_LIBRARIES"] = [existing, library].compactMap { $0 }.joined(separator: ":")
+        }
+        app.launch()
+        app.switchTab(.angle)
+        let tab = app.buttons["angleHomeTab_走位"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 5)); tab.tap()
+        let card = app.buttons["分离角与走位"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        card.tap()
+        XCTAssertTrue(node(app, "composer.landscape").waitForExistence(timeout: 15))
+        XCTAssertTrue(node(app, "composer.landscape").label.contains("分离角与走位"))
+        // The route's orientation lock may still rotate after the AX page appears.
+        // Wait for the actual window and menu frame to remain landscape and stable.
+        var stableSince: Date?
+        var previousMenuFrame = CGRect.zero
+        let landscapeReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frame = app.frame
+            let menu = app.buttons["freeplay.moreMenu"]
+            guard frame.width > frame.height, menu.isHittable else { stableSince = nil; return false }
+            let current = menu.frame
+            if current != previousMenuFrame { previousMenuFrame = current; stableSince = nil }
+            if stableSince == nil { stableSince = Date() }
+            return Date().timeIntervalSince(stableSince!) >= 2
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscapeReady], timeout: 15), .completed)
+        app.buttons["freeplay.moreMenu"].tap()
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        if mode.value as? String != "3D" { mode.tap() }
+        closeMenu(app)
+        let third = app.buttons["shotCamera.thirdPerson"]
+        XCTAssertTrue(third.waitForExistence(timeout: 5)); third.tap()
+        return app
+    }
+
+    func testFormalFramePacingTouchPaths() throws {
+        let lightCapture = ProcessInfo.processInfo.environment["FRAME_PAN_LIGHT_CAPTURE"] == "1"
+        let app = try launchFormal(traceTouches: true, lightCapture: lightCapture)
+        defer { app.terminate() }
+        let stage = lightCapture ? app : node(app, "table.scene")
+        let third = app.buttons["shotCamera.thirdPerson"]
+        let page = node(app, "composer.landscape")
+        let anchor = CGVector(dx: 0.34, dy: 0.24)
+        let lightViewport = lightCapture ? app.frame.size : .zero
+        let lightStart = lightCapture ? app.coordinate(withNormalizedOffset: anchor).screenPoint : .zero
+
+        func setAim(_ mode: String) {
+            app.buttons["freeplay.moreMenu"].tap()
+            node(app, "dailyClearance.aimModeMenu").tap()
+            app.buttons["dailyClearance.aim." + mode].tap()
+            closeMenu(app)
+            if lightCapture {
+                XCTAssertTrue((page.value as? String ?? "").contains(mode == "free" ? "自由模式" : "进袋模式"))
+            }
+        }
+        func run(_ name: String, legs: [(CGFloat, CGFloat, Double)], hold: Double, outcome: String) throws {
+            if lightCapture {
+                func captureLight(_ suffix: String, input: [String: Any]? = nil) throws {
+                    let captureName = "v69-" + name + "-" + suffix
+                    var data: [String: Any] = ["name": captureName, "timestamp": Date().timeIntervalSince1970,
+                                               "viewport": [lightViewport.width, lightViewport.height],
+                                               "page": page.label, "business": page.value as? String ?? ""]
+                    data["input"] = input
+                    try attachCapture(data, name: captureName)
+                }
+                try captureLight("before")
+                let touch = try sendFramePacingPath(app, name: name, from: lightStart, viewport: lightViewport, legs: legs, hold: hold)
+                try captureLight("after", input: touch)
+                return
+            }
+            let before = try capture(app, "v69-" + name + "-before")
+            let balls = try XCTUnwrap(try rawScene(app)["balls"] as? [[String: Any]])
+            let points = try balls.map { try XCTUnwrap($0["screen"] as? [Double]) }
+            let frame = stage.frame
+            let clearance = points.map { hypot(anchor.dx * frame.width - $0[0], anchor.dy * frame.height - $0[1]) }
+                .min() ?? .infinity
+            XCTAssertGreaterThan(clearance, 60, "The identical touch path must begin off the balls")
+            let start = stage.coordinate(withNormalizedOffset: anchor).screenPoint
+            let touch = try sendFramePacingPath(app, name: name, from: start, viewport: frame.size, legs: legs, hold: hold)
+            let after = try capture(app, "v69-" + name + "-after", input: touch)
+            let beforeAim = try XCTUnwrap(before["aim"] as? [Double])
+            let afterAim = try XCTUnwrap(after["aim"] as? [Double])
+            let beforeEye = try XCTUnwrap(before["eye"] as? [Double])
+            let afterEye = try XCTUnwrap(after["eye"] as? [Double])
+            XCTAssertEqual(after["playerView"] as? String, "thirdPerson")
+            if outcome == "aim" {
+                XCTAssertNotEqual(beforeAim, afterAim, "Free swipe must visibly change the shot")
+                XCTAssertTrue((after["business"] as? String ?? "").contains("自由模式"))
+            } else {
+                XCTAssertEqual(beforeAim, afterAim, "Pocket observation must keep the shot direction")
+                if outcome == "height" {
+                    XCTAssertGreaterThan(afterEye[1] - beforeEye[1], 0.03, "Downward swipe must raise the camera")
+                } else {
+                    XCTAssertEqual(afterEye[1], beforeEye[1], accuracy: 0.002)
+                    XCTAssertGreaterThan(hypot(afterEye[0] - beforeEye[0], afterEye[2] - beforeEye[2]), 0.02,
+                                         "The injected horizontal path must rotate the camera")
+                }
+            }
+        }
+
+        setAim("pocket")
+        try run("01-pocket-horizontal", legs: [(132, 0, 2.4)], hold: 0.35, outcome: "orbit")
+        third.tap()
+        try run("02-pocket-height", legs: [(0, 74, 2.0)], hold: 0.35, outcome: "height")
+        third.tap()
+        try run("03-pocket-reverse", legs: [(108, 0, 1.4), (-84, 0, 1.1)], hold: 0.35, outcome: "orbit")
+        third.tap()
+        setAim("free")
+        try run("04-free-aim-stop", legs: [(110, 0, 2.0)], hold: 0.75, outcome: "aim")
+    }
+
+    private func sendFramePacingPath(
+        _ app: XCUIApplication, name: String, from screenPoint: CGPoint, viewport: CGSize,
+        legs: [(CGFloat, CGFloat, Double)], hold: Double
+    ) throws -> [String: Any] {
+        // XCTest's public drag helper sends a single segment. Use the same underlying
+        // XCUI synthesizer to keep one contact down through both legs of a reversal.
+        func implementation(_ cls: AnyClass, _ selector: Selector) throws -> IMP {
+            method_getImplementation(try XCTUnwrap(class_getInstanceMethod(cls, selector)))
+        }
+        func allocate(_ cls: AnyClass) throws -> AnyObject {
+            let result = try XCTUnwrap((cls as AnyObject).perform(NSSelectorFromString("alloc")))
+            return result.takeUnretainedValue()
+        }
+        let orientationSelector = NSSelectorFromString("interfaceOrientation")
+        typealias Orientation = @convention(c) (AnyObject, Selector) -> Int
+        let orientation = unsafeBitCast(try implementation(type(of: app), orientationSelector), to: Orientation.self)
+        let interfaceOrientation = orientation(app, orientationSelector)
+        XCTAssertTrue(interfaceOrientation == 3 || interfaceOrientation == 4, "Capture requires a landscape device")
+        let landscapeLeft = interfaceOrientation == 3
+        // Public XCUI actions archive portrait device coordinates even for a landscape app.
+        let start = landscapeLeft ? CGPoint(x: screenPoint.y, y: viewport.height - screenPoint.x)
+            : CGPoint(x: viewport.width - screenPoint.y, y: screenPoint.x)
+        func devicePoint(_ viewPoint: CGPoint) -> CGPoint {
+            landscapeLeft ? CGPoint(x: viewport.height - viewPoint.y, y: viewPoint.x)
+                : CGPoint(x: viewPoint.y, y: viewport.width - viewPoint.x)
+        }
+        let pathClass: AnyClass = try XCTUnwrap(NSClassFromString("XCPointerEventPath"))
+        let pathInit = NSSelectorFromString("initForTouchAtPoint:offset:")
+        typealias InitPath = @convention(c) (AnyObject, Selector, CGPoint, Double) -> Unmanaged<AnyObject>?
+        let newPath = unsafeBitCast(try implementation(pathClass, pathInit), to: InitPath.self)
+        let path = try XCTUnwrap(newPath(try allocate(pathClass), pathInit, screenPoint, 0)).takeRetainedValue()
+        let moveSelector = NSSelectorFromString("moveToPoint:atOffset:")
+        typealias Move = @convention(c) (AnyObject, Selector, CGPoint, Double) -> Void
+        let move = unsafeBitCast(try implementation(pathClass, moveSelector), to: Move.self)
+        let liftSelector = NSSelectorFromString("liftUpAtOffset:")
+        typealias Lift = @convention(c) (AnyObject, Selector, Double) -> Void
+        let lift = unsafeBitCast(try implementation(pathClass, liftSelector), to: Lift.self)
+
+        var time = 0.18
+        var point = start
+        var samples: [[String: Any]] = [["time": 0.0, "x": start.x, "y": start.y, "phase": "down"]]
+        let interval = 1.0 / 60
+        for (dx, dy, duration) in legs {
+            let count = Int((duration / interval).rounded())
+            for step in 1...count {
+                let fraction = Double(step) / Double(count)
+                let position = CGPoint(x: point.x + dx * fraction, y: point.y + dy * fraction)
+                let offset = time + duration * fraction
+                move(path, moveSelector, devicePoint(position), offset)
+                samples.append(["time": offset, "x": position.x, "y": position.y, "phase": "move"])
+            }
+            time += duration
+            point.x += dx
+            point.y += dy
+        }
+        let end = time + hold
+        lift(path, liftSelector, end)
+        samples.append(["time": end, "x": point.x, "y": point.y, "phase": "up"])
+
+        let recordClass: AnyClass = try XCTUnwrap(NSClassFromString("XCSynthesizedEventRecord"))
+        let recordInit = NSSelectorFromString("initWithName:interfaceOrientation:")
+        typealias InitRecord = @convention(c) (AnyObject, Selector, NSString, Int) -> Unmanaged<AnyObject>?
+        let newRecord = unsafeBitCast(try implementation(recordClass, recordInit), to: InitRecord.self)
+        let record = try XCTUnwrap(newRecord(try allocate(recordClass), recordInit, name as NSString, 1))
+            .takeRetainedValue()
+        _ = (record as AnyObject).perform(NSSelectorFromString("addPointerEventPath:"), with: path)
+        let device = XCUIDevice.shared
+        let synthesizer = try XCTUnwrap(device.perform(NSSelectorFromString("eventSynthesizer"))?.takeUnretainedValue())
+        let submitSelector = NSSelectorFromString("synthesizeEvent:completion:")
+        let synthesizerClass: AnyClass = try XCTUnwrap(object_getClass(synthesizer))
+        typealias Completion = @convention(block) (Bool, NSError?) -> Void
+        typealias Submit = @convention(c) (AnyObject, Selector, AnyObject, AnyObject) -> Void
+        let submit = unsafeBitCast(try implementation(synthesizerClass, submitSelector), to: Submit.self)
+        let completed = expectation(description: "Synthesized touch path completed")
+        var succeeded = false
+        var completedAt = 0.0
+        let dispatchTime = Date().timeIntervalSince1970
+        let completion: Completion = { result, error in
+            succeeded = result && error == nil
+            completedAt = Date().timeIntervalSince1970
+            completed.fulfill()
+        }
+        let completionBlock = completion as AnyObject
+        submit(synthesizer, submitSelector, record, completionBlock)
+        withExtendedLifetime(completionBlock) { wait(for: [completed], timeout: 12) }
+        XCTAssertTrue(succeeded, "XCTest must acknowledge the original single-contact event")
+        RunLoop.current.run(until: Date(timeIntervalSince1970: dispatchTime + end + 0.45))
+        return [
+            "kind": "scheduledXCTestTouchPath",
+            "dispatchedAt": dispatchTime,
+            "completedAt": completedAt,
+            "oneContact": true,
+            "interfaceOrientation": interfaceOrientation,
+            "samples": samples
+        ]
+    }
+
+    func testOpeningSaved3DBoardStartsInThirdPersonWithoutCameraTap() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-hasCompletedOnboarding", "YES", "-firstRun.profileFlow.v1", "completed", "-forcePremium"]
+        func openPage() {
+            app.launch()
+            app.switchTab(.angle)
+            app.buttons["angleHomeTab_走位"].tap()
+            app.buttons["分离角与走位"].tap()
+        }
+        openPage()
+        let third = app.buttons["shotCamera.thirdPerson"]
+        if !third.waitForExistence(timeout: 5) { toggleMode(app) }
+        app.terminate()
+        openPage()
+        XCTAssertTrue(third.waitForExistence(timeout: 10))
+        XCTAssertEqual(third.value as? String, "已选中")
+    }
+
+    func testThreeCameraButtonsAndTemporaryTopDownReturn() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-hasCompletedOnboarding", "YES", "-firstRun.profileFlow.v1", "completed",
+                               "-forcePremium", "-dailyLayout.probe"]
+        app.launch()
+        app.switchTab(.angle)
+        app.buttons["angleHomeTab_走位"].tap()
+        app.buttons["分离角与走位"].tap()
+        let third = app.buttons["shotCamera.thirdPerson"]
+        if !third.waitForExistence(timeout: 5) { toggleMode(app) }
+        XCTAssertTrue(third.waitForExistence(timeout: 8))
+        let first = app.buttons["shotCamera.firstPerson"]
+        let peek = app.buttons["shotCamera.temporaryTopDown"]
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        XCTAssertEqual(peek.label, "临时俯视")
+        let step = third.frame.midY - peek.frame.midY
+        XCTAssertGreaterThan(step, 0)
+        XCTAssertEqual(first.frame.midY - third.frame.midY, step, accuracy: 1)
+        let shell = node(app, "shotStage.powerShell")
+        XCTAssertTrue(shell.exists)
+        XCTAssertEqual(first.frame.midY, shell.frame.midY + 1.5 * step, accuracy: 1)
+        for button in [third, first] {
+            button.tap()
+            peek.tap()
+            XCTAssertEqual(peek.value as? String, "已选中")
+            XCTAssertFalse(first.isEnabled)
+            XCTAssertFalse(third.isEnabled)
+            peek.tap()
+            XCTAssertEqual(peek.value as? String, "未选中")
+            XCTAssertEqual(button.value as? String, "已选中")
+            XCTAssertTrue(button.isEnabled)
+        }
+    }
+
+    func testIdleFirstAndThirdButtonsMoveTheRenderedCamera() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-hasCompletedOnboarding", "YES", "-firstRun.profileFlow.v1", "completed",
+                               "-forcePremium", "-3dDrag.probe"]
+        app.launch()
+        app.switchTab(.angle)
+        app.buttons["angleHomeTab_走位"].tap()
+        app.buttons["分离角与走位"].tap()
+        let third = app.buttons["shotCamera.thirdPerson"]
+        if !third.waitForExistence(timeout: 5) { toggleMode(app) }
+        XCTAssertTrue(third.waitForExistence(timeout: 8))
+        let first = app.buttons["shotCamera.firstPerson"]
+
+        func idleCamera(_ label: String) throws -> [Double] {
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                (try? self.rawScene(app)["rendererActive"] as? Bool) == false
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 15), .completed)
+            let state = try rawScene(app)
+            let camera = try XCTUnwrap(state["camera"] as? [Double])
+            XCTAssertEqual(camera.count, 12)
+            try attachCapture(state, name: "idle-switch-" + label)
+            return Array(camera.suffix(3))
+        }
+        third.tap()
+        let original = try idleCamera("third")
+        first.tap()
+        let close = try idleCamera("first")
+        third.tap()
+        let returned = try idleCamera("third-return")
+        func separation(_ a: [Double], _ b: [Double]) -> Double {
+            sqrt(zip(a, b).reduce(0.0) { $0 + pow($1.0 - $1.1, 2) })
+        }
+        XCTAssertGreaterThan(separation(original, close), 0.05)
+        XCTAssertLessThan(separation(original, returned), 0.002)
+    }
+
+    func testFormalSelectionSwitchAndModeSwipes() throws {
+        let app = try launchFormal()
+        defer { app.terminate() }
+        let stage = node(app, "table.scene")
+        let third = app.buttons["shotCamera.thirdPerson"]
+        let first = app.buttons["shotCamera.firstPerson"]
+
+        func ballScreen(_ key: String) throws -> [Double] {
+            let balls = try XCTUnwrap(try rawScene(app)["balls"] as? [[String: Any]])
+            let ball = try XCTUnwrap(balls.first { $0["key"] as? String == key })
+            return try XCTUnwrap(ball["screen"] as? [Double])
+        }
+
+        func localPoint(_ x: Double, _ y: Double) -> XCUICoordinate {
+            stage.coordinate(withNormalizedOffset: .zero).withOffset(.init(dx: x, dy: y))
+        }
+
+        func setAimMode(_ mode: String) {
+            app.buttons["freeplay.moreMenu"].tap()
+            let menu = node(app, "dailyClearance.aimModeMenu")
+            XCTAssertTrue(menu.waitForExistence(timeout: 5))
+            menu.tap()
+            let choice = app.buttons["dailyClearance.aim." + mode]
+            XCTAssertTrue(choice.waitForExistence(timeout: 5))
+            choice.tap()
+            closeMenu(app)
+        }
+
+        // Both cameras use the same real board. Move 8 forward with the normal 2D
+        // drag so it is visible when aimed at either object ball in 3D.
+        toggleMode(app)
+        let setup = try capture(app, "v68-setup-2d")
+        let basis = try XCTUnwrap(setup["planeBasis"] as? [[Double]])
+        let source = try ballScreen("_8")
+        let x = basis[0][0] + 0.55 * (basis[1][0] - basis[0][0]) - 0.24 * (basis[2][0] - basis[0][0])
+        let y = basis[0][1] + 0.55 * (basis[1][1] - basis[0][1]) - 0.24 * (basis[2][1] - basis[0][1])
+        let dx = x - source[0], dy = y - source[1]
+        let length = hypot(dx, dy)
+        XCTAssertGreaterThan(length, 52)
+        localPoint(source[0], source[1]).press(
+            forDuration: 0.2, thenDragTo: localPoint(x + 52 * dx / length, y + 52 * dy / length),
+            withVelocity: .slow, thenHoldForDuration: 0.1
+        )
+        let edited = try rawScene(app)
+        let editedBalls = try XCTUnwrap(edited["balls"] as? [[String: Any]])
+        let editedEight = try XCTUnwrap(editedBalls.first { $0["key"] as? String == "_8" })
+        let world = try XCTUnwrap(editedEight["world"] as? [Double])
+        XCTAssertEqual(world[0], 0.55, accuracy: 0.08)
+        XCTAssertEqual(world[2], -0.24, accuracy: 0.08)
+        expectedGrabs = try XCTUnwrap(edited["grabCount"] as? Int)
+        originalBoard = nil
+        toggleMode(app)
+        third.tap()
+        settle(app)
+        setAimMode("pocket")
+        let aligned = try capture(app, "v68-01-third-pocket-initial")
+
+        @discardableResult
+        func perform(_ name: String, input: [String: Any], _ action: () -> Void) throws -> [String: Any] {
+            var event = input
+            event["startedAt"] = Date().timeIntervalSince1970
+            action()
+            event["returnedAt"] = Date().timeIntervalSince1970
+            return try capture(app, "v68-" + name, input: event)
+        }
+
+        @discardableResult
+        func tapBall(_ key: String, _ name: String) throws -> [String: Any] {
+            let screen = try ballScreen(key)
+            let frame = stage.frame
+            XCTAssertTrue(CGRect(origin: .zero, size: frame.size).insetBy(dx: 65, dy: 26)
+                .contains(CGPoint(x: screen[0], y: screen[1])), "Fixture ball must be on the visible table")
+            let target = localPoint(screen[0], screen[1])
+            return try perform(name, input: ["kind": "tableBallTap", "ball": key, "point": Array(screen.prefix(2))]) {
+                target.tap()
+            }
+        }
+
+        @discardableResult
+        func swipe(_ dx: CGFloat, _ name: String) throws -> [String: Any] {
+            let balls = try XCTUnwrap(try rawScene(app)["balls"] as? [[String: Any]])
+            let points = try balls.map { try XCTUnwrap($0["screen"] as? [Double]) }
+            let frame = stage.frame
+            let candidates = [CGPoint(x: 0.35, y: 0.23), CGPoint(x: 0.65, y: 0.23),
+                              CGPoint(x: 0.35, y: 0.36), CGPoint(x: 0.65, y: 0.36)]
+            func clearance(_ point: CGPoint) -> CGFloat {
+                points.map { hypot(point.x * frame.width - $0[0], point.y * frame.height - $0[1]) }
+                    .min() ?? .infinity
+            }
+            let point = try XCTUnwrap(candidates.max { clearance($0) < clearance($1) })
+            XCTAssertGreaterThan(clearance(point), 60, "Swipe must start outside the ball pickup zone")
+            let start = stage.coordinate(withNormalizedOffset: .init(dx: point.x, dy: point.y))
+            let end = start.withOffset(.init(dx: dx, dy: 0))
+            return try perform(name, input: ["kind": "tableSwipe", "point": [point.x * frame.width, point.y * frame.height],
+                                      "delta": [dx, 0]]) {
+                start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+            }
+        }
+
+        let side = try swipe(85, "02-third-pocket-side")
+        let reselected = try tapBall("_1", "03-side-reselect-same")
+        func observationYaw(_ row: [String: Any]) throws -> Double {
+            let camera = try XCTUnwrap(row["p01"] as? [String: Any])
+            let state = try XCTUnwrap(camera["state"] as? [String: Any])
+            return try XCTUnwrap(state["observationYaw"] as? Double)
+        }
+        XCTAssertGreaterThan(abs(try observationYaw(side)), 0.01)
+        XCTAssertEqual(try observationYaw(reselected), 0, accuracy: 0.001)
+        XCTAssertEqual(reselected["aim"] as? [Double], aligned["aim"] as? [Double])
+        XCTAssertEqual(reselected["business"] as? String, aligned["business"] as? String)
+        try swipe(85, "04-third-pocket-side-again")
+        try tapBall("_8", "05-side-select-other")
+        try perform("06-third-align", input: ["kind": "cameraButton", "view": "thirdPerson"]) { third.tap() }
+        try tapBall("_1", "07-aligned-select-other")
+        try perform("08-switch-to-first", input: ["kind": "cameraButton", "view": "firstPerson"]) { first.tap() }
+        let beforeSwipe = try capture(app, "first-pocket-before-manual-aim")
+        XCTAssertTrue((beforeSwipe["business"] as? String ?? "").contains("进袋"))
+        try swipe(80, "09-first-pocket-swipe")
+        let afterSwipe = try capture(app, "first-pocket-after-manual-aim")
+        XCTAssertEqual(afterSwipe["playerView"] as? String, "firstPerson")
+        XCTAssertTrue((afterSwipe["business"] as? String ?? "").contains("自由"))
+        XCTAssertNotEqual(try XCTUnwrap(beforeSwipe["aim"] as? [Double]), try XCTUnwrap(afterSwipe["aim"] as? [Double]))
+        try perform("10-switch-to-third", input: ["kind": "cameraButton", "view": "thirdPerson"]) { third.tap() }
+        try perform("11-third-free-initial", input: ["kind": "aimModeMenu", "mode": "free"]) { setAimMode("free") }
+        try swipe(85, "12-third-free-swipe")
+        try perform("13-free-switch-to-first", input: ["kind": "cameraButton", "view": "firstPerson"]) { first.tap() }
+        try swipe(80, "14-first-free-swipe")
+        try perform("15-free-switch-to-third", input: ["kind": "cameraButton", "view": "thirdPerson"]) { third.tap() }
+    }
+
+    func testFormalP01PilotInputsAndRestoration() throws {
+        let app=try launchFormal();defer { app.terminate() }
+        let third=app.buttons["shotCamera.thirdPerson"]
+        let base = try capture(app, "v67-pilot-01-new-third")
+        XCTAssertEqual(base["surface"] as? Bool, false)
+        XCTAssertEqual(base["policy"] as? String, "p01Replayable")
+        XCTAssertEqual(base["orthographic"] as? Bool, false)
+        let stage = node(app, "table.scene")
+        // Choose a measured empty point outside the production 48pt ball-grab zone.
+        func drag(_ dx: CGFloat, _ dy: CGFloat) throws {
+            let raw = try XCTUnwrap(stage.value as? String)
+            let scene = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+            let balls = try XCTUnwrap(scene["balls"] as? [[String: Any]])
+            let projected = try balls.map { try XCTUnwrap($0["screen"] as? [Double]) }
+            let candidates = [CGPoint(x: 0.35, y: 0.22), CGPoint(x: 0.65, y: 0.22),
+                              CGPoint(x: 0.35, y: 0.35), CGPoint(x: 0.65, y: 0.35)]
+            // One native frame read per gesture. Re-querying AX inside the comparator
+            // floods iOS 17 XCTest logging and can crash its injected runtime callback.
+            let stageFrame=stage.frame
+            func clearance(_ p: CGPoint) -> CGFloat {
+                projected.map { hypot(p.x * stageFrame.width - $0[0], p.y * stageFrame.height - $0[1]) }.min() ?? .infinity
+            }
+            let point = try XCTUnwrap(candidates.max { clearance($0) < clearance($1) })
+            XCTAssertGreaterThan(clearance(point), 60)
+            let start = stage.coordinate(withNormalizedOffset: .init(dx: point.x, dy: point.y))
+            start.press(forDuration: 0.1, thenDragTo: start.withOffset(.init(dx: dx, dy: dy)), withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
+        try drag(100, 0); let observed = try capture(app, "v67-pilot-02-new-orbit-right")
+        XCTAssertEqual(base["aim"] as? [Double], observed["aim"] as? [Double])
+        XCTAssertEqual(base["business"] as? String, observed["business"] as? String)
+        XCTAssertNotEqual(base["eye"] as? [Double], observed["eye"] as? [Double])
+        try drag(-100, 0); try capture(app, "v67-pilot-03-new-orbit-return")
+        try drag(0, -60); try capture(app, "v67-pilot-04-new-drag-up")
+        try drag(0, 60); try capture(app, "v67-pilot-05-new-drag-down")
+        third.tap(); try capture(app, "v67-pilot-06-third-reset")
+        let wheel = node(app, "shotStage.aimWheel")
+        let wheelStart = wheel.coordinate(withNormalizedOffset: .init(dx: 0.55, dy: 0.5))
+        wheelStart.press(forDuration: 0.1, thenDragTo: wheelStart.withOffset(.init(dx: 0, dy: -60)), withVelocity: .slow, thenHoldForDuration: 0.1)
+        let wheelState = try capture(app, "v67-pilot-07-third-wheel")
+        XCTAssertTrue((wheelState["business"] as? String ?? "").contains("自由"))
+        XCTAssertFalse((wheelState["diagnostics"] as? String ?? "").contains("twoViewCameraBusy=true"))
+        XCTAssertNotEqual(base["aim"] as? [Double], wheelState["aim"] as? [Double], "The direction ruler must actually change the shaft direction")
+        app.buttons["shotCamera.firstPerson"].tap()
+        let first = try capture(app, "v67-pilot-08-new-first")
+        XCTAssertTrue((first["business"] as? String ?? "").contains("自由"))
+        try drag(80, 0); let right = try capture(app, "v67-pilot-09-new-first-head-right")
+        XCTAssertEqual(right["playerView"] as? String, "firstPerson")
+        XCTAssertTrue((right["business"] as? String ?? "").contains("自由"))
+        let firstAim = try XCTUnwrap(first["aim"] as? [Double])
+        let rightAim = try XCTUnwrap(right["aim"] as? [Double])
+        XCTAssertNotEqual(firstAim, rightAim, "In free aim, a first-person table swipe must change the shaft direction")
+        try drag(-80, 0); let returned = try capture(app, "v67-pilot-10-new-first-head-left")
+        XCTAssertEqual(returned["playerView"] as? String, "firstPerson")
+        XCTAssertTrue((returned["business"] as? String ?? "").contains("自由"))
+        XCTAssertNotEqual(rightAim, try XCTUnwrap(returned["aim"] as? [Double]))
+        let fpStart = wheel.coordinate(withNormalizedOffset: .init(dx: 0.45, dy: 0.5))
+        fpStart.press(forDuration: 0.1, thenDragTo: fpStart.withOffset(.init(dx: 0, dy: 60)), withVelocity: .slow, thenHoldForDuration: 0.1)
+        try capture(app, "v67-pilot-11-first-wheel")
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        let beforeOverlay = try capture(app, "v67-pilot-before-peek")
+        let overlay = app.buttons["shotCamera.temporaryTopDown"]
+        overlay.tap(); XCTAssertEqual(overlay.value as? String, "已选中")
+        overlay.tap()
+        let afterOverlay = try capture(app, "v67-pilot-14-overlay-return")
+        XCTAssertEqual(beforeOverlay["eye"] as? [Double],afterOverlay["eye"] as? [Double])
+        XCTAssertEqual(beforeOverlay["orientationXYZW"] as? [Double],afterOverlay["orientationXYZW"] as? [Double])
+        toggleMode(app); toggleMode(app)
+        let after2D = try capture(app, "v67-pilot-15-2d-return")
+        XCTAssertEqual(beforeOverlay["eye"] as? [Double],after2D["eye"] as? [Double])
+        XCTAssertEqual(after2D["orthographic"] as? Bool,false)
+        let resumeWheel = wheel.coordinate(withNormalizedOffset: .init(dx:0.5,dy:0.5))
+        resumeWheel.press(forDuration:0.1,thenDragTo:resumeWheel.withOffset(.init(dx:0,dy:-35)),withVelocity:.slow,thenHoldForDuration:0.1)
+        let resumed = try capture(app,"v67-pilot-16-resumed-aim")
+        XCTAssertEqual(resumed["playerView"] as? String,"firstPerson")
+        XCTAssertTrue((resumed["business"] as? String ?? "").contains("自由"))
+    }
+    private func closeMenu(_ app: XCUIApplication) {
+        let identified=app.buttons["dailyClearance.menuClose"]
+        let close=identified.exists ? identified : app.buttons["关闭菜单"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout:3))
+        // Do not tap the backdrop element's centre: XCTest's iOS 17 modal
+        // interruption handling can retarget that tap to a ball after dismissal.
+        // Use the window's empty top strip, outside the measured menu and palette.
+        func selection() -> [String] {
+            ((node(app,"composer.landscape").value as? String) ?? "").split(separator:"，").prefix(4).map(String.init)
+        }
+        let businessBefore=selection()
+        XCTAssertEqual(businessBefore.count,4)
+        if ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 17 {
+            app.coordinate(withNormalizedOffset:.init(dx:0.30,dy:0.04)).tap()
+        } else { close.tap() }
+        let dismissed=XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
+            !app.buttons["freeplay.cameraMode"].exists
+        },object:nil)
+        XCTAssertEqual(XCTWaiter.wait(for:[dismissed],timeout:5),.completed)
+        XCTAssertEqual(selection(),businessBefore,
+            "Dismissing the menu must not select a ball or change aim mode")
+    }
+    private func toggleMode(_ app: XCUIApplication) {
+        app.buttons["freeplay.moreMenu"].tap()
+        let mode=app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout:5))
+        let previous=mode.value as? String
+        mode.tap()
+        XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
+            (mode.value as? String) == (previous == "3D" ? "2D" : "3D")
+        },object:nil)],timeout:5),.completed)
+        closeMenu(app)
+    }
+    private func rawScene(_ app: XCUIApplication) throws -> [String:Any] {
+        let raw=try XCTUnwrap(node(app,"table.scene").value as? String)
+        return try XCTUnwrap(JSONSerialization.jsonObject(with:Data(raw.utf8)) as? [String:Any])
+    }
+    func testFormalRailPositionsPinchAndTabletRotation() throws {
+        let app=try launchFormal();defer { app.terminate() }
+        let table=node(app,"table.scene")
+        for (index,position) in [[0.0,0.55],[1.18,0], [1.18,0.55],[-1.18,-0.55]].enumerated() {
+            toggleMode(app)
+            let before=try capture(app,"v67-rail-\(index)-before-edit")
+            let basis=try XCTUnwrap(before["planeBasis"] as? [[Double]])
+            let balls=try XCTUnwrap(try rawScene(app)["balls"] as? [[String:Any]])
+            let cue=try XCTUnwrap(balls.first { $0["key"] as? String == "cueBall" })
+            let screen=try XCTUnwrap(cue["screen"] as? [Double])
+            let x=basis[0][0]+position[0]*(basis[1][0]-basis[0][0])+position[1]*(basis[2][0]-basis[0][0])
+            let y=basis[0][1]+position[0]*(basis[1][1]-basis[0][1])+position[1]*(basis[2][1]-basis[0][1])
+            // Production 2D dragging keeps the ball 52pt behind the finger
+            // (BTBallDragMetrics.fingerClearance); the intended ball point is not the finger endpoint.
+            let dx=x-screen[0],dy=y-screen[1],length=hypot(dx,dy)
+            XCTAssertGreaterThan(length,1)
+            let fingerX=x+52*dx/length,fingerY=y+52*dy/length
+            let origin=table.coordinate(withNormalizedOffset:.zero)
+            origin.withOffset(.init(dx:screen[0],dy:screen[1])).press(forDuration:0.2,
+                thenDragTo:origin.withOffset(.init(dx:fingerX,dy:fingerY)),withVelocity:.slow,thenHoldForDuration:0.1)
+            let edited=try rawScene(app)
+            let editedBalls=try XCTUnwrap(edited["balls"] as? [[String:Any]])
+            let editedCue=try XCTUnwrap(editedBalls.first { $0["key"] as? String == "cueBall" })
+            let world=try XCTUnwrap(editedCue["world"] as? [Double])
+            XCTAssertEqual(world[0],position[0],accuracy:0.08);XCTAssertEqual(world[2],position[1],accuracy:0.08)
+            XCTAssertGreaterThan(try XCTUnwrap(edited["grabCount"] as? Int),expectedGrabs)
+            expectedGrabs=try XCTUnwrap(edited["grabCount"] as? Int);originalBoard=nil
+            toggleMode(app)
+            app.buttons["shotCamera.thirdPerson"].tap()
+            let tp=try capture(app,"v67-rail-\(index)-third")
+            table.pinch(withScale:1.15,velocity:1)
+            let close=try capture(app,"v67-rail-\(index)-closer")
+            XCTAssertNotEqual(tp["eye"] as? [Double],close["eye"] as? [Double])
+            XCTAssertEqual(try XCTUnwrap(tp["eye"] as? [Double])[1],try XCTUnwrap(close["eye"] as? [Double])[1],accuracy:0.0001)
+            app.buttons["shotCamera.firstPerson"].tap()
+            let fp=try capture(app,"v67-rail-\(index)-first")
+            XCTAssertEqual(fp["playerView"] as? String,"firstPerson")
+            XCTAssertEqual(fp["policy"] as? String,"p01Replayable")
+            table.pinch(withScale:1.1,velocity:1)
+            let fpPinch=try capture(app,"v67-rail-\(index)-first-pinch")
+            XCTAssertEqual(fp["eye"] as? [Double],fpPinch["eye"] as? [Double])
+            XCTAssertEqual(fp["fov"] as? Double,fpPinch["fov"] as? Double)
+            let wheel=node(app,"shotStage.aimWheel"),p=node(app,"shotStage.aimWheel").coordinate(withNormalizedOffset:.init(dx:0.5,dy:0.5))
+            XCTAssertTrue(wheel.isEnabled)
+            p.press(forDuration:0.1,thenDragTo:p.withOffset(.init(dx:0,dy:-20)),withVelocity:.slow,thenHoldForDuration:0.1)
+            let manual=try capture(app,"v67-rail-\(index)-manual")
+            XCTAssertTrue((manual["business"] as? String ?? "").contains("自由"))
+            if index == 0 {
+                app.buttons["shotCamera.thirdPerson"].tap();settle(app)
+                let rows=try XCTUnwrap(try rawScene(app)["balls"] as? [[String:Any]])
+                let ball=try XCTUnwrap(rows.first { $0["key"] as? String == "cueBall" })
+                let screen=try XCTUnwrap(ball["screen"] as? [Double])
+                let p=table.coordinate(withNormalizedOffset:.zero).withOffset(.init(dx:screen[0],dy:screen[1]))
+                p.press(forDuration:0.2,thenDragTo:p.withOffset(.init(dx:100,dy:-70)),withVelocity:.slow,thenHoldForDuration:0.1)
+                let changed=try rawScene(app)
+                let changedBalls=try XCTUnwrap(changed["balls"] as? [[String:Any]])
+                let changedCue=try XCTUnwrap(changedBalls.first { $0["key"] as? String == "cueBall" })
+                XCTAssertNotEqual(ball["world"] as? [Double],changedCue["world"] as? [Double],"Drag must cross the existing finger dead zone and actually move the cue")
+                XCTAssertGreaterThan(try XCTUnwrap(changed["grabCount"] as? Int),expectedGrabs)
+                expectedGrabs=try XCTUnwrap(changed["grabCount"] as? Int);originalBoard=nil
+                try capture(app,"v67-rail-legitimate-3d-drag")
+            }
+        }
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            for orientation in [UIDeviceOrientation.portrait,.landscapeLeft] {
+                XCUIDevice.shared.orientation=orientation
+                let ready=XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
+                    let f=app.windows.firstMatch.frame
+                    return orientation == .portrait ? f.height>f.width : f.width>f.height
+                },object:nil)
+                XCTAssertEqual(XCTWaiter.wait(for:[ready],timeout:10),.completed)
+                app.buttons["shotCamera.thirdPerson"].tap()
+                try capture(app,"v67-tablet-\(orientation.rawValue)-third")
+                app.buttons["shotCamera.firstPerson"].tap()
+                try capture(app,"v67-tablet-\(orientation.rawValue)-first")
+                let peek = app.buttons["shotCamera.temporaryTopDown"]
+                peek.tap()
+                XCTAssertEqual(peek.value as? String, "已选中")
+                peek.tap()
+                try capture(app,"v67-tablet-\(orientation.rawValue)-first-restored")
+            }
+        }
+    }
+    func testFormalShotRetryPlaybackAndBackground() throws {
+        let app=try launchFormal();defer { app.terminate() }
+        app.buttons["shotCamera.firstPerson"].tap()
+        let before=try capture(app,"v67-lifecycle-before-shot")
+        let strike=app.buttons["dailyClearance.strike"]
+        func enabled(_ element:XCUIElement,_ timeout:TimeInterval=45) {
+            XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate(format:"enabled == true"),object:element)],timeout:timeout),.completed)
+        }
+        enabled(strike);strike.tap();enabled(app.buttons["dailyClearance.undo"])
+        originalBoard=nil
+        let after=try capture(app,"v67-lifecycle-settled")
+        enabled(app.buttons["dailyClearance.playback"]);app.buttons["dailyClearance.playback"].tap()
+        enabled(app.buttons["dailyClearance.undo"])
+        // Replay restores Float world positions; permit only sub-micrometre conversion noise.
+        // The observation-only series above still requires exact ball equality.
+        originalBoard=nil
+        let replayed=try capture(app,"v67-lifecycle-replay-return")
+        func positions(_ row:[String:Any]) throws -> [String:[Double]] {
+            let data=Data(try XCTUnwrap(row["scene"] as? String).utf8)
+            let scene=try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])
+            let balls=try XCTUnwrap(scene["balls"] as? [[String:Any]])
+            return try Dictionary(uniqueKeysWithValues:balls.map { (try XCTUnwrap($0["key"] as? String),try XCTUnwrap($0["world"] as? [Double])) })
+        }
+        let expected=try positions(after),actual=try positions(replayed)
+        XCTAssertEqual(Set(expected.keys),Set(actual.keys))
+        for (key,point) in expected {
+            let restored=try XCTUnwrap(actual[key]);XCTAssertEqual(restored.count,point.count)
+            for (a,b) in zip(point,restored) { XCTAssertEqual(a,b,accuracy:0.000001) }
+        }
+        XCTAssertEqual(after["eye"] as? [Double],replayed["eye"] as? [Double])
+        app.buttons["dailyClearance.undo"].tap();originalBoard=nil
+        let retried=try capture(app,"v67-lifecycle-retry")
+        XCTAssertEqual(before["aim"] as? [Double],retried["aim"] as? [Double])
+        let prior=try rawScene(app)
+        XCUIDevice.shared.press(.home);app.activate()
+        let foreground=try capture(app,"v67-lifecycle-foreground")
+        // Native scene reattachment can renormalize Float poses by one ULP.
+        // 1 micrometre still rejects the recorded 1.4–3mm restoration regressions.
+        for key in ["eye","aim","orientationXYZW"] {
+            let expected=try XCTUnwrap(retried[key] as? [Double])
+            let actual=try XCTUnwrap(foreground[key] as? [Double])
+            XCTAssertEqual(actual.count,expected.count)
+            for (a,b) in zip(expected,actual) { XCTAssertEqual(a,b,accuracy:0.000001,"Foreground must preserve \(key)") }
+        }
+        XCTAssertEqual(try XCTUnwrap(retried["fov"] as? Double),try XCTUnwrap(foreground["fov"] as? Double),accuracy:0.00001)
+        XCTAssertEqual(try rawScene(app)["rendererID"] as? String,prior["rendererID"] as? String)
+        app.buttons["dailyClearance.back"].tap()
+        XCTAssertTrue(app.buttons["angleHomeTab_走位"].waitForExistence(timeout:8))
+    }
+
+    func testFormalTabletActualWindowResize() throws {
+        XCTAssertEqual(UIDevice.current.userInterfaceIdiom,.pad)
+        let app=try launchFormal();defer { app.terminate() }
+        let original=app.windows.firstMatch.frame
+        let before=try capture(app,"v67-window-full")
+        let origin=app.coordinate(withNormalizedOffset:.zero)
+        origin.withOffset(.init(dx:original.width-7,dy:original.height-7)).press(forDuration:0.5,
+            thenDragTo:origin.withOffset(.init(dx:original.width*0.7,dy:original.height*0.78)))
+        let resized=XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in app.windows.firstMatch.frame.width<original.width-80 },object:nil)
+        XCTAssertEqual(XCTWaiter.wait(for:[resized],timeout:10),.completed)
+        let small=try capture(app,"v67-window-small")
+        XCTAssertEqual(before["aim"] as? [Double],small["aim"] as? [Double])
+        XCTAssertEqual(small["policy"] as? String,"p01Replayable")
+        let window=app.windows.firstMatch,f=app.windows.firstMatch.frame
+        window.coordinate(withNormalizedOffset:.zero).withOffset(.init(dx:52,dy:32)).tap()
+        if abs(app.windows.firstMatch.frame.width-f.width)<1 {
+            window.coordinate(withNormalizedOffset:.zero).withOffset(.init(dx:104,dy:32)).tap()
+        }
+        let restored=XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in abs(app.windows.firstMatch.frame.width-original.width)<1 },object:nil)
+        XCTAssertEqual(XCTWaiter.wait(for:[restored],timeout:10),.completed)
+        let after=try capture(app,"v67-window-restored")
+        XCTAssertEqual(before["aim"] as? [Double],after["aim"] as? [Double])
+        XCTAssertEqual(after["playerView"] as? String,"thirdPerson")
+        XCTAssertTrue(app.buttons["shotCamera.firstPerson"].isHittable)
+    }
+
+}
+
+/// Camera isolation only; unrelated authoring/menu workflows retain their own suites.
+final class CameraV67LegacyIsolationUITests: XCTestCase {
+    private func verify(_ argument:String,_ prefix:String) throws {
+        continueAfterFailure=false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app=XCUIApplication.launchClean(extraArgs:["-forcePremium","-dailyLayout.probe","-3dDrag.probe","-v63.cameraDiagnostics","-v67.cameraBaseline",argument])
+        defer { app.terminate() }
+        let page=app.descendants(matching:.any).matching(identifier:"composer.landscape").firstMatch
+        XCTAssertTrue(page.waitForExistence(timeout:25))
+        let brief=app.descendants(matching:.any).matching(identifier:"tryout.briefCard").firstMatch
+        if brief.exists { brief.tap() }
+        let menu=app.buttons["freeplay.moreMenu"]
+        XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in app.frame.width>app.frame.height && menu.isHittable },object:nil)],timeout:10),.completed)
+        menu.tap();let mode=app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout:4));if mode.value as? String != "3D" { mode.tap() }
+        app.buttons["关闭菜单"].firstMatch.tap()
+        let probe=app.descendants(matching:.any).matching(identifier:"v63.cameraDiagnostics").firstMatch
+        func capture(_ suffix:String) throws -> [String:Any] {
+            XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
+                guard let value=probe.value as? String else { return false }
+                return value.contains("twoViewComputing=false") && value.contains("twoViewMoving=false")
+            },object:nil)],timeout:15),.completed)
+            let raw=try XCTUnwrap(probe.value as? String)
+            let token=try XCTUnwrap(raw.split(separator:" ").first { $0.hasPrefix("v67Baseline=") })
+            let data=try XCTUnwrap(Data(base64Encoded:String(token.dropFirst("v67Baseline=".count))))
+            let row=try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])
+            XCTAssertEqual(row["policy"] as? String,"legacy");XCTAssertEqual(row["surface"] as? Bool,true)
+            XCTAssertNil(row["p01"]);XCTAssertEqual(row["orthographic"] as? Bool,false)
+            let json=XCTAttachment(data:data,uniformTypeIdentifier:"public.json");json.name=prefix+suffix+".json";json.lifetime = .keepAlways;add(json)
+            let shot=XCTAttachment(screenshot:XCUIScreen.main.screenshot());shot.name=prefix+suffix;shot.lifetime = .keepAlways;add(shot)
+            return row
+        }
+        for id in ["shotCamera.firstPerson","shotCamera.thirdPerson","dailyClearance.observeTable"] {
+            let button=app.buttons[id];XCTAssertTrue(button.waitForExistence(timeout:5));button.tap();_ = try capture("-"+id)
+        }
+        let before=try capture("-before-overlay")
+        let overlay=app.buttons["shotCamera.temporaryTopDown"];overlay.tap();overlay.tap()
+        let after=try capture("-after-overlay")
+        XCTAssertEqual(before["eye"] as? [Double],after["eye"] as? [Double])
+        XCTAssertEqual(before["orientationXYZW"] as? [Double],after["orientationXYZW"] as? [Double])
+    }
+    func testCustomComposerKeepsLegacyCamera() throws { try verify("-dailyInteraction.sharedPage=composer","v67-legacy-custom") }
+    func testActionTryoutKeepsLegacyCamera() throws { try verify("-deeplink.tryout=drill_c042","v67-legacy-tryout") }
 }

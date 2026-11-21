@@ -941,7 +941,10 @@ final class ControlLayoutPlacementUITests: XCTestCase {
                     XCTAssertTrue((ready("silu.layoutState").value as? String ?? "").contains("tool=region"))
                 }
                 if mode == "3D" {
-                    for (semantic, actual) in [("overview", "dailyClearance.observeTable"), ("thirdPerson", "shotCamera.thirdPerson"), ("firstPerson", "shotCamera.firstPerson")] where controlIDs.contains("freeLayout.select.camera." + semantic) {
+                    let cameras = [("thirdPerson", "shotCamera.thirdPerson"), ("firstPerson", "shotCamera.firstPerson"),
+                                   ("temporaryTopDown", "shotCamera.temporaryTopDown")]
+                    XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+                    for (semantic, actual) in cameras where controlIDs.contains("freeLayout.select.camera." + semantic) {
                         ready(actual).tap()
                         waitUntil("relocated camera action " + semantic) { self.element(actual).value as? String == "已选中" }
                     }

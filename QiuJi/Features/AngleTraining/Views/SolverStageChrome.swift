@@ -13,6 +13,7 @@ protocol SolverStageHosting: TeachingTableHost {
     var observationPocket: Int? { get }
     var mode: BankKickPageMode { get }
     var isSolving: Bool { get }
+    var isDragging: Bool { get }
     var isAdjustingSolution: Bool { get }
     var statusText: String { get }
     var tableStatusText: String? { get }
@@ -88,6 +89,39 @@ extension SolverStageHosting {
         let length = sqrtf(dx * dx + dz * dz)
         return length > 0.0001 ? SCNVector3(dx / length, 0, dz / length) : nil
     }
+    var permitsFirstPersonAddress: Bool { observationAim != nil && scene.cueStick?.rootNode.isHidden == false }
+
+    func presentP01SolverSelection(preservingObservation: Bool = false, update: () -> Void) {
+        guard cameraMode == .perspective3D, !temporaryTopDownActive,
+              let rig = scene.cameraRig, rig.p01AnchoredTransitions else {
+            update()
+            return
+        }
+        _ = rig.updateP01TargetCue(resolved: true, align: true,
+            preservePose: rig.preservesP01SideView || (preservingObservation && rig.twoViewOwnerIsManual),
+            animated: !UIAccessibility.isReduceMotionEnabled, update: update)
+    }
+    var canNudgeP01FreeAim: Bool {
+        mode == .free && !isPlaying && !isDragging && !cameraTransitionBusy && !temporaryTopDownActive
+            && cameraMode == .perspective3D && scene.cameraRig?.p01AnchoredTransitions == true
+            && scene.cameraRig?.overviewControlSelected == false
+    }
+
+    func nudgeP01FreeAim(byDegrees delta: Float) {
+        guard mode == .free, !isPlaying, !isDragging, !temporaryTopDownActive, delta.isFinite, delta != 0 else { return }
+        guard cameraMode == .perspective3D, let rig = scene.cameraRig, rig.p01AnchoredTransitions,
+              let cue = scene.cueBallNode, !cue.isHidden, let base = currentPlayerAim else {
+            nudgeFreeAim(byDegrees: delta)
+            return
+        }
+        let aim = AngleSceneCalculator.rotatedAim(base, byDegrees: delta)
+        rig.followP01TableAim(cue: cue.position, aim: aim, fallbackStrike: {
+            CueStroke.strikePosition(cue: cue.position, aim: aim, spinX: spinX, spinY: spinY)
+        }) {
+            nudgeFreeAim(byDegrees: delta)
+        }
+    }
+
     var onTableKeys: [String] {
         PositionPlayBall.allKeys.filter { scene.allBallNodes[$0]?.isHidden == false }
     }
@@ -214,7 +248,8 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             hides3DAssists: Binding(get: { hides3DAssists }, set: { tablePreferences.apply(.shows3DTrajectory, value: $0 ? 0 : 1, to: preferencePage) }),
             velocityRange: Double(CushionReflectionSettings.minPower)...Double(CushionReflectionSettings.maxPower),
             instrumentsEnabled: !vm.isPlaying && (!vm.isSolving || vm.isAdjustingSolution), showsSpinSlot: free || vm.solutionCount > 0,
-            isAnimating: vm.isPlaying || vm.isSolving, paletteEnabled: !vm.isPlaying,
+            isAnimating: vm.isPlaying || vm.isSolving, allowsObservationWhileAnimating: vm.isTeachingShotRolling,
+            paletteEnabled: !vm.isPlaying,
             allowsPocketSelection: onPocketTapped != nil,
             primaryTitle: free ? (vm.isPlaying ? "击球中" : "击球") : vm.primaryActionTitle,
             primaryEnabled: free ? vm.canFreeStrike : vm.canStrike,
@@ -230,6 +265,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             layoutEditingBlocked: showInfo,
             onAimNudged: free && !is3D ? { vm.nudgeFreeAim(byDegrees: $0) } : nil,
             onAimDragActiveChanged: { vm.setAimTableDragging($0) },
+            resolveP01AimPan: { showInfo || !vm.canNudgeP01FreeAim ? nil : { vm.nudgeP01FreeAim(byDegrees: $0) } },
             showsAimCloseupSetting: preferencePage != .diamondSystem,
             showsSeparationSetting: preferencePage != .diamondSystem,
             closeupSnapshot: preferencePage == .diamondSystem ? nil : vm.closeupSnapshot,
@@ -239,9 +275,9 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             })
     }
     private var solverMenuItems: [DailyHUDMenuItem] {
-        var items: [DailyHUDMenuItem] = [.init(id: "solver.info", title: "原理说明", disclosure: true, action: { showInfo = true })]
+        var items: [DailyHUDMenuItem] = [.init(id: "solver.info", group: .help, title: "原理说明", disclosure: true, action: { showInfo = true })]
         if free {
-            items.append(.init(id: "solver.restore", title: "恢复球形", disabled: vm.isPlaying || !vm.canRestoreSnapshot,
+            items.append(.init(id: "solver.restore", group: .formation, title: "恢复球形", disabled: vm.isPlaying || !vm.canRestoreSnapshot,
                 action: { vm.restoreSolveSnapshot() }))
         }
         return items
@@ -269,7 +305,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             .freeControlItem("solver.mode", name: "求解或自由")
             if free {
                 BTTeachingAimRuler(layout: metrics, enabled: !vm.isPlaying && !vm.temporaryTopDownActive,
-                    onNudge: { vm.nudgeFreeAim(byDegrees: $0) }, degreesPerPoint: vm.aimWheelDegreesPerPoint,
+                    onNudge: { vm.nudgeP01FreeAim(byDegrees: $0) }, degreesPerPoint: vm.aimWheelDegreesPerPoint,
                     onDragActiveChanged: { vm.setAimWheelDragging($0) })
             } else {
                 BTTeachingAimRulerSpace(layout: metrics)

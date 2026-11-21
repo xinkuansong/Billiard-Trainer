@@ -77,12 +77,85 @@ final class AngleSceneViewPanArbitrationTests: XCTestCase {
         XCTAssertTrue(coordinator.gestureRecognizerShouldBegin(other))
         XCTAssertFalse(coordinator.gestureRecognizer(other, shouldBeRequiredToFailBy: pager.panGestureRecognizer))
     }
+
+    func testPanWakeResumesAPausedLinkAndSkipsPacingWhileActive() {
+        let scene = AngleTrainingScene()
+        let coordinator = AngleSceneView.Coordinator(scene: scene, cameraMode: .perspective3D, interactionMode: .cameraControl)
+        let frame = CGRect(x: 0, y: 0, width: 320, height: 160)
+        let view = SCNView(frame: frame)
+        let window = UIWindow(frame: frame)
+        coordinator.scnView = view
+        coordinator.startRenderLoop()
+        defer { coordinator.stopRenderLoop() }
+
+        coordinator.requestInteractiveFrames()
+        XCTAssertTrue(coordinator.isDisplayLinkPaused)
+        window.addSubview(view)
+        coordinator.requestInteractiveFrames(wakeOnly: true)
+        XCTAssertFalse(coordinator.isDisplayLinkPaused, "The first sample must wake a paused link")
+
+        view.rendersContinuously = true
+        let previousDeadline = coordinator.interactiveUntil
+        coordinator.requestInteractiveFrames(wakeOnly: true)
+        XCTAssertGreaterThanOrEqual(coordinator.interactiveUntil, previousDeadline)
+        XCTAssertTrue(view.rendersContinuously, "An active touch updates its deadline without reconciling the renderer")
+        coordinator.requestInteractiveFrames()
+        XCTAssertFalse(view.rendersContinuously, "Full pacing still reconciles the renderer at the normal boundary")
+    }
+}
+
+final class P01PanInputTests: XCTestCase {
+    func testObservationAppliesBeginChangeReverseAndLiftInOrder() {
+        var input = P01PanInput(position: .init(100, 50))
+        XCTAssertEqual(input.move(to: .init(108, 51), prefersAim: false), .observation(.init(8, 0), .horizontal))
+        XCTAssertEqual(input.move(to: .init(117, 61), prefersAim: true), .observation(.init(9, 0), .horizontal))
+        XCTAssertEqual(input.move(to: .init(110, 66), prefersAim: true), .observation(.init(-7, 0), .horizontal))
+        XCTAssertEqual(input.move(to: .init(104, 68), prefersAim: false), .observation(.init(-6, 0), .horizontal))
+        XCTAssertNil(input.move(to: .init(104, 68), prefersAim: false))
+    }
+
+    func testFreeAimUsesTheSameImmediateSamplesWithoutRepeatingTheLift() {
+        var input = P01PanInput(position: .zero)
+        XCTAssertEqual(input.move(to: .init(8, 1), prefersAim: true), .aim(8))
+        XCTAssertEqual(input.move(to: .init(17, 4), prefersAim: false), .aim(9))
+        XCTAssertEqual(input.move(to: .init(10, 9), prefersAim: true), .aim(-7))
+        XCTAssertEqual(input.move(to: .init(4, 6), prefersAim: true), .aim(-6))
+        XCTAssertNil(input.move(to: .init(4, 6), prefersAim: true))
+    }
+
+    func testVerticalFreeGestureObservesAndNextTouchLocksItsOwnAxis() {
+        var vertical = P01PanInput(position: .zero)
+        XCTAssertEqual(vertical.move(to: .init(2, 8), prefersAim: true), .observation(.init(0, 8), .vertical))
+        XCTAssertEqual(vertical.move(to: .init(16, 13), prefersAim: true), .observation(.init(0, 5), .vertical))
+
+        var next = P01PanInput(position: .init(35, 40))
+        XCTAssertEqual(next.move(to: .init(44, 42), prefersAim: true), .aim(9))
+    }
+
+    func testFineAimSuppressesSubpixelReversalUntilConfirmedOrLifted() {
+        var input = P01PanInput(position: .zero, aimReversalTolerance: 1.0 / 3)
+        XCTAssertEqual(input.move(to: .init(8, 0), prefersAim: true), .aim(8))
+        for x: Float in [7.875, 8, 7.75, 8] {
+            XCTAssertNil(input.move(to: .init(x, 0), prefersAim: true))
+        }
+        XCTAssertEqual(input.move(to: .init(8.125, 0), prefersAim: true), .aim(0.125))
+        XCTAssertEqual(input.move(to: .init(7.625, 0), prefersAim: true), .aim(-0.5))
+        XCTAssertNil(input.move(to: .init(7.75, 0), prefersAim: true))
+        XCTAssertEqual(input.move(to: .init(7.75, 0), prefersAim: true, ended: true), .aim(0.125))
+    }
+
+    func testStationaryAndInvalidLocationsDoNotChooseTheRoute() {
+        var input = P01PanInput(position: .zero)
+        XCTAssertNil(input.move(to: .zero, prefersAim: false))
+        XCTAssertNil(input.move(to: .init(.nan, 1), prefersAim: false))
+        XCTAssertEqual(input.move(to: .init(2, 1), prefersAim: true), .aim(2))
+    }
 }
 
 /// Exercise the production projection and gesture lifecycle, not a duplicate rectangle formula.
 @MainActor
 final class TableAimBoundaryTests: XCTestCase {
-    private final class Pan: UIPanGestureRecognizer {
+    final class Pan: UIPanGestureRecognizer {
         var phase: UIGestureRecognizer.State = .possible
         var point: CGPoint = .zero
         override var state: UIGestureRecognizer.State { get { phase } set { phase = newValue } }

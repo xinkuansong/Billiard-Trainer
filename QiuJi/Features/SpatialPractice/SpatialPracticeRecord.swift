@@ -24,15 +24,18 @@ struct SpatialPracticeRecord: Codable {
             return result
         }
         var yaw: Double = 0
-        var speed: Double = 3
+        var speed: Double = ShotTuning.defaultVelocity
         var spinX: Double = 0
         var spinY: Double = 0
         var elevation: Double = 45
+        /// While clearance overrides the setting, retain it for the next geometry change.
+        var preferredElevation: Double? = nil
         var valid: Bool {
             valid(maximumSpeed:8)
         }
         func valid(maximumSpeed:Double)->Bool {
             [yaw,speed,spinX,spinY,elevation].allSatisfy(\.isFinite) &&
+            (preferredElevation.map { (0...Self.maximumPracticeElevation).contains($0) } ?? true) &&
             (0.1...maximumSpeed).contains(speed) && (0...85).contains(elevation) && spinX*spinX+spinY*spinY <= 0.64 + 1e-8
         }
         var aim: SCNVector3 { SCNVector3(Float(cos(yaw)),0,Float(sin(yaw))) }
@@ -60,6 +63,7 @@ struct SpatialPracticeRecord: Codable {
     struct Shot: Codable {
         var recovered:[String:Pose]? = nil
         var recoveries:[SpatialPracticeRecovery.Event]? = nil
+        var selectedTargetKey:String? = nil
         var camera:CameraRig.TrainingBookmark? = nil
         var breakContext:BreakContext? = nil
         var sounds:[Sound]? = nil
@@ -75,6 +79,7 @@ struct SpatialPracticeRecord: Codable {
         let maximumHeight: Float
         let landing: Vector?
     }
+    var selectedTargetKey:String? = nil
     var version = 2
     var board: [String: Pose]
     var input: Input

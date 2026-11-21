@@ -356,7 +356,7 @@ import SceneKit
 
 @MainActor
 final class TrainingAssistSceneTests: XCTestCase {
-    func test3DQuizReusesCameraAndEndsTemporaryViewBeforeNextQuestion() throws {
+    func test3DQuizReusesCameraAndEndsTemporaryViewBeforeNextQuestion() async throws {
         let suite = "TrainingAssistSceneTests.camera.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -365,9 +365,10 @@ final class TrainingAssistSceneTests: XCTestCase {
         vm.setupScene(initialCameraMode: .perspective3D)
         let rig = try XCTUnwrap(vm.scene.cameraRig)
         rig.viewportSize = CGSize(width: 874, height: 402)
-        XCTAssertTrue(rig.usesSurfaceCamera)
-        XCTAssertTrue(rig.usesMergedCamera)
-        XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+        XCTAssertTrue(rig.p01AnchoredTransitions)
+        XCTAssertFalse(vm.requestPlayerView(.firstPerson, animated: false))
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+        let observation = try XCTUnwrap(rig.p01Snapshot)
         let pocket = vm.selectedPocketIndex
         let question = try XCTUnwrap(vm.currentQuestion)
         vm.beginTemporaryTopDown()
@@ -377,17 +378,33 @@ final class TrainingAssistSceneTests: XCTestCase {
         XCTAssertEqual(vm.currentQuestion?.actualAngle, question.actualAngle)
         vm.endTemporaryTopDown()
         XCTAssertFalse(rig.temporaryTopDownActive)
-        XCTAssertEqual(rig.playerView, .firstPerson)
+        XCTAssertEqual(rig.playerView, .thirdPerson)
+        XCTAssertEqual(rig.p01Snapshot?.pose, observation.pose)
         vm.openAnswerInput(); vm.userInput = "45"; vm.submitAnswer()
+        XCTAssertEqual(rig.p01Snapshot?.shot.aim, observation.shot.aim)
         XCTAssertEqual(vm.phase, .showingResult)
+        let cue = try XCTUnwrap(vm.scene.cueStick).rootNode
+        XCTAssertFalse(cue.isHidden, "The result shows the answer shaft")
         vm.beginTemporaryTopDown()
+        XCTAssertTrue(vm.temporaryTopDownActive)
         let revision = vm.topDownContentRevision
+
+        // The Next button waits for the answer save, even without a repository.
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !vm.canAdvance && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        guard vm.canAdvance else {
+            XCTFail("The accepted answer never enabled Next")
+            return
+        }
         vm.advanceToNext()
+        XCTAssertEqual(vm.phase, .observing)
         XCTAssertFalse(vm.temporaryTopDownActive)
         XCTAssertFalse(rig.temporaryTopDownActive)
         XCTAssertGreaterThan(vm.topDownContentRevision, revision)
         XCTAssertFalse(vm.showAimingAssist, "New questions must not expose the answer")
-        XCTAssertTrue(try XCTUnwrap(vm.scene.cueStick).rootNode.isHidden)
+        XCTAssertTrue(cue.isHidden)
     }
 
     func testTeachingPocketSelectionDoesNotDuplicateFeedback() throws {

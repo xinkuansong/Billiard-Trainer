@@ -12,6 +12,7 @@ final class ThreeBallPracticeViewModel: ObservableObject, TeachingTableHost {
     @Published private(set) var record: ThreeBallPracticeRecord?
     @Published private(set) var phase: Phase = .loading {
         didSet {
+            updateTeachingStrokeCamera(locked: isBusy)
             if phase == .result || phase == .summary || phase == .settings { geometryReference.complete() }
             else if phase == .aiming { geometryReference.cancelFreeze() }
         }
@@ -190,6 +191,7 @@ final class ThreeBallPracticeViewModel: ObservableObject, TeachingTableHost {
         record?.draftInput = next; redrawCue(); scheduleSave()
     }
     var isBusy: Bool { [.preparing, .playing, .saveFailed].contains(phase) }
+    var permitsTemporaryTopDown: Bool { !isBusy }
     var canAdjust: Bool { phase == .aiming && !temporaryTopDownActive && !cameraTransitionBusy }
     var canRetry: Bool { ((phase == .result && record?.latestShot != nil) || (phase == .aiming && record?.canRetryPreviousStage == true)) && !temporaryTopDownActive && !cameraTransitionBusy }
     var canPlayback: Bool { (phase == .result || phase == .aiming) && (record?.latestShot != nil || record?.canRetryPreviousStage == true) && !temporaryTopDownActive && !cameraTransitionBusy }
@@ -284,7 +286,7 @@ final class ThreeBallPracticeViewModel: ObservableObject, TeachingTableHost {
         builtScene = true; scene.configureReferenceTableRendering()
         scene.configureShotAwareCamera()
         scene.setupScene(enhancedRendering: false); scene.setupVisualizationNodes()
-        markers = scene.addPocketMarkers(); configureTeachingCamera(); installQuestion()
+        markers = scene.addPocketMarkers(); configureTeachingCamera(policy: .p01Replayable); installQuestion()
     }
     private func seatBalls() {
         guard let question = record?.current else { return }
@@ -313,12 +315,8 @@ final class ThreeBallPracticeViewModel: ObservableObject, TeachingTableHost {
         if record?.showingResult == true { showFinal(); drawActual(); phase = .result }
         else { phase = .aiming; drawActual(showsObjectRoute: false); redrawCue() }
         refreshObservationCameraContext()
-        if is3D {
-            requestPlayerView(.thirdPerson, animated: false)
-            if let saved = record?.viewBookmark, let cue = scene.cueBallNode?.position, let aim = currentPlayerAim {
-                scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: aim)
-            }
-        }
+        scene.discardSavedPerspectiveView()
+        if is3D { requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true) }
         activeSince = Date(); refreshNextQuestion()
         if record?.canAdvanceStage == true { advanceStage() }
     }
@@ -558,6 +556,7 @@ final class ThreeBallPracticeViewModel: ObservableObject, TeachingTableHost {
             rehearsalEnabled: false,
             clearanceProbe: { playback.allBallCentersByName(at: Float($0)) }) { [weak self] in
             guard let self, self.generation == token, self.phase == .playing else { return }
+            self.beginTeachingRollingCamera(aim: shot.direction.vector, replaying: self.isReplaying)
             var actions: [(SCNNode, SCNAction)] = []
             for (node, name) in self.playbackNodes {
                 if let node, let action = playback.action(for: node, ballName: name, removeOnPocket: false,
@@ -881,9 +880,7 @@ final class ThreeBallPracticeViewModel: ObservableObject, TeachingTableHost {
         do { try repository?.save(next) } catch { message = error.localizedDescription; return false }
         record = next
         setCameraMode(is3D ? .perspective3D : .topDown2D)
-        if is3D, let saved = next.viewBookmark, let cue = scene.cueBallNode?.position, let aim = currentPlayerAim {
-            scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: aim)
-        }
+
         return true
     }
     func trainingObservedTopDown() {

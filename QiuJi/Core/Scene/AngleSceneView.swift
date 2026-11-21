@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import SceneKit
 
@@ -95,6 +96,7 @@ struct AngleSceneView: UIViewRepresentable {
     var onPocketTapped: ((Int) -> Void)?
 
     var draggableBallNodes: [SCNNode] = []
+    var limitsPerspectiveBallDraggingToCue = false
     /// Opt-in drawing handles: priority within 22pt; same finger clearance as balls.
     var precisionDragNodes: [SCNNode] = []
     var prioritizesTableTaps = false
@@ -142,6 +144,7 @@ struct AngleSceneView: UIViewRepresentable {
     var twoViewAutomaticEntryCount: Int = 0
     var twoViewSolverDiagnostics: String = ""
     var onThirdPersonAimNudged: ((Float) -> Void)? = nil
+    var resolveP01AimPan: (() -> ((Float) -> Void)?)? = nil
 
     var onTemporaryTopDownDismiss: (() -> Void)? = nil
     var topDownContentRevision: Int = 0
@@ -157,9 +160,10 @@ struct AngleSceneView: UIViewRepresentable {
         if let pocketDisplayOrientation { scene.pocketDisplayOrientation = pocketDisplayOrientation }
         let scnView = LayoutAwareSceneView()
         scnView.onLayout = { [weak coordinator = context.coordinator] in
-            coordinator?.synchronizeDailyViewportAfterLayout()
+            coordinator?.synchronizeViewportAfterLayout()
         }
         scnView.onWindowChange = { [weak coordinator = context.coordinator] in
+            if coordinator?.scene.cameraRig?.isEmbeddedStrokePreview == true { coordinator?.synchronizeViewportAfterLayout() }
             coordinator?.requestInteractiveFrames()
         }
         DailyLayoutProbe.record("viewport.make", ["renderer": String(describing: ObjectIdentifier(scnView)), "scene": String(describing: ObjectIdentifier(scene))])
@@ -211,6 +215,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.twoViewAutomaticEntryCount = twoViewAutomaticEntryCount
         context.coordinator.twoViewSolverDiagnostics = twoViewSolverDiagnostics
         context.coordinator.onThirdPersonAimNudged = onThirdPersonAimNudged
+        context.coordinator.resolveP01AimPan = resolveP01AimPan
         context.coordinator.onTemporaryTopDownDismiss = onTemporaryTopDownDismiss
         context.coordinator.topDownContentRevision = topDownContentRevision
         context.coordinator.usesStandardTemporaryTable = usesStandardTemporaryTable
@@ -250,6 +255,7 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
+        context.coordinator.bindP01ViewSelection()
         if let pocketDisplayOrientation { scene.pocketDisplayOrientation = pocketDisplayOrientation }
         #if DEBUG
         let cameraDiagnosticsChanged = context.coordinator.twoViewAutomaticEntryCount != twoViewAutomaticEntryCount
@@ -301,6 +307,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.autoFitsRotatedTable = autoFitsRotatedTable
         context.coordinator.autoFitsLandscapeTable = autoFitsLandscapeTable
         context.coordinator.onPocketTapped = onPocketTapped
+        context.coordinator.limitsPerspectiveBallDraggingToCue = limitsPerspectiveBallDraggingToCue
         context.coordinator.draggableBallNodes = draggableBallNodes
         context.coordinator.precisionDragNodes = precisionDragNodes
         context.coordinator.prioritizesTableTaps = prioritizesTableTaps
@@ -320,6 +327,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.twoViewAutomaticEntryCount = twoViewAutomaticEntryCount
         context.coordinator.twoViewSolverDiagnostics = twoViewSolverDiagnostics
         context.coordinator.onThirdPersonAimNudged = onThirdPersonAimNudged
+        context.coordinator.resolveP01AimPan = resolveP01AimPan
         context.coordinator.onTemporaryTopDownDismiss = onTemporaryTopDownDismiss
         context.coordinator.topDownContentRevision = topDownContentRevision
         context.coordinator.usesStandardTemporaryTable = usesStandardTemporaryTable
@@ -343,6 +351,7 @@ struct AngleSceneView: UIViewRepresentable {
     static func dismantleUIView(_ uiView: SCNView, coordinator: Coordinator) {
         DailyLayoutProbe.record("viewport.dismantle", ["renderer": String(describing: ObjectIdentifier(uiView))])
         coordinator.removeTemporaryTopDownOverlay()
+        coordinator.discardP01Pan()
         coordinator.finishCameraObservation()
         coordinator.scene.cancelPocketSelectionFeedback()
         coordinator.endBallDrag()
@@ -374,6 +383,8 @@ struct AngleSceneView: UIViewRepresentable {
         /// Single-finger pan installed in `makeUIView`; identity check inside the delegate callbacks.
         weak var panGesture: UIPanGestureRecognizer?
         private var displayLink: CADisplayLink?
+        private weak var p01SelectionRig: CameraRig?
+        private var p01SelectionSubscription: AnyCancellable?
         private var lastTimestamp: CFTimeInterval = 0
         private var lastViewportSize: CGSize?
         var twoViewReadableFrameInWindow: CGRect?
@@ -382,6 +393,18 @@ struct AngleSceneView: UIViewRepresentable {
         var twoViewAutomaticEntryCount = 0
         var twoViewSolverDiagnostics = ""
         var onThirdPersonAimNudged: ((Float) -> Void)?
+        var resolveP01AimPan: (() -> ((Float) -> Void)?)?
+        private var p01AimPanActive = false
+        private var p01PanInput: P01PanInput?
+        private struct P01PanContext: Equatable {
+            let rig: ObjectIdentifier
+            let revision: UInt64
+            let overlayGeneration: Int
+            let window: ObjectIdentifier
+            let orientation: UIInterfaceOrientation?
+            let viewFrame: CGRect
+        }
+        private var p01PanContext: P01PanContext?
         private var cameraObservationActive = false
         var temporaryTopDownWasActive = false
         var onTemporaryTopDownDismiss: (() -> Void)?
@@ -824,10 +847,17 @@ struct AngleSceneView: UIViewRepresentable {
         private var twoViewGestureAxis = "none"
         #endif
 
-        func finishCameraObservation() {
+        func finishCameraObservation(releaseCamera: Bool = true) {
             surfaceAxisLock = SurfacePanAxisLock()
+            if p01AimPanActive {
+                p01AimPanActive = false
+                onAimDragActiveChanged?(false)
+                if releaseCamera { requestInteractiveFrames() }
+            }
             guard cameraObservationActive else { return }
             cameraObservationActive = false
+            let held = scene.cameraRig?.teachingRollingObservation ?? .idle
+            guard releaseCamera || scene.cameraRig?.p01RollingShot != nil || held != .idle else { return }
             if let onCameraObservationEnded { onCameraObservationEnded() }
             else { scene.cameraRig?.endTemporaryObservation() }
             requestInteractiveFrames()
@@ -938,6 +968,25 @@ struct AngleSceneView: UIViewRepresentable {
                 host.view.accessibilityIdentifier = "v63.cameraDiagnostics"
                 let pocket = rig.observationPocket.map { "pocketIndex=\($0.index) pocketWorld=\($0.position) pocketScreen=\(scnView.projectPoint($0.position))" } ?? "pocketIndex=-1"
                 host.view.accessibilityValue = "viewport=\(scnView.bounds.size) rigViewport=\(rig.viewportSize) center=\(center) corners=\(corners) pivot=\(rig.targetPivot) yaw=\(rig.targetYaw) distance=\(rig.orbitDistance) elevation=\(rig.orbitElevation) pitch=\(rig.captureCurrentPose().pitch) fov=\(rig.captureCurrentPose().fov) eye=\(scene.cameraNode?.position ?? SCNVector3Zero) cueLift=\(-(scene.cueStick?.rootNode.eulerAngles.x ?? 0)) \(balls) \(pocket)"
+                if ProcessInfo.processInfo.arguments.contains("-v67.cameraBaseline"), let camera = scene.cameraNode {
+                    var baseline = rig.v67BaselineInputs
+                    let shown = camera.presentation
+                    baseline["eye"] = [shown.simdWorldPosition.x, shown.simdWorldPosition.y, shown.simdWorldPosition.z]
+                    let rotation = shown.simdWorldOrientation.vector
+                    baseline["orientationXYZW"] = [rotation.x, rotation.y, rotation.z, rotation.w]
+                    baseline["fov"] = camera.camera?.fieldOfView
+                    baseline["projectionDirection"] = camera.camera?.projectionDirection.rawValue
+                    baseline["orthographic"] = camera.camera?.usesOrthographicProjection
+                    baseline["planeBasis"] = [SCNVector3(0,scene.surfaceY,0),SCNVector3(1,scene.surfaceY,0),SCNVector3(0,scene.surfaceY,1)].map {
+                        let p=scnView.projectPoint($0);return [p.x,p.y,p.z]
+                    }
+                    do {
+                        let data = try JSONSerialization.data(withJSONObject: baseline, options: [.sortedKeys])
+                        host.view.accessibilityValue = (host.view.accessibilityValue ?? "") + " v67Baseline=" + data.base64EncodedString()
+                    } catch {
+                        assertionFailure("v67 baseline serialization failed: \(error)")
+                    }
+                }
                 if let stick = scene.cueStick, let cue = scene.cueBallNode, let aim = scene.lastCueAim {
                     let shown = stick.rootNode.presentation
                     let back = shown.simdWorldTransform.columns.2
@@ -1037,7 +1086,11 @@ struct AngleSceneView: UIViewRepresentable {
 
         /// A projection switch resizes the retained renderer. Apply the camera's new
         /// viewport before SceneKit's first frame at that size, not one display-link later.
-        func synchronizeDailyViewportAfterLayout() {
+        func synchronizeViewportAfterLayout() {
+            if scene.cameraRig?.isEmbeddedStrokePreview == true, let view = scnView {
+                updateViewport(view.bounds.size)
+                return
+            }
             guard twoViewReadableFrameInWindow != nil, let view = scnView,
                   view.bounds.width > 0, view.bounds.height > 0 else { return }
             updateViewport(view.bounds.size)
@@ -1177,14 +1230,31 @@ struct AngleSceneView: UIViewRepresentable {
             if changed { requestInteractiveFrames() }
         }
 
-        func requestInteractiveFrames() {
+        func requestInteractiveFrames(wakeOnly: Bool = false) {
             interactiveUntil = CACurrentMediaTime() + 0.5
-            updateFramePacing()
+            // Drag samples keep the current display link awake. Once running,
+            // its callback owns the full renderer and frame-rate reconciliation.
+            if !wakeOnly || displayLink?.isPaused == true { updateFramePacing() }
+        }
+
+        func bindP01ViewSelection() {
+            let rig = scene.cameraRig
+            guard p01SelectionRig !== rig else { return }
+            p01SelectionRig = rig
+            p01SelectionSubscription = rig?.p01ViewSelections.sink { [weak self] in
+                // The starting pose can match the last rendered frame, leaving
+                // SceneKit with no node change to resume the camera clock.
+                self?.requestInteractiveFrames(wakeOnly: true)
+            }
+            if rig?.p01AnchoredTransitions == true, rig?.isTransitioning == true {
+                requestInteractiveFrames(wakeOnly: true)
+            }
         }
 
         private func updateFramePacing() {
             guard let scnView, let displayLink else { return }
             guard scnView.window != nil else {
+                discardP01Pan()
                 displayLink.isPaused = true
                 frameDelegate.watchesIdleInvalidation = false
                 scnView.isPlaying = false
@@ -1249,6 +1319,7 @@ struct AngleSceneView: UIViewRepresentable {
         var gesturesEnabled = true
 
         var draggableBallNodes: [SCNNode] = []
+        var limitsPerspectiveBallDraggingToCue = false
         var precisionDragNodes: [SCNNode] = []
         var prioritizesTableTaps = false
         var onDragBegan: ((SCNNode) -> Void)?
@@ -1343,11 +1414,15 @@ struct AngleSceneView: UIViewRepresentable {
 
         func startRenderLoop() {
             displayLink?.invalidate()
+            NotificationCenter.default.removeObserver(self, name: UIScene.willDeactivateNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(renderingSceneWillDeactivate(_:)),
+                                                   name: UIScene.willDeactivateNotification, object: nil)
             let link = CADisplayLink(target: self, selector: #selector(renderUpdate))
             let fps = Float(min(UIScreen.main.maximumFramesPerSecond, UserPreferences.shared.renderFrameRate.rawValue))
             link.preferredFrameRateRange = CAFrameRateRange(minimum: fps, maximum: fps, preferred: fps)
             link.add(to: .main, forMode: .common)
             displayLink = link
+            bindP01ViewSelection()
             frameDelegate.idleInvalidation = { [weak self] in
                 guard let self, self.displayLink != nil else { return }
                 self.frameDelegate.contact = self.scene.contactOcclusion
@@ -1376,14 +1451,25 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         func stopRenderLoop() {
+            discardP01Pan()
+            NotificationCenter.default.removeObserver(self, name: UIScene.willDeactivateNotification, object: nil)
             displayLink?.invalidate()
             displayLink = nil
+            p01SelectionSubscription = nil
+            p01SelectionRig = nil
             frameDelegate.watchesIdleInvalidation = false
             frameDelegate.idleInvalidation = nil
             lastTimestamp = 0
         }
 
+        @objc private func renderingSceneWillDeactivate(_ notification: Notification) {
+            guard let windowScene = scnView?.window?.windowScene,
+                  notification.object as? UIWindowScene === windowScene else { return }
+            discardP01Pan()
+        }
+
         @objc private func renderUpdate(_ link: CADisplayLink) {
+            bindP01ViewSelection()
             displayLinkCallbackCount += 1
             daily3DDiagnostics?.displayLinkCallback()
             defer {
@@ -1395,6 +1481,7 @@ struct AngleSceneView: UIViewRepresentable {
             }
             if let scnView { updateViewport(scnView.bounds.size) }
             updateTemporaryTopDownOverlay()
+            validateP01Pan()
             updateFramePacing()
             let dt: Float
             if lastTimestamp == 0 {
@@ -1443,7 +1530,13 @@ struct AngleSceneView: UIViewRepresentable {
             case .perspective3D:
                 scene.cameraRig?.update(deltaTime: dt)
                 #if DEBUG
-                if cameraObservationActive, let rig = scene.cameraRig,
+                if cameraObservationActive, let rig = scene.cameraRig, rig.usesP01Camera,
+                   let camera=scene.cameraNode, let snapshot=rig.p01Snapshot {
+                    twoViewHeldSamples += 1
+                    twoViewHeldPose = .init(eye:camera.simdWorldPosition,orientation:camera.simdWorldOrientation,
+                        fov:Float(camera.camera?.fieldOfView ?? 55))
+                    twoViewHeldYaw=snapshot.pose.yaw;twoViewHeldProgress=snapshot.state.height
+                } else if cameraObservationActive, let rig = scene.cameraRig,
                    let snapshot = rig.twoViewSnapshot, let camera = scene.cameraNode {
                     twoViewHeldSamples += 1
                     let pose = TwoViewCamera.Pose(eye: camera.simdWorldPosition,
@@ -1483,9 +1576,18 @@ struct AngleSceneView: UIViewRepresentable {
 
         // MARK: - Hit Testing for Balls
 
+        private var limitsBallGrabsInCurrentView: Bool {
+            limitsPerspectiveBallDraggingToCue && cameraMode == .perspective3D
+                && scene.cameraRig?.temporaryTopDownActive != true
+        }
+
+        private func canGrabInCurrentView(_ node: SCNNode) -> Bool {
+            !limitsBallGrabsInCurrentView || node === scene.cueBallNode || scene.ballKey(for: node) == nil
+        }
+
         func hitTestBall(at location: CGPoint) -> SCNNode? {
             guard let scnView else { return nil }
-            let candidates = draggableBallNodes.filter { !$0.isHidden && $0.parent != nil }
+            let candidates = draggableBallNodes.filter { !$0.isHidden && $0.parent != nil && canGrabInCurrentView($0) }
             guard !candidates.isEmpty else { return nil }
             let handles = precisionDragNodes.filter { !$0.isHidden && $0.parent != nil }.compactMap { node -> (SCNNode, CGFloat)? in
                 let p = scnView.projectPoint(node.position)
@@ -1516,6 +1618,8 @@ struct AngleSceneView: UIViewRepresentable {
             var nearestDistance = hitRadius
             let ordered = candidates.sorted { $0 === selectedDragBall && $1 !== selectedDragBall }
             for ball in ordered {
+                // A swipe starting on the cloth must not catch the nearby cue ball.
+                if limitsBallGrabsInCurrentView, ball === scene.cueBallNode { continue }
                 let projected = scnView.projectPoint(scene.visualCenter(of: ball))
                 guard projected.z >= 0, projected.z <= 1 else { continue }
                 let point = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
@@ -1607,6 +1711,15 @@ struct AngleSceneView: UIViewRepresentable {
 
         private func beginClothDrag(at origin: CGPoint, current: CGPoint) -> Bool {
             guard let input = constraintInput, let start = clothPoint(at: origin) else { return false }
+            if limitsBallGrabsInCurrentView, let view = scnView {
+                // In perspective a swipe on an object ball observes the table, even
+                // when dragging the surrounding cloth would draw a solver constraint.
+                var hit = view.hitTest(origin, options: [.searchMode: SCNHitTestSearchMode.closest.rawValue]).first?.node
+                while let node = hit {
+                    if scene.ballKey(for: node) != nil { return false }
+                    hit = node.parent
+                }
+            }
             let point = clothPoint(at: current, clamp: true) ?? start
             clothDrag = (start, point, input)
             input.drag(start, point, false)
@@ -1640,16 +1753,23 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
+            let terminal = [.ended, .cancelled, .failed].contains(gesture.state)
             defer {
-                if [.ended, .cancelled, .failed].contains(gesture.state) { panTouchOrigin = nil }
+                if terminal { panTouchOrigin = nil }
             }
             if continueClothDrag(gesture) { return }
-            if scene.cameraRig?.temporaryTopDownActive == true { handleOverlayPan(gesture); return }
-            let surfacePan = scene.cameraRig?.usesSurfaceCamera == true
-            if [.ended, .cancelled, .failed].contains(gesture.state), !surfacePan { finishCameraObservation() }
+            if scene.cameraRig?.temporaryTopDownActive == true {
+                discardP01Pan()
+                handleOverlayPan(gesture)
+                return
+            }
+            let surfacePan = scene.cameraRig?.usesSurfaceCamera == true || scene.cameraRig?.usesP01Camera == true
+            let directP01Pan = scene.cameraRig?.p01AnchoredTransitions == true
+            if terminal, !surfacePan { finishCameraObservation() }
             defer {
-                if surfacePan, [.ended, .cancelled, .failed].contains(gesture.state) {
-                    finishCameraObservation()
+                if surfacePan, terminal {
+                    if directP01Pan { finishP01Pan() }
+                    else { finishCameraObservation() }
                     surfacePanLastLocation = nil
                     surfaceTouchOrigin = nil
                 }
@@ -1662,7 +1782,7 @@ struct AngleSceneView: UIViewRepresentable {
             } else if [.ended, .cancelled, .failed].contains(gesture.state) {
                 daily3DDiagnostics?.setInteraction(.tablePan, stage: .orbit, active: false)
             }
-            requestInteractiveFrames()
+            requestInteractiveFrames(wakeOnly: directP01Pan && p01PanContext != nil && gesture.state != .began)
             if [.ended, .cancelled, .failed].contains(gesture.state), isAimFollowing {
                 endAimDrag()
                 return
@@ -1683,6 +1803,7 @@ struct AngleSceneView: UIViewRepresentable {
                 let translation = gesture.translation(in: scnView)
                 let location = panTouchOrigin ?? (surfacePan ? (surfaceTouchOrigin ?? current) : CGPoint(x: current.x - translation.x, y: current.y - translation.y))
                 guard allowsPanStart(at: location) else { return }
+                if directP01Pan, cameraMode == .perspective3D, scene.cameraRig?.p01RollingShot != nil { break }
                 if let ball = hitTestBall(at: location) {
                     daily3DDiagnostics?.setInteraction(.tablePan, stage: .aim, active: true)
                     #if DEBUG
@@ -1704,7 +1825,7 @@ struct AngleSceneView: UIViewRepresentable {
                 if beginClothDrag(at: location, current: current) { return }
                 // 瞄准调整：已通过起点边界检查，未命中球才进入。**第一落点不改变方向**，
                 // 故此处不回调；轴心 = 母球屏幕投影，记下起手点，后续 .changed 逐帧求相对角位移。
-                if onAimNudged != nil {
+                if onAimNudged != nil && !(directP01Pan && cameraMode == .perspective3D) {
                     daily3DDiagnostics?.setInteraction(.tablePan, stage: .aim, active: true)
                     isAimFollowing = true
                     onAimDragActiveChanged?(true)
@@ -1764,7 +1885,7 @@ struct AngleSceneView: UIViewRepresentable {
             switch cameraMode {
             case .perspective3D:
                 if rig.usesTwoViewPoseControl {
-                    if rig.usesSurfaceCamera {
+                    if rig.usesSurfaceCamera || rig.usesP01Camera {
                         applySurfacePan(gesture, rig: rig)
                         return
                     }
@@ -1841,11 +1962,35 @@ struct AngleSceneView: UIViewRepresentable {
         private func applySurfacePan(_ gesture: UIPanGestureRecognizer, rig: CameraRig) {
             guard let scnView, [.began, .changed, .ended].contains(gesture.state) else { return }
             let location = gesture.location(in: scnView)
+            if rig.p01AnchoredTransitions {
+                applyP01Pan(at: location, phase: gesture.state, rig: rig)
+                return
+            }
             let previous = surfacePanLastLocation ?? surfaceTouchOrigin ?? location
             surfacePanLastLocation = location
-            let delta = surfaceAxisLock.filter(SIMD2(Float(location.x - previous.x), Float(location.y - previous.y)))
-            let dx = delta.x, dy = delta.y
-            guard dx != 0 || dy != 0 else { return }
+            let raw = SIMD2(Float(location.x - previous.x), Float(location.y - previous.y))
+            let delta = surfaceAxisLock.filter(raw)
+            guard delta != .zero else { return }
+            if rig.usesP01Camera, !rig.overviewControlSelected, delta.x != 0,
+               !cameraObservationActive, let aimNudge = resolveP01AimPan?() {
+                deliverSurfacePan(delta, rig: rig, axis: .horizontal, aimNudge: aimNudge)
+                return
+            }
+            guard !p01AimPanActive else { return }
+            deliverSurfacePan(delta, rig: rig, axis: surfaceAxisLock.axis)
+            gesture.setTranslation(.zero, in: gesture.view)
+        }
+
+        private func deliverSurfacePan(_ delta: SIMD2<Float>, rig: CameraRig, axis: SurfacePanAxisLock.Axis?,
+                                       aimNudge: ((Float) -> Void)? = nil) {
+            if let aimNudge {
+                if !p01AimPanActive {
+                    p01AimPanActive = true
+                    onAimDragActiveChanged?(true)
+                }
+                aimNudge(delta.x * P01CameraMotion.panRadiansPerPoint * 180 / .pi)
+                return
+            }
             if !cameraObservationActive {
                 cameraObservationActive = true
                 onCameraObservationBegan?()
@@ -1853,15 +1998,77 @@ struct AngleSceneView: UIViewRepresentable {
                 twoViewHeldSamples = 0
                 twoViewHeldPeak = -.infinity
                 twoViewHeldPose = nil
-                twoViewGestureAxis = surfaceAxisLock.axis == .horizontal ? "horizontal" : "vertical"
+                twoViewGestureAxis = axis == .horizontal ? "horizontal" : "vertical"
                 #endif
             }
             #if DEBUG
-            twoViewPanDX += dx
-            twoViewPanDY += dy
+            twoViewPanDX += delta.x
+            twoViewPanDY += delta.y
             #endif
-            rig.handleSurfacePan(delta: SIMD2(dx, dy))
-            gesture.setTranslation(.zero, in: gesture.view)
+            rig.handleSurfacePan(delta: delta)
+        }
+
+        private func currentP01PanContext(_ rig: CameraRig) -> P01PanContext? {
+            guard rig.p01AnchoredTransitions && !rig.temporaryTopDownActive && (!rig.p01ShotFrozen || rig.p01RollingShot != nil)
+                && !scene.isPaused && !scene.isCameraModeTransitioning
+                && cameraMode == .perspective3D && scene.currentCameraMode == .perspective3D
+                && gesturesEnabled && interactionMode == .cameraControl && draggedNode == nil,
+                let view = scnView, let window = view.window else { return nil }
+            return P01PanContext(rig: ObjectIdentifier(rig), revision: rig.twoViewRequestRevision,
+                                 overlayGeneration: rig.temporaryTopDownActivationCount,
+                                 window: ObjectIdentifier(window), orientation: window.windowScene?.interfaceOrientation,
+                                 viewFrame: view.convert(view.bounds, to: window))
+        }
+
+        private func applyP01Pan(at location: CGPoint, phase: UIGestureRecognizer.State, rig: CameraRig) {
+            let context = currentP01PanContext(rig)
+            if phase == .began {
+                discardP01Pan()
+                guard let context else { return }
+                let start = surfaceTouchOrigin ?? panTouchOrigin ?? location
+                p01PanContext = context
+                let scale = scnView?.traitCollection.displayScale ?? 1
+                p01PanInput = .init(position: SIMD2(Float(start.x), Float(start.y)),
+                                    aimReversalTolerance: 1 / Float(max(scale, 1)))
+            }
+            guard let context, p01PanContext == context else { discardP01Pan(); return }
+            let position = SIMD2(Float(location.x), Float(location.y))
+            let aimNudge = rig.overviewControlSelected || rig.p01RollingShot != nil || cameraObservationActive ? nil : resolveP01AimPan?()
+            let prefersAim = aimNudge != nil
+            switch p01PanInput?.move(to: position, prefersAim: prefersAim, ended: phase == .ended) {
+            case .aim(let dx):
+                guard let aimNudge else { discardP01Pan(); return }
+                if cameraObservationActive { finishCameraObservation(releaseCamera: false) }
+                deliverSurfacePan(.init(dx, 0), rig: rig, axis: .horizontal, aimNudge: aimNudge)
+            case .observation(let delta, let axis):
+                guard rig.overviewControlSelected || rig.playerView != .firstPerson else { return }
+                deliverSurfacePan(delta, rig: rig, axis: axis)
+            case nil:
+                break
+            }
+        }
+
+        private func validateP01Pan() {
+            guard let context = p01PanContext else { return }
+            guard let rig = scene.cameraRig, currentP01PanContext(rig) == context else {
+                discardP01Pan()
+                return
+            }
+        }
+
+        func discardP01Pan() {
+            guard p01PanContext != nil else { return }
+            p01PanInput = nil
+            p01PanContext = nil
+            finishCameraObservation(releaseCamera: false)
+        }
+
+        private func finishP01Pan() {
+            validateP01Pan()
+            guard p01PanContext != nil else { return }
+            p01PanInput = nil
+            p01PanContext = nil
+            finishCameraObservation()
         }
 
         /// Two-finger pan: 2D camera pan on every table page (DR-296), including pages whose
@@ -1878,6 +2085,10 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+            if p01PanContext != nil {
+                guard gesture.state == .began || gesture.state == .changed else { return }
+                finishP01Pan()
+            }
             if [.ended, .cancelled, .failed].contains(gesture.state) { finishCameraObservation() }
             guard scene.cameraRig?.temporaryTopDownActive != true else { return }
             if gesture.state == .began, gesturesEnabled, interactionMode == .cameraControl,
@@ -2082,12 +2293,18 @@ struct AngleSceneView: UIViewRepresentable {
                 return ["key": key, "screen": [Float(active?.x ?? CGFloat(p.x)), Float(active?.y ?? CGFloat(p.y)), p.z],
                         "world": [node.position.x, node.position.y, node.position.z],
                         "diameter": projectedBallDiameter(at: world) ?? 0, "scale": [node.scale.x, node.scale.y, node.scale.z],
-                        "draggable": draggableBallNodes.contains(node)]
+                        "draggable": draggableBallNodes.contains(node) && canGrabInCurrentView(node)]
             }
             let transform = view.pointOfView?.worldTransform ?? SCNMatrix4Identity
             var data: [String: Any] = ["rendererID": dragProbeRendererID, "panCount": dragProbePanCount, "grabCount": dragProbeGrabCount, "moveCount": dragProbeMoveCount, "balls": balls, "camera": [transform.m11, transform.m12, transform.m13,
                 transform.m21, transform.m22, transform.m23, transform.m31, transform.m32, transform.m33,
                 transform.m41, transform.m42, transform.m43]]
+            data["verticalFOV"] = view.pointOfView?.camera?.fieldOfView
+            if let cue = scene.cueStick, !cue.rootNode.isHidden {
+                let pivot = cue.rootNode.convertPosition(.init(0, 0, 0), to: nil)
+                let butt = cue.rootNode.convertPosition(.init(0, 0, cue.addressButtOffset), to: nil)
+                data["addressAxis"] = [[pivot.x, pivot.y, pivot.z], [butt.x, butt.y, butt.z]]
+            }
             if let handle = scene.rootNode.childNode(withName: "geometryReference.handle", recursively: false) {
                 let p = view.projectPoint(handle.position)
                 let w = view.convert(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)), to: nil)
@@ -2284,6 +2501,49 @@ struct SurfacePanAxisLock {
     }
 }
 
+/// One route per touch. Use the actual UIKit locations so a lift at the last
+/// delivered location produces no extra movement and a reversal keeps its sign.
+struct P01PanInput {
+    enum Change: Equatable {
+        case aim(Float)
+        case observation(SIMD2<Float>, SurfacePanAxisLock.Axis)
+    }
+
+    private var position: SIMD2<Float>
+    private var lock = SurfacePanAxisLock()
+    private var aims: Bool?
+
+    private let aimReversalTolerance: Float
+    private var deliveredAimX: Float
+    private var lastAimDirection: FloatingPointSign?
+
+    init(position: SIMD2<Float>, aimReversalTolerance: Float = 0) {
+        self.position = position
+        self.deliveredAimX = position.x
+        self.aimReversalTolerance = aimReversalTolerance
+    }
+
+    mutating func move(to next: SIMD2<Float>, prefersAim: Bool, ended: Bool = false) -> Change? {
+        guard next.x.isFinite, next.y.isFinite else { return nil }
+        let delta = lock.filter(next - position)
+        position = next
+        guard let axis = lock.axis else { return nil }
+        if aims == nil { aims = prefersAim && axis == .horizontal }
+        guard aims == true else { return delta == .zero ? nil : .observation(delta, axis) }
+
+        let dx = next.x - deliveredAimX
+        guard dx != 0 else { return nil }
+        // Keep a subpixel reversal pending. A deliberate reversal accumulates from
+        // the last delivered position; lifting commits even the remaining fraction.
+        if !ended, let lastAimDirection, dx.sign != lastAimDirection, abs(dx) < aimReversalTolerance {
+            return nil
+        }
+        deliveredAimX = next.x
+        lastAimDirection = dx.sign
+        return .aim(dx)
+    }
+}
+
 // MARK: - Pan arbitration against ancestor scroll views
 
 extension AngleSceneView.Coordinator: UIGestureRecognizerDelegate {
@@ -2296,7 +2556,8 @@ extension AngleSceneView.Coordinator: UIGestureRecognizerDelegate {
             panTouchOrigin = origin
             guard allowsPanStart(at: origin) else { return false }
         }
-        if gestureRecognizer === panGesture, scene.cameraRig?.usesSurfaceCamera == true, let scnView {
+        if gestureRecognizer === panGesture,
+           scene.cameraRig?.usesSurfaceCamera == true || scene.cameraRig?.usesP01Camera == true, let scnView {
             surfaceTouchOrigin = touch.location(in: scnView)
             surfacePanLastLocation = nil
             surfaceAxisLock = SurfacePanAxisLock()

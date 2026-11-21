@@ -267,7 +267,7 @@ struct SceneAimingView: View {
                     .buttonStyle(.plain).accessibilityLabel("关闭菜单").accessibilityIdentifier("angleTraining.dismissMenu")
                 DailyHUDMenuPanel(title: nil, items: quizSettingsItems,
                     availableSize: CGSize(width: size.width - 2 * side, height: size.height - DailyLayoutMetrics.Panels.top - 8),
-                    onBack: { showMenu = false }, onClose: { showMenu = false })
+                    onBack: { showMenu = false }, onClose: { showMenu = false }, grouping: .tableRoot)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, DailyLayoutMetrics.Panels.top).padding(.trailing, side + windowControls.right)
             }
@@ -321,7 +321,7 @@ struct SceneAimingView: View {
 
     private var quizSettingsItems: [DailyHUDMenuItem] {
         let items: [DailyHUDMenuItem] = [.init(id: "angleTraining.display", title: "显示"),
-         .init(id: "angleTraining.cameraMode", title: "视图", detail: is3D ? "3D" : "2D", segments: ["2D", "3D"],
+         .init(id: "angleTraining.cameraMode", group: .table, title: "视图", detail: is3D ? "3D" : "2D", segments: ["2D", "3D"],
             disabled: vm.isSaving || vm.cameraTransitionBusy || vm.temporaryTopDownActive || editingControlLayout,
             action: {
                 let mode = !is3D
@@ -330,19 +330,19 @@ struct SceneAimingView: View {
                     if !mode { vm.setCameraMode(portrait ? .topDown2DRotated : .topDown2D) }
                 }
             }),
-         .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
+         .init(id: "menu.tableGrid", group: .table, title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
             togglePreference(.grid)
          }),
-         .init(id: "controlLayout.open", title: "操作布局", detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
+         .init(id: "controlLayout.open", group: .controls, title: "操作布局", detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
             disabled: controlLayoutBusy, action: {
                 guard !controlLayoutBusy else { return }
                 showMenu = false; editingControlLayout = true
             }),
-         .init(id: "angleTraining.trainingSettings", title: "训练设置", disclosure: true, action: {
+         .init(id: "angleTraining.trainingSettings", group: .practice, title: "训练设置", disclosure: true, action: {
             showMenu = false; vm.showSettings = true
          }),
-         .init(id: "angleTraining.finish", title: "结束练习", action: { showMenu = false; vm.finish() }),
-         .init(id: "angleTraining.coverage", title: vm.run.coverage)]
+         .init(id: "angleTraining.finish", group: .practice, title: "结束练习", action: { showMenu = false; vm.finish() }),
+         .init(id: "angleTraining.coverage", group: .practice, title: vm.run.coverage)]
         return items.filter { $0.id != "controlLayout.open" || preferencePage.usesFreeControlLayout }
     }
 
@@ -433,11 +433,10 @@ struct SceneAimingView: View {
             ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
                 isEnabled: vm.phase != .inputting && !vm.showSettings && !showMenu
                     && vm.currentQuestion != nil && !vm.testFinished && !vm.isSaving,
-                onWholeTable: { vm.markObservation(); vm.requestSurfaceOverview() },
-                usesTwoViewControls: rig.usesTwoViewCameraControls,
                 temporaryTopDownActive: vm.temporaryTopDownActive,
                 onTemporaryTopDownBegan: { vm.markObservation(); vm.beginTemporaryTopDown(); vm.observeTemporaryView() },
                 onTemporaryTopDownEnded: { vm.endTemporaryTopDown() },
+                firstPersonAvailable: vm.permitsFirstPersonAddress,
                 onSelect: { if $0 == .thirdPerson { vm.markObservation() }; requestPlayerView($0) })
         }
     }
@@ -581,7 +580,7 @@ struct SceneAimingView: View {
     private func requestPlayerView(_ view: CameraRig.PlayerView) {
         guard is3D else { return }
         preferredPlayerView = view
-        vm.requestPlayerView(view)
+        vm.requestPlayerView(view, resetThirdPerson: view == .thirdPerson)
     }
 
 }

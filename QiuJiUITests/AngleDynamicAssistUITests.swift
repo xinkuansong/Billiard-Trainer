@@ -1,6 +1,48 @@
 import XCTest
 
 final class AngleDynamicAssistUITests: XCTestCase {
+    func testTargetContactPointPersistsAcrossViewAndRelaunch() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyInteraction.sharedPage=angleDynamic"])
+        func openMenu() {
+            let more = app.buttons["angleDynamic.more"]
+            XCTAssertTrue(more.waitForExistence(timeout: 25))
+            more.tap()
+        }
+        func closeMenu() {
+            app.buttons["angleDynamic.dismissMenu"].coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap()
+        }
+        func capture(_ name: String) {
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        openMenu()
+        let item = app.buttons["menu.targetContactPoint"]
+        if item.value as? String == "已选" { item.tap() }
+        XCTAssertEqual(item.value as? String, "未选")
+        closeMenu()
+        capture("table-contact-off")
+        openMenu()
+        item.tap()
+        XCTAssertEqual(item.value as? String, "已选")
+        capture("contact-setting-enabled")
+        closeMenu()
+        capture("table-contact-on")
+        openMenu()
+        app.buttons["angleDynamic.cameraMode"].tap()
+        XCTAssertEqual(item.value as? String, "已选")
+        app.terminate()
+        app.launch()
+        openMenu()
+        XCTAssertEqual(item.value as? String, "已选")
+        item.tap()
+        app.buttons["angleDynamic.cameraMode"].tap()
+        XCTAssertEqual(item.value as? String, "未选")
+    }
+
     func testAngleAndGhostSettingsOrderAndCameraRoundTrip() {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft

@@ -85,7 +85,7 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
         scene.configureReferenceTableRendering()
         scene.configureShotAwareCamera()
         scene.setupScene()
-        configureTeachingCamera()
+        configureTeachingCamera(policy: .p01Replayable)
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
         placeDefaultBalls()

@@ -46,6 +46,14 @@ struct FreePlayView: View {
         if isDailyClearance { return .dailyClearance }
         return isShotSimulation ? .shotSimulation : .freePlay
     }
+    private var usesSharedMenuGroups: Bool { isEditor || isRackPractice }
+    private var preservesRootMenu: Bool { isDailyClearance || usesSharedMenuGroups }
+    private var hasRecommendationPreference: Bool {
+        switch preferencePage {
+        case .dailyClearance, .multiBallPractice, .multiBallPractice3D, .customFormationPractice, .composer: return true
+        default: return false
+        }
+    }
     private var preservesPersonalControlLayout: Bool {
         preferencePage.usesFreeControlLayout && (editingControlLayout ||
             !freeControlLayouts.values(page: preferencePage, mode: is3D ? .threeD : .twoD).isEmpty)
@@ -215,6 +223,10 @@ struct FreePlayView: View {
         self._vm = StateObject(wrappedValue: editorModel)
     }
 
+    private var playerCameraPolicy: ShotCameraPolicy {
+        editor?.cameraPolicy ?? .p01Replayable
+    }
+
     private var isSnake: Bool { entryMode == .snakePractice }
     private var isMultiBall: Bool { entryMode == .multiBallPractice }
     private var isRackPractice: Bool { isSnake || isMultiBall }
@@ -332,6 +344,7 @@ struct FreePlayView: View {
         .onChange(of: editingControlLayout) { _, editing in
             if editing {
                 scenePausedBeforeLayout = vm.scene.isPaused
+                vm.scene.cameraRig?.suspendP01Motion()
                 vm.scene.isPaused = true
                 if isDailyClearance { dailyController.flushActivity() }
             } else {
@@ -561,7 +574,7 @@ struct FreePlayView: View {
             updateDaily3DPlaybackDiagnostics()
             // A single framing request at the shot boundary; subsequent playback,
             // settle and user gestures retain ownership of the current camera.
-            if is3D, !isDailyClearance, previous == .racked,
+            if is3D, playerCameraPolicy != .p01Replayable, !isDailyClearance, previous == .racked,
                phase == .computing || phase == .breaking {
                 observeWholeTableForPage()
             }
@@ -578,13 +591,16 @@ struct FreePlayView: View {
                     vm.scene.configureReferenceTableRendering()
                     vm.scene.configureShotAwareCamera()
                 }
+                if hasRecommendationPreference {
+                    vm.automaticRecommendationEnabled = tablePreferences.automaticRecommendation(for: preferencePage)
+                }
                 vm.scene.tablePreferencePage = preferencePage
                 vm.scene.tablePreferences = pagePreferences
                 FreePlayRulesSession.connect(vm: vm, rules: rulesSession, daily: dailyController,
                     notices: ruleNotices, mode: entryMode, isEditor: isEditor, isTryout: isTryoutPage,
                     usesEditorAttackRecommendations: editor?.usesAttackRecommendations ?? false)
                 vm.setupScene(loadsDefaultLayout: isStandard || (editor?.loadsDefaultLayout ?? false))
-                vm.enablePlayerCameraControls()
+                vm.enablePlayerCameraControls(policy: playerCameraPolicy)
                 #if DEBUG
                 if isDailyClearance,
                    let argument = ProcessInfo.processInfo.arguments.first(where: {
@@ -597,7 +613,9 @@ struct FreePlayView: View {
                 #endif
                 if usesCoreTemplate {
                     vm.hides3DShotAssists = page3DHidden
-                    vm.cameraMode = pagePreferences.enabled(.view3D) ? .perspective3D : .topDown2D
+                    if playerCameraPolicy != .p01Replayable {
+                        vm.cameraMode = pagePreferences.enabled(.view3D) ? .perspective3D : .topDown2D
+                    }
                     vm.usesAutomaticPocketFallback = true
                     vm.usesContinuousTrajectoryPreview = true
                 } else {
@@ -610,8 +628,6 @@ struct FreePlayView: View {
                     if isMultiBall { multiBallController.premiumProvider = { [weak subscription] in subscription?.isPremium == true } }
                     rackController.attach(to: vm)
                 }
-                vm.cameraMode = (isMultiBall ? multiBallController.is3D : pagePreferences.enabled(.view3D)) ? .perspective3D : (dailyPortrait ? .topDown2DRotated : .topDown2D)
-                vm.scene.setCameraMode(vm.cameraMode, animated: false)
                 #if DEBUG
                 if !isDailyClearance, ProcessInfo.processInfo.arguments.contains("-v63.freePlayScratch") {
                     vm.clearTable()
@@ -641,6 +657,14 @@ struct FreePlayView: View {
                         vm.handleTableTap(world: AngleSceneCalculator.pocketPositions(surfaceY: vm.scene.surfaceY)[4])
                     }
                     #endif
+                }
+                let entryMode: AngleTrainingScene.CameraMode = (isMultiBall ? multiBallController.is3D : pagePreferences.enabled(.view3D)) ? .perspective3D : (dailyPortrait ? .topDown2DRotated : .topDown2D)
+                if playerCameraPolicy == .p01Replayable {
+                    // The saved board and any prepared break now own the first 3D pose.
+                    ShotPlayCamera.setMode(entryMode, on: vm)
+                } else {
+                    vm.cameraMode = entryMode
+                    vm.scene.setCameraMode(entryMode, animated: false)
                 }
             }
             applyPagePreferences()
@@ -693,7 +717,9 @@ struct FreePlayView: View {
                 guard !editingControlLayout else { return }
                 if isShotSimulation || editor?.savesBoardMemory == true { vm.resumeAuthoringActivity(); vm.breakRunner?.resumeActivity() }
                 if isDailyClearance { dailyController.refreshAccess(); dailyController.resumeActivity() }
-                if !vm.isPlaying && !vm.isBreakMode { vm.recompute() }
+                // P01 resume already restores a matching solution or starts a new solve.
+                // A second solve here would overwrite the restored shaft/camera.
+                if !vm.isPlaying && !vm.isBreakMode && vm.scene.cameraRig?.usesP01Camera != true { vm.recompute() }
             }
             else {
                 if isShotSimulation { vm.suspendAuthoringActivity() }
@@ -804,9 +830,12 @@ struct FreePlayView: View {
 
                 if is3D, !showSpinPad, let rig = vm.scene.cameraRig {
                     ShotPlayerCameraButtons(rig: rig,
-                        isEnabled: !vm.isPlaying && !vm.shotControlsBusy && vm.currentPlayerAim != nil) { view in
+                        isEnabled: vm.temporaryTopDownActive || vm.playerCameraButtonsEnabled,
+                        temporaryTopDownActive: vm.temporaryTopDownActive,
+                        onTemporaryTopDownBegan: { vm.beginTemporaryTopDown() },
+                        onTemporaryTopDownEnded: { vm.endTemporaryTopDown() }) { view in
                         showSpinPad = false
-                        vm.requestPlayerView(view)
+                        vm.requestPlayerView(view, resetThirdPerson: view == .thirdPerson && rig.p01AnchoredTransitions)
                     }
                     .btStageFrame(ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame)
                     .offset(x: -52)
@@ -908,6 +937,7 @@ struct FreePlayView: View {
                 || (isDailyClearance && !vm.isBreakMode && dailyController.cuePlacement == .none)
                 ? [] : (vm.breakRunner?.draggableCue ?? (editablePalette ? vm.draggableBalls : vm.draggableCueOnly)))
                 + (isMultiBall && !vm.isPlaying && !isTemporaryTopDown ? vm.geometryReference.draggableNodes : []),
+            limitsPerspectiveBallDraggingToCue: !isDailyClearance && !isFormationEditor,
             precisionDragNodes: isFormationEditor ? (formation?.precisionHandles ?? []) : [],
             prioritizesTableTaps: isFormationEditor,
             onDragBegan: { node in
@@ -958,7 +988,7 @@ struct FreePlayView: View {
                 }
             },
             onDragEndedAt: { node, point in
-                guard editablePalette, !is3D,
+                guard editablePalette, !is3D || isTemporaryTopDown,
                       BTBallPaletteDragBack.hitPalette(localPoint: point, sceneFrame: sceneFrame, paletteFrame: paletteFrame),
                       let key = vm.scene.ballKey(for: node), !PositionPlayBall.isCue(key) else { return }
                 if let formation { formation.remove(key) } else { vm.removeFromTable(key) }
@@ -977,7 +1007,7 @@ struct FreePlayView: View {
             },
             onAimNudged: isFormationEditor || is3D || isDailyResult || sequenceReadOnly ? nil : {
                 editor?.onInteraction()
-                if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) }
+                if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0); vm.followManualCameraAim() }
                 else { vm.nudgeFreeAim(byDegrees: $0) }
             },
             onAimDragActiveChanged: { layoutAimDragging = $0; vm.setAimTableDragging($0) },
@@ -994,6 +1024,7 @@ struct FreePlayView: View {
             twoViewAutomaticEntryCount: dailyTwoViewAutomaticEntryCount,
             twoViewSolverDiagnostics: dailyTwoViewSolverDiagnostics,
             onThirdPersonAimNudged: usesDailyTwoViewControls && !sequenceReadOnly ? { vm.nudgeThirdPersonAim(byDegrees: $0) } : nil,
+            resolveP01AimPan: p01TableAimHandler,
             onTemporaryTopDownDismiss: { vm.endTemporaryTopDown() },
             topDownContentRevision: vm.topDownContentRevision,
             usesStandardTemporaryTable: isStandard || isEditor || isRackPractice || isShotSimulation
@@ -1005,6 +1036,13 @@ struct FreePlayView: View {
         .background(templateFrameReader("scene"))
         .clipped()
         .allowsHitTesting(!snakeDecisionActive && (!isTemporaryTopDown || usesMergedCamera) && (!isDailyClearance || (!dailyDecisionActive && dailyController.breakChoices.isEmpty)))
+    }
+
+    private func p01TableAimHandler() -> ((Float) -> Void)? {
+        guard playerCameraPolicy == .p01Replayable, !sequenceReadOnly, !dailyControlsDisabled,
+              !isFormationEditor, formation?.isPicking != true, formation?.swapMode != true,
+              !vm.practiceUsesPlanningRoles, vm.canNudgeP01TableAim else { return nil }
+        return { delta in vm.nudgeP01TableFreeAim(byDegrees: delta) }
     }
 
     /// P10.2：按当前玩法规则拦截不合法目标球选择，并给出提示。
@@ -1449,44 +1487,47 @@ struct FreePlayView: View {
         dailyMoreFocused = true
     }
 
-    private var dailyMenuTitle: String? {
-        switch dailyPresentation {
-        case .aim: return "瞄准模式"
-        case .trajectory: return "轨迹显示"
-        case .games: return "开球玩法"
-        default: return nil
-        }
+    private var rootMenuGrouping: DailyHUDMenuPanel.Grouping {
+        if isDailyClearance { return .dailyRoot }
+        return usesSharedMenuGroups ? .tableRoot : .flat
     }
 
-    private var dailyMenuItems: [DailyHUDMenuItem] {
+    private func dailyMenuPanel(_ presentation: DailyHUDPresentation, availableSize: CGSize) -> some View {
+        DailyHUDMenuPanel(title: presentation.menuTitle, items: dailyMenuItems(for: presentation),
+            availableSize: availableSize, onBack: { dailyPresentation = .more }, onClose: closeDailyPresentation,
+            fitsShortOptions: presentation == .aim || presentation == .trajectory,
+            grouping: presentation == .more ? rootMenuGrouping : .flat)
+    }
+
+    private func dailyMenuItems(for presentation: DailyHUDPresentation) -> [DailyHUDMenuItem] {
         if let formation, isFormationEditor {
             return [
-                .init(id: "controlLayout.open", title: "操作布局", detail: controlLayoutBusy ? "请先完成当前操作" : nil,
+                .init(id: "menu.tableGrid", group: .table, title: "台面网格", selected: pagePreferences.enabled(.grid), action: {
+                    setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1)
+                }),
+                .init(id: "formation.snap", group: .formation, title: "自动吸附", selected: formation.snapEnabled, action: {
+                    formation.snapEnabled.toggle()
+                }),
+                .init(id: "formation.fit", group: .table, title: "恢复全桌", action: {
+                    vm.scene.cameraRig?.resetTopDownZoom(); closeDailyPresentation()
+                }),
+                .init(id: "controlLayout.open", group: .controls, title: "操作布局", detail: controlLayoutBusy ? "请先完成当前操作" : nil,
                     disclosure: true, disabled: controlLayoutBusy, action: {
                         guard !controlLayoutBusy else { return }
                         closeDailyPresentation(); editingControlLayout = true
                     }),
-                .init(id: "menu.tableGrid", title: "台面网格", selected: pagePreferences.enabled(.grid), action: {
-                    setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1)
-                }),
-                .init(id: "formation.snap", title: "自动吸附", selected: formation.snapEnabled, action: {
-                    formation.snapEnabled.toggle()
-                }),
-                .init(id: "formation.fit", title: "恢复全桌", action: {
-                    vm.scene.cameraRig?.resetTopDownZoom(); closeDailyPresentation()
-                }),
-                .init(id: "formation.clearLines", title: "清除全部辅助线", disabled: formation.drawing.lines.isEmpty, action: {
+                .init(id: "formation.clearLines", group: .formation, title: "清除全部辅助线", disabled: formation.drawing.lines.isEmpty, action: {
                     formation.clearDrawing(); closeDailyPresentation()
                 }),
-                .init(id: "formation.clear", title: "清空目标球", disabled: formation.editTool != nil, action: {
+                .init(id: "formation.clear", group: .formation, title: "清空目标球", disabled: formation.editTool != nil, action: {
                     formation.showClear = true; closeDailyPresentation()
                 })]
         }
-        return standardDailyMenuItems
+        return standardDailyMenuItems(for: presentation)
     }
-    private var standardDailyMenuItems: [DailyHUDMenuItem] {
+    private func standardDailyMenuItems(for presentation: DailyHUDPresentation) -> [DailyHUDMenuItem] {
         let disabled = vm.isPlaying || vm.isBreakMode || isDailyResult
-        switch dailyPresentation {
+        switch presentation {
         case .aim:
             if let items = editor?.aimItems { return closingEditorMenuItems(items) }
             return [("进袋", PositionPlayViewModel.AimMode.pocket), ("自由", .free)].map { title, mode in
@@ -1524,70 +1565,91 @@ struct FreePlayView: View {
                     selected: game == dailyController.game, action: { selectDailyGame(game) })
             } + [DailyHUDMenuItem(id: "dailyClearance.gameCancel", title: "取消", action: closeDailyPresentation)]
         default:
-            var items: [DailyHUDMenuItem] = [
-                .init(id: "dailyClearance.displaySettings", title: "显示"),
-                .init(id: "freeplay.cameraMode", title: "视图", detail: is3D ? "3D" : "2D",
-                      segments: ["2D", "3D"], disabled: isTemporaryTopDown || (isMultiBall && (controlLayoutBusy || editingControlLayout)), action: {
+            let camera = DailyHUDMenuItem(id: "freeplay.cameraMode", group: .table, title: "视图", detail: is3D ? "3D" : "2D",
+                segments: ["2D", "3D"], disabled: isTemporaryTopDown || (isMultiBall && (controlLayoutBusy || editingControlLayout))) {
                     vm.cancelPowerRelease()
                     showSpinPad = false
                     toggleDailyCamera()
-                }),
-                .init(id: "dailyClearance.spinTransparencyMenu", title: "打点盘透明度",
-                      detail: "\(Int((pageSpinTransparency.wrappedValue * 100).rounded()))%", disclosure: true, action: { presentDaily(.transparency) }),
-                .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
-                    setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1)
-                }),
-                .init(id: "menu.aimCloseup", title: "瞄准特写", selected: pagePreferences.enabled(.closeup), action: {
-                    setPagePreference(.closeup, pagePreferences.enabled(.closeup) ? 0 : 1)
-                }),
-                .init(id: "dailyClearance.shotSettings", title: "击球设置"),
-                .init(id: "dailyClearance.aimModeMenu", title: "瞄准模式 · \(aimModeLabel)", disclosure: true,
-                      disabled: sequenceReadOnly || vm.isPlaying || vm.isSequencePlaying || vm.isBreakMode || isDailyResult, action: { showSpinPad = false; dailyPresentation = .aim }),
-                .init(id: "dailyClearance.trajectoryMenu", title: "轨迹显示 · \(dailyTrajectoryLabel)", disclosure: true,
-                      disabled: disabled, action: { dailyPresentation = .trajectory }),
-            ]
+                }
+            let transparency = DailyHUDMenuItem(id: "dailyClearance.spinTransparencyMenu", group: .controls, title: "打点盘透明度",
+                detail: "\(Int((pageSpinTransparency.wrappedValue * 100).rounded()))%", disclosure: true) { presentDaily(.transparency) }
+            let grid = DailyHUDMenuItem(id: "menu.tableGrid", group: .table, title: "台面网格 4×8", selected: pagePreferences.enabled(.grid)) {
+                setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1)
+            }
+            let closeup = DailyHUDMenuItem(id: "menu.aimCloseup", group: .shot, title: "瞄准特写", selected: pagePreferences.enabled(.closeup)) {
+                setPagePreference(.closeup, pagePreferences.enabled(.closeup) ? 0 : 1)
+            }
+            let aim = DailyHUDMenuItem(id: "dailyClearance.aimModeMenu", group: isTryoutPage ? .tryout : .aim, title: isDailyClearance ? "瞄准模式" : "瞄准模式 · \(aimModeLabel)",
+                detail: isDailyClearance ? aimModeLabel : nil, disclosure: true,
+                disabled: sequenceReadOnly || vm.isPlaying || vm.isSequencePlaying || vm.isBreakMode || isDailyResult) {
+                    showSpinPad = false; dailyPresentation = .aim
+                }
+            let trajectory = DailyHUDMenuItem(id: "dailyClearance.trajectoryMenu", group: .shot, title: isDailyClearance ? "轨迹显示" : "轨迹显示 · \(dailyTrajectoryLabel)",
+                detail: isDailyClearance ? dailyTrajectoryLabel : nil, disclosure: true, disabled: disabled) { dailyPresentation = .trajectory }
+            var aimItems = [aim]
+            if hasRecommendationPreference, !sequenceReadOnly,
+               !(isDailyClearance && dailyController.scoringEnabled), !(isMultiBall && multiBallController.isPlanning) {
+                let enabled = tablePreferences.automaticRecommendation(for: preferencePage)
+                aimItems.append(.automaticRecommendation(enabled: enabled, disabled: disabled || vm.shotControlsBusy) {
+                    vm.setAutomaticRecommendation(!enabled)
+                    tablePreferences.setAutomaticRecommendation(!enabled, for: preferencePage)
+                })
+            }
+            let separation = DailyHUDMenuItem(id: "freeplay.separation", group: .shot, title: TablePreferenceField.separation.title,
+                selected: pagePreferences.enabled(.separation)) { setPagePreference(.separation, pagePreferences.enabled(.separation) ? 0 : 1) }
+            let layout = DailyHUDMenuItem(id: "controlLayout.open", group: .controls, title: "操作布局", detail: controlLayoutBusy ? "请先完成当前操作" : nil,
+                disclosure: true, disabled: controlLayoutBusy) {
+                    guard !controlLayoutBusy else { return }
+                    closeDailyPresentation()
+                    showSpinPad = false
+                    editingControlLayout = true
+                }
 
             if isDailyClearance {
+                var items: [DailyHUDMenuItem] = [
+                    .init(id: "dailyClearance.displaySettings", title: TableMenuGroup.table.title), camera, grid,
+                    .init(id: "dailyClearance.shotSettings", title: TableMenuGroup.shot.title), closeup, trajectory, separation,
+                    .init(id: "dailyClearance.aimSettings", title: TableMenuGroup.aim.title)
+                ] + aimItems
+                items += [.init(id: "dailyClearance.controlSettings", title: TableMenuGroup.controls.title), transparency]
+                if preferencePage.usesFreeControlLayout { items.append(layout) }
                 let enabled = dailyController.scoringEnabled
-                items.insert(.init(id: "dailyClearance.scoringMode", title: "评分模式",
-                    detail: enabled ? "是" : "否", segments: ["是", "否"],
-                    disabled: vm.isPlaying || vm.shotControlsBusy || isTemporaryTopDown || isDailyResult || vm.breakRunner?.isBusy == true,
-                    action: { dailyController.toggleScoring() }), at: 2)
+                items += [
+                    .init(id: "dailyClearance.gameplaySettings", title: TableMenuGroup.gameplay.title),
+                    .init(id: "dailyClearance.changeGame", group: .gameplay, title: "开球玩法", disclosure: true, action: { dailyPresentation = .games }),
+                    .init(id: "dailyClearance.scoringMode", group: .gameplay, title: "评分模式", detail: enabled ? "是" : "否",
+                          segments: ["是", "否"], disabled: vm.isPlaying || vm.shotControlsBusy || isTemporaryTopDown || isDailyResult || vm.breakRunner?.isBusy == true,
+                          action: { dailyController.toggleScoring() })
+                ]
                 if let last = dailyController.scoreSummary?.last {
-                    items.append(.init(id: "dailyClearance.scoreDetails", title: "上杆走位评分",
+                    items.append(.init(id: "dailyClearance.scoreDetails", group: .gameplay, title: "上杆走位评分",
                         disclosure: true, action: { closeDailyPresentation(); positionScoreDetail = last.details }))
                 }
+                items.insertTargetContactPoint(for: preferencePage, scene: vm.scene, preferences: tablePreferences)
+                return items
             }
-            items += (editor?.allowsSeparationAssist == false ? [] : [TablePreferenceField.separation]).map { field in
-                DailyHUDMenuItem(id: "freeplay." + field.rawValue, title: field.title,
-                    selected: pagePreferences.enabled(field), action: {
-                        setPagePreference(field, pagePreferences.enabled(field) ? 0 : 1)
-                    })
-            }
-            if preferencePage.usesFreeControlLayout {
-                items.insert(.init(id: "controlLayout.open", title: "操作布局",
-                    detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
-                    disabled: controlLayoutBusy, action: {
-                        guard !controlLayoutBusy else { return }
-                        closeDailyPresentation()
-                        showSpinPad = false
-                        editingControlLayout = true
-                    }), at: min(5, items.count))
-            }
-            if let modeItem = editor?.modeItem {
-                // Keep the view toggle first, followed immediately by the tryout
-                // mode and its existing option-list aim selector.
-                let settingsIDs: Set<String> = ["dailyClearance.shotSettings", "dailyClearance.aimModeMenu"]
-                let shotItems = items.filter { settingsIDs.contains($0.id) }
-                items.removeAll { settingsIDs.contains($0.id) }
-                items.insert(contentsOf: [shotItems[0], modeItem, shotItems[1]], at: 2)
+
+            let displayHeading = DailyHUDMenuItem(id: "dailyClearance.displaySettings", title: "显示")
+            let shotHeading = DailyHUDMenuItem(id: "dailyClearance.shotSettings", title: "击球设置")
+            let layoutItems = preferencePage.usesFreeControlLayout ? [layout] : []
+            var shotDisplay = [trajectory]
+            if editor?.allowsSeparationAssist != false { shotDisplay.append(separation) }
+
+            var items = [displayHeading, camera]
+            if let mode = editor?.modeItem {
+                items += [shotHeading, mode] + aimItems + [grid, closeup] + shotDisplay
+                items += [transparency] + layoutItems
+            } else if isEditor || isRackPractice {
+                items += [grid, closeup, transparency] + layoutItems
+                items += [shotHeading] + shotDisplay + aimItems
+            } else {
+                items += [transparency, grid, closeup] + layoutItems
+                items += [shotHeading] + aimItems + shotDisplay
             }
             if isShotSimulation {
-                items.append(.init(id: "shotSimulation.reset", title: "恢复默认球形", disabled: disabled, action: {
+                items.append(.init(id: "shotSimulation.reset", group: .formation, title: "恢复默认球形", disabled: disabled, action: {
                     closeDailyPresentation(); ruleNotices.clear(); vm.loadBoard(ShotSimulationView.defaultBoard)
                 }))
-            } else if isDailyClearance {
-                items.append(.init(id: "dailyClearance.changeGame", title: "开球玩法", disclosure: true, action: { dailyPresentation = .games }))
             } else if isStandard {
                 items.append(.init(id: "freeplay.clearTable", title: "清空桌面", disabled: disabled, action: {
                     closeDailyPresentation(); showClearTableConfirm = true
@@ -1596,31 +1658,31 @@ struct FreePlayView: View {
             if isRackPractice {
                 items += [
                     .init(id: "\(rackPrefix).practice", title: "练习"),
-                    .init(id: "\(rackPrefix).settings", title: "训练设置", disclosure: true, disabled: disabled, action: { closeDailyPresentation(); rackController.showSettings = true })
+                    .init(id: "\(rackPrefix).settings", group: .practice, title: "训练设置", disclosure: true, disabled: disabled, action: { closeDailyPresentation(); rackController.showSettings = true })
                 ]
             }
             if isMultiBall {
                 if multiBallController.isPlanning {
                     if let score = multiBallController.scores.last {
-                        items.append(.init(id: "multiBall.scoreDetails", title: "上杆走位评分", disclosure: true,
+                        items.append(.init(id: "multiBall.scoreDetails", group: .practice, title: "上杆走位评分", disclosure: true,
                             disabled: disabled, action: { closeDailyPresentation(); positionScoreDetail = score.details }))
                     }
-                    items.append(.init(id: "multiBall.retryShot", title: "重打上一杆", disabled: disabled || !multiBallController.canUndo,
+                    items.append(.init(id: "multiBall.retryShot", group: .practice, title: "重打上一杆", disabled: disabled || !multiBallController.canUndo,
                         action: { closeDailyPresentation(); multiBallController.undo() }))
                 }
-                items.append(.init(id: "multiBall.next", title: "换一局", disabled: disabled, action: {
+                items.append(.init(id: "multiBall.next", group: .practice, title: "换一局", disabled: disabled, action: {
                     closeDailyPresentation(); multiBallController.nextRack()
                 }))
             }
+            items += closingEditorMenuItems(editor?.menuItems ?? [])
+            if isEditor && !vm.isBreakMode && vm.canCycleBankAlternatives {
+                items.append(.init(id: "composer.nextBankAlternative", group: .solutions, title: "下一解", disabled: disabled, action: { closeDailyPresentation(); vm.nextBankAlternative() }))
+            }
             if usesUnifiedBreakControls {
-                items.append(.init(id: "break.settings", title: "开球玩法",
+                items.append(.init(id: "break.settings", group: .gameplay, title: "开球玩法",
                     detail: BreakFlowRunner.title(for: BreakFlowRunner.game(forBallCount: breakGameBallCount)),
                     disclosure: true, disabled: vm.isPlaying || vm.shotControlsBusy || vm.breakRunner?.isBusy == true,
                     action: { dailyPresentation = .games }))
-            }
-            items += closingEditorMenuItems(editor?.menuItems ?? [])
-            if isEditor && !vm.isBreakMode && vm.canCycleBankAlternatives {
-                items.append(.init(id: "composer.nextBankAlternative", title: "下一解", disabled: disabled, action: { closeDailyPresentation(); vm.nextBankAlternative() }))
             }
             if isStandard && rules != nil {
                 items.append(.init(id: "freeplay.endGame", title: "结束对局", disabled: disabled, action: {
@@ -1632,6 +1694,7 @@ struct FreePlayView: View {
                     closeDailyPresentation(); pendingGame = nil; vm.cancelBreakFlow()
                 }))
             }
+            items.insertTargetContactPoint(for: preferencePage, scene: vm.scene, preferences: tablePreferences)
             return items
         }
     }
@@ -2108,13 +2171,22 @@ private extension FreePlayView {
                         .position(x: foundation?.table.midX ?? size.width / 2,
                                   y: is3D ? size.height / 2 : (foundation?.table.midY ?? size.height / 2))
                     } else {
-                        DailyHUDMenuPanel(title: dailyMenuTitle, items: dailyMenuItems,
-                            availableSize: CGSize(width: size.width - 2 * panelTrailingInset,
-                                                  height: size.height - DailyLayoutMetrics.Panels.top - 8),
-                            onBack: { dailyPresentation = .more }, onClose: closeDailyPresentation,
-                            fitsShortOptions: presentation == .aim || presentation == .trajectory)
-                            .padding(.top, DailyLayoutMetrics.Panels.top)
-                            .padding(.trailing, panelTrailingInset)
+                        let available = CGSize(width: size.width - 2 * panelTrailingInset,
+                                               height: size.height - DailyLayoutMetrics.Panels.top - 8)
+                        ZStack(alignment: .topTrailing) {
+                            if preservesRootMenu {
+                                // Keep the long list mounted at its own size while a shorter submenu is open.
+                                dailyMenuPanel(.more, availableSize: available)
+                                    .opacity(presentation == .more ? 1 : 0)
+                                    .allowsHitTesting(presentation == .more)
+                                    .accessibilityHidden(presentation != .more)
+                            }
+                            if !preservesRootMenu || presentation != .more {
+                                dailyMenuPanel(presentation, availableSize: available)
+                            }
+                        }
+                        .padding(.top, DailyLayoutMetrics.Panels.top)
+                        .padding(.trailing, panelTrailingInset)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
@@ -2401,7 +2473,7 @@ private extension FreePlayView {
                     BTAimWheel(onNudge: { delta in
                         editor?.onInteraction()
                         vm.cancelPowerRelease()
-                        if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: delta) }
+                        if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: delta); vm.followManualCameraAim() }
                         else { vm.nudgeFreeAim(byDegrees: delta) }
                     }, degreesPerPoint: vm.breakRunner?.aimWheelDegreesPerPoint ?? vm.aimWheelDegreesPerPoint,
                         degreeHapticEnabled: false, travelHapticEnabled: true,
@@ -2627,19 +2699,13 @@ private extension FreePlayView {
             GeometryReader { overlay in
             if let bounds, is3D, let rig = vm.scene.cameraRig, !showSpinPad || rig.usesTwoViewCameraControls {
                 ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
-                    isEnabled: vm.temporaryTopDownActive || (!vm.isPlaying && !vm.shotControlsBusy && vm.currentPlayerAim != nil),
-                    onWholeTable: {
-                        daily3DDiagnostics?.input(.cameraButton, intent: .orbit)
-                        // A user overview request is independent of break/rerack framing.
-                        if rig.usesSurfaceCamera { vm.requestSurfaceOverview() }
-                        else { observeWholeTableForPage() }
-                    }, usesTwoViewControls: rig.usesTwoViewCameraControls,
+                    isEnabled: vm.temporaryTopDownActive || vm.playerCameraButtonsEnabled,
                     temporaryTopDownActive: vm.temporaryTopDownActive,
                     onTemporaryTopDownBegan: { vm.beginTemporaryTopDown(); if isMultiBall { multiBallController.observeTemporaryTopDown() } },
                     onTemporaryTopDownEnded: { vm.endTemporaryTopDown() }) { view in
                     daily3DDiagnostics?.input(.cameraButton, intent: .orbit)
                     showSpinPad = false
-                    vm.requestPlayerView(view)
+                    vm.requestPlayerView(view, resetThirdPerson: view == .thirdPerson && rig.p01AnchoredTransitions)
                 }
                     .background(GeometryReader { controls in
                         Color.clear.preference(key: DailyCameraControlHeightKey.self,
@@ -2754,7 +2820,7 @@ private extension FreePlayView {
     }
 
     func observeWholeTableForPage() {
-        if vm.scene.cameraRig?.usesSurfaceCamera == true {
+        if vm.scene.cameraRig?.usesSurfaceCamera == true || vm.scene.cameraRig?.usesP01Camera == true {
             if vm.isBreakMode { vm.requestPlayerView(.thirdPerson) }
             else { vm.requestSurfaceOverview() }
         } else if usesMergedCamera {
@@ -3433,6 +3499,7 @@ final class FreePlayRulesSession: ObservableObject {
             && (usesEditorAttackRecommendations || (!isEditor && (mode == .shotSimulation || mode == .dailyClearance)))
         vm.usesShotComfortRanking = !isTryout && (!isEditor || vm.usesAttackRecommendations)
         vm.usesAutomaticPocketFallback = true
+        vm.hasRuleDefinedTargets = mode == .dailyClearance || mode == .multiBallPractice
         vm.legalAimTargets = { [weak rules, weak daily] keys in
             if mode == .dailyClearance { return daily?.legalTargetKeys(tableKeys: keys) ?? keys }
             return rules?.rules?.legalTargetKeys(tableKeys: keys) ?? keys
@@ -3450,16 +3517,16 @@ final class FreePlayRulesSession: ObservableObject {
         if mode == .dailyClearance {
             vm.practiceCanStartShot = { [weak daily] in daily?.canStartShot() == true }
             vm.onPracticeReadyForNextShot = { [weak daily, weak vm] in
-                guard let daily else { return false }
-                if !daily.isPlanning {
-                    if vm?.practiceUsesPlanningRoles == true {
-                        vm?.clearPracticeAimSelection()
-                        daily.syncPlanAim()
-                    }
-                    return false
+                guard let daily, let vm else { return false }
+                if daily.isPlanning {
+                    daily.syncPlanAim()
+                    return true
                 }
-                daily.syncPlanAim()
-                return true
+                if vm.practiceUsesPlanningRoles {
+                    vm.clearPracticeAimSelection()
+                    daily.syncPlanAim()
+                }
+                return false
             }
         }
         vm.onShotWillStart = mode == .dailyClearance ? { [weak daily] in daily?.prepareShot() } : nil

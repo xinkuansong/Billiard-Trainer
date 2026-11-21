@@ -19,19 +19,29 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
     @Published var topDownSelectionChanged = false
     @Published private(set) var isDragging = false
     var targetNode: SCNNode? { isBreakMode ? nil : selectedTargetKey.flatMap { scene.allBallNodes[$0] } }
+    var permitsFirstPersonAddress: Bool {
+        if let runner = breakRunner { return !runner.isBusy && runner.aimDir != nil }
+        return canStrike && lastAimDirection != nil
+    }
     var currentPlayerAim: SCNVector3? {
         if let runner = breakRunner { return runner.aimDir }
-        if let lastAimDirection { return lastAimDirection }
-        guard let cue = scene.cueBallNode, !cue.isHidden, let targetNode, !targetNode.isHidden,
-              selectedPocketIndex >= 0 else { return nil }
-        let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: targetNode.position,
-            pocketIndex: selectedPocketIndex, surfaceY: scene.surfaceY)
-        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: targetNode.position,
-            pocket: aim, ballRadius: AngleSceneCalculator.ballRadius)
-        let dx = ghost.x - cue.position.x, dz = ghost.z - cue.position.z
-        let length = sqrtf(dx * dx + dz * dz)
-        return length > 0.0001 ? SCNVector3(dx / length, 0, dz / length) : nil
+        if permitsFirstPersonAddress, let lastAimDirection { return lastAimDirection }
+        guard let cue = scene.cueBallNode, !cue.isHidden, let point = selectionAimPoint else { return nil }
+        let delta = SCNVector3(point.x - cue.position.x, 0, point.z - cue.position.z)
+        return delta.length() > 0.0001 ? delta.normalized() : nil
     }
+
+    private var selectionAimPoint: SCNVector3? {
+        guard let targetNode, !targetNode.isHidden else { return nil }
+        guard (0..<6).contains(selectedPocketIndex) else {
+            return !automaticRecommendationEnabled && selectionSource != .automatic ? targetNode.position : nil
+        }
+        let pocket = AngleSceneCalculator.effectivePocketAimPoint(targetBall: targetNode.position,
+            pocketIndex: selectedPocketIndex, surfaceY: scene.surfaceY)
+        return AngleSceneCalculator.ghostBallPosition(targetBall: targetNode.position,
+            pocket: pocket, ballRadius: AngleSceneCalculator.ballRadius)
+    }
+
     func selectTarget(key: String) {
         guard !isBreakMode, !isPlaying, !isComputing, let node = scene.allBallNodes[key] else { return }
         selectTarget(node: node)
@@ -107,6 +117,27 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
     // MARK: - Published board / selection
 
     @Published private(set) var onTableKeys: [String] = []
+    @Published private(set) var automaticRecommendationEnabled: Bool
+
+    init(automaticRecommendationEnabled: Bool = true) {
+        self.automaticRecommendationEnabled = automaticRecommendationEnabled
+    }
+    private var selectionSource: AimSelectionSource = .automatic
+
+    func setAutomaticRecommendation(_ enabled: Bool) {
+        guard enabled != automaticRecommendationEnabled else { return }
+        let previous = (selectedTargetKey, selectedPocketIndex)
+        automaticRecommendationEnabled = enabled
+        if enabled {
+            if selectedTargetKey == nil { autoSelectTarget() }
+            else if selectedPocketIndex < 0 { selectBestPocket() }
+        } else {
+            if selectionSource == .automatic { selectedTargetKey = nil }
+            if selectionSource != .manualPair { selectedPocketIndex = -1 }
+        }
+        if previous != (selectedTargetKey, selectedPocketIndex) { invalidateSolutions() }
+    }
+
     @Published private(set) var selectedTargetKey: String? { didSet { updatePocketHighlights() } }
     @Published var selectedPocketIndex: Int = -1 { didSet { updatePocketHighlights() } }
 
@@ -161,7 +192,12 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         else { clearTrajectory() }
         refreshOverlays()
     }
-    @Published private(set) var isPlaying = false
+    @Published private(set) var isPlaying = false {
+        didSet {
+            scene.cameraRig?.p01ShotFrozen = isPlaying
+            if !isPlaying { scene.cameraRig?.endP01RollingShot() }
+        }
+    }
     @Published private(set) var isComputing = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
@@ -203,6 +239,7 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
     // MARK: - Internals
 
     private var lastAimDirection: SCNVector3?
+    private var pendingCameraSolutionInTopDown = false
 
     var playerCameraAim: SCNVector3? { lastAimDirection }
 
@@ -239,6 +276,7 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         var snapshot: SolveShotSnapshot
         var selectedTargetKey: String?
         var selectedPocketIndex: Int
+        var selectionSource: AimSelectionSource = .manualPair
         var perspectiveView: CameraRig.PerspectiveState? = nil
         /// 击打前球体姿态（与 `snapshot.before` 配对）；退回 / 回放起点连同位置一起恢复。
         var ballPoses: BallPoseSnapshot = [:]
@@ -260,7 +298,7 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         scene.configureReferenceTableRendering()
         scene.configureShotAwareCamera()
         scene.setupScene()
-        configureTeachingCamera()
+        configureTeachingCamera(policy: .p01Replayable)
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
         scene.hideAllBalls()
@@ -274,7 +312,9 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
               cuePose: .reseat)
         place(key: "_1", normalized: CanvasPoint(x: 0.62, y: 0.20))
         refreshOnTableKeys()
-        selectedTargetKey = "_1"
+        selectionSource = .automatic
+        selectedTargetKey = automaticRecommendationEnabled ? "_1" : nil
+        selectedPocketIndex = -1
         selectBestPocket()
         refreshOverlays()
     }
@@ -295,7 +335,6 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         selectedTargetKey = nil
         selectedPocketIndex = -1
         autoSelectTarget()
-        if selectedTargetKey != nil { selectBestPocket() }
         refreshOverlays()
         invalidateSolutions()
     }
@@ -332,7 +371,8 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         guard !isPlaying else { return }
         place(key: key, normalized: freeNormalizedSlot(), cuePose: .reseat)
         refreshOnTableKeys()
-        if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
+        if automaticRecommendationEnabled, !PositionPlayBall.isCue(key), selectedTargetKey == nil {
+            selectionSource = .automatic
             selectedTargetKey = key
             selectBestPocket()
         }
@@ -347,7 +387,8 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)),
               cuePose: .reseat)
         refreshOnTableKeys()
-        if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
+        if automaticRecommendationEnabled, !PositionPlayBall.isCue(key), selectedTargetKey == nil {
+            selectionSource = .automatic
             selectedTargetKey = key
             selectBestPocket()
         }
@@ -454,6 +495,12 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
     func selectTarget(node: SCNNode) {
         guard let key = scene.ballKey(for: node) else { return }
         guard !isPlaying, onTableKeys.contains(key), !PositionPlayBall.isCue(key) else { return }
+        if selectedTargetKey != key {
+            selectedPocketIndex = -1
+            selectionSource = .manualTarget
+        } else if selectionSource == .automatic {
+            selectionSource = .manualTarget
+        }
         selectedTargetKey = key
         selectBestPocket()
         invalidateSolutions()
@@ -463,6 +510,8 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
 
     func selectPocket(at index: Int) {
         guard !isBreakMode, !isPlaying, !isComputing else { return }
+        guard selectedTargetKey != nil else { return }
+        selectionSource = .manualPair
         selectedPocketIndex = index
         updatePocketHighlights(confirmsSelection: false)
         scene.confirmRolePocketSelection(at: index)
@@ -470,6 +519,9 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
     }
 
     private func autoSelectTarget() {
+        selectionSource = .automatic
+        selectedPocketIndex = -1
+        guard automaticRecommendationEnabled else { selectedTargetKey = nil; return }
         guard let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else {
             selectedTargetKey = nil
             return
@@ -487,6 +539,8 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
     }
 
     private func selectBestPocket() {
+        guard automaticRecommendationEnabled else { return }
+        if selectionSource == .manualPair { selectionSource = .manualTarget }
         guard let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden,
               let targetKey = selectedTargetKey,
               let target = scene.allBallNodes[targetKey], !target.isHidden else { return }
@@ -583,8 +637,9 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         currentIndex = 0
         adjustmentDraft = nil
         clearTrajectory()
-        scene.hideCueStick()
         resetParamDisplay()
+        let manual = !automaticRecommendationEnabled && selectionSource != .automatic && !isBreakMode && !isPlaying
+        scene.previewSelectionCue(toward: manual ? selectionAimPoint : nil, spinX: spinX, spinY: spinY)
         refreshOverlays()
         if currentConstraint() != nil { setStatus("条件已齐，自动求解走位")} else { setStatus(toolHint())}
         if automatically { scheduleAutomaticSolve() }
@@ -929,9 +984,11 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
     private func refreshOverlays() {
         defer { topDownContentRevision &+= 1; refreshObservationCameraContext() }
         scene.clearResultNodes(nodes: &selectionNodes)
+        let awaitingPocket = !isPlaying && !isBreakMode && selectedPocketIndex < 0
+        scene.setSelectionAimLine(toward: awaitingPocket && showsShotAssists ? selectionAimPoint : nil)
         guard !isPlaying, showsShotAssists else { return }
         let showingSolution = currentSolution != nil && !isComputing
-        guard let tkey = selectedTargetKey,
+        guard selectedPocketIndex >= 0, let tkey = selectedTargetKey,
               let tn = scene.allBallNodes[tkey], !tn.isHidden else {
             if !showingSolution {
                 scene.ghostBallNode?.isHidden = true
@@ -941,7 +998,7 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         }
 
         // 已有解时由轨迹叠加负责渲染。
-        guard !showingSolution, selectedPocketIndex >= 0,
+        guard !showingSolution,
               let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else { return }
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)
         let aim = AngleSceneCalculator.effectivePocketAimPoint(
@@ -976,7 +1033,22 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
             adjustCurrentSolution(spinX: point.x, spinY: point.y)
             return
         }
-        scene.updateCueStick(cueBallPosition: strikePosition(cue: cue.position), aimDirection: aim)
+        let strike = strikePosition(cue: cue.position)
+        let updateCue = { self.scene.updateCueStick(cueBallPosition: strike, aimDirection: aim) }
+        guard let rig = scene.cameraRig, rig.p01AnchoredTransitions else {
+            updateCue()
+            return
+        }
+        pendingCameraSolutionInTopDown = temporaryTopDownActive
+        rig.updateP01TargetCue(resolved: true, align: true, preservePose: rig.twoViewOwnerIsManual,
+                              animated: !UIAccessibility.isReduceMotionEnabled, update: updateCue)
+    }
+
+    func teachingTopDownDidEnd(contentChanged: Bool) {
+        guard pendingCameraSolutionInTopDown else { return }
+        pendingCameraSolutionInTopDown = false
+        guard let solution = currentSolution, !isComputing, !isPlaying else { return }
+        updateCueStickAiming(solution.prediction)
     }
 
     private func strikePosition(cue: SCNVector3) -> SCNVector3 {
@@ -1023,11 +1095,12 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         )
         scene.runCueStroke(
             strikePosition: strikePos, aim: aim, velocity: Float(sol.shot.velocity),
-            switchesPlayerCameraOnContact: true,
+            switchesPlayerCameraOnContact: scene.cameraRig?.usesP01Camera != true,
             clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
         ) { [weak self, generation = playbackGeneration] in
-            guard self?.playbackGeneration == generation else { return }
-            self?.launchBalls(sol: sol, recorder: recorder)
+            guard let self, self.playbackGeneration == generation else { return }
+            self.beginTeachingRollingCamera(aim: aim, replaying: false)
+            self.launchBalls(sol: sol, recorder: recorder)
         }
     }
 
@@ -1051,7 +1124,7 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
                 velocity: velocity, spinX: spinX, spinY: spinY,
                 allowSideSpin: allowSideSpin, basicPositionOnly: basicPositionOnly),
             selectedTargetKey: selectedTargetKey,
-            selectedPocketIndex: selectedPocketIndex,
+            selectedPocketIndex: selectedPocketIndex, selectionSource: selectionSource,
             perspectiveView: ShotReplayCamera.capture(in: scene),
             ballPoses: scene.captureBallPoses(), rails: scene.railInventory.snapshot())
     }
@@ -1079,6 +1152,7 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         basicPositionOnly = snap.basicPositionOnly
 
         // 选择模型（目标球 + 袋口）。
+        selectionSource = ctx.selectionSource
         selectedTargetKey = ctx.selectedTargetKey
         selectedPocketIndex = ctx.selectedPocketIndex
         updatePocketHighlights()
@@ -1293,7 +1367,8 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
             place(key: PositionPlayBall.cueKey, normalized: freeNormalizedSlot(), cuePose: .reseat)
             refreshOnTableKeys()
         }
-        if let t = selectedTargetKey, !onTableKeys.contains(t) { selectedTargetKey = nil }
+        let previousTarget = selectedTargetKey
+        if !automaticRecommendationEnabled || selectedTargetKey.map({ !onTableKeys.contains($0) }) == true { selectedTargetKey = nil }
         if selectedTargetKey == nil { autoSelectTarget() } else { selectBestPocket() }
 
         // 本杆解/约束已对应旧布局，失效清空。
@@ -1307,6 +1382,7 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         scene.hideCueStick()
         resetParamDisplay()
         refreshOverlays()
+        settleTeachingCamera(frameRecommendedTarget: selectedTargetKey != nil && selectedTargetKey != previousTarget)
 
         canUndoShot = lastShotContext != nil
         canPlayback = lastShotContext?.snapshot.prediction.recorder != nil
@@ -1448,6 +1524,7 @@ extension SiluTrainerViewModel {
         let allowSideSpin, basicOnly: Bool
         let input: SavedSolveInput?
         let preparedBreak: BreakFlowRunner.SavedInput?
+        var selectionSource: AimSelectionSource?
     }
     var savedBoard: SavedBoard? {
         guard !isPlaying, !isDragging, !isDrawingConstraint,
@@ -1459,7 +1536,8 @@ extension SiluTrainerViewModel {
         } : nil)
         return .init(board: boardBeforeBreak ?? currentSnapshot(), target: selectedTargetKey, pocket: selectedPocketIndex,
             draft: draft, tool: activeTool, shape: regionShape, passVMin: passVMin, tolerance: pointTolerance,
-            allowSideSpin: allowSideSpin, basicOnly: basicPositionOnly, input: input, preparedBreak: breakRunner?.savedInput)
+            allowSideSpin: allowSideSpin, basicOnly: basicPositionOnly, input: input, preparedBreak: breakRunner?.savedInput,
+            selectionSource: selectionSource)
     }
     func restoreSavedBoard(_ value: SavedBoard) throws {
         try BoardMemoryValidation.check(value.board)
@@ -1476,7 +1554,9 @@ extension SiluTrainerViewModel {
         for (key, point) in value.board.onTable { place(key: key, normalized: point) }
         refreshOnTableKeys()
         allowSideSpin = value.allowSideSpin; basicPositionOnly = value.basicOnly
-        selectedTargetKey = value.target; selectedPocketIndex = value.pocket
+        selectionSource = value.selectionSource ?? .manualPair
+        selectedTargetKey = automaticRecommendationEnabled || selectionSource != .automatic ? value.target : nil
+        selectedPocketIndex = automaticRecommendationEnabled || selectionSource == .manualPair ? value.pocket : -1
         draft = value.draft; hasConstraint = value.draft != nil
         activeTool = value.tool; regionShape = value.shape
         passVMin = value.passVMin; pointTolerance = value.tolerance

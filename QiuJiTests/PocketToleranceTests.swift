@@ -97,9 +97,11 @@ final class PocketToleranceTests: XCTestCase {
         let rig = try XCTUnwrap(vm.scene.cameraRig)
         rig.viewportSize = CGSize(width: 800, height: 400)
         XCTAssertNil(vm.currentPlayerAim)
-        XCTAssertFalse(rig.usesSurfaceCamera)
-        XCTAssertTrue(rig.enterMergedGlobal(aim: nil))
-        XCTAssertTrue(rig.keepsWholeTableFramed)
+        XCTAssertTrue(rig.p01AnchoredTransitions)
+        vm.setCameraMode(.perspective3D)
+        vm.requestSurfaceOverview()
+        XCTAssertTrue(rig.overviewControlSelected)
+        XCTAssertTrue(vm.scene.cueBallNode?.isHidden ?? true)
     }
     func testObjectOverviewRequestedBeforeLayoutFitsAndSurvivesRoundTrip() throws {
         let vm = PocketToleranceViewModel();vm.setupScene()
@@ -107,12 +109,14 @@ final class PocketToleranceTests: XCTestCase {
         let rig = try XCTUnwrap(vm.scene.cameraRig)
         vm.setCameraMode(.topDown2D)
         vm.setCameraMode(.perspective3D)
-        XCTAssertTrue(rig.keepsWholeTableFramed)
+        vm.requestSurfaceOverview()
         let view = SCNView(frame:CGRect(x:0,y:0,width:667,height:375))
         view.scene = vm.scene;view.pointOfView = vm.scene.cameraNode
         rig.viewportSize = view.bounds.size
         for _ in 0..<600 { rig.update(deltaTime:1/60) }
+        XCTAssertTrue(rig.overviewControlSelected)
         vm.setCameraMode(.topDown2D);vm.setCameraMode(.perspective3D)
+        XCTAssertTrue(rig.overviewControlSelected)
         SCNTransaction.flush();view.layoutIfNeeded()
         for x in [-Float(rig.tableOuterHalfLength),Float(rig.tableOuterHalfLength)] {
             for z in [-Float(rig.tableOuterHalfWidth),Float(rig.tableOuterHalfWidth)] {
@@ -129,7 +133,8 @@ final class PocketToleranceTests: XCTestCase {
             let vm = PocketToleranceViewModel();vm.setupScene()
             let rig = try XCTUnwrap(vm.scene.cameraRig)
             rig.viewportSize = size;vm.setCameraMode(.perspective3D)
-            XCTAssertTrue(rig.hasPendingDamping)
+            vm.requestSurfaceOverview()
+            XCTAssertTrue(rig.overviewControlSelected)
             for _ in 0..<1800 { rig.update(deltaTime:1/fps) }
             let state = Mirror(reflecting:rig).children.filter { ["currentOrbit","targetOrbit","currentYaw","targetYaw","currentPivot","targetPivot"].contains($0.label ?? "") }.map { "\($0.label!):\($0.value)" }.joined(separator:"; ")
             XCTAssertFalse(rig.hasPendingDamping,"\(size): \(state)")

@@ -101,6 +101,15 @@ final class CustomFormationTests: XCTestCase {
         let resumed = try practice(value)
         defer { resumed.finishPractice() }
         XCTAssertTrue(resumed.vm.usesAttackRecommendations)
+        let vmAfterResume = resumed.vm
+        vmAfterResume.enablePlayerCameraControls(policy: .p01Replayable)
+        let rig = try XCTUnwrap(vmAfterResume.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
+        let restoredBoard = vmAfterResume.currentSnapshot().onTable.mapValues { SIMD2($0.x, $0.y) }
+        ShotPlayCamera.setMode(.perspective3D, on: vmAfterResume)
+        XCTAssertTrue(vmAfterResume.requestPlayerView(.firstPerson, animated: false))
+        XCTAssertTrue(vmAfterResume.requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true))
+        XCTAssertEqual(vmAfterResume.currentSnapshot().onTable.mapValues { SIMD2($0.x, $0.y) }, restoredBoard)
         XCTAssertEqual(resumed.vm.selectedTargetKey, manualTarget)
         XCTAssertEqual(resumed.vm.selectedPocketIndex, 4)
         resumed.vm.refreshLegalAimSelection()

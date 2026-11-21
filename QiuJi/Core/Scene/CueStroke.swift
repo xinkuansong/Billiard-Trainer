@@ -207,6 +207,7 @@ extension AngleTrainingScene {
     func runCueStroke(
         strikePosition: SCNVector3,
         aim: SCNVector3,
+        onCueHidden: (() -> Void)? = nil,
         velocity: Float,
         rehearsalEnabled: Bool? = nil,
         switchesPlayerCameraOnContact: Bool = false,
@@ -221,6 +222,7 @@ extension AngleTrainingScene {
         }
         guard let stick = cueStick else {
             contact()
+            onCueHidden?()
             return
         }
         let stickNode = stick.rootNode
@@ -245,6 +247,7 @@ extension AngleTrainingScene {
             // Blocked: do not draw a penetrating stick; still fire the shot.
             stick.hide()
             contact()
+            onCueHidden?()
             return
         }
         let tipInset = tipInsetOverride ?? resolvedPose?.inset ?? cueTipInset(forStrike: strikePosition) ?? 0
@@ -296,7 +299,8 @@ extension AngleTrainingScene {
             velocity: velocity,
             drive: drive,
             stick: stick,
-            generation: generation
+            generation: generation,
+            onCueHidden: onCueHidden
         )
         stickNode.runAction(.sequence([toContact, launch] + postContact), forKey: "strokeAnim")
     }
@@ -322,7 +326,8 @@ extension AngleTrainingScene {
         velocity: Float,
         drive: @escaping (Float) -> Void,
         stick: CueStick,
-        generation: UInt64
+        generation: UInt64,
+        onCueHidden: (() -> Void)?
     ) -> [SCNAction] {
         let lifetime = stick.animationLifetime
         let followDur = CueStroke.followThroughDuration
@@ -338,7 +343,11 @@ extension AngleTrainingScene {
             let hold = SCNAction.wait(duration: holdDuration)
             let fadeOut = SCNAction.run { [weak stick] _ in
                 Task { @MainActor in
-                    lifetime.perform(ifCurrent: generation) { stick?.fadeOut(duration: fade) }
+                    lifetime.perform(ifCurrent: generation) {
+                        stick?.fadeOut(duration: fade, completion: onCueHidden.map { notify in
+                            { Task { @MainActor in lifetime.perform(ifCurrent: generation, notify) } }
+                        })
+                    }
                 }
             }
             return [followThrough, hold, fadeOut]
@@ -371,7 +380,10 @@ extension AngleTrainingScene {
         }
         let hide = SCNAction.run { [weak stick] _ in
             Task { @MainActor in
-                lifetime.perform(ifCurrent: generation) { stick?.hide() }
+                lifetime.perform(ifCurrent: generation) {
+                    stick?.hide()
+                    onCueHidden?()
+                }
             }
         }
         actions.append(contentsOf: [retract, hide])

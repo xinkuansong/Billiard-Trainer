@@ -110,7 +110,7 @@ struct BankPracticeView: View {
             showsReadOnlyDemonstration: vm.demonstrationInput != nil,
             assessmentMode: true, allowsAssessmentAimCloseup: true, allowsAssessmentSpinEditing: true,
             defersStrikeAccessUntilSubmission: false,
-            locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, paletteEnabled: false,
+            locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, allowsObservationWhileAnimating: vm.isTeachingShotRolling, paletteEnabled: false,
             allowsPocketSelection: false, primaryTitle: vm.primaryTitle,
             primaryEnabled: (vm.isReplaying || !vm.isBusy || vm.phase == .saveFailed)
                 && !vm.cameraTransitionBusy && !vm.temporaryTopDownActive,
@@ -121,11 +121,15 @@ struct BankPracticeView: View {
                 else { vm.strike() }
             }, onPaletteTap: { _ in },
             menuItems: [
-                .init(id: "bank.trainingSettings", title: "训练设置", disclosure: true, disabled: vm.isBusy,
+                .init(id: "bank.trainingSettings", group: .practice, title: "训练设置", disclosure: true, disabled: vm.isBusy,
                       action: { vm.openSettings() }),
-                .init(id: "bank.finish", title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
+                .init(id: "bank.finish", group: .practice, title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
             ], refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: vm.isBusy, onAimNudged: { vm.nudgeAim($0) },
+            resolveP01AimPan: {
+                guard vm.canPanToAim else { return nil }
+                return { vm.nudgeAim($0) }
+            },
             closeupSnapshot: vm.canAdjust ? vm.closeupSnapshot : nil,
             onSpinChange: { vm.setSpin($0, $1) },
             paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)"] } ?? [], maximumPaletteCount: 1, paletteRoles: vm.paletteRoles,

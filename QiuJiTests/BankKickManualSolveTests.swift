@@ -10,6 +10,50 @@ final class BankKickAutomaticSolveTests: XCTestCase {
         XCTAssertFalse(vm.isSolving)
     }
 
+    func testP01TablePanChangesOnlyFreeAimInBankAndKick() async throws {
+        for vm in [BankShotViewModel() as any SolverStageHosting, DiamondSystemViewModel()] {
+            vm.setupScene()
+            defer { vm.stopForDismissal() }
+            // A cold solver schedules its own initial solve. Test input only after
+            // that work ends so an unexpected new solve remains observable.
+            try await idle(vm)
+            let rig = try XCTUnwrap(vm.scene.cameraRig)
+            rig.viewportSize = CGSize(width: 874, height: 402)
+            vm.setCameraMode(.perspective3D)
+            XCTAssertFalse(vm.canNudgeP01FreeAim)
+            let initialAim = vm.currentPlayerAim
+            let pocket = vm.selectedPocketIndex, count = vm.selectedCushions, index = vm.currentIndex
+            let solutions = vm.solutionCount
+            vm.nudgeP01FreeAim(byDegrees: 7)
+            XCTAssertEqual(vm.currentPlayerAim?.x, initialAim?.x)
+            XCTAssertEqual(vm.currentPlayerAim?.z, initialAim?.z)
+            XCTAssertEqual(vm.selectedPocketIndex, pocket)
+            XCTAssertEqual(vm.selectedCushions, count)
+            XCTAssertEqual(vm.currentIndex, index)
+            XCTAssertEqual(vm.solutionCount, solutions)
+            XCTAssertFalse(vm.isSolving)
+
+            vm.toggleMode()
+            XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+            let oldAim = try XCTUnwrap(vm.currentPlayerAim)
+            XCTAssertTrue(vm.canNudgeP01FreeAim)
+            for delta: Float in [0.5, 0.25, -0.4, 1] {
+                let prior = try XCTUnwrap(vm.currentPlayerAim)
+                vm.nudgeP01FreeAim(byDegrees: delta)
+                let aim = try XCTUnwrap(vm.currentPlayerAim)
+                let expected = AngleSceneCalculator.rotatedAim(prior, byDegrees: delta)
+                let snapshot = try XCTUnwrap(rig.p01Snapshot)
+                XCTAssertEqual(aim.x, expected.x, accuracy: 0.0001)
+                XCTAssertEqual(aim.z, expected.z, accuracy: 0.0001)
+                XCTAssertEqual(snapshot.shot.aim.x, aim.x, accuracy: 0.0001)
+                XCTAssertEqual(snapshot.shot.aim.z, aim.z, accuracy: 0.0001)
+                XCTAssertTrue(vm.canNudgeP01FreeAim)
+            }
+            let changed = try XCTUnwrap(vm.currentPlayerAim)
+            XCTAssertNotEqual(SIMD2(changed.x, changed.z), SIMD2(oldAim.x, oldAim.z))
+        }
+    }
+
     func testBankAutomaticSolveLifecycle() async throws { try await lifecycle(BankShotViewModel()) }
     func testKickAutomaticSolveLifecycle() async throws { try await lifecycle(DiamondSystemViewModel()) }
 
@@ -327,6 +371,49 @@ final class PlanningAutomaticSolveTests: XCTestCase {
         let deadline = Date().addingTimeInterval(90)
         while busy() && Date() < deadline { try await Task.sleep(for: .milliseconds(30)) }
         XCTAssertFalse(busy())
+    }
+
+    func testPlanThreeP01TablePanOnlyEditsPreparedBreakAim() async throws {
+        let vm = PlanThreeViewModel()
+        vm.setupScene()
+        defer { vm.stopForDismissal() }
+        vm.uiTestConfigure("threeBallDimmed")
+        // The completed draw schedules a solve. Break entry is only legal after
+        // that solve settles, just as it is through the production action.
+        try await idle { vm.isComputing }
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
+        vm.setCameraMode(.perspective3D)
+        let roles = [vm.ball1Key, vm.ball2Key, vm.ball3Key]
+        let pockets = [vm.pocket1Index, vm.pocket2Index]
+        let solutions = vm.solutions.count
+        let tool = vm.activeTool
+        XCTAssertFalse(vm.canNudgeP01BreakAim)
+        vm.nudgeP01BreakAim(byDegrees: 8)
+        XCTAssertEqual([vm.ball1Key, vm.ball2Key, vm.ball3Key], roles)
+        XCTAssertEqual([vm.pocket1Index, vm.pocket2Index], pockets)
+        XCTAssertEqual(vm.solutions.count, solutions)
+        XCTAssertEqual(vm.activeTool, tool)
+        XCTAssertFalse(vm.isComputing)
+
+        vm.startBreakFlow(game: .chineseEightBall, seed: 52)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+        XCTAssertFalse(vm.canNudgeP01BreakAim)
+        let beforeWheel = try XCTUnwrap(runner.aimDir)
+        vm.nudgeP01BreakAim(byDegrees: 4)
+        let afterWheel = try XCTUnwrap(runner.aimDir)
+        XCTAssertNotEqual(SIMD2(beforeWheel.x, beforeWheel.z), SIMD2(afterWheel.x, afterWheel.z))
+        XCTAssertEqual(rig.p01Snapshot?.shot.aim.z ?? .nan, afterWheel.z, accuracy: 0.0001)
+        XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+        let firstAim = try XCTUnwrap(runner.aimDir)
+        XCTAssertTrue(vm.canNudgeP01BreakAim)
+        vm.nudgeP01BreakAim(byDegrees: 8)
+        let adjusted = try XCTUnwrap(runner.aimDir)
+        XCTAssertNotEqual(SIMD2(firstAim.x, firstAim.z), SIMD2(adjusted.x, adjusted.z))
+        XCTAssertEqual(rig.p01Snapshot?.shot.aim.z ?? .nan, adjusted.z, accuracy: 0.0001)
+        XCTAssertEqual(runner.phase, .racked)
+        XCTAssertNil(runner.lastBreakSpin)
     }
 
     func testSiluDrawCompletionClearDragAndPersistentPocket() async throws {

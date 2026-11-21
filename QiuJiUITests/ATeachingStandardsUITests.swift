@@ -412,8 +412,8 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
             if camera.value as? String != mode { camera.tap() }
             app.buttons["bankshot.dismissMenu"].tap()
             if mode == "3D" {
-                ready(app.buttons["dailyClearance.observeTable"])
-                app.buttons["dailyClearance.observeTable"].tap()
+                ready(app.buttons["shotCamera.thirdPerson"])
+                app.buttons["shotCamera.thirdPerson"].tap()
             }
             Thread.sleep(forTimeInterval: 1)
             try tapTableBall("_1"); targetIs("_1")
@@ -805,7 +805,7 @@ final class ATeachingStandardsUITests: XCTestCase {
                 previous = current
             }
             XCTAssertTrue(stable, "Temporary overlay and camera/table projection must settle")
-            XCTAssertEqual(try snapshot()["standardTemporaryTable"] as? Bool, false, "Non-planning atlas retains its existing legacy temporary projection")
+            XCTAssertEqual(try snapshot()["standardTemporaryTable"] as? Bool, true, "P01 atlases use the shared temporary top-down projection")
             try geometry(["table.scene"], name: page + "-temporary-stable-probe")
             capture(page + "-temporary-one-track")
             top.tap()

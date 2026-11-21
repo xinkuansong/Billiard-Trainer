@@ -171,6 +171,7 @@ final class BreakFlowRunner: ObservableObject {
     var managesCuePresentation = true
     var managesPlaybackAudio = true
     private let breakQueue = DispatchQueue(label: "com.qiuji.break-flow", qos: .userInitiated)
+    private var waitingForCueToHide = false
     private var breakGeneration = 0
     private var breakFinishTask: Task<Void, Never>?
     private var surfaceY: Float { scene.surfaceY }
@@ -230,6 +231,9 @@ final class BreakFlowRunner: ObservableObject {
         guard phase == .racked else { return }
         objectWillChange.send()
         isMemoryDragging = true
+        if scene.currentCameraMode == .perspective3D, node === scene.cueBallNode {
+            scene.cameraRig?.beginP01CueDrag(at: node.simdPosition)
+        }
         TableBallPulse.beginDrag(node)
     }
 
@@ -263,6 +267,9 @@ final class BreakFlowRunner: ObservableObject {
         objectWillChange.send()
         TableBallPulse.endDrag(node)
         drawAimLine()
+        if node === scene.cueBallNode, let rig = scene.cameraRig, rig.isHoldingP01CueDrag {
+            rig.endP01CueDrag(at: node.simdPosition, animated: !UIAccessibility.isReduceMotionEnabled)
+        }
     }
 
     /// v23 W2：瞄准轮毫米口径增益（°/pt）——杠杆臂 = 母球→首碰球（通常为球堆顶球）。
@@ -296,23 +303,28 @@ final class BreakFlowRunner: ObservableObject {
 
     private func drawAimLine() {
         scene.clearResultNodes(nodes: &aimNodes)
-        guard managesCuePresentation else { return }
         guard phase == .racked,
               let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else {
-            scene.hideCueStick()
+            if managesCuePresentation { scene.hideCueStick() }
             return
         }
         // 坐标契约（SceneKit 水平面 X–Z，Y 朝上）→ AimLineGeometry 平面点：x→x、z→y。
         let dir = resolvedAim(cuePos: cue.position)
-        if let point = scene.correctedCueSpin(aim: dir, spinX: spinX, spinY: spinY) {
-            spinX = point.x; spinY = point.y
+        if managesCuePresentation {
+            if let point = scene.correctedCueSpin(aim: dir, spinX: spinX, spinY: spinY) {
+                spinX = point.x; spinY = point.y
+            }
+            scene.updateCueStick(
+                cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX, spinY: spinY),
+                aimDirection: dir
+            )
         }
-        let y = cue.position.y
-        scene.updateCueStick(
-            cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX, spinY: spinY),
-            aimDirection: dir
-        )
+        if scene.currentCameraMode == .perspective3D, let rig = scene.cameraRig,
+           rig.p01Snapshot?.state.watchingBreak == true {
+            rig.enterPlayerView(.thirdPerson, cue: cue.position, aim: dir, resetThirdPerson: true)
+        }
         guard showsAimAssist else { return }
+        let y = cue.position.y
         let railEnd = AngleSceneCalculator.rayToInnerRail(from: cue.position, dir: dir)
         let forward: SCNVector3
         if let apex = apexBallPosition {
@@ -379,7 +391,7 @@ final class BreakFlowRunner: ObservableObject {
     var onBeforeShot: (() -> Void)?
 
     func breakNow() {
-        guard !lifecycleSuspended, phase == .racked,
+        guard !lifecycleSuspended, phase == .racked, scene.cameraRig?.isHoldingP01CueDrag != true,
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden else { return }
         let cuePos = cueNode.position
         let theRack = rack
@@ -449,14 +461,21 @@ final class BreakFlowRunner: ObservableObject {
         phase = .breaking
         guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden else {
             runBreakMotion(result)
+            if scene.currentCameraMode == .perspective3D { scene.cameraRig?.watchP01Break() }
             return
         }
         statusText = "运杆…"
         let aim = resolvedAim(cuePos: cueNode.position)
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: spinX, spinY: spinY)
         let generation = breakGeneration
+        waitingForCueToHide = scene.currentCameraMode == .perspective3D && scene.cameraRig?.p01AnchoredTransitions == true
+        let onHidden: (() -> Void)? = waitingForCueToHide ? { [weak self] in
+            guard let self, self.breakGeneration == generation, self.phase == .breaking else { return }
+            self.waitingForCueToHide = false
+            if self.scene.currentCameraMode == .perspective3D { self.scene.cameraRig?.watchP01Break() }
+        } : nil
         scene.runCueStroke(strikePosition: strikePos, aim: aim,
-                           velocity: Float(velocity)) { [weak self] in
+                           onCueHidden: onHidden, velocity: Float(velocity)) { [weak self] in
             guard let self, self.breakGeneration == generation, self.phase == .breaking else { return }
             self.runBreakMotion(result)
         }
@@ -505,6 +524,18 @@ final class BreakFlowRunner: ObservableObject {
     /// 收尾：进袋球离场、存活球钉终点、刮杆补回开球区，然后把散开板交付宿主。
     private func finishBreak(_ result: BreakResult) {
         guard phase == .breaking else { return }
+        // A low-power break can settle before the cue fades or the pullback finishes.
+        if isWaitingForBreakCamera {
+            let generation = breakGeneration
+            breakFinishTask = Task { @MainActor [weak self] in
+                while self?.breakGeneration == generation && self?.isWaitingForBreakCamera == true {
+                    do { try await Task.sleep(for: .milliseconds(16)) } catch { return }
+                }
+                guard let self, self.breakGeneration == generation else { return }
+                self.finishBreak(result)
+            }
+            return
+        }
         scene.railInventory.finishPlayback()
         for key in allKeys { if let node = scene.allBallNodes[key] { TableBallPulse.restore(node); node.removeAllActions() } }
         for key in result.pocketed { scene.hideBall(key: key) }
@@ -611,7 +642,18 @@ final class BreakFlowRunner: ObservableObject {
         scene.hideCueStick()
     }
 
+    private var isWaitingForBreakCamera: Bool {
+        guard scene.currentCameraMode == .perspective3D, let rig = scene.cameraRig,
+              rig.p01AnchoredTransitions, !rig.temporaryTopDownActive else { return false }
+        return waitingForCueToHide || (rig.isTransitioning && rig.p01Snapshot?.state.watchingBreak == true)
+    }
+
     private func cancelPlayback(stopAudio: Bool = true) {
+        waitingForCueToHide = false
+        if let rig = scene.cameraRig, rig.isHoldingP01CueDrag {
+            rig.suspendP01Motion()
+            isMemoryDragging = false
+        }
         if stopAudio && managesPlaybackAudio { ShotAudioScheduler.shared.cancel() }
         breakGeneration += 1
         scene.hideCueStick()

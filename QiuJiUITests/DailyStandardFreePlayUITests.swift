@@ -72,14 +72,25 @@ final class TableMenuRetentionUITests: XCTestCase {
         XCTAssertTrue(app.scrollViews["dailyClearance.menuScroll"].exists)
     }
 
+    func testDailyTargetContactPointMenu() {
+        launch("-deeplink.dailyClearance", more: "freeplay.moreMenu")
+        toggleTwice("menu.targetContactPoint")
+    }
+
     func testDailySettingsStayOpenAcrossSelections() {
         launch("-deeplink.dailyClearance", more: "freeplay.moreMenu")
         toggleTwice("menu.aimCloseup")
         toggleTwice("menu.tableGrid")
         selectTrajectory(entry: "dailyClearance.trajectoryMenu", prefix: "dailyClearance.trajectory")
-        reveal("dailyClearance.aimModeMenu").tap()
+        let aimMenu = reveal("dailyClearance.aimModeMenu")
+        let previousY = aimMenu.frame.midY
+        aimMenu.tap()
         let free = reveal("dailyClearance.aim.free")
         free.tap(); XCTAssertEqual(free.value as? String, "已选")
+        app.buttons["dailyClearance.menuBack"].tap()
+        XCTAssertTrue(aimMenu.isHittable)
+        XCTAssertEqual(aimMenu.frame.midY, previousY, accuracy: 2)
+        aimMenu.tap()
         XCTAssertTrue(app.buttons["dailyClearance.menuClose"].exists)
         app.buttons["dailyClearance.menuClose"].tap()
         XCTAssertFalse(app.scrollViews["dailyClearance.menuScroll"].exists)

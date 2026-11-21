@@ -3,6 +3,61 @@ import SwiftData
 import SceneKit
 @testable import QiuJi
 
+/// Drives the production contact/settle hooks without waiting for SceneKit's render clock.
+@MainActor
+func assertTeachingRollingCameraLifecycle(_ vm: any TeachingCameraHost,
+                                          file: StaticString = #filePath, line: UInt = #line) throws {
+    let rig = try XCTUnwrap(vm.scene.cameraRig, file: file, line: line)
+    let aim = try XCTUnwrap(vm.currentPlayerAim, file: file, line: line)
+    // Match the page appearance hook that applies the host mode to the SceneKit scene.
+    vm.setCameraMode(.perspective3D)
+    XCTAssertEqual(vm.scene.currentCameraMode, .perspective3D, file: file, line: line)
+    let previous = vm.scene.capturePerspectiveView()
+    defer {
+        vm.updateTeachingStrokeCamera(locked: false)
+        if let previous { vm.scene.restorePerspectiveView(previous) }
+    }
+    vm.updateTeachingStrokeCamera(locked: true)
+    XCTAssertFalse(vm.permitsTeachingPlayerView, file: file, line: line)
+    vm.beginTemporaryTopDown()
+    XCTAssertFalse(vm.temporaryTopDownActive, file: file, line: line)
+    vm.beginTeachingRollingCamera(aim: aim, replaying: true)
+    XCTAssertFalse(vm.isTeachingShotRolling, file: file, line: line)
+    vm.beginTeachingRollingCamera(aim: aim, replaying: false)
+    XCTAssertTrue(vm.isTeachingShotRolling, file: file, line: line)
+    XCTAssertTrue(vm.permitsTeachingPlayerView, file: file, line: line)
+    XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false), file: file, line: line)
+    let shot = try XCTUnwrap(rig.p01RollingShot, file: file, line: line)
+    XCTAssertEqual(shot.aim.x, aim.x, accuracy: 0.00001, file: file, line: line)
+    XCTAssertEqual(shot.aim.z, aim.z, accuracy: 0.00001, file: file, line: line)
+    let pose = try XCTUnwrap(rig.p01Snapshot, file: file, line: line).pose
+    let windowScene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+    let window = UIWindow(windowScene: windowScene)
+    let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+    window.addSubview(view)
+    let coordinator = AngleSceneView.Coordinator(scene: vm.scene, cameraMode: .perspective3D, interactionMode: .cameraControl)
+    coordinator.scnView = view
+    coordinator.onCameraObservationBegan = vm.beginCameraObservation
+    coordinator.onCameraObservationEnded = vm.endCameraObservation
+    coordinator.onAimNudged = { _ in XCTFail("Rolling pan reached the 2D aim handler", file: file, line: line) }
+    let pan = TableAimBoundaryTests.Pan()
+    view.addGestureRecognizer(pan)
+    coordinator.panGesture = pan
+    pan.point = CGPoint(x: 120, y: 90)
+    pan.phase = .began
+    coordinator.handlePan(pan)
+    pan.point.x += 45
+    pan.phase = .changed
+    coordinator.handlePan(pan)
+    pan.phase = .ended
+    coordinator.handlePan(pan)
+    XCTAssertNotEqual(rig.p01Snapshot?.pose, pose, file: file, line: line)
+    XCTAssertEqual(rig.p01RollingShot, shot, file: file, line: line)
+    vm.updateTeachingStrokeCamera(locked: false)
+    XCTAssertFalse(vm.isTeachingShotRolling, file: file, line: line)
+    XCTAssertFalse(rig.p01ShotFrozen, file: file, line: line)
+}
+
 @MainActor
 final class SeparationPracticeTests: XCTestCase {
 
@@ -680,6 +735,23 @@ final class SeparationPracticeTests: XCTestCase {
                 vm.attach(repository: repo); vm.start(.init(), prepared: prepared); vm.setupScene()
                 try await waitForPrefetch { vm.referenceTrajectory != nil }
                 XCTAssertTrue(vm.shouldShowReference)
+                if is3D {
+                    let rig = try XCTUnwrap(vm.scene.cameraRig)
+                    rig.viewportSize = .init(width: 874, height: 402)
+                    XCTAssertTrue(rig.p01AnchoredTransitions)
+                    XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+                    try assertTeachingRollingCameraLifecycle(vm)
+                    let question = vm.record?.current?.id
+                    let aim = try XCTUnwrap(vm.currentPlayerAim)
+                    let pose = try XCTUnwrap(rig.p01Snapshot).pose
+                    rig.handleHorizontalSwipe(delta: 90)
+                    XCTAssertNotEqual(rig.p01Snapshot?.pose, pose)
+                    XCTAssertEqual(vm.currentPlayerAim?.x, aim.x)
+                    XCTAssertEqual(vm.currentPlayerAim?.z, aim.z)
+                    XCTAssertEqual(vm.record?.current?.id, question)
+                    XCTAssertEqual(vm.phase, .aiming)
+                    XCTAssertNil(vm.record?.latestShot)
+                }
                 func visible(_ vm: SeparationPracticeViewModel, _ name: String) -> Bool {
                     vm.scene.rootNode.childNode(withName: "separation." + name, recursively: false) != nil
                 }
@@ -1068,6 +1140,42 @@ final class SeparationPracticeTests: XCTestCase {
             for (a, b) in zip(rig.trainingBookmark().pose, saved.pose) { XCTAssertEqual(a, b, accuracy: 0.00001) }
         }
     }
+    func testLegacyExamBookmarkRestoresP01AngleAndDistanceAfterFirstLayout() throws {
+        let cue = SCNVector3(0.4, BTTablePhysics.surfaceY + BallPhysics.radius, 0.2)
+        let aim = SCNVector3(-1, 0, 0)
+        let viewport = CGSize(width: 874, height: 402)
+        func makeRig(_ policy: ShotCameraPolicy) -> CameraRig {
+            let node = SCNNode(); node.camera = SCNCamera()
+            let rig = CameraRig(cameraNode: node, tableSurfaceY: BTTablePhysics.surfaceY, config: .dailyClearance)
+            rig.configurePlayerCameraControls(daily: true, policy: policy, anchoredP01Transitions: policy == .p01Replayable)
+            rig.twoViewTableSightlinesClear = { _, _ in true }
+            return rig
+        }
+        for mode: CameraRig.PlayerView in [.thirdPerson, .firstPerson] {
+            let legacy = makeRig(.legacy)
+            legacy.viewportSize = viewport
+            XCTAssertTrue(legacy.enterPlayerView(mode, cue: cue, aim: aim, duration: 0))
+            if mode == .thirdPerson {
+                XCTAssertTrue(legacy.prepareTemporaryObservation(cue: cue, aim: aim))
+                legacy.handleHorizontalSwipe(delta: 90)
+                legacy.endTemporaryObservation()
+            }
+            for _ in 0..<120 { legacy.update(deltaTime: 1/60) }
+            let saved = try JSONDecoder().decode(CameraRig.TrainingBookmark.self,
+                                               from: JSONEncoder().encode(legacy.trainingBookmark()))
+            XCTAssertNil(saved.motionSnapshot)
+            let rig = makeRig(.p01Replayable)
+            rig.restoreTrainingBookmark(saved, cue: cue, aim: aim)
+            XCTAssertNil(rig.p01Snapshot, "The renderer has not measured its viewport yet")
+            rig.viewportSize = viewport
+            for _ in 0..<120 { rig.update(deltaTime: 1/60) }
+            XCTAssertEqual(rig.playerView, mode)
+            let actual = rig.trainingBookmark()
+            XCTAssertEqual(actual.pose.count, saved.pose.count)
+            for (lhs, rhs) in zip(actual.pose, saved.pose) { XCTAssertEqual(lhs, rhs, accuracy: 0.00001) }
+        }
+    }
+
     func testDraftPersistenceOwnerIsolationAndHistoryWithoutScores() throws {
         let suite = "separation-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite)); defer { defaults.removePersistentDomain(forName: suite) }

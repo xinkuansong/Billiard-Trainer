@@ -494,13 +494,24 @@ final class CueStick {
         return generation
     }
 
+    // Resting address geometry only; the camera stays put during the stroke animation.
+    private var addressTipInset: Float = 0
+    var addressButtOffset: Float { addressButtOffset(tipInset: addressTipInset) }
+
+    func addressButtOffset(tipInset: Float) -> Float {
+        let tipToButt = clearanceProfile.last?.end ?? Constants.length
+        let inset = max(0, min(tipInset, Constants.tipOffset - 0.0005))
+        return Constants.tipOffset + CueStroke.addressPull - inset + tipToButt
+    }
+
     // MARK: - Update
 
     /// - Parameter tipInset: forward shift of the tip so it rests on the sphere at an
     ///   off-centre strike point (`CueStroke.tipInset`); 0 = centre ball. Render-only.
     func update(cueBallPosition: SCNVector3, aimDirection: SCNVector3, pullBack: Float = 0,
                 elevation: Float = 0, tipInset: Float = 0) {
-        let pull = pullBack - max(0, min(tipInset, Constants.tipOffset - 0.0005))
+        addressTipInset = max(0, min(tipInset, Constants.tipOffset - 0.0005))
+        let pull = pullBack - addressTipInset
         if usesModelCueStick {
             updateModelCueStick(cueBallPosition: cueBallPosition, aimDirection: aimDirection, pullBack: pull, elevation: elevation)
         } else {

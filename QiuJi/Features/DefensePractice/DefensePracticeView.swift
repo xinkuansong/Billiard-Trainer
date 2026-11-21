@@ -110,7 +110,7 @@ struct DefensePracticeView: View {
             velocityRange: ShotTuning.velocityRange, instrumentsEnabled: vm.canAdjust, showsReadOnlyDemonstration: vm.demonstrationInput != nil,
             assessmentMode: true, allowsAssessmentAimCloseup: true, allowsAssessmentSpinEditing: true,
             defersStrikeAccessUntilSubmission: false,
-            locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, paletteEnabled: false,
+            locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, allowsObservationWhileAnimating: vm.isTeachingShotRolling, paletteEnabled: false,
             allowsPocketSelection: false, primaryTitle: vm.primaryTitle,
             primaryEnabled: (vm.isReplaying || !vm.isBusy || vm.phase == .saveFailed)
                 && !vm.cameraTransitionBusy && !vm.temporaryTopDownActive,
@@ -121,13 +121,17 @@ struct DefensePracticeView: View {
                 else { vm.strike() }
             }, onPaletteTap: { _ in },
             menuItems: [
-                .init(id: "defense.trainingSettings", title: "训练设置", disclosure: true, disabled: vm.isBusy,
+                .init(id: "defense.trainingSettings", group: .practice, title: "训练设置", disclosure: true, disabled: vm.isBusy,
                       action: { vm.openSettings() })
             ] + (vm.canReplayReference && (vm.record?.current?.source.references.count ?? 0) > 1 ? [
-                .init(id: "defense.moreRoutes", title: "本题其他防守线路", disclosure: true,
+                .init(id: "defense.moreRoutes", group: .practice, title: "本题其他防守线路", disclosure: true,
                       action: { choosingDemonstration = true })
             ] : []), refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: !vm.canAdjust, onAimNudged: { vm.nudgeAim($0) },
+            resolveP01AimPan: {
+                guard vm.canPanToAim else { return nil }
+                return { vm.nudgeAim($0) }
+            },
             closeupSnapshot: vm.canAdjust ? vm.closeupSnapshot : nil,
             onSpinChange: { vm.setSpin($0, $1) },
             paletteKeys: vm.record?.current?.source.keys ?? [], maximumPaletteCount: 3, paletteRoles: vm.paletteRoles,

@@ -94,7 +94,7 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
         scene.configureReferenceTableRendering()
         scene.configureShotAwareCamera()
         scene.setupScene()
-        configureTeachingCamera()
+        configureTeachingCamera(policy: .p01Replayable)
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
         placeDefaultBalls()
@@ -332,7 +332,7 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
     }
 
     func onCueHeightChanged() {
-        updateAimVisualization()
+        updateAimVisualization(preserveObservation: true)
         scheduleRecompute(interactive: true)
     }
 
@@ -491,7 +491,7 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
 
     // MARK: - Visualization
 
-    private func updateAimVisualization() {
+    private func updateAimVisualization(preserveObservation: Bool = false) {
         if temporaryTopDownActive { topDownContentRevision &+= 1 }
         guard let intent = currentIntent() else {
             scene.hideCueStick()
@@ -509,11 +509,21 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
         scene.updateVisualization(
             cueBall: intent.cue, targetBall: intent.target, pocket: intent.potAim,
             showAngleAnnotations: true, showOverlapMarkers: true, showLineLabels: false)
-        // One reference cue for the shared aim, updated on every drag event.
-        scene.updateCueStick(
-            cueBallPosition: CueStroke.strikePosition(
-                cue: intent.cue, aim: intent.aim, spinX: 0, spinY: spinY),
-            aimDirection: intent.aim)
+        let updateShaft = {
+            self.scene.updateCueStick(
+                cueBallPosition: CueStroke.strikePosition(
+                    cue: intent.cue, aim: intent.aim, spinX: 0, spinY: self.spinY),
+                aimDirection: intent.aim)
+        }
+        if preserveObservation, let rig = scene.cameraRig, rig.p01AnchoredTransitions,
+           let snapshot = rig.p01Snapshot, snapshot.state.view != .firstPerson {
+            // Store the actual new shaft for the next along-cue view without
+            // nudging an observation camera when only the tip height changes.
+            _ = rig.updateP01TargetCue(resolved: true, align: true, preservePose: true,
+                                       animated: false, update: updateShaft)
+        } else {
+            updateShaft()
+        }
     }
 
     private func clearTrajectories() {

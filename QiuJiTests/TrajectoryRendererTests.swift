@@ -6,6 +6,69 @@ import AVFoundation
 /// W8 helpers: TrajectoryRenderer options, SceneStroke constants, pulse/spin/palette.
 final class TrajectoryRendererTests: XCTestCase {
 
+    @MainActor
+    func testTargetContactPointPageScopeAndPersistence() throws {
+        let suite = "contactPoint." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let oldArchive = #"{"version":1,"general":{"grid":1},"pages":{"composer":{"trajectory":2}}}"#
+        defaults.set(Data(oldArchive.utf8), forKey: TablePreferencesStore.storageKey)
+        let store = TablePreferencesStore(defaults: defaults)
+        let supported: Set<TablePreferencePage> = [.dailyClearance, .composer, .drillTryout, .silu,
+            .planThree, .bankShot, .diamondSystem, .multiBallPractice, .multiBallPractice3D,
+            .snakePractice, .customFormationPractice, .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas]
+        for page in TablePreferencePage.allCases {
+            XCTAssertEqual(store.snapshot(for: page).showsTargetContactPoint, supported.contains(page) ? false : nil)
+        }
+        store.setTargetContactPoint(true, for: .multiBallPractice3D)
+        _ = store.beginTraining(.multiBall, source3D: false)
+        store.setTargetContactPoint(true, for: .angleDynamic)
+        let restored = TablePreferencesStore(defaults: defaults)
+        XCTAssertEqual(restored.snapshot(for: .multiBallPractice).showsTargetContactPoint, true)
+        XCTAssertEqual(restored.snapshot(for: .angleDynamic).showsTargetContactPoint, true)
+        XCTAssertEqual(restored.snapshot(for: .composer).showsTargetContactPoint, false)
+        XCTAssertEqual(restored.snapshot(for: .composer)[.trajectory], 2)
+        XCTAssertTrue(restored.snapshot(for: .composer).enabled(.grid))
+        restored.setTargetContactPoint(false, for: .multiBallPractice)
+        XCTAssertEqual(restored.snapshot(for: .multiBallPractice3D).showsTargetContactPoint, false)
+    }
+
+    @MainActor
+    func testTargetContactPointTogglesSceneTemporaryViewAndLoupeIndependently() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene()
+        scene.tablePreferences = .init(showsTargetContactPoint: false)
+        scene.setupVisualizationNodes()
+        let target = SCNVector3(0.15, 0.83, 0)
+        scene.updateVisualization(cueBall: SCNVector3(-0.3, 0.83, 0.1), targetBall: target,
+                                  pocket: SCNVector3(0.6, 0.83, 0.3))
+        let dot = try XCTUnwrap(scene.contactDotNode)
+        let ghost = try XCTUnwrap(scene.ghostBallNode)
+        let perpendicular = try XCTUnwrap(scene.perpLineNode)
+        let loupe = AimCloseupSnapshot(band: .contact, focus: .zero, ballRadius: 1, halfWorld: 3,
+                                       ghost: .init(x: -2, y: 0), contactMarker: .init(x: -1, y: 0))
+        let topDown = SCNScene()
+        var copies: [SCNNode: SCNNode] = [:]
+        for enabled in [false, true, false] {
+            scene.tablePreferences?.showsTargetContactPoint = enabled
+            XCTAssertEqual(dot.isHidden, !enabled)
+            XCTAssertFalse(ghost.isHidden)
+            XCTAssertFalse(perpendicular.isHidden)
+            scene.synchronizeTemporaryTopDownScene(topDown, copies: &copies)
+            XCTAssertEqual(try XCTUnwrap(copies[dot]).isHidden, !enabled)
+            let displayed = loupe.applyingSceneGuides(from: scene, includesIdealLine: false)
+            XCTAssertEqual(displayed.contactMarker, enabled ? loupe.contactMarker : nil)
+            XCTAssertEqual(displayed.ghost, loupe.ghost)
+        }
+        scene.hideContactDot()
+        scene.tablePreferences?.showsTargetContactPoint = true
+        XCTAssertTrue(dot.isHidden)
+        scene.updateContactDot(ghostCenter: ghost.position, targetCenter: target)
+        XCTAssertFalse(dot.isHidden)
+        scene.updateContactDot(ghostCenter: target, targetCenter: target)
+        XCTAssertTrue(dot.isHidden)
+    }
+
     func testPositionPlayOptionsExpressFullSemantics() {
         let o = TrajectoryRenderer.Options.positionPlay
         XCTAssertTrue(o.includeObjectPath)

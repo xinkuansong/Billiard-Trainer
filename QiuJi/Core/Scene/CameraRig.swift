@@ -6,6 +6,116 @@ import Combine
 /// and orthographic pan/zoom (2D top-down).
 final class CameraRig: ObservableObject {
 
+    // MARK: - P01 opt-in adapter
+
+    private let p01ViewSelection = PassthroughSubject<Void, Never>()
+    var p01ViewSelections: AnyPublisher<Void, Never> { p01ViewSelection.eraseToAnyPublisher() }
+
+    private var p01Time: Double { p01Camera?.time ?? 0 }
+    var isEmbeddedStrokePreview = false
+    private var p01Layout: P01CameraMotion.Layout {
+        .init(viewport: .init(Float(viewportSize.width), Float(viewportSize.height)),
+              insets: .init(Float(twoViewReadableInsets.left), Float(twoViewReadableInsets.top),
+                            Float(twoViewReadableInsets.right), Float(twoViewReadableInsets.bottom)),
+              surfaceY: tableSurfaceY,
+              tableHalfExtents: .init(Float(tableOuterHalfLength), Float(tableOuterHalfWidth)),
+              roomHalfExtents: BakedTrainingRoom.cameraSafeHalfExtents,
+              ceilingY: 3.6, ballRadius: BallPhysics.radius, aimLensAspect: P01CameraMotion.dailyAimLensAspect)
+    }
+    private func p01Shot(cue: SCNVector3, strike: SCNVector3, aim: SCNVector3,
+                         elevation: Float? = nil, addressButtOffset: Float? = nil) -> P01CameraMotion.Shot {
+        .init(cue: .init(cue.x,cue.y,cue.z), strike: .init(strike.x,strike.y,strike.z),
+              aim: .init(aim.x,aim.y,aim.z), elevation: elevation ?? cuePose?.elevation ?? 0.05,
+              addressButtOffset: p01AnchoredTransitions ? (addressButtOffset ?? cuePose?.addressButtOffset) : nil)
+    }
+    private func prepareP01(cue: SCNVector3, aim: SCNVector3) {
+        twoViewShotReference = (cue,aim)
+        guard p01Camera == nil else { return }
+        p01Camera = P01CameraMotion(shot: p01Shot(cue: cue, strike: cuePose?.strike ?? cue, aim: aim),
+                                    layout: p01Layout, context: twoViewViewingContext,
+                                    anchoredTransitions: p01AnchoredTransitions,
+                                    firstPersonSetback: p01AnchoredTransitions ? CueClearance.tipOffset + CueStroke.addressPull + CueClearance.shaftLength : nil)
+        if let camera = p01Camera {
+            p01Recording = .init(geometryID: "table-geometry-v67-room8x6", initial: camera.snapshot(),
+                                 layout: camera.layout, inputs: [])
+        }
+    }
+    /// Capture the pre-event state when rolling the bounded scene-local log.
+    private func prepareP01Recording() {
+        if (p01Recording?.inputs.count ?? 0) >= 4096, let camera = p01Camera {
+            p01Recording = .init(geometryID: "table-geometry-v67-room8x6", initial: camera.snapshot(),
+                                 layout: camera.layout, inputs: [])
+        }
+    }
+    private func p01Input(_ input: P01CameraMotion.Input) {
+        guard usesP01Camera, p01Camera != nil else { return }
+        prepareP01Recording()
+        switch input.kind {
+        case .aim, .shot:
+            if let shot = input.shot { p01Camera?.updateShot(shot, manuallyAimed: input.kind == .aim, clear: twoViewTableSightlinesClear) }
+        case .release: p01Camera?.release(clear: twoViewTableSightlinesClear)
+        default: p01Camera?.apply(input)
+        }
+        var recorded=input; recorded.clearanceLift=p01Camera?.state.firstPersonClearanceLift
+        p01Recording?.inputs.append(recorded)
+        applyP01Pose()
+    }
+    @discardableResult
+    private func selectP01(_ view: P01CameraMotion.View, animated: Bool, shot: P01CameraMotion.Shot? = nil, resetThirdPerson: Bool = false,
+                           turnPace: P01CameraMotion.TurnPace? = nil) -> Bool {
+        p01CueDrag = nil
+        pendingP01View = (view, resetThirdPerson, shot)
+        prepareP01Recording()
+        guard !temporaryTopDownActive, p01Camera?.select(view, animated: animated, shot: shot, turnPace: turnPace, resetThirdPerson: resetThirdPerson,
+            clear: twoViewTableSightlinesClear) == true else { return false }
+        pendingP01View = nil
+        teachingRollingObservation = .idle
+        p01Recording?.inputs.append(.init(time: p01Time, kind: .view, animated: animated,
+            clearanceLift: p01Camera?.state.firstPersonClearanceLift, view: view, shot: shot, resetThirdPerson: resetThirdPerson, turnPace: turnPace))
+        p01Revision &+= 1; p01Manual = false
+        disableSmoothPoseControl(); currentOrbit = nil; targetOrbit = nil
+        syncP01Selection()
+        applyP01Pose()
+        if p01AnchoredTransitions { p01ViewSelection.send() }
+        return true
+    }
+    private func syncP01Selection(onlyPublishingChanges: Bool = false) {
+        if let shot=p01Camera?.shot {
+            playerReference=(SCNVector3(shot.cue),SCNVector3(simd_normalize(shot.aim)))
+        }
+        let view = p01Camera?.state.view == .overview ? nil : twoViewMode
+        if !onlyPublishingChanges || playerView != view { playerView = view }
+        if !onlyPublishingChanges || mergedGlobalActive { mergedGlobalActive = false }
+        if !onlyPublishingChanges || surfaceOverviewActive { surfaceOverviewActive = false }
+        if !onlyPublishingChanges || keepsWholeTableFramed { keepsWholeTableFramed = false }
+    }
+    private func applyP01Pose() {
+        guard !presentsTopDown, !temporaryTopDownActive, let pose = p01Camera?.pose else { return }
+        let transform = pose.transform
+        let camera = cameraNode.camera
+        if p01AnchoredTransitions, cameraNode.simdTransform == transform,
+           camera.map({ $0.projectionDirection == .vertical && !$0.usesOrthographicProjection
+               && $0.fieldOfView == CGFloat(pose.verticalFOV) }) ?? true { return }
+        SCNTransaction.begin(); SCNTransaction.disableActions = true
+        if cameraNode.simdTransform != transform { cameraNode.simdTransform = transform }
+        camera?.projectionDirection = .vertical
+        if camera?.fieldOfView != CGFloat(pose.verticalFOV) { camera?.fieldOfView = CGFloat(pose.verticalFOV) }
+        camera?.usesOrthographicProjection = false
+        SCNTransaction.commit()
+    }
+    /// Freeze at the presented frame; no old transition may resume after suspension.
+    func suspendP01Motion() {
+        teachingRollingObservation = .idle
+        p01CueDrag = nil
+        guard usesP01Camera, let snapshot=p01Camera?.snapshot() else { return }
+        pendingP01View=nil
+        p01Input(.init(time:p01Time,kind:.restore,snapshot:snapshot))
+        onPlayerTransitionEnded?()
+    }
+    #if DEBUG
+    var p01ReplayData: Data? { p01Recording.flatMap { try? JSONEncoder().encode($0) } }
+    #endif
+
     // MARK: - Config
 
     struct Config {
@@ -71,7 +181,28 @@ final class CameraRig: ObservableObject {
     var usesShotAwareCamera = false
     /// Daily clearance's continuous surface stack. Other hosts and exports keep their rig.
     /// Shared production camera policy. Teaching hosts supply their own aim and selection.
-    func configurePlayerCameraControls(daily: Bool) {
+    func configurePlayerCameraControls(daily: Bool, policy: ShotCameraPolicy = .legacy,
+                                       anchoredP01Transitions: Bool = false) {
+        if cameraPolicy != policy {
+            pendingTwoViewEntry = nil
+            twoViewCamera = nil
+            pendingP01View = nil
+            p01Camera = nil
+            p01Recording = nil
+            p01CueDrag = nil
+            p01RollingShot = nil
+            teachingRollingObservation = .idle
+            p01ShotFrozen = false
+            p01Manual = false
+            p01Revision &+= 1
+        }
+        cameraPolicy = policy
+        p01AnchoredTransitions = usesP01Camera && anchoredP01Transitions
+        if usesP01Camera {
+            usesRailCameraControls = true; usesTwoViewCameraControls = true
+            usesMergedCamera = true; usesSimpleCueCamera = false; usesSurfaceCamera = false
+            return
+        }
         usesRailCameraControls = true
         // Daily clearance uses the accepted S2 surface in both Debug and Release.
         // Other interactive hosts retain their existing camera behavior.
@@ -94,6 +225,42 @@ final class CameraRig: ObservableObject {
         #endif
     }
 
+    private(set) var cameraPolicy: ShotCameraPolicy = .legacy
+    var usesP01Camera: Bool { cameraPolicy == .p01Replayable }
+    private(set) var p01AnchoredTransitions = false
+    private var p01Camera: P01CameraMotion?
+    private var p01Revision: UInt64 = 0
+    private var pendingP01View: (view: P01CameraMotion.View, reset: Bool, shot: P01CameraMotion.Shot?)?
+    var thirdPersonEntryAwaitsLayout: Bool {
+        p01AnchoredTransitions && pendingP01View?.view == .thirdPerson && !p01Layout.valid
+    }
+    private var p01CueDrag: (origin: SIMD3<Float>, shaft: P01CameraMotion.Shot?)?
+    var isHoldingP01CueDrag: Bool { p01CueDrag != nil }
+    enum TeachingRollingObservation { case idle, held, settleCueOnRelease, frameTargetOnRelease }
+    var teachingRollingObservation = TeachingRollingObservation.idle
+    // Only a committed ordinary shot supplies this reference. Replay and break use their own cameras.
+    private(set) var p01RollingShot: P01CameraMotion.Shot?
+    func beginP01RollingShot(cue: SCNVector3, aim: SCNVector3) {
+        guard p01AnchoredTransitions, !presentsTopDown, !temporaryTopDownActive else { return }
+        teachingRollingObservation = .idle
+        p01RollingShot = p01Shot(cue: cue, strike: cuePose?.strike ?? cue, aim: aim)
+    }
+
+    func endP01RollingShot() { p01RollingShot = nil }
+
+    func selectP01RollingView(_ view: P01CameraMotion.View, animated: Bool, resetThirdPerson: Bool = false) -> Bool {
+        guard let shot = p01RollingShot else { return false }
+        prepareP01(cue: SCNVector3(shot.cue), aim: SCNVector3(shot.aim))
+        return selectP01(view, animated: animated, shot: shot, resetThirdPerson: resetThirdPerson)
+    }
+
+    var p01ShotFrozen = false
+    private var p01Manual = false
+    private var p01Recording: P01CameraMotion.Recording?
+    var p01Snapshot: P01CameraMotion.Snapshot? { p01Camera?.snapshot() }
+    var p01CameraDiagnostic: String? { p01Camera?.diagnostic }
+    private var collectingP01CuePose = false
+    private var collectedP01CuePose: P01CameraMotion.Shot?
     var usesTwoViewCameraControls = false
     var usesSimpleCueCamera = false
     var usesMergedCamera = false
@@ -104,11 +271,15 @@ final class CameraRig: ObservableObject {
     func resumePerspectivePresentation() { presentsTopDown = false }
     @Published private(set) var mergedGlobalActive = false
     @Published private(set) var surfaceOverviewActive = false
-    var overviewControlSelected: Bool { mergedGlobalActive || surfaceOverviewActive }
+    var overviewControlSelected: Bool { usesP01Camera ? p01Camera?.state.view == .overview : mergedGlobalActive || surfaceOverviewActive }
     var usesTwoViewPoseControl: Bool { usesTwoViewCameraControls && !mergedGlobalActive }
 
     @discardableResult
     func enterMergedGlobal(aim: SCNVector3?, cue: SCNVector3? = nil) -> Bool {
+        if usesP01Camera {
+            if let cue, let aim { prepareP01(cue: cue, aim: aim) }
+            return selectP01(.overview, animated: true)
+        }
         guard usesMergedCamera, !temporaryTopDownActive else { return false }
         if usesSurfaceCamera {
             // Read the actually displayed heading before any fallback shot is seeded.
@@ -178,13 +349,21 @@ final class CameraRig: ObservableObject {
     private(set) var temporaryTopDownReferenceSource = "TP actual"
     /// World-space segment visibility through the actual table subtree; used only at FP entry.
     var twoViewTableSightlinesClear: ((SIMD3<Float>, [SIMD3<Float>]) -> Bool)?
-    var twoViewMode: PlayerView { twoViewCamera?.mode ?? .thirdPerson }
-    var twoViewOwnerIsManual: Bool { twoViewCamera?.owner == .manual }
-    var twoViewRequestRevision: UInt64 { twoViewCamera?.requestRevision ?? 0 }
+    var twoViewMode: PlayerView { usesP01Camera ? (p01Camera?.state.lastAimView == .firstPerson ? .firstPerson : .thirdPerson) : twoViewCamera?.mode ?? .thirdPerson }
+    var twoViewOwnerIsManual: Bool { usesP01Camera ? p01Manual : twoViewCamera?.owner == .manual }
+    var twoViewRequestRevision: UInt64 { usesP01Camera ? p01Revision : twoViewCamera?.requestRevision ?? 0 }
     var twoViewSnapshot: TwoViewCamera.Snapshot? { twoViewCamera?.snapshot() }
     var twoViewLayoutContainsSubjects: Bool? { twoViewCamera?.layoutContainsSubjects }
 
     func setTwoViewViewingContext(_ context: UUID) {
+        if usesP01Camera {
+            guard context != twoViewViewingContext else { return }
+            teachingRollingObservation = .idle
+            twoViewViewingContext = context; p01Revision &+= 1; pendingP01View = nil
+            pendingTrainingBookmark = nil
+            p01Input(.init(time: p01Time, kind: .context, context: context))
+            onPlayerTransitionEnded?(); return
+        }
         guard context != twoViewViewingContext else { return }
         let hadPendingEntry = pendingTwoViewEntry != nil
         let wasTransitioning = twoViewCamera?.isTransitioning == true
@@ -203,6 +382,16 @@ final class CameraRig: ObservableObject {
     }
 
     private func refreshTwoViewProfileForLayout() {
+        if usesP01Camera {
+            if let reference = twoViewShotReference { prepareP01(cue: reference.cue, aim: reference.aim) }
+            p01Input(.init(time: p01Time, kind: .layout, layout: p01Layout))
+            if p01Layout.valid, let pending = pendingTrainingBookmark {
+                restoreTrainingBookmark(pending.bookmark, cue: pending.cue, aim: pending.aim)
+            } else if p01Layout.valid, let view = pendingP01View {
+                _ = selectP01(view.view, animated: false, shot: view.shot, resetThirdPerson: view.reset)
+            }
+            return
+        }
         guard usesTwoViewPoseControl, let camera = twoViewCamera else { return }
         let wasTransitioning = camera.isTransitioning
         camera.revalidateLayout(viewport: viewportSize, insets: twoViewReadableInsets)
@@ -240,6 +429,7 @@ final class CameraRig: ObservableObject {
     private func applyTwoViewPose() {
         guard !presentsTopDown else { return }
         if temporaryTopDownActive { applyTemporaryTopDown(); return }
+        if usesP01Camera { applyP01Pose(); return }
         guard let pose = twoViewCamera?.pose else { return }
         SCNTransaction.begin()
         SCNTransaction.disableActions = true
@@ -376,6 +566,12 @@ final class CameraRig: ObservableObject {
 
     @discardableResult
     func prepareTemporaryObservation(cue: SCNVector3, aim: SCNVector3) -> Bool {
+        if usesP01Camera {
+            guard !temporaryTopDownActive else { return false }
+            prepareP01(cue: cue, aim: aim)
+            p01Input(.init(time: p01Time, kind: .beginObservation))
+            p01Manual = true; onManualCameraControl?(); return p01Camera != nil
+        }
         guard usesTwoViewCameraControls, !temporaryTopDownActive else { return false }
         twoViewShotReference = (cue, aim)
         let camera = activeTwoViewCamera()
@@ -389,6 +585,7 @@ final class CameraRig: ObservableObject {
     }
 
     func endTemporaryObservation() {
+        if usesP01Camera { p01Input(.init(time: p01Time, kind: .release)); return }
         guard usesTwoViewCameraControls, !temporaryTopDownActive else { return }
         twoViewCamera?.endTemporaryObservation(duration: UIAccessibility.isReduceMotionEnabled ? 0.1 : 0.8)
     }
@@ -491,7 +688,11 @@ final class CameraRig: ObservableObject {
             fov: Float(cameraNode.camera?.fieldOfView ?? config.standFov))
         let reference: TwoViewCamera.Pose
         let source: String
-        if twoViewCamera?.mode == .firstPerson {
+        if usesP01Camera, let camera = p01Camera, camera.state.view == .firstPerson,
+           let pose = P01CameraMotion.evaluate(state: .init(), shot: camera.shot, layout: camera.layout) {
+            reference = .init(eye: pose.eye, orientation: pose.orientation, fov: pose.verticalFOV)
+            source = "P01 TP reference"
+        } else if twoViewCamera?.mode == .firstPerson {
             if usesSimpleCueCamera, var shot = twoViewCamera?.simpleShot {
                 shot.distance = 1.65
                 reference = shot.pose
@@ -518,6 +719,7 @@ final class CameraRig: ObservableObject {
         temporaryTopDownReferencePose = reference
         temporaryTopDownReferenceYaw = atan2(-reference.forward.z, -reference.forward.x)
         temporaryTopDownReferenceSource = source
+        if usesP01Camera { suspendP01Motion() }
         temporaryTopDownActive = true
         if usesMergedCamera {
             frozenMergedFrame = temporaryTopDownOverlayFrame
@@ -612,7 +814,29 @@ final class CameraRig: ObservableObject {
     #endif
     var observationCandidates: [SCNVector3] = []
     var observationPocket: (index: Int, position: SCNVector3)?
-    private var cuePose: (strike: SCNVector3, aim: SCNVector3, elevation: Float)?
+    private var cuePose: (strike: SCNVector3, aim: SCNVector3, elevation: Float, addressButtOffset: Float?)?
+
+    #if DEBUG
+    /// Read-only measurements for the v67 baseline; never selects a camera policy.
+    var v67BaselineInputs: [String: Any] {
+        var result: [String: Any] = [
+            "surfaceY": tableSurfaceY,
+            "viewport": [viewportSize.width, viewportSize.height],
+            "surface": usesSurfaceCamera, "merged": usesMergedCamera,
+            "simple": usesSimpleCueCamera, "twoView": usesTwoViewCameraControls,
+            "playerView": playerView?.rawValue ?? "none",
+            "policy": cameraPolicy.rawValue
+        ]
+        if let snapshot = p01Camera?.snapshot(), let data = try? JSONEncoder().encode(snapshot),
+           let object = try? JSONSerialization.jsonObject(with: data) { result["p01"] = object }
+        if let cuePose {
+            result["strike"] = [cuePose.strike.x, cuePose.strike.y, cuePose.strike.z]
+            result["aim"] = [cuePose.aim.x, cuePose.aim.y, cuePose.aim.z]
+            result["elevation"] = cuePose.elevation
+        }
+        return result
+    }
+    #endif
     private var railZoomMaximumFOV: Float?
     var onPlayerTransitionEnded: (() -> Void)?
     var onManualCameraControl: (() -> Void)?
@@ -844,6 +1068,12 @@ final class CameraRig: ObservableObject {
     }
 
     func followSimpleAim(cue: SCNVector3, strike: SCNVector3, aim: SCNVector3) {
+        if usesP01Camera {
+            guard !temporaryTopDownActive, !presentsTopDown else { return }
+            prepareP01(cue: cue, aim: aim)
+            p01Input(.init(time: p01Time, kind: .aim, shot: p01Shot(cue: cue, strike: strike, aim: aim)))
+            syncP01Selection(); return
+        }
         guard usesSimpleCueCamera, !mergedGlobalActive, !temporaryTopDownActive else { return }
         twoViewShotReference = (cue, aim)
         twoViewCamera?.updateSimpleShot(cue: SIMD3(cue.x,cue.y,cue.z),
@@ -852,9 +1082,179 @@ final class CameraRig: ObservableObject {
         applyTwoViewPose()
     }
 
-    func updateCuePose(strike: SCNVector3, aim: SCNVector3, elevation: Float, cue: SCNVector3? = nil) {
+    enum P01TargetCueResult { case aligned, preserved }
+
+    private func collectP01CuePose(during update: () -> Void) -> P01CameraMotion.Shot? {
+        collectingP01CuePose = true
+        collectedP01CuePose = nil
+        defer {
+            collectingP01CuePose = false
+            collectedP01CuePose = nil
+        }
+        update()
+        return collectedP01CuePose
+    }
+
+    /// Update the displayed shaft first, then send its actual contact and elevation
+    /// as the only camera input for this free-aim table gesture sample.
+    func followP01TableAim(cue: SCNVector3, aim: SCNVector3,
+                          fallbackStrike: () -> SCNVector3, updateCue: () -> Void) {
+        guard usesP01Camera, !p01ShotFrozen, !temporaryTopDownActive, !presentsTopDown else {
+            updateCue()
+            return
+        }
+        let resolved = collectP01CuePose(during: updateCue)
+        if let resolved {
+            cuePose = (SCNVector3(resolved.strike), SCNVector3(resolved.aim), resolved.elevation, resolved.addressButtOffset)
+        }
+        // A blocked shaft must not trap the hand at the obstructed bearing.
+        let shot = resolved ?? p01Shot(cue: cue, strike: fallbackStrike(), aim: aim)
+        prepareP01(cue: SCNVector3(shot.cue), aim: SCNVector3(shot.aim))
+        p01Input(.init(time: p01Time, kind: .aim, shot: shot))
+        syncP01Selection(onlyPublishingChanges: true)
+    }
+
+    /// The scene may draw a geometric preview, but only the resolved shaft can
+    /// create the selection's camera motion.
+    func updateP01TargetCue(resolved: Bool, align: Bool, preservePose: Bool, animated: Bool,
+                            returnToThirdPerson: Bool = false,
+                           update: () -> Void) -> P01TargetCueResult? {
+        guard usesP01Camera else { update(); return nil }
+        let captured = collectP01CuePose(during: update)
+        guard resolved, let shot = captured else { return nil }
+        let cue = SCNVector3(shot.cue), aim = SCNVector3(shot.aim)
+        cuePose = (SCNVector3(shot.strike), aim, shot.elevation, shot.addressButtOffset)
+        guard align, !p01ShotFrozen, !temporaryTopDownActive, !presentsTopDown else { return nil }
+        prepareP01(cue: cue, aim: aim)
+        if returnToThirdPerson && !preservePose {
+            return selectP01(.thirdPerson, animated: animated, shot: shot, resetThirdPerson: true,
+                             turnPace: .selection120) ? .aligned : nil
+        }
+        guard let visible = p01Camera?.snapshot() else { return nil }
+        let state = visible.state
+        // An existing third-person orbit yields to the new target. A camera gesture
+        // made after selection still owns the view when the prediction arrives.
+        let observed = visible.headBase != nil || state.focusPoint != nil || state.observationHorizontalFOV != nil
+            || max(abs(state.observationYaw), abs(state.headYaw), abs(state.gazeYawOffset),
+                   abs(state.gazePitchOffset)) > 0.0001
+        let followsTarget = p01AnchoredTransitions && state.view == .thirdPerson
+        let preservesVisiblePose = preservePose || state.view == .overview || (observed && !followsTarget)
+        return commitP01Target(shot, preserving: preservesVisiblePose, animated: animated, pace: .selection120)
+    }
+
+    func alignP01Selection(cue: SCNVector3, strike: SCNVector3, aim: SCNVector3, reuseAddress: Bool = false) {
+        prepareP01(cue: cue, aim: aim)
+        let aimedShot = p01Shot(cue: cue, strike: strike, aim: aim)
+        let shot: P01CameraMotion.Shot
+        if reuseAddress, let current = p01Camera?.shot, current.cue == aimedShot.cue,
+           simd_distance(current.aim, aimedShot.aim) < 0.00001 {
+            shot = current
+        } else {
+            shot = aimedShot
+        }
+        _ = commitP01Target(shot, preserving: preservesP01SideView,
+                            animated: !UIAccessibility.isReduceMotionEnabled, pace: .selection120)
+    }
+
+    var preservesP01SideView: Bool {
+        guard let view = p01Camera?.state.view else { return false }
+        return view == .overview || (view == .firstPerson && preservesP01Observation)
+    }
+
+    var preservesP01Observation: Bool {
+        guard let visible = p01Snapshot else { return false }
+        let state = visible.state
+        return state.view == .overview || visible.headBase != nil || state.focusPoint != nil
+            || state.observationHorizontalFOV != nil
+            || max(abs(state.observationYaw), abs(state.headYaw), abs(state.gazeYawOffset),
+                   abs(state.gazePitchOffset)) > 0.0001
+    }
+
+    func watchP01Break() {
+        guard p01AnchoredTransitions, !temporaryTopDownActive, !presentsTopDown, p01Camera != nil else { return }
+        pendingP01View = nil
+        p01Input(.init(time: p01Time, kind: .watchBreak, breakPullbackSeconds: 1.5, animated: !UIAccessibility.isReduceMotionEnabled))
+        syncP01Selection()
+        p01ViewSelection.send()
+    }
+
+    /// Hand off the camera's reference independently of next-shot selection or prediction.
+    func settleP01Cue(at cue: SCNVector3, preservingVisiblePose: Bool = false) {
+        guard p01AnchoredTransitions, !p01ShotFrozen, var shot = p01Camera?.shot else { return }
+        let position = SIMD3<Float>(cue.x, cue.y, cue.z)
+        guard simd_distance(shot.cue, position) > 0.00001 else { return }
+        shot.strike += position - shot.cue
+        shot.cue = position
+        twoViewShotReference = (cue, SCNVector3(shot.aim))
+        if p01Camera?.state.watchingBreak == true {
+            // The new cue is needed for the next selection, even when the camera stays at the rail.
+            p01Input(.init(time: p01Time, kind: .shot, shot: shot))
+            syncP01Selection()
+            return
+        }
+        _ = commitP01Target(shot, preserving: preservingVisiblePose || preservesP01SideView || temporaryTopDownActive || presentsTopDown,
+                            animated: !UIAccessibility.isReduceMotionEnabled, pace: .original180)
+    }
+
+    func beginP01CueDrag(at origin: SIMD3<Float>) {
+        guard p01CueDrag == nil, p01AnchoredTransitions, !temporaryTopDownActive, !presentsTopDown,
+              !p01ShotFrozen, let camera = p01Camera else { return }
+        if camera.hasPendingMotion { suspendP01Motion() }
+        p01CueDrag = (origin, nil)
+    }
+
+    func endP01CueDrag(at cue: SIMD3<Float>, animated: Bool) {
+        guard let drag = p01CueDrag else { return }
+        p01CueDrag = nil
+        guard simd_distance(cue, drag.origin) > 0.00001, let camera = p01Camera,
+              !temporaryTopDownActive, !presentsTopDown, !p01ShotFrozen else { return }
+        // A blocked shot can hide the shaft during placement. Translate the last
+        // available strike offset to the actual, constrained resting position.
+        var shot = drag.shaft ?? camera.shot
+        shot.strike += cue - shot.cue
+        shot.cue = cue
+        twoViewShotReference = (SCNVector3(cue), SCNVector3(shot.aim))
+        _ = commitP01Target(shot, preserving: camera.state.view == .overview, animated: animated, pace: .original180)
+    }
+
+    private func commitP01Target(_ shot: P01CameraMotion.Shot, preserving preservesVisiblePose: Bool,
+                                 animated: Bool, pace: P01CameraMotion.TurnPace) -> P01TargetCueResult? {
+        let paced = p01AnchoredTransitions && p01Camera?.state.view == .thirdPerson && animated && !preservesVisiblePose
+        prepareP01Recording()
+        guard p01Camera?.selectTarget(shot: shot, preservesVisiblePose: preservesVisiblePose,
+                                      animated: animated, turnPace: paced ? pace : nil, clear: twoViewTableSightlinesClear) == true else { return nil }
+        p01Recording?.inputs.append(.init(time: p01Time, kind: .target, animated: animated,
+            clearanceLift: p01Camera?.state.firstPersonClearanceLift, shot: shot,
+            preservesVisiblePose: preservesVisiblePose, turnPace: paced ? pace : nil))
+        p01Revision &+= 1
+        syncP01Selection()
+        applyP01Pose()
+        return preservesVisiblePose ? .preserved : .aligned
+    }
+
+    func updateCuePose(strike: SCNVector3, aim: SCNVector3, elevation: Float, cue: SCNVector3? = nil,
+                       addressButtOffset: Float? = nil) {
+        if collectingP01CuePose {
+            collectedP01CuePose = cue.map { p01Shot(cue: $0, strike: strike, aim: aim, elevation: elevation, addressButtOffset: addressButtOffset) }
+            return
+        }
         let old = cuePose
-        cuePose = (strike, aim, elevation)
+        cuePose = (strike, aim, elevation, addressButtOffset)
+        if usesP01Camera {
+            guard !p01ShotFrozen, teachingRollingObservation == .idle else { return }
+            if let cue {
+                twoViewShotReference = (cue, aim)
+                if !temporaryTopDownActive && !presentsTopDown {
+                    prepareP01(cue: cue, aim: aim)
+                    let shot = p01Shot(cue: cue, strike: strike, aim: aim)
+                    if isHoldingP01CueDrag { p01CueDrag?.shaft = shot; return }
+                    // A completed prediction may present the shaft that the gesture already supplied.
+                    if p01AnchoredTransitions, shot == p01Camera?.shot { return }
+                    p01Input(.init(time: p01Time, kind: .shot, shot: shot))
+                }
+            }
+            return
+        }
         if usesTwoViewPoseControl, let cue {
             twoViewShotReference = (cue, aim)
             // Restored daily first-person follows actual cue/aim changes, while head
@@ -929,7 +1329,39 @@ final class CameraRig: ObservableObject {
 
     @discardableResult
     func enterPlayerView(_ view: PlayerView, cue: SCNVector3, aim: SCNVector3,
-                         duration: Float = 0.95, focus: SCNVector3? = nil, surfaceTravel: Float = 0.5) -> Bool {
+                         duration: Float = 0.95, focus: SCNVector3? = nil, surfaceTravel: Float = 0.5,
+                         resetThirdPerson: Bool = false, strikeOverride: SCNVector3? = nil,
+                         addressOverride: P01CameraMotion.Shot? = nil, turnPace: P01CameraMotion.TurnPace? = nil) -> Bool {
+        if usesP01Camera {
+            guard !temporaryTopDownActive else { return false }
+            resumePerspectivePresentation(); prepareP01(cue: cue, aim: aim)
+            playerReference = (cue, aim.normalized())
+            var shot = addressOverride ?? p01Shot(cue:cue,strike:strikeOverride ?? cuePose?.strike ?? cue,aim:aim)
+            if view == .firstPerson, shot.observationOnlyAddress == true, let camera = p01Camera {
+                // Keep the selected bearing. If the nominal eye is behind the rail,
+                // shorten its setback along the same axis and record that geometry.
+                var firstPerson = camera.state
+                firstPerson.view = .firstPerson
+                firstPerson.focusPoint = nil
+                firstPerson.watchingBreak = nil
+                firstPerson.headYaw = 0
+                let nominal = firstPerson.shaftSetback(for: shot)
+                for fraction: Float in [1, 0.80, 0.60, 0.40, 0.25] {
+                    var candidate = shot
+                    candidate.addressButtOffset = nominal * fraction
+                    if P01CameraMotion.evaluate(state: firstPerson, shot: candidate, layout: camera.layout,
+                                                clear: twoViewTableSightlinesClear) != nil {
+                        shot = candidate
+                        break
+                    }
+                }
+            }
+            let accepted = selectP01(view == .firstPerson ? .firstPerson : .thirdPerson,
+                animated: duration > 0 && !UIAccessibility.isReduceMotionEnabled, shot: shot,
+                resetThirdPerson: resetThirdPerson, turnPace: turnPace)
+            if accepted, let focus { observe(at:focus) }
+            return accepted
+        }
         let view: PlayerView = usesMergedCamera && !usesSurfaceCamera ? .thirdPerson : view
         if usesTwoViewCameraControls {
             guard !temporaryTopDownActive else { return false }
@@ -1037,6 +1469,10 @@ final class CameraRig: ObservableObject {
     }
 
     func isPlayerViewFor(cue: SCNVector3, aim: SCNVector3) -> Bool {
+        if usesP01Camera, let camera=p01Camera {
+            return camera.state.view != .overview && simd_distance(camera.shot.cue,SIMD3(cue.x,cue.y,cue.z)) < 0.002
+                && simd_distance(simd_normalize(camera.shot.aim),SIMD3(aim.normalized().x,aim.normalized().y,aim.normalized().z)) < 0.002
+        }
         guard playerView != nil, let reference = playerReference else { return false }
         return (reference.cue - cue).length() < 0.002 && (reference.aim - aim.normalized()).length() < 0.002
     }
@@ -1127,7 +1563,7 @@ final class CameraRig: ObservableObject {
     /// visible pose as its starting origin instead of snapping back to a
     /// stale `currentZoom`-derived pose.
     private var currentInterpolatedPose: SmoothPose?
-    var isTransitioning: Bool { usesTwoViewPoseControl ? (twoViewCamera?.isTransitioning ?? false) : smoothProgress < 1.0 }
+    var isTransitioning: Bool { usesP01Camera ? (p01Camera?.hasPendingMotion ?? false) : usesTwoViewPoseControl ? (twoViewCamera?.isTransitioning ?? false) : smoothProgress < 1.0 }
     /// Automatic HUD anchoring must not translate a user-controlled observation pivot.
     var allowsCueScreenAnchor: Bool { !usesTwoViewPoseControl && currentOrbit == nil && !isTransitioning }
 
@@ -1135,6 +1571,7 @@ final class CameraRig: ObservableObject {
     /// zoom; the damping law itself is unchanged. Allow Float rounding at large
     /// accumulated yaw so idle can still converge.
     var hasPendingDamping: Bool {
+        if usesP01Camera { return p01Camera?.hasPendingMotion ?? false }
         if usesTwoViewPoseControl { return twoViewCamera?.hasPendingMotion ?? false }
         let precision: Float = 0.00001
         let yawPrecision = max(precision, max(abs(currentYaw), abs(targetYaw)) * Float.ulpOfOne * 32)
@@ -1182,7 +1619,8 @@ final class CameraRig: ObservableObject {
         fileprivate let mergedGlobal: Bool
         fileprivate let surfaceOverview: Bool
         fileprivate let shotReference: (cue: SCNVector3, aim: SCNVector3)?
-        fileprivate let cuePose: (strike: SCNVector3, aim: SCNVector3, elevation: Float)?
+        fileprivate let cuePose: (strike: SCNVector3, aim: SCNVector3, elevation: Float, addressButtOffset: Float?)?
+        fileprivate let p01: P01CameraMotion.Snapshot?
         fileprivate let twoView: TwoViewCamera.Snapshot?
     }
 
@@ -1194,6 +1632,7 @@ final class CameraRig: ObservableObject {
         let overview: Bool
         let orbit: [Float] // pivot xyz, yaw, radius, height above table, pitch, FOV
         let viewing: [Float] // yaw, travel, head yaw
+        var motionSnapshot: P01CameraMotion.Snapshot? = nil
     }
     func trainingBookmark() -> TrainingBookmark {
         let position = cameraNode.simdPosition, rotation = cameraNode.simdOrientation.vector
@@ -1202,9 +1641,39 @@ final class CameraRig: ObservableObject {
                             Float(cameraNode.camera?.fieldOfView ?? config.standFov)],
             mode: twoViewMode.rawValue, global: mergedGlobalActive, overview: surfaceOverviewActive,
             orbit: [p.pivot.x, p.pivot.y, p.pivot.z, p.yaw, p.radius, p.height, p.pitch, p.fov],
-            viewing: [view?.yaw ?? 0, view?.progress ?? 0.5, view?.headYaw ?? 0])
+            viewing: [view?.yaw ?? 0, view?.progress ?? 0.5, view?.headYaw ?? 0],
+            motionSnapshot: p01Snapshot)
     }
+    private var pendingTrainingBookmark: (bookmark: TrainingBookmark, cue: SCNVector3, aim: SCNVector3)?
+
     func restoreTrainingBookmark(_ saved: TrainingBookmark, cue: SCNVector3, aim: SCNVector3) {
+        if usesP01Camera {
+            guard p01Layout.valid else {
+                pendingTrainingBookmark = (saved, cue, aim)
+                return
+            }
+            pendingTrainingBookmark = nil
+            let mode = PlayerView(rawValue: saved.mode) ?? .thirdPerson
+            _ = enterPlayerView(mode, cue: cue, aim: aim, duration: 0)
+            guard var snapshot = saved.motionSnapshot ?? p01Snapshot else { return }
+            if saved.motionSnapshot == nil {
+                // Older shots stored the presented transform without the motion controller state.
+                let p = saved.pose
+                guard p.count == 8, p.allSatisfy(\.isFinite) else { return }
+                snapshot.pose = .init(eye: .init(p[0], p[1], p[2]),
+                                      rotation: .init(p[3], p[4], p[5], p[6]), verticalFOV: p[7])
+                let aimView: P01CameraMotion.View = mode == .firstPerson ? .firstPerson : .thirdPerson
+                snapshot.state.lastAimView = aimView
+                snapshot.state.view = saved.global || saved.overview ? .overview : aimView
+            }
+            guard p01Camera?.restore(snapshot, requireSameContext: false) == true else { return }
+            pendingP01View = nil
+            prepareP01Recording()
+            p01Recording?.inputs.append(.init(time:p01Time, kind:.restore, snapshot:snapshot, restoringBoard:true))
+            syncP01Selection()
+            applyP01Pose()
+            return
+        }
         guard saved.pose.count == 8, saved.orbit.count == 8, saved.viewing.count == 3,
               (saved.pose + saved.orbit + saved.viewing).allSatisfy(\.isFinite),
               let mode = PlayerView(rawValue: saved.mode) else { return }
@@ -1257,10 +1726,25 @@ final class CameraRig: ObservableObject {
                          mergedGlobal: mergedGlobalActive,
                          surfaceOverview: surfaceOverviewActive,
                          shotReference: twoViewShotReference, cuePose: cuePose,
+                         p01: p01Camera?.snapshot(),
                          twoView: usesTwoViewPoseControl ? twoViewCamera?.snapshot() : nil)
     }
 
-    func restorePerspectiveState(_ state: PerspectiveState) {
+    func restorePerspectiveState(_ state: PerspectiveState, restoringBoard: Bool = false) {
+        if usesP01Camera {
+            resumePerspectivePresentation()
+            prepareP01Recording()
+            if let snapshot = state.p01, p01Camera?.restore(snapshot, requireSameContext: !restoringBoard) == true {
+                p01Recording?.inputs.append(.init(time:p01Time,kind:.restore,snapshot:snapshot,restoringBoard:restoringBoard))
+                syncP01Selection()
+            } else if let shot = twoViewShotReference {
+                prepareP01(cue: shot.cue, aim: shot.aim)
+                p01Input(.init(time: p01Time, kind: .shot, shot: p01Shot(cue: shot.cue, strike: cuePose?.strike ?? shot.cue, aim: shot.aim)))
+                _ = selectP01(p01Camera?.state.view ?? .thirdPerson, animated: false)
+            }
+            applyP01Pose()
+            onPlayerTransitionEnded?(); return
+        }
         resumePerspectivePresentation()
         mergedGlobalActive = usesMergedCamera && state.mergedGlobal
         surfaceOverviewActive = usesSurfaceCamera && state.surfaceOverview
@@ -1473,6 +1957,7 @@ final class CameraRig: ObservableObject {
     // MARK: - Input handlers (3D mode)
 
     func handleSurfacePan(delta: SIMD2<Float>) {
+        if usesP01Camera { p01Input(.init(time: p01Time, kind: .pan, delta: delta)); p01Manual = true; onManualCameraControl?(); return }
         guard usesSurfaceCamera, usesTwoViewPoseControl, prepareTwoViewRailForInput(),
               activeTwoViewCamera().surfacePan(delta: delta) else { return }
         finishPendingTwoViewEntry(notify: true)
@@ -1481,6 +1966,7 @@ final class CameraRig: ObservableObject {
     }
 
     func handleHorizontalSwipe(delta: Float) {
+        if usesP01Camera { p01Input(.init(time: p01Time, kind: .pan, delta: .init(delta, 0))); p01Manual = true; onManualCameraControl?(); return }
         if usesSurfaceCamera { handleSurfacePan(delta: SIMD2(delta, 0)); return }
         if usesTwoViewPoseControl {
             if delta.isFinite, delta != 0, !prepareTwoViewRailForInput() { return }
@@ -1506,6 +1992,7 @@ final class CameraRig: ObservableObject {
     }
 
     func handleVerticalSwipe(delta: Float) {
+        if usesP01Camera { p01Input(.init(time: p01Time, kind: .pan, delta: .init(0, delta))); p01Manual = true; onManualCameraControl?(); return }
         if usesSurfaceCamera { handleSurfacePan(delta: SIMD2(0, delta)); return }
         if usesTwoViewPoseControl {
             if delta.isFinite, delta != 0, !prepareTwoViewRailForInput() { return }
@@ -1564,6 +2051,7 @@ final class CameraRig: ObservableObject {
     }
 
     func handlePinch(scale: Float) {
+        if usesP01Camera { p01Input(.init(time: p01Time, kind: .pinch, scale: scale, preservePinchPitch: p01AnchoredTransitions)); p01Manual = true; onManualCameraControl?(); return }
         if usesTwoViewPoseControl {
             if scale.isFinite, scale > 0, scale != 1, !prepareTwoViewRailForInput() { return }
             if activeTwoViewCamera().pinch(scale: scale) {
@@ -1697,8 +2185,28 @@ final class CameraRig: ObservableObject {
         applyCameraTransform()
     }
 
+    /// An object-only teaching diagram has an observation anchor, never a playable cue pose.
+    @discardableResult
+    func observeP01Object(at target: SCNVector3, toward pocket: SCNVector3?, animated: Bool) -> Bool {
+        guard usesP01Camera else { return false }
+        let delta = pocket.map { SIMD2($0.x - target.x, $0.z - target.z) } ?? .zero
+        let length = simd_length(delta)
+        let direction = length > 0.0001 ? delta / length : SIMD2<Float>(1, 0)
+        let aim = SCNVector3(direction.x, 0, direction.y)
+        prepareP01(cue: target, aim: aim)
+        let anchor = SIMD3<Float>(target.x, target.y, target.z)
+        let observation = P01CameraMotion.Shot(cue: anchor, strike: anchor,
+            aim: SIMD3(direction.x, 0, direction.y), elevation: 0,
+            observationOnlyAddress: true)
+        return selectP01(.thirdPerson, animated: animated, shot: observation, resetThirdPerson: true)
+    }
+
     /// Observation is a camera intent; it has no access to selected balls or shot parameters.
     func observe(at point: SCNVector3) {
+        if usesP01Camera {
+            p01Input(.init(time:p01Time,kind:.focus,point:.init(point.x,point.y,point.z)))
+            syncP01Selection(); return
+        }
         guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { return }
         beginManualOrbit()
         targetPivot = point
@@ -1733,6 +2241,7 @@ final class CameraRig: ObservableObject {
 
     @discardableResult
     func observeDailyWholeTable(aimDirection: SCNVector3?) -> Bool {
+        if usesP01Camera { return enterMergedGlobal(aim: aimDirection) }
         if usesTwoViewPoseControl {
             return enterTwoViewThirdPerson(wholeTable: true, yaw: twoViewOrbitBearing, duration: 0.5)
         }
@@ -1752,6 +2261,7 @@ final class CameraRig: ObservableObject {
     ///   the 2D-consistent orientation. Pass `targetYaw` to re-fit without turning.
     @discardableResult
     func observeWholeTable(yaw: Float? = CameraRig.overviewYaw) -> Bool {
+        if usesP01Camera { return enterMergedGlobal(aim: twoViewCurrentAim) }
         if usesTwoViewPoseControl {
             return enterTwoViewThirdPerson(wholeTable: true, yaw: yaw ?? twoViewOrbitBearing, duration: 0.5)
         }
@@ -1921,6 +2431,7 @@ final class CameraRig: ObservableObject {
     // MARK: - Observation / Aiming
 
     func enterObservation(cueBallPosition: SCNVector3, aimDirection: SCNVector3) {
+        if usesP01Camera { _ = enterPlayerView(.thirdPerson, cue: cueBallPosition, aim: aimDirection); return }
         currentViewMode = .observation
         targetPivot = SCNVector3(cueBallPosition.x, tableSurfaceY, cueBallPosition.z)
 
@@ -1942,6 +2453,7 @@ final class CameraRig: ObservableObject {
     }
 
     func enterAiming(cueBallPosition: SCNVector3, targetDirection: SCNVector3, entryZoom: Float = 0.5) {
+        if usesP01Camera { _ = enterPlayerView(.thirdPerson, cue: cueBallPosition, aim: targetDirection); return }
         currentViewMode = .aiming
         targetPivot = SCNVector3(cueBallPosition.x, tableSurfaceY, cueBallPosition.z)
 
@@ -2091,6 +2603,18 @@ final class CameraRig: ObservableObject {
         // presentation. Only the two-view controller competes with 2D cue updates.
         guard !(presentsTopDown && usesTwoViewCameraControls) else { return }
         if temporaryTopDownActive { applyTemporaryTopDown(); return }
+        if usesP01Camera {
+            let pending = p01Camera?.hasPendingMotion == true
+            // Read the value clock before beginning the optional struct's exclusive mutation.
+            let nextTime = p01Time + Double(max(0, deltaTime))
+            p01Camera?.advance(to: nextTime, clear: twoViewTableSightlinesClear)
+            applyP01Pose()
+            if pending, let camera = p01Camera, (p01Recording?.samples.count ?? 0) < 8192 {
+                p01Recording?.samples.append(.init(time:camera.time,pose:camera.pose))
+            }
+            if pending && p01Camera?.hasPendingMotion != true { onPlayerTransitionEnded?() }
+            return
+        }
         if usesTwoViewPoseControl, let camera = twoViewCamera {
             let wasTransitioning = camera.isTransitioning
             camera.update(deltaTime: deltaTime)
@@ -2213,6 +2737,7 @@ final class CameraRig: ObservableObject {
     }
 
     func applyTopDown2D() {
+        if usesP01Camera && !presentsTopDown { suspendP01Motion() }
         presentsTopDown = true
         cameraNode.camera?.usesOrthographicProjection = true
         cameraNode.camera?.orthographicScale = topDownOrthographicScale
@@ -2227,6 +2752,7 @@ final class CameraRig: ObservableObject {
     /// Top-down 2D view with the table's long axis (X) appearing vertically on screen,
     /// so the table fits the phone's portrait orientation (long edge along long edge).
     func applyTopDown2DRotated() {
+        if usesP01Camera && !presentsTopDown { suspendP01Motion() }
         presentsTopDown = true
         cameraNode.camera?.usesOrthographicProjection = true
         cameraNode.camera?.orthographicScale = topDownOrthographicScale

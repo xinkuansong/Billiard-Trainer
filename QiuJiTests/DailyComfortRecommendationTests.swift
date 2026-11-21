@@ -1,11 +1,124 @@
 import XCTest
 import Combine
 import SceneKit
+import simd
 @testable import QiuJi
 
 final class DailyComfortRecommendationTests: XCTestCase {
     private let y = BTTablePhysics.surfaceY
     private func p(_ x: Float, _ z: Float) -> SCNVector3 { .init(x, y + AngleSceneCalculator.ballRadius, z) }
+
+    @MainActor
+    func testDailyNearRailSideObservationCanEnterFirstPerson() throws {
+        let (vm, rig) = try dailyNearRailObservation(cueZ: 0.635, eightZ: 0.7874)
+        let before = try XCTUnwrap(rig.p01Snapshot)
+        XCTAssertGreaterThan(abs(before.state.observationYaw), 0.01)
+        let aim = try XCTUnwrap(vm.playerViewDirection)
+        XCTAssertNil(vm.scene.cueStrikeAccess(aim: aim)?.resolvedPose(spinX: vm.spinX, spinY: vm.spinY))
+        let board = vm.currentSnapshot()
+        let accepted = vm.requestPlayerView(.firstPerson)
+        XCTAssertTrue(accepted, rig.p01CameraDiagnostic ?? "No first-person camera")
+        for _ in 0..<480 { rig.update(deltaTime: 1 / 120) }
+        XCTAssertEqual(rig.playerView, .firstPerson)
+        XCTAssertTrue(try XCTUnwrap(vm.scene.cueStick).rootNode.isHidden)
+        XCTAssertNil(vm.currentPlayerAim)
+        XCTAssertEqual(vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] },
+                       board.onTable.mapValues { [$0.x, $0.y] })
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
+
+        let rendered = try XCTUnwrap(rig.p01Snapshot)
+        XCTAssertEqual(rendered.shot.observationOnlyAddress, true)
+        XCTAssertLessThanOrEqual(rendered.state.firstPersonClearanceLift, 0.65)
+        XCTAssertLessThan(simd_distance(rendered.shot.aim, SIMD3<Float>(aim)), 0.0001)
+        let bytes = try XCTUnwrap(rig.p01ReplayData)
+        let recording = try JSONDecoder().decode(P01CameraMotion.Recording.self, from: bytes)
+        XCTAssertTrue(recording.layout.legalEye(rendered.pose.eye))
+        XCTAssertTrue(recording.samples.allSatisfy { recording.layout.legalEye($0.pose.eye) })
+        let clear = try XCTUnwrap(rig.twoViewTableSightlinesClear)
+        XCTAssertTrue(clear(rendered.pose.eye, P01CameraMotion.observationSightlineTargets(
+            shot: rendered.shot, radius: recording.layout.ballRadius)))
+        var replay = try XCTUnwrap(P01CameraMotion(recording: recording))
+        for input in recording.inputs { replay.apply(input) }
+        replay.advance(to: rendered.time)
+        XCTAssertLessThan(simd_distance(replay.pose.eye, rendered.pose.eye), 0.0001)
+        XCTAssertLessThan(simd_distance(replay.pose.forward, rendered.pose.forward), 0.0001)
+
+    }
+
+    @MainActor
+    func testDailyLegalNearRailSideObservationCanEnterFirstPerson() throws {
+        let legalCueZ = AngleSceneCalculator.innerWidth / 2 - AngleSceneCalculator.ballRadius
+        let (vm, rig) = try dailyNearRailObservation(cueZ: legalCueZ, eightZ: 0.4)
+        let cue = try XCTUnwrap(vm.scene.cueBallNode).position
+        XCTAssertEqual(cue.z, legalCueZ, accuracy: 0.0001)
+        let board = vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] }
+        let aim = try XCTUnwrap(vm.playerViewDirection)
+        let shaft = try XCTUnwrap(vm.scene.cueStrikeAccess(aim: aim)?.resolvedPose(spinX: vm.spinX, spinY: vm.spinY))
+        XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false), rig.p01CameraDiagnostic ?? "No first-person camera")
+        let camera = try XCTUnwrap(rig.p01Snapshot)
+        XCTAssertEqual(rig.playerView, .firstPerson)
+        XCTAssertEqual(vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] }, board)
+        XCTAssertLessThan(simd_distance(camera.shot.aim, SIMD3<Float>(aim)), 0.0001)
+        XCTAssertNil(camera.shot.observationOnlyAddress)
+        XCTAssertLessThan(simd_distance(camera.shot.strike, SIMD3<Float>(shaft.pivot)), 0.0001)
+        XCTAssertEqual(camera.shot.elevation, shaft.elevation, accuracy: 0.0001)
+        XCTAssertEqual(camera.shot.addressButtOffset,
+                       vm.scene.cueStick?.addressButtOffset(tipInset: shaft.inset))
+    }
+
+    @MainActor
+    func testDailyVisibleCueFirstPersonUsesRealShaftAtRailAndCenter() throws {
+        let legalCueZ = AngleSceneCalculator.innerWidth / 2 - AngleSceneCalculator.ballRadius
+        for cueZ in [legalCueZ, 0] {
+            let (vm, rig) = try dailyNearRailObservation(cueZ: cueZ, eightZ: 0.4)
+            let cue = try XCTUnwrap(vm.scene.cueBallNode).position
+            let aim = try XCTUnwrap(vm.playerViewDirection)
+            let shaft = try XCTUnwrap(vm.scene.cueStrikeAccess(aim: aim)?.resolvedPose(spinX: 0, spinY: 0))
+            vm.scene.updateCueStick(cueBallPosition: shaft.pivot, aimDirection: aim,
+                elevationOverride: shaft.elevation, tipInsetOverride: shaft.inset)
+            let stick = try XCTUnwrap(vm.scene.cueStick)
+            XCTAssertFalse(stick.rootNode.isHidden)
+            XCTAssertTrue(rig.enterPlayerView(.firstPerson, cue: cue, aim: aim, duration: 0),
+                          rig.p01CameraDiagnostic ?? "No first-person camera for a visible shaft")
+            let address = try XCTUnwrap(rig.p01Snapshot)
+            XCTAssertEqual(rig.playerView, .firstPerson)
+            XCTAssertNil(address.shot.observationOnlyAddress)
+            XCTAssertEqual(address.shot.addressButtOffset, stick.addressButtOffset)
+            XCTAssertEqual(address.shot.elevation, shaft.elevation, accuracy: 0.0001)
+            if cueZ == 0 { XCTAssertEqual(address.state.firstPersonClearanceLift, 0, accuracy: 0.0001) }
+        }
+    }
+
+    @MainActor
+    private func dailyNearRailObservation(cueZ: Float, eightZ: Float) throws -> (PositionPlayViewModel, CameraRig) {
+        let vm = PositionPlayViewModel()
+        vm.scene.configureDailyClearanceRendering()
+        vm.setupScene(loadsDefaultLayout: false)
+        vm.enablePlayerCameraControls(policy: .p01Replayable)
+        vm.automaticRecommendationEnabled = false
+        vm.setPreferredAimMode(.pocket)
+        let positions: [String: SCNVector3] = [
+            PositionPlayBall.cueKey: p(0.5588001, cueZ),
+            "_1": p(-0.50799996, 0.4318),
+            "_8": p(-0.17779994, eightZ)
+        ]
+        vm.loadBoard(.init(onTable: positions.mapValues {
+            let value = AngleSceneCalculator.sceneToNormalized(position: $0)
+            return CanvasPoint(x: Double(value.x), y: Double(value.y))
+        }))
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        XCTAssertEqual(vm.aimMode, .pocket)
+        XCTAssertNil(vm.currentPlayerAim)
+        XCTAssertTrue(try XCTUnwrap(vm.scene.cueStick).rootNode.isHidden)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        XCTAssertTrue(rig.p01AnchoredTransitions)
+        rig.viewportSize = CGSize(width: 874, height: 402)
+        XCTAssertTrue(ShotPlayCamera.setMode(.perspective3D, on: vm))
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true))
+        rig.handleHorizontalSwipe(delta: 85)
+        return (vm, rig)
+    }
 
     func testMeasuredRegionMirrorsBoundaryAndDoesNotApplyToUnknownTable() throws {
         let c = try XCTUnwrap(MiddlePocketRegion.production)
@@ -1089,5 +1202,137 @@ extension CushionBoardMemoryTests {
         XCTAssertEqual(vm.reflectionPower, saved.power, accuracy: 0.0001)
         XCTAssertEqual(vm.spinX, saved.spinX, accuracy: 0.0001)
         XCTAssertEqual(vm.spinY, saved.spinY, accuracy: 0.0001)
+    }
+}
+
+@MainActor
+final class AutomaticRecommendationPreferenceTests: XCTestCase {
+    private func assertTargetAddress(_ scene: AngleTrainingScene, key: String,
+                                     file: StaticString = #filePath, line: UInt = #line) throws {
+        let cue = try XCTUnwrap(scene.cueBallNode, file: file, line: line)
+        let target = try XCTUnwrap(scene.allBallNodes[key], file: file, line: line)
+        let direction = SCNVector3(target.position.x - cue.position.x, 0, target.position.z - cue.position.z).normalized()
+        let preview = try XCTUnwrap(scene.rootNode.childNode(withName: "freeAimPreview", recursively: false),
+                                    file: file, line: line)
+        let bounds = try XCTUnwrap(preview.geometry, file: file, line: line).boundingBox
+        let mid = SCNVector3((bounds.min.x + bounds.max.x) / 2, (bounds.min.y + bounds.max.y) / 2,
+                             (bounds.min.z + bounds.max.z) / 2)
+        let center = preview.convertPosition(mid, to: scene.rootNode)
+        XCTAssertEqual(center.x, (cue.position.x + target.position.x) / 2, accuracy: 0.001, file: file, line: line)
+        XCTAssertEqual(center.z, (cue.position.z + target.position.z) / 2, accuracy: 0.001, file: file, line: line)
+        let shaft = try XCTUnwrap(scene.cueStick, file: file, line: line)
+        XCTAssertFalse(shaft.rootNode.isHidden, file: file, line: line)
+        let actual = try XCTUnwrap(scene.lastCueAim, file: file, line: line)
+        XCTAssertEqual(actual.x, direction.x, accuracy: 0.0001, file: file, line: line)
+        XCTAssertEqual(actual.z, direction.z, accuracy: 0.0001, file: file, line: line)
+    }
+
+    func testFiveIndependentPreferencesAndSharedMultiBallCameraModes() throws {
+        let suite = "AutoRecommendation-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let pages: [TablePreferencePage] = [.composer, .dailyClearance, .customFormationPractice, .multiBallPractice, .silu]
+        for changed in pages {
+            let store = TablePreferencesStore(defaults: defaults)
+            XCTAssertTrue(pages.allSatisfy { store.automaticRecommendation(for: $0) })
+            store.setAutomaticRecommendation(false, for: changed)
+            let restored = TablePreferencesStore(defaults: defaults)
+            for page in pages { XCTAssertEqual(restored.automaticRecommendation(for: page), page != changed) }
+            XCTAssertEqual(restored.automaticRecommendation(for: .multiBallPractice3D), changed != .multiBallPractice)
+            restored.setAutomaticRecommendation(true, for: changed == .multiBallPractice ? .multiBallPractice3D : changed)
+        }
+    }
+
+    func testAutomaticAndHandPickedPartsAcrossEditsAndNextShot() throws {
+        let vm = PositionPlayViewModel()
+        vm.usesAttackRecommendations = true
+        vm.usesShotComfortRanking = true
+        vm.usesAutomaticPocketFallback = true
+        vm.setupScene(loadsDefaultLayout: false)
+        defer { vm.cancelDailyAttempt() }
+        vm.loadBoard(PositionPlayComposerView.defaultBoard)
+        let target = try XCTUnwrap(vm.selectedTargetKey)
+        vm.setAutomaticRecommendation(false)
+        XCTAssertNil(vm.selectedTargetKey)
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
+        XCTAssertNotNil(vm.playerViewDirection)
+        vm.placeFromPalette("_3")
+        vm.dragEnded(node: try XCTUnwrap(vm.scene.allBallNodes["_3"]))
+        XCTAssertNil(vm.selectedTargetKey)
+        XCTAssertTrue(vm.selectTarget(key: target))
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
+        try assertTargetAddress(vm.scene, key: target)
+        XCTAssertNil(vm.solvedShot)
+        XCTAssertFalse(vm.isFeasible)
+        vm.setAutomaticRecommendation(true)
+        XCTAssertEqual(vm.selectedTargetKey, target)
+        XCTAssertGreaterThanOrEqual(vm.selectedPocketIndex, 0)
+        let pocket = vm.selectedPocketIndex
+        vm.setAutomaticRecommendation(false)
+        XCTAssertEqual(vm.selectedTargetKey, target)
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
+        vm.selectPocket(at: pocket)
+        vm.setAutomaticRecommendation(true)
+        vm.setAutomaticRecommendation(false)
+        XCTAssertEqual(vm.selectedTargetKey, target)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        let manual = vm.trainingInput
+        vm.recommendTargetAfterShot()
+        XCTAssertNil(vm.selectedTargetKey)
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
+        vm.restoreTrainingInput(manual)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        vm.removeFromTable(target)
+        XCTAssertNil(vm.selectedTargetKey)
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
+    }
+
+    func testRequiredBallKeepsItsRuleAndPlanningKeepsItsPocket() {
+        let vm = PositionPlayViewModel()
+        vm.hasRuleDefinedTargets = true
+        vm.legalAimTargets = { $0.intersection(["_1"]) }
+        vm.automaticRecommendationEnabled = false
+        vm.setupScene(loadsDefaultLayout: false)
+        defer { vm.cancelDailyAttempt() }
+        vm.loadBoard(PositionPlayComposerView.defaultBoard)
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
+        XCTAssertFalse(vm.selectTarget(key: "_8"))
+        vm.practiceRequiresExplicitAim = true
+        vm.selectPocket(at: 1)
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(vm.selectedPocketIndex, 1)
+    }
+
+    func testSolverKeepsHandPickedTargetAcrossRestoreAndAsksForPocket() throws {
+        let vm = SiluTrainerViewModel()
+        vm.setupScene()
+        defer { vm.stopForDismissal() }
+        vm.setAutomaticRecommendation(false)
+        vm.loadBoard(PositionPlayComposerView.defaultBoard)
+        XCTAssertNil(vm.selectedTargetKey)
+        vm.selectTarget(node: try XCTUnwrap(vm.scene.allBallNodes["_1"]))
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
+        try assertTargetAddress(vm.scene, key: "_1")
+        vm.selectTarget(key: "_8")
+        try assertTargetAddress(vm.scene, key: "_8")
+        vm.selectTarget(key: "_1")
+        try assertTargetAddress(vm.scene, key: "_1")
+        XCTAssertFalse(vm.canStrike)
+        vm.setAutomaticRecommendation(true)
+        XCTAssertGreaterThanOrEqual(vm.selectedPocketIndex, 0)
+        XCTAssertNil(vm.scene.rootNode.childNode(withName: "freeAimPreview", recursively: false))
+        let saved = try XCTUnwrap(vm.savedBoard)
+        vm.setAutomaticRecommendation(false)
+        try vm.restoreSavedBoard(saved)
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
+        vm.selectPocket(at: 3)
+        vm.setAutomaticRecommendation(true)
+        vm.setAutomaticRecommendation(false)
+        XCTAssertEqual(vm.selectedPocketIndex, 3)
+        vm.removeFromTable("_1")
+        XCTAssertNil(vm.selectedTargetKey)
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
     }
 }

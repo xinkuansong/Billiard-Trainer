@@ -97,8 +97,28 @@ final class ThreeBallPracticeTests: XCTestCase {
         XCTAssertEqual(count, 2)
         XCTAssertEqual(vm.record?.current?.plannedPocket, 2)
         vm.selectPocket(at: 99); XCTAssertEqual(count, 2)
+        vm.setupScene()
+        defer { vm.suspendTeachingActivity() }
+        XCTAssertTrue(vm.switchTrainingView(to: true))
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = .init(width: 874, height: 402)
+        XCTAssertTrue(rig.p01AnchoredTransitions)
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+        try assertTeachingRollingCameraLifecycle(vm)
+        let direction = try XCTUnwrap(vm.currentPlayerAim)
+        let cameraBeforeObservation = try XCTUnwrap(rig.p01Snapshot).pose
+        let questionBeforeObservation = vm.record?.current?.id
+        let pocketBeforeObservation = vm.selectedPocketIndex
+        rig.handleHorizontalSwipe(delta: 90)
+        XCTAssertNotEqual(rig.p01Snapshot?.pose, cameraBeforeObservation)
+        XCTAssertEqual(vm.currentPlayerAim?.x, direction.x)
+        XCTAssertEqual(vm.currentPlayerAim?.z, direction.z)
+        XCTAssertEqual(vm.record?.current?.id, questionBeforeObservation)
+        XCTAssertEqual(vm.selectedPocketIndex, pocketBeforeObservation)
+        XCTAssertEqual(vm.record?.current?.plannedPocket, 2)
+        let countAfterObservation = count
         vm.openSettings(); vm.selectPocket(at: 3)
-        XCTAssertEqual(count, 2)
+        XCTAssertEqual(count, countAfterObservation)
         XCTAssertEqual(vm.record?.current?.plannedPocket, 2)
     }
 

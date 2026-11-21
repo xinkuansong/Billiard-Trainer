@@ -12,10 +12,9 @@ extension V52DailyClearanceUITests {
             settleDailyCamera(app)
             if mode.value as? String != "3D" { mode.tap() }
             XCTAssertEqual(mode.value as? String, "3D")
-            // The production merged camera exposes along-cue observation, global
-            // observation and temporary top-down; it has no first-person button.
-            for (pose, identifier) in [("along-cue", "shotCamera.thirdPerson"),
-                                       ("overview", "dailyClearance.observeTable")] {
+            XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+            for (pose, identifier) in [("third-person", "shotCamera.thirdPerson"),
+                                       ("first-person", "shotCamera.firstPerson")] {
                 let button = app.buttons[identifier]
                 XCTAssertTrue(button.waitForExistence(timeout: 10))
                 button.tap()
@@ -2226,11 +2225,10 @@ extension V52DailyClearanceUITests {
             }, evaluatedWith: nil)], timeout: 10), .completed)
             mode.tap()
             XCTAssertEqual(mode.value as? String, "3D")
-            let overview = app.buttons["dailyClearance.observeTable"]
-            XCTAssertTrue(overview.waitForExistence(timeout: 10))
-            for (name, identifier) in [("overview", "dailyClearance.observeTable"),
-                                       ("standing", "shotCamera.thirdPerson"),
-                                       ("aiming", "shotCamera.firstPerson")] {
+            XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+            for (name, identifier) in [("standing", "shotCamera.thirdPerson"),
+                                       ("aiming", "shotCamera.firstPerson"),
+                                       ("temporary-top-down", "shotCamera.temporaryTopDown")] {
                 let button = app.buttons[identifier]
                 XCTAssertTrue(button.isEnabled)
                 button.tap()
@@ -2245,7 +2243,7 @@ extension V52DailyClearanceUITests {
 }
 
 extension V52DailyClearanceUITests {
-    func testRerackReturns3DToGlobalCamera() throws {
+    func testRerackReturns3DToBreakAddress() throws {
         XCUIDevice.shared.orientation = .landscapeRight
         for preset in ["shotCamera.thirdPerson", "shotCamera.firstPerson"] {
             let app = launch(["-dailyClearance.fixture=selection", "-v63.cameraDiagnostics"])
@@ -2271,8 +2269,10 @@ extension V52DailyClearanceUITests {
             settleDailyCamera(app)
             try captureDailyCamera(app, name: "rerack-\(preset)-after")
             XCTAssertEqual(mode.value as? String, "3D")
-            XCTAssertEqual(app.buttons["dailyClearance.observeTable"].value as? String, "已选中")
-            XCTAssertEqual(cameraDiagnosticNumber("elevation", app: app) * 180 / .pi, 35, accuracy: 0.05)
+            XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+            XCTAssertEqual(app.buttons["shotCamera.thirdPerson"].value as? String, "已选中")
+            XCTAssertTrue(app.buttons["dailyClearance.strike"].isEnabled, "Confirmed rerack prepares the next manual break")
+            XCTAssertEqual(app.buttons["paletteBall__1"].value as? String, "开球准备，不可选")
             XCTAssertFalse(app.buttons["dailyClearance.confirmBreak"].exists)
 
             // A second rack while already waiting to break uses the same reset path.
@@ -2281,7 +2281,8 @@ extension V52DailyClearanceUITests {
             app.buttons["break.entry"].tap()
             app.buttons["dailyClearance.rerackAfterBreak"].tap()
             settleDailyCamera(app)
-            XCTAssertEqual(app.buttons["dailyClearance.observeTable"].value as? String, "已选中")
+            XCTAssertEqual(app.buttons["shotCamera.thirdPerson"].value as? String, "已选中")
+            XCTAssertTrue(app.buttons["dailyClearance.strike"].isEnabled)
             mode.tap()
             app.buttons["break.entry"].tap()
             app.buttons["dailyClearance.rerackAfterBreak"].tap()

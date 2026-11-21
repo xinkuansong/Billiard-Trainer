@@ -289,7 +289,14 @@ private struct FreeControlHost: ViewModifier {
     @State private var actionTarget: TemplateActionTarget?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var values: FreeControlValues { editing ? (draft ?? store.values(page: page, mode: mode)) : store.values(page: page, mode: mode) }
+    private func orderedCameraColumn(_ values: FreeControlValues) -> FreeControlValues {
+        guard mode == .threeD else { return values }
+        return FreeCameraColumnLayout.ordered(values, frames: frames.mapValues(\.frame), window: windowSize)
+    }
+    private var values: FreeControlValues {
+        if editing, let draft { return draft }
+        return orderedCameraColumn(store.values(page: page, mode: mode))
+    }
     /// Only the new separation pages opt in: resizing may temporarily use native slots,
     /// while saved placements and the editor retain the user's original intent.
     private var renderedValues: FreeControlValues {
@@ -758,7 +765,7 @@ private struct FreeControlHost: ViewModifier {
     }
 
     private func begin(values: FreeControlValues) {
-        draft = values; selected = nil; undo = []; redo = []; templateID = UUID(); name = ""; sourceTemplate = nil
+        draft = orderedCameraColumn(values); selected = nil; undo = []; redo = []; templateID = UUID(); name = ""; sourceTemplate = nil
         saveOnly = false; conflict = false; draftCreatedAt = Date(); closeDropdown()
     }
     private func setScaleValue() {

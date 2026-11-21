@@ -27,6 +27,56 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
     func testAngleTrial2D() throws { try checkAngleTrial(mode: "2D") }
     func testAngleTrial3D() throws { try checkAngleTrial(mode: "3D") }
 
+    func testP01AngleObservationKeepsAnswerSealed() throws {
+        continueAfterFailure = false
+        app.terminate()
+        XCUIDevice.shared.orientation = .portrait
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v62.fixture", "-3dDrag.probe", "-trainingMerge.probe"
+        ])
+        XCTAssertTrue(openCard(homeTab: "准度", title: "3D角度"))
+        XCTAssertTrue(startAimingTrainingFromSheet())
+        let answer = app.buttons["angleTraining.primaryAction"]
+        XCTAssertTrue(answer.waitForExistence(timeout: 20))
+        let state = app.descendants(matching: .any)["angle.mergeState"].firstMatch
+        func snapshot() throws -> [String: Any] {
+            let raw = try XCTUnwrap(state.value as? String)
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+        }
+        let before = try snapshot()
+        XCTAssertEqual(before["view"] as? String, "3D")
+        XCTAssertEqual(before["phase"] as? String, "observing")
+        let first = app.buttons["shotCamera.firstPerson"]
+        let third = app.buttons["shotCamera.thirdPerson"]
+        let top = app.buttons["shotCamera.temporaryTopDown"]
+        XCTAssertTrue(third.waitForExistence(timeout: 15))
+        XCTAssertTrue(first.exists)
+        XCTAssertFalse(first.isEnabled)
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        XCTAssertFalse(app.staticTexts["angleTraining.result"].exists)
+        third.tap()
+        XCTAssertEqual(third.value as? String, "已选中")
+        top.tap()
+        XCTAssertEqual(top.value as? String, "已选中")
+        XCTAssertFalse(third.isEnabled)
+        XCTAssertFalse(first.isEnabled)
+        XCTAssertFalse(app.staticTexts["angleTraining.result"].exists)
+        snap("angle-sealed-temporary-top-down")
+        top.tap()
+        XCTAssertEqual(top.value as? String, "未选中")
+        XCTAssertEqual(third.value as? String, "已选中")
+        XCTAssertFalse(first.isEnabled)
+        let after = try snapshot()
+        for key in ["question", "input", "phase"] {
+            XCTAssertEqual(after[key] as? String, before[key] as? String)
+        }
+        for key in ["answers", "used"] {
+            XCTAssertEqual(after[key] as? Int, before[key] as? Int)
+        }
+        XCTAssertFalse(app.staticTexts["angleTraining.result"].exists)
+        snap("angle-sealed-observation-restored")
+    }
+
     func testAngleTrialFreeLimit3D() throws { try checkAngleTrial(mode: "3D", nearLimit: true) }
 
     func testAngleTrialFreeLimit2D() throws { try checkAngleTrial(mode: "2D", nearLimit: true) }
@@ -111,9 +161,8 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             let firstPerson = app.buttons["shotCamera.firstPerson"]
             let observation = app.buttons["shotCamera.thirdPerson"]
             XCTAssertTrue(firstPerson.exists)
-            firstPerson.tap()
-            XCTAssertEqual(firstPerson.value as? String, "已选中")
-            try capture("first-person")
+            XCTAssertFalse(firstPerson.isEnabled, "Unsubmitted angle answers must not determine a first-person view")
+            XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
             observation.tap()
             XCTAssertEqual(observation.value as? String, "已选中")
             try capture("player-observation")
@@ -216,23 +265,20 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         XCTAssertEqual(answer.frame, actionFrame)
         if mode == "3D" {
             XCTAssertEqual(app.buttons["shotCamera.thirdPerson"].value as? String, "已选中", "下一题沿用观察视角")
-            let whole = app.buttons["dailyClearance.observeTable"]
-            XCTAssertTrue(whole.isEnabled)
-            whole.tap()
-            XCTAssertEqual(whole.value as? String, "已选中")
-            try capture("whole-table")
-            app.buttons["shotCamera.firstPerson"].tap()
-            try capture("return-to-aim")
-            XCTAssertEqual(app.buttons["shotCamera.firstPerson"].value as? String, "已选中")
+            XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+            let observation = app.buttons["shotCamera.thirdPerson"]
+            observation.tap()
+            XCTAssertEqual(observation.value as? String, "已选中")
             let topDown = app.buttons["shotCamera.temporaryTopDown"]
             XCTAssertTrue(topDown.exists)
             topDown.tap()
             XCTAssertEqual(topDown.value as? String, "已选中")
-            XCTAssertFalse(app.buttons["shotCamera.firstPerson"].isEnabled)
+            XCTAssertFalse(observation.isEnabled)
             try capture("temporary-top-down")
             topDown.tap()
             XCTAssertEqual(topDown.value as? String, "未选中")
-            XCTAssertEqual(app.buttons["shotCamera.firstPerson"].value as? String, "已选中")
+            XCTAssertEqual(observation.value as? String, "已选中")
+            XCTAssertFalse(app.buttons["shotCamera.firstPerson"].isEnabled)
             try capture("temporary-return")
 
         }
@@ -323,14 +369,19 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
     }
 
     private func checkObservationMenu(prefix: String) {
-        for id in ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson"] {
-            let button = app.buttons[id]
+        let observation = app.buttons["shotCamera.thirdPerson"]
+        let peek = app.buttons["shotCamera.temporaryTopDown"]
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        XCTAssertFalse(app.buttons["shotCamera.firstPerson"].isEnabled)
+        for button in [observation, peek] {
             XCTAssertTrue(button.waitForExistence(timeout: 5))
             XCTAssertGreaterThanOrEqual(button.frame.height, 44)
             button.tap()
             XCTAssertEqual(button.value as? String, "已选中")
-            snap("camera-\(prefix)-\(id)")
+            snap("camera-\(prefix)-\(button.identifier)")
         }
+        peek.tap()
+        XCTAssertEqual(observation.value as? String, "已选中")
     }
 
     func testComposerPerspectiveRoundTrip() throws {
@@ -645,7 +696,8 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             snap("v57-framed-q\(question)")
             answer.tap()
             XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 4))
-            for id in ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson"] {
+            XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+            for id in ["shotCamera.temporaryTopDown", "shotCamera.thirdPerson", "shotCamera.firstPerson"] {
                 XCTAssertTrue(app.buttons[id].exists)
                 XCTAssertFalse(app.buttons[id].isEnabled)
             }

@@ -2,6 +2,18 @@ import Foundation
 import Combine
 
 extension TablePreferencePage {
+    /// The two multi-ball routes share the same display choice, even before the
+    /// training-view migration. Other routes without this aid keep their own visuals.
+    var targetContactPointPage: Self? {
+        switch self {
+        case .multiBallPractice3D: return .multiBallPractice
+        case .dailyClearance, .snakePractice, .multiBallPractice, .composer, .drillTryout,
+             .customFormationPractice, .bankShot, .diamondSystem, .silu, .planThree,
+             .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas: return self
+        default: return nil
+        }
+    }
+
     var fields: Set<TablePreferenceField> {
         switch self {
         case .masseJump: return [.grid, .transparency, .trajectory, .shows3DTrajectory]
@@ -57,6 +69,8 @@ enum TablePreferenceField: String, CaseIterable, Codable {
 /// A value snapshot can be held by a scene throughout an active shot. Applying it
 /// never loads a board, touches scores, or restarts a physics/playback operation.
 struct TablePreferenceSnapshot: Equatable {
+    /// Nil keeps the page's existing teaching, assessment or preview contract.
+    var showsTargetContactPoint: Bool?
     var values: [TablePreferenceField: Double] = [:]
     subscript(_ field: TablePreferenceField) -> Double { values[field] ?? field.initialValue }
     func enabled(_ field: TablePreferenceField) -> Bool { self[field] == 1 }
@@ -71,6 +85,7 @@ final class TablePreferencesStore: ObservableObject {
         var version = 1
         var general: [String: Double] = [:]
         var pages: [String: [String: Double]] = [:]
+        var automaticRecommendations: [String: Bool]?
         var mergedTraining: [String: [String: Double]]?
     }
     private let defaults: UserDefaults
@@ -101,10 +116,34 @@ final class TablePreferencesStore: ObservableObject {
         return snapshot(for: project.page2D).enabled(.view3D)
     }
 
+    // This is a page-only preference. The two multi-ball entry views share one key.
+    func automaticRecommendation(for page: TablePreferencePage) -> Bool {
+        let key = page == .multiBallPractice3D ? TablePreferencePage.multiBallPractice : page
+        return archive.automaticRecommendations?[key.rawValue] ?? true
+    }
+
+    func setAutomaticRecommendation(_ enabled: Bool, for page: TablePreferencePage) {
+        let key = page == .multiBallPractice3D ? TablePreferencePage.multiBallPractice : page
+        if archive.automaticRecommendations == nil { archive.automaticRecommendations = [:] }
+        archive.automaticRecommendations?[key.rawValue] = enabled
+        persist()
+        revision &+= 1
+    }
+
+    func setTargetContactPoint(_ enabled: Bool, for page: TablePreferencePage) {
+        guard let key = page.targetContactPointPage else { return }
+        archive.pages[key.rawValue, default: [:]]["targetContactPoint"] = enabled ? 1 : 0
+        persist()
+        revision &+= 1
+    }
+
     var general: TablePreferenceSnapshot { snapshot(page: nil) }
     func snapshot(for page: TablePreferencePage) -> TablePreferenceSnapshot { snapshot(page: page) }
     private func snapshot(page: TablePreferencePage?) -> TablePreferenceSnapshot {
         var result = TablePreferenceSnapshot()
+        if let key = page?.targetContactPointPage {
+            result.showsTargetContactPoint = archive.pages[key.rawValue]?["targetContactPoint"] == 1
+        }
         for field in TablePreferenceField.allCases {
             guard page == nil || page!.fields.contains(field) else { continue }
             // Rehearsal is controlled only by My → Settings; ignore legacy page overrides.

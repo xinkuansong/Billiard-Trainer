@@ -184,6 +184,47 @@ final class BankPracticeTests: XCTestCase {
         XCTAssertEqual(restored.latestShot?.id, success.id)
         XCTAssertFalse(TrainingSessionKind.countsTowardAccuracy(TrainingSessionKind.bankPractice))
     }
+    @MainActor func testSamePageRestoresFirstPersonButReopeningStartsBehindCurrentStroke() throws {
+        let suite = "BankCamera-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults, namespace: suite, limit: 15)
+        limiter.isPremium = true
+        let repository = MemoryBankRepository()
+        let prepared = try BankQuestionPreparer.prepare(.init(), seed: 31)
+        let page = BankPracticeViewModel(is3D: true, limiter: limiter, defaults: defaults)
+        page.attach(repository: repository)
+        page.start(.init(), prepared: prepared)
+        page.setupScene()
+        page.setCameraMode(page.cameraMode) // BTTeachingTablePage applies the page mode after scene setup.
+        let rig = try XCTUnwrap(page.scene.cameraRig)
+        let size = CGSize(width: 874, height: 402)
+        rig.viewportSize = size
+        XCTAssertTrue(page.requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true))
+        let original = try XCTUnwrap(rig.p01Snapshot)
+        XCTAssertTrue(page.requestPlayerView(.firstPerson, animated: false))
+        let near = try XCTUnwrap(rig.p01Snapshot)
+        XCTAssertTrue(page.switchTrainingView(to: false))
+        XCTAssertTrue(page.switchTrainingView(to: true))
+        XCTAssertEqual(rig.p01Snapshot?.state.view, .firstPerson)
+        XCTAssertEqual(rig.p01Snapshot?.pose.eye, near.pose.eye)
+        page.suspendTeachingActivity()
+        XCTAssertEqual(page.record?.viewBookmark?.motionSnapshot?.state.view, .firstPerson)
+
+        let reopened = BankPracticeViewModel(is3D: true, limiter: limiter, defaults: defaults)
+        reopened.attach(repository: repository)
+        reopened.setupScene()
+        reopened.setCameraMode(reopened.cameraMode)
+        defer { reopened.suspendTeachingActivity() }
+        let freshRig = try XCTUnwrap(reopened.scene.cameraRig)
+        freshRig.viewportSize = size
+        XCTAssertEqual(reopened.record?.current?.id, page.record?.current?.id)
+        let fresh = try XCTUnwrap(freshRig.p01Snapshot)
+        XCTAssertEqual(fresh.state.view, .thirdPerson)
+        XCTAssertLessThan(simd_distance(fresh.pose.eye, original.pose.eye), 0.001)
+        XCTAssertLessThan(simd_distance(fresh.pose.forward, original.pose.forward), 0.001)
+    }
+
     @MainActor func testDirectionSettingsCancelViewSwitchAndOwnerIsolation() throws {
         let suite = "BankPracticeTests.\(UUID())"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -392,6 +433,22 @@ final class BankPracticeTests: XCTestCase {
                 return snapshot
             }
             let initial = try verify()
+            if is3D {
+                let rig = try XCTUnwrap(vm.scene.cameraRig)
+                rig.viewportSize = .init(width: 874, height: 402)
+                XCTAssertTrue(rig.p01AnchoredTransitions)
+                XCTAssertTrue(vm.canPanToAim)
+                XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+                try assertTeachingRollingCameraLifecycle(vm)
+                let current = vm.record?.current?.id
+                vm.nudgeAim(0.25)
+                let aim = try XCTUnwrap(vm.currentPlayerAim)
+                let camera = try XCTUnwrap(rig.p01Snapshot).shot
+                XCTAssertEqual(camera.aim.x, aim.x, accuracy: 0.00001)
+                XCTAssertEqual(camera.aim.z, aim.z, accuracy: 0.00001)
+                XCTAssertEqual(vm.record?.current?.id, current)
+                vm.nudgeAim(-0.25)
+            }
             vm.nudgeAim(0.25)
             let moved = try verify()
             XCTAssertNotEqual(moved.aimLine, initial.aimLine)

@@ -29,7 +29,7 @@ final class DrillSceneController: ObservableObject {
         }
     }
     @Published private(set) var playbackMessage: String?
-    private var shotView: (cue: SCNVector3, aim: SCNVector3)?
+    private var shotView: SequenceSceneTransition.Address?
     private var completed = false
 
     func setCameraMode(_ mode: AngleTrainingScene.CameraMode) {
@@ -115,7 +115,8 @@ final class DrillSceneController: ObservableObject {
 
         scene.configureShotAwareCamera()
         scene.setupScene(recipe: .liveReference)
-        scene.cameraRig?.configurePlayerCameraControls(daily: true)
+        scene.cameraRig?.isEmbeddedStrokePreview = true
+        scene.cameraRig?.configurePlayerCameraControls(daily: true, policy: .p01Replayable, anchoredP01Transitions: true)
         scene.setCameraMode(cameraMode, animated: false)
         surfaceY = scene.surfaceY
 
@@ -192,15 +193,14 @@ final class DrillSceneController: ObservableObject {
         guard let source = previewSource,
               let pred = prediction ?? Self.openingPrediction(for: source, step: steps.first, surfaceY: surfaceY),
               pred.feasible, let cue = scene.cueBallNode else { return }
-        shotView = (cue.position, pred.aimDirection)
+        shotView = .init(cue: cue.position, aim: pred.aimDirection, shot: steps.first?.shot ?? source.shot)
     }
 
     @discardableResult
     private func enterShotView(animated: Bool) -> Bool {
         guard let shotView, scene.cameraRig != nil else { return false }
         // A positive request selects the shared surface speed clock (not a fixed duration).
-        return SequenceSceneTransition.enterThirdPerson(in: scene, cue: shotView.cue,
-                                                       aim: shotView.aim, animated: animated)
+        return SequenceSceneTransition.enterThirdPerson(in: scene, address: shotView, animated: animated)
     }
 
     private func freezeCamera() {
@@ -438,7 +438,7 @@ final class DrillSceneController: ObservableObject {
             return
         }
 
-        shotView = (cueNode.position, pred.aimDirection)
+        shotView = .init(cue: cueNode.position, aim: pred.aimDirection, shot: step.shot)
         scene.discardSavedPerspectiveView()
         hidePlanDecorations()
         scene.hideCueStick()
@@ -492,7 +492,7 @@ final class DrillSceneController: ObservableObject {
 
         drawPlan(prediction: pred, shot: step.shot)
         let strikePos = CueStroke.strikePosition(
-            cue: cueNode.position, aim: aim, spinX: step.shot.spinX
+            cue: cueNode.position, aim: aim, spinX: step.shot.spinX, spinY: step.shot.spinY
         )
         // 瞄准位摆杆走 `updateCueStick`（与试打页一致），不用静帧的 `showCueAtRest`：
         // 两者杆位/仰角算法不同，混用会在「定格 → 运杆第一帧」处跳一下。
@@ -632,7 +632,7 @@ final class DrillSceneController: ObservableObject {
 
         drawPlan(prediction: pred, shot: source.shot)
         let strikePos = CueStroke.strikePosition(
-            cue: cueNode.position, aim: aim, spinX: source.shot.spinX
+            cue: cueNode.position, aim: aim, spinX: source.shot.spinX, spinY: source.shot.spinY
         )
         scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim)
 

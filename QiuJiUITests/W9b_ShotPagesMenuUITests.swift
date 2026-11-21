@@ -184,3 +184,173 @@ final class W9b_ShotPagesMenuUITests: XCTestCase {
         snap(app, "w9b-break-05-delivered")
     }
 }
+
+/// Reveal the same segmented row in either table menu and capture the actual screen.
+extension XCUIApplication {
+    func recommendationMenuRow() -> XCUIElement {
+        let row = buttons["table.automaticRecommendation"]
+        let scroll = scrollViews["dailyClearance.menuScroll"]
+        for _ in 0..<10 {
+            if row.exists && row.isHittable && scroll.frame.contains(CGPoint(x: row.frame.midX, y: row.frame.midY)) { break }
+            scroll.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.75))
+                .press(forDuration: 0.1, thenDragTo: scroll.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.40)))
+        }
+        return row
+    }
+}
+
+final class AutomaticRecommendationMenuTests: XCTestCase {
+    private let app = XCUIApplication()
+
+    private func open(_ args: [String], more: String = "freeplay.moreMenu") {
+        XCUIDevice.shared.orientation = .portrait
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN", "-hasCompletedOnboarding", "YES", "-forcePremium"] + args
+        app.launch()
+        let button = app.buttons[more]
+        XCTAssertTrue(button.waitForExistence(timeout: 15))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        button.tap()
+        XCTAssertTrue(app.scrollViews["dailyClearance.menuScroll"].waitForExistence(timeout: 4))
+    }
+
+    private func capture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    func testComposerMenuPreference() throws {
+        continueAfterFailure = false
+        let args = ["-dailyInteraction.sharedPage=composer"]
+        open(args)
+        let row = app.recommendationMenuRow()
+        let original = try XCTUnwrap(row.value as? String)
+        if original == "否" { row.tap() }
+        XCTAssertEqual(row.value as? String, "是")
+        capture("composer-on")
+        row.tap()
+        XCTAssertEqual(row.value as? String, "否")
+        capture("composer-off")
+        app.terminate()
+        open(args)
+        let camera = app.buttons["freeplay.cameraMode"]
+        let originalView = camera.value as? String
+        camera.tap()
+        XCTAssertNotEqual(camera.value as? String, originalView)
+        XCTAssertEqual(app.recommendationMenuRow().value as? String, "否")
+        if original == "是" { row.tap() }
+        app.terminate()
+        open(args)
+        if camera.value as? String != originalView { camera.tap() }
+    }
+
+    func testSolverAndDailyScope() throws {
+        continueAfterFailure = false
+        open(["-deeplink.silu"], more: "silu.more")
+        let solver = app.recommendationMenuRow()
+        let original = try XCTUnwrap(solver.value as? String)
+        solver.tap()
+        XCTAssertNotEqual(solver.value as? String, original)
+        capture("solver")
+        solver.tap()
+        app.terminate()
+        open(["-deeplink.dailyClearance", "-dailyClearance.resetState", "-dailyClearance.fixture=selection"])
+        let scoring = app.buttons["dailyClearance.scoringMode"]
+        let wasScoring = scoring.value as? String == "是"
+        if wasScoring { scoring.tap() }
+        XCTAssertTrue(app.recommendationMenuRow().isHittable)
+        app.scrollViews["dailyClearance.menuScroll"].swipeDown()
+        scoring.tap()
+        XCTAssertFalse(app.buttons["table.automaticRecommendation"].exists)
+        if !wasScoring { scoring.tap() }
+    }
+}
+
+final class TableMenuOrderUITests: XCTestCase {
+    func testShortAndLongMenusRetainTheirRows() {
+        continueAfterFailure = false
+        let orientations: [UIDeviceOrientation] = UIDevice.current.userInterfaceIdiom == .pad
+            ? [.portrait, .landscapeLeft] : [.landscapeLeft]
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for orientation in orientations {
+            XCUIDevice.shared.orientation = orientation
+            let short = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyInteraction.sharedPage=pocketTolerance"])
+            let shortMenu = open(short, more: "pocketTolerance.more")
+            XCTAssertEqual(shortMenu.buttons.allElementsBoundByIndex.map(\.identifier),
+                           ["pocketTolerance.cameraMode", "menu.tableGrid", "pocketTolerance.reset"])
+            XCTAssertEqual(shortMenu.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "tableMenu.group."))
+                .allElementsBoundByIndex.map(\.label), ["桌面显示", "球形操作"])
+            capture("short", orientation)
+            short.terminate()
+
+            let long = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-pro.route=composer"])
+            let longMenu = open(long, more: "freeplay.moreMenu")
+            XCTAssertEqual(longMenu.buttons.allElementsBoundByIndex.map(\.identifier), [
+                "freeplay.cameraMode", "menu.tableGrid", "menu.aimCloseup", "menu.targetContactPoint",
+                "dailyClearance.trajectoryMenu", "dailyClearance.aimModeMenu", "table.automaticRecommendation",
+                "dailyClearance.spinTransparencyMenu", "controlLayout.open", "composer.clear", "composer.reset", "break.settings"
+            ])
+            capture("long-top", orientation)
+            let game = longMenu.buttons["break.settings"]
+            for _ in 0..<5 {
+                if game.isHittable && longMenu.frame.contains(CGPoint(x: game.frame.midX, y: game.frame.midY)) { break }
+                // The modal scroll view can report an empty gesture hit region on iOS 26.
+                let window = long.windows.firstMatch
+                let visible = longMenu.frame.intersection(window.frame)
+                XCTAssertGreaterThan(visible.height, 44)
+                let origin = window.coordinate(withNormalizedOffset: .zero)
+                let x = visible.midX - window.frame.minX
+                let start = origin.withOffset(.init(dx: x, dy: visible.maxY - window.frame.minY - 24))
+                let end = origin.withOffset(.init(dx: x, dy: visible.minY - window.frame.minY + 24))
+                start.press(forDuration: 0.15, thenDragTo: end)
+            }
+            capture("long-bottom", orientation)
+            let positionBeforeOpening = game.frame.midY
+            game.tap()
+            let back = long.buttons["dailyClearance.menuBack"]
+            XCTAssertTrue(back.waitForExistence(timeout: 5))
+            back.tap()
+            XCTAssertTrue(game.waitForExistence(timeout: 5))
+            XCTAssertEqual(game.frame.midY, positionBeforeOpening, accuracy: 1)
+            long.terminate()
+        }
+    }
+
+    func testFreeSolverMenusKeepBothRestoreActions() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for (route, page) in [("bank", "bankshot"), ("diamond", "reflection")] {
+            let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-pro.route=" + route])
+            let mode = app.buttons["solver.mode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 15))
+            mode.tap()
+            let menu = open(app, more: page + ".more")
+            let buttons = menu.buttons.allElementsBoundByIndex
+            XCTAssertEqual(buttons.suffix(3).map(\.identifier), ["solver.restore", page + ".reset", "solver.info"])
+            XCTAssertEqual(buttons.suffix(3).prefix(2).map(\.label), ["恢复球形", "恢复默认球形"])
+            capture(route + "-free", .landscapeLeft)
+            app.terminate()
+        }
+    }
+
+    private func open(_ app: XCUIApplication, more: String) -> XCUIElement {
+        let button = app.buttons[more]
+        XCTAssertTrue(button.waitForExistence(timeout: 15))
+        button.tap()
+        let menu = app.scrollViews["dailyClearance.menuScroll"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        return menu
+    }
+
+    private func capture(_ name: String, _ orientation: UIDeviceOrientation) {
+        let title = "menu-\(orientation.isLandscape ? "landscape" : "portrait")-\(name)"
+        XCTContext.runActivity(named: title) { activity in
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            attachment.name = title
+            attachment.lifetime = .keepAlways
+            activity.add(attachment)
+        }
+    }
+}

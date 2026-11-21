@@ -2,7 +2,18 @@ import SwiftUI
 import SceneKit
 
 struct SpatialPracticeView: View {
-    @StateObject private var vm=SpatialPracticeViewModel()
+    @StateObject private var vm:SpatialPracticeViewModel
+    init() {
+        #if DEBUG
+        if let id=ProcessInfo.processInfo.environment["SPATIAL_TEST_SESSION"],UUID(uuidString:id) != nil,
+           let defaults=UserDefaults(suiteName:"spatial-ui-"+id) {
+            _vm=StateObject(wrappedValue:SpatialPracticeViewModel(defaults:defaults,
+                ownerContext:CurrentOwnerContext(defaults:defaults),archiveRoot:FileManager.default.temporaryDirectory))
+            return
+        }
+        #endif
+        _vm=StateObject(wrappedValue:SpatialPracticeViewModel())
+    }
     @ObservedObject private var preferences=TablePreferencesStore.shared
     @ObservedObject private var owner=CurrentOwnerContext.shared
     @State private var detail:String?
@@ -30,10 +41,14 @@ struct SpatialPracticeView: View {
                 else if missingCue { vm.placeFromPalette(PositionPlayBall.cueKey) }
                 else { vm.strike() }
             },
-            onPaletteTap:{ key in if vm.onTableKeys.contains(key) { vm.removeFromTable(key) } else { vm.placeFromPalette(key) } },
+            onPaletteTap:{ key in if vm.onTableKeys.contains(key) { vm.selectTarget(key:key) } else { vm.placeFromPalette(key) } },
             menuItems:menu,refreshTrajectory:{ vm.refreshAim() },applyPreferences:{ vm.applyPreferences($0) },
             onLayoutEditingChanged:{ layoutEditing=$0 },layoutEditingBlocked:vm.busy || vm.phase == .calculating,
-            onAimNudged:{ vm.nudgeAim($0) },showsAimCloseupSetting:false,showsTrajectorySetting:true,showsSeparationSetting:false,
+            onAimNudged:{ vm.nudgeAim($0) },
+            resolveP01AimPan:{
+                guard enabled, !missingCue else { return nil }
+                return { vm.nudgeAim($0) }
+            },showsAimCloseupSetting:false,showsTrajectorySetting:true,showsSeparationSetting:false,
             onSpinChange:{ vm.setSpin($0,$1) },
             overlay:{ projector,_ in
                 #if DEBUG
@@ -49,8 +64,8 @@ struct SpatialPracticeView: View {
     }
     private var menu:[DailyHUDMenuItem] {
         [
-            .init(id:"masseJump.clear",title:"清空桌面",disabled:!boardEnabled,action:{ confirmation = .clear }),
-            .init(id:"masseJump.reset",title:"恢复默认",disabled:!enabled,action:{ confirmation = .reset })
+            .init(id:"masseJump.clear", group: .formation, title:"清空桌面",disabled:!boardEnabled,action:{ confirmation = .clear }),
+            .init(id:"masseJump.reset", group: .formation, title:"恢复默认",disabled:!enabled,action:{ confirmation = .reset })
         ]
     }
     private var historyMenu:[DailyHUDMenuItem] {
@@ -95,19 +110,19 @@ struct SpatialPracticeView: View {
                         .accessibilityElement(children:.ignore).accessibilityLabel(vm.isBreakMode ? "重开" : "开球")
                         .accessibilityIdentifier(vm.isBreakMode ? "break.rerack" : "break.entry")
                         .freeControlItem(vm.isBreakMode ? "break.rerack" : "break.entry",name:vm.isBreakMode ? "重开" : "开球")
-                    HStack(alignment:.center,spacing:0) {
-                        BTTeachingAimRuler(layout:layout,enabled:enabled,onNudge:{ vm.nudgeAim($0) },degreesPerPoint:0.2)
-                            .accessibilityIdentifier("masseJump.aimWheel")
-                        SpatialElevationWheel(value:vm.displayedInput.elevation,enabled:enabled,height:max(44,min(110,layout.rulerLength-36)),onNudge:{ delta in
-                            vm.updateInput { $0.elevation=min(SpatialPracticeRecord.Input.maximumPracticeElevation,max(0,$0.elevation+Double(delta))) }
-                        })
-                    }.frame(width:layout.columnWidth,alignment:.leading)
+                    BTTeachingAimRuler(layout:layout,enabled:enabled,onNudge:{ vm.nudgeAim($0) },degreesPerPoint:0.2)
+                        .accessibilityIdentifier("masseJump.aimWheel")
                     let actions=layout.horizontalActions ? AnyLayout(HStackLayout(spacing:layout.groupSpacing)) : AnyLayout(VStackLayout(spacing:layout.groupSpacing))
                     actions {
                         BTHUDCompactAction(title:"重打",symbol:"arrow.uturn.backward",size:layout.auxiliarySize) { vm.retry() }
                             .disabled(!enabled || vm.record.lastShot == nil).accessibilityIdentifier("masseJump.retry").freeControlItem("shot.undo",name:"重打")
                         BTHUDCompactAction(title:"回放",symbol:"play.rectangle",size:layout.auxiliarySize) { vm.replay() }
                             .disabled(!enabled || vm.record.lastShot == nil).accessibilityIdentifier("masseJump.replay").freeControlItem("shot.replay",name:"回放")
+                    }
+                    .overlay(alignment:.bottomTrailing) {
+                        SpatialElevationWheel(value:vm.displayedInput.elevation,enabled:enabled,
+                            width:max(96,min(144,layout.rulerLength)),onNudge:vm.nudgeElevation)
+                            .alignmentGuide(.trailing) { _ in -layout.groupSpacing }
                     }
                 }.frame(width:layout.columnWidth))
             },title:{ Text("扎杆与跳球") },leftContent:{ _ in EmptyView() },status:{ EmptyView() },
@@ -141,7 +156,7 @@ struct SpatialPracticeView: View {
                 GeometryReader { proxy in
                     Color.clear.frame(width:1,height:1).accessibilityElement()
                         .accessibilityIdentifier("masseJump.viewport")
-                        .accessibilityValue("\(proxy.size.width),\(proxy.size.height)")
+                        .accessibilityValue(Text(verbatim: "\(proxy.size.width),\(proxy.size.height)"))
                 }.allowsHitTesting(false)
                 Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
                     .accessibilityIdentifier("masseJump.motionTrace").accessibilityValue(vm.motionProbeJSON)
@@ -165,25 +180,21 @@ private struct SpatialElevationWheel:View {
     @Environment(\.teachingInstrumentActivity) private var reportActivity
     let value:Double
     let enabled:Bool
-    let height:CGFloat
+    let width:CGFloat
     let onNudge:(Float)->Void
     var body:some View {
-        VStack(spacing:4) {
-            BTAimWheel(onNudge:onNudge,degreesPerPoint:0.3,degreeHapticEnabled:false,travelHapticEnabled:true,
-                onDragActiveChanged:{ reportActivity?($0) },visibleWidth:24,showsDirectionLabel:false)
-                .frame(width:44,height:height)
+        VStack(spacing:0) {
+            BTAimWheel(onNudge:onNudge,degreesPerPoint:0.20,degreeHapticEnabled:false,travelHapticEnabled:true,
+                onDragActiveChanged:{ reportActivity?($0) },visibleWidth:18,showsDirectionLabel:false)
+                .frame(width:32,height:width)
+                .rotationEffect(.degrees(90))
+                .frame(width:width,height:32)
                 .accessibilityLabel("抬杆角度").accessibilityValue("\(Int(value.rounded()))度")
-                .accessibilityHint("上划增大抬杆角度，下划减小抬杆角度")
+                .accessibilityHint("右划增大抬杆角度，左划减小抬杆角度")
                 .accessibilityIdentifier("masseJump.elevation")
-            Text("\(Int(value.rounded()))°").font(.btMicro).monospacedDigit().foregroundStyle(.white)
-            Text("抬杆").font(.btMicro).foregroundStyle(.btTextSecondary)
-        }.padding(.vertical,6)
-            .background {
-                RoundedRectangle(cornerRadius:BTRadius.xl).fill(HUDStyle.controlBackground)
-                    .overlay(RoundedRectangle(cornerRadius:BTRadius.xl).stroke(HUDStyle.hairline,lineWidth:HUDStyle.hairlineWidth))
-                    .frame(width:36)
-            }
-            .frame(width:44).disabled(!enabled).opacity(enabled ? 1 : 0.3)
+            Text("抬杆 \(Int(value.rounded()))°").font(.btMicro).monospacedDigit().foregroundStyle(.white)
+        }
+            .frame(width:width).disabled(!enabled).opacity(enabled ? 1 : 0.3)
             .freeControlItem("shot.elevation",name:"抬杆角度")
     }
 }
@@ -202,7 +213,7 @@ private struct SpatialPlacementProbe:View {
         guard let cue=vm.scene.cueBallNode else { return "{}" }
         let target=SCNVector3(-0.7,vm.scene.surfaceY+BallPhysics.radius,0.25)
         var result:[String:Any]=["world":[cue.position.x,cue.position.z]]
-        for (key,world) in [("cue",cue.position),("target",target),("flyoutTarget",SCNVector3(1,vm.scene.surfaceY+BallPhysics.radius,0))] {
+        for (key,world) in [("cue",cue.position),("target",target),("clearanceTarget",SCNVector3(0.685,target.y,0)),("flyoutTarget",SCNVector3(1,target.y,0))] {
             if var point=projector.projectInWindow?(world) {
                 if key != "cue",let origin=projector.projectInWindow?(cue.position) {
                     // Native temporary-table drags keep the shared finger gap.

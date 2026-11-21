@@ -505,6 +505,19 @@ final class CustomFormationUITests: XCTestCase {
             XCTAssertGreaterThanOrEqual(replay.frame.height, 44)
             try snap("playback-\(view)-disabled")
             let before = try board()
+            if view == "3D" {
+                let first = app.buttons["shotCamera.firstPerson"]
+                let third = app.buttons["shotCamera.thirdPerson"]
+                ready(first)
+                XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+                first.tap()
+                XCTAssertEqual(first.value as? String, "已选中")
+                ready(third)
+                third.tap()
+                XCTAssertEqual(third.value as? String, "已选中")
+                try assertBoard(before)
+                ready(app.buttons["dailyClearance.strike"])
+            }
             app.buttons["dailyClearance.strike"].tap()
             ready(replay)
             let after = try board()
@@ -604,5 +617,25 @@ final class CustomFormationUITests: XCTestCase {
         app.buttons["dailyClearance.back"].tap()
         ready(app.buttons["formation.start"])
         XCTAssertFalse(app.buttons["formation.edit.save"].exists)
+    }
+}
+
+extension CustomFormationUITests {
+    func testAutomaticRecommendationScope() throws {
+        launch(); newTemplate(0)
+        app.buttons["freeplay.moreMenu"].tap()
+        XCTAssertFalse(app.buttons["table.automaticRecommendation"].exists)
+        app.terminate()
+        launch()
+        let template = app.buttons["formation.builtin.B1115000-0000-4000-8000-000000000002"]
+        ready(template); template.tap()
+        app.buttons["formation.start"].tap()
+        ready(app.buttons["freeplay.moreMenu"])
+        app.buttons["freeplay.moreMenu"].tap()
+        let row = app.recommendationMenuRow()
+        let original = try XCTUnwrap(row.value as? String)
+        row.tap()
+        XCTAssertNotEqual(row.value as? String, original)
+        row.tap()
     }
 }

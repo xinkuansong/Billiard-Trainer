@@ -57,6 +57,63 @@ final class SpatialPracticeRecoveryTests:XCTestCase {
         attachment.name="v66-actual-recovery-geometry";attachment.lifetime = .keepAlways;add(attachment)
     }
     @MainActor
+    func testHighElevationCameraObservationAndAimWheel() throws {
+        let suite = "camera.spatial." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName:suite))
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(suite)
+        let vm = SpatialPracticeViewModel(defaults:defaults, ownerContext:CurrentOwnerContext(defaults:defaults), archiveRoot:root)
+        vm.setupScene()
+        defer {
+            vm.suspendTeachingActivity()
+            defaults.removePersistentDomain(forName:suite)
+            if FileManager.default.fileExists(atPath:root.path) {
+                XCTAssertNoThrow(try FileManager.default.removeItem(at:root))
+            }
+        }
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width:844,height:390)
+        vm.setCameraMode(.perspective3D)
+        vm.updateInput { $0.elevation = 75 }
+        XCTAssertTrue(rig.p01AnchoredTransitions)
+        let yaw = vm.input.yaw
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated:false, resetThirdPerson:true))
+        let defaultThird = try XCTUnwrap(rig.p01Snapshot).pose
+        rig.handleHorizontalSwipe(delta:100)
+        XCTAssertNotEqual(try XCTUnwrap(rig.p01Snapshot).pose, defaultThird)
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated:false, resetThirdPerson:true))
+        XCTAssertLessThan(simd_distance(try XCTUnwrap(rig.p01Snapshot).pose.eye,defaultThird.eye),0.0001)
+        vm.beginTemporaryTopDown()
+        XCTAssertTrue(vm.temporaryTopDownActive)
+        vm.nudgeAim(10)
+        XCTAssertEqual(vm.input.yaw,yaw)
+        vm.endTemporaryTopDown()
+        XCTAssertFalse(vm.temporaryTopDownActive)
+        for view in [CameraRig.PlayerView.thirdPerson, .firstPerson] {
+            XCTAssertTrue(vm.requestPlayerView(view, animated:false))
+            let initial = try XCTUnwrap(rig.p01Snapshot).pose
+            vm.beginCameraObservation()
+            rig.handleHorizontalSwipe(delta:100)
+            let held = try XCTUnwrap(rig.p01Snapshot).pose
+            XCTAssertNotEqual(initial,held)
+            vm.endCameraObservation()
+            for _ in 0..<360 { rig.update(deltaTime:1/120) }
+            let released = try XCTUnwrap(rig.p01Snapshot).pose
+            let expected = view == .firstPerson ? initial : held
+            XCTAssertLessThan(simd_distance(released.forward,expected.forward),0.0001)
+            XCTAssertEqual(vm.input.yaw,yaw)
+        }
+        vm.requestSurfaceOverview()
+        for _ in 0..<360 { rig.update(deltaTime:1/120) }
+        XCTAssertTrue(rig.overviewControlSelected)
+        vm.nudgeAim(2)
+        for _ in 0..<360 { rig.update(deltaTime:1/120) }
+        XCTAssertFalse(rig.overviewControlSelected)
+        XCTAssertEqual(rig.twoViewMode,.firstPerson)
+        XCTAssertEqual(vm.input.yaw,yaw+2*Double.pi/180,accuracy:0.0001)
+        XCTAssertEqual(vm.input.elevation,75)
+    }
+
+    @MainActor
     func testNativeNearRailFixtureProducesDurableHistory() async throws {
         let suite="v66-native-archive-"+UUID().uuidString
         let defaults=try XCTUnwrap(UserDefaults(suiteName:suite));defer {defaults.removePersistentDomain(forName:suite)}
@@ -88,6 +145,9 @@ final class SpatialPracticeRecoveryTests:XCTestCase {
     }
     @MainActor
     func testRealFlyoutWaitsForFullPlaybackAndReplayRestoresDraftAndDurableCamera() async throws {
+        let sound = UserPreferences.shared.soundEffectsEnabled
+        UserPreferences.shared.soundEffectsEnabled = false
+        defer { UserPreferences.shared.soundEffectsEnabled = sound }
         let suite="v66-recovery-play-"+UUID().uuidString
         let defaults=try XCTUnwrap(UserDefaults(suiteName:suite));defer {defaults.removePersistentDomain(forName:suite)}
         let root=FileManager.default.temporaryDirectory.appendingPathComponent(suite)
@@ -108,7 +168,9 @@ final class SpatialPracticeRecoveryTests:XCTestCase {
         XCTAssertTrue(["outside","escaped"].contains(shot.after[PositionPlayBall.cueKey]?.disposition ?? ""))
         let before=vm.record.board
         let rig=try XCTUnwrap(vm.scene.cameraRig)
+        XCTAssertTrue(rig.usesP01Camera)
         vm.requestSurfaceOverview();for _ in 0..<240 {rig.update(deltaTime:1/120)}
+        XCTAssertTrue(rig.overviewControlSelected)
         let original=rig.trainingBookmark()
         let renderer=SCNRenderer(device:MTLCreateSystemDefaultDevice(),options:nil)
         renderer.scene=vm.scene;renderer.pointOfView=vm.scene.cameraNode
@@ -121,6 +183,10 @@ final class SpatialPracticeRecoveryTests:XCTestCase {
                     let cue=try XCTUnwrap(vm.scene.cueStick?.rootNode)
                     XCTAssertFalse(cue.isHidden,"Contact must not abruptly hide the normal follow-through")
                     XCTAssertTrue(cue.hasActions,"The shared stroke must retain its follow-through actions")
+                    XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated:false))
+                    vm.beginCameraObservation()
+                    rig.handleHorizontalSwipe(delta:48)
+                    rig.handlePinch(scale:1.25)
                 }
                 sawMoving=true
                 XCTAssertEqual(vm.record.board,before,"Recovery must wait until the whole shot finishes")
@@ -129,6 +195,15 @@ final class SpatialPracticeRecoveryTests:XCTestCase {
             try await Task.sleep(for:.milliseconds(16))
         }
         XCTAssertTrue(sawMoving);XCTAssertFalse(vm.busy)
+        XCTAssertEqual(vm.selectedTargetKey,"_1")
+        XCTAssertEqual(rig.teachingRollingObservation,.frameTargetOnRelease)
+        let defaultCamera = P01CameraMotion.State()
+        XCTAssertNotEqual(rig.p01Snapshot?.state.distance,defaultCamera.distance)
+        vm.endCameraObservation()
+        XCTAssertEqual(rig.teachingRollingObservation,.idle)
+        XCTAssertEqual(rig.p01Snapshot?.state.distance,defaultCamera.distance)
+        XCTAssertEqual(rig.p01Snapshot?.state.height,defaultCamera.height)
+        XCTAssertEqual(rig.p01Snapshot?.state.view,.thirdPerson)
         XCTAssertEqual(vm.record.lastShot?.after,shot.after)
         XCTAssertEqual(vm.record.board[PositionPlayBall.cueKey],before[PositionPlayBall.cueKey])
         XCTAssertEqual(vm.record.lastShot?.recoveries?.filter {PositionPlayBall.isCue($0.key)}.count,1)

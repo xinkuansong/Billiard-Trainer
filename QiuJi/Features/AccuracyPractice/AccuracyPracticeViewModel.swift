@@ -49,7 +49,9 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     let limiter: AngleUsageLimiter
     private let initialView3D: Bool
     @Published private(set) var record: AccuracyPracticeRecord?
-    @Published private(set) var phase: Phase = .loading
+    @Published private(set) var phase: Phase = .loading {
+        didSet { updateTeachingStrokeCamera(locked: isBusy) }
+    }
     @Published var message: String?
     @Published private(set) var notice: TrainingPracticeNotice?
     @Published var cameraMode: AngleTrainingScene.CameraMode
@@ -122,7 +124,6 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         catch { message = error.localizedDescription; return false }
         record = next
         setCameraMode(is3D ? .perspective3D : .topDown2D)
-        restoreViewBookmark()
         return true
     }
     var targetNode: SCNNode? { scene.targetBallNodes.first }
@@ -176,6 +177,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         }
     }
     var isBusy: Bool { phase == .computing || phase == .playing || phase == .saveFailed }
+    var permitsTemporaryTopDown: Bool { !isBusy }
     var canAim: Bool { phase == .aiming && !temporaryTopDownActive && !cameraTransitionBusy }
     var canRetry: Bool {
         phase == .result && record?.currentAttempt?.result?.countsAsAttempt == true
@@ -272,7 +274,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         scene.setupScene(enhancedRendering: false)
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
-        configureTeachingCamera()
+        configureTeachingCamera(policy: .p01Replayable)
         installQuestion()
     }
     private func installQuestion() {
@@ -309,22 +311,17 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             }
         } else { phase = .aiming; redrawAim() }
         refreshObservationCameraContext()
-        if is3D && phase == .aiming { requestPlayerView(.thirdPerson, animated: false) }
-        restoreViewBookmark()
+        scene.discardSavedPerspectiveView()
+        if is3D { requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true) }
     }
-    private func restoreViewBookmark() {
-        if is3D, let bookmark = record?.viewBookmark, let cue = scene.cueBallNode?.position,
-           let aim = currentPlayerAim {
-            scene.cameraRig?.restoreTrainingBookmark(bookmark, cue: cue, aim: aim)
-        }
-    }
+    var canPanToAim: Bool { canAim && currentPlayerAim != nil }
     func nudgeAim(_ degrees: Float) {
-        guard canAim, degrees.isFinite, let current = record?.draftDirection else { return }
+        guard canPanToAim, degrees.isFinite, let current = record?.draftDirection else { return }
         let moved = current.vector.rotatedY(degrees * .pi / 180)
         let norm = hypot(moved.x, moved.z)
         record?.draftDirection = .init(SCNVector3(moved.x / norm, 0, moved.z / norm))
-        redrawAim(); scheduleDraftSave()
-        if is3D { requestPlayerView(scene.cameraRig?.twoViewMode ?? .thirdPerson, animated: false) }
+        followTeachingAim(spinX: Double(tip.x), spinY: Double(tip.y), updateCue: redrawAim)
+        scheduleDraftSave()
     }
     private func redrawAim() {
         guard phase == .aiming, let cue = scene.cueBallNode, let aim = currentPlayerAim else { return }
@@ -362,7 +359,8 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         scheduleDraftSave()
     }
     func strike() {
-        guard phase == .aiming || (phase == .result && record?.currentAttempt?.result?.countsAsAttempt != true),
+        guard !temporaryTopDownActive, !cameraTransitionBusy,
+              phase == .aiming || (phase == .result && record?.currentAttempt?.result?.countsAsAttempt != true),
               let question = record?.current, let repository else { return }
         guard usesCurrentBank() else { return }
         if isRetrying || record?.currentAttempt == nil {
@@ -450,6 +448,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         scene.runCueStroke(strikePosition: strike, aim: attempt.direction.vector, velocity: attempt.velocity,
             rehearsalEnabled: false, clearanceProbe: { playback.allBallCentersByName(at: Float($0)) }) { [weak self] in
             guard let self, self.generation == token, self.phase == .playing else { return }
+            self.beginTeachingRollingCamera(aim: attempt.direction.vector, replaying: self.isReplaying)
             var duration: TimeInterval = 0
             for (node, name) in [(self.scene.cueBallNode, ShotInput.cueBallName), (self.targetNode, ShotInput.targetBallName)] {
                 guard let node, let action = playback.action(for: node, ballName: name, removeOnPocket: false,

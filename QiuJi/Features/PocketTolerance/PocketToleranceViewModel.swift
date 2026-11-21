@@ -30,6 +30,7 @@ final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
     @Published var topDownContentRevision = 0
     var topDownSelectionChanged = false
     var currentPlayerAim: SCNVector3? { nil }
+    var usesTeachingObjectObservation: Bool { true }
     var targetNode: SCNNode? { selectedTargetKey.flatMap { scene.allBallNodes[$0] } }
     var draggableBalls: [SCNNode] { onTableKeys.compactMap { scene.allBallNodes[$0] } }
     var selectableBalls: [SCNNode] { draggableBalls }
@@ -41,9 +42,7 @@ final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
         scene.configureReferenceTableRendering()
         scene.configureShotAwareCamera()
         scene.setupScene()
-        configureTeachingCamera()
-        // Observe a table/target without seeding a fictitious cue-shot surface.
-        scene.cameraRig?.usesSurfaceCamera = false
+        configureTeachingCamera(policy: .p01Replayable)
         scene.setupVisualizationNodes()
         scene.hideAllBalls()
         scene.hideCueStick()
@@ -63,7 +62,7 @@ final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
         scene.confirmBallSelection(key: key)
         refreshMarkers()
         scheduleCalculation()
-        refreshObservationCameraContext()
+        refreshObjectObservation()
     }
     func selectPocket(at index: Int) {
         guard !suspended, let key = selectedTargetKey, (0..<6).contains(index) else { return }
@@ -72,7 +71,11 @@ final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
         refreshMarkers()
         scene.confirmPocketSelection(at: index, source: .manual)
         scheduleCalculation()
-        refreshObservationCameraContext()
+        refreshObjectObservation()
+    }
+    private func refreshObjectObservation() {
+        if scene.cameraRig?.overviewControlSelected != true { selectionCameraChanged() }
+        else { refreshObservationCameraContext() }
     }
     private func refreshMarkers() {
         for (i, marker) in markers.enumerated() {
@@ -110,7 +113,7 @@ final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
             selectedTargetKey = nil
             selectedPocketIndex = -1
             if let next = onTableKeys.first { selectTarget(key: next) }
-            else { scene.setCurrentTargetNumber(nil); refreshMarkers(); scheduleCalculation() }
+            else { scene.setCurrentTargetNumber(nil); refreshMarkers(); scheduleCalculation(); refreshObjectObservation() }
         }
     }
     func palettePlacement(_ key: String, atWorld point: SCNVector3) -> SCNVector3? {
@@ -147,9 +150,11 @@ final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
         TableBallPulse.endDrag(node)
         guard !suspended else { return }
         scheduleCalculation()
-        refreshObservationCameraContext()
+        refreshObjectObservation()
     }
-    func trainingObservedTopDown() {}
+    func teachingTopDownDidEnd(contentChanged: Bool) {
+        if contentChanged { refreshObjectObservation() }
+    }
     func suspendTeachingActivity() {
         suspended = true; generation += 1; pending = nil
         isDragging = false
@@ -222,7 +227,7 @@ extension PocketToleranceViewModel {
         selectedTargetKey = value.target
         selectedPocketIndex = value.target.flatMap { value.pockets[$0] } ?? -1
         scene.setCurrentTargetNumber(value.target.flatMap(PositionPlayBall.number(for:)))
-        refreshMarkers(); scheduleCalculation(); refreshObservationCameraContext()
+        refreshMarkers(); scheduleCalculation(); refreshObjectObservation()
     }
     func resetRememberedBoard() {
         suspendTeachingActivity(); suspended = false

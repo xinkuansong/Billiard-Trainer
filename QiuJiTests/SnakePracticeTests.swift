@@ -191,6 +191,47 @@ final class SnakePracticeTests: XCTestCase {
         XCTAssertEqual(history.records.count, completedRecords, "Starting the next rack must not duplicate the completed record")
     }
 
+    func testCameraSwitchKeepsOrderedTargetAndSettlementOwnership() throws {
+        let config = SnakePracticeConfiguration(mode: .numbered, numbers: [3, 1, 5, 2, 4])
+        let controller = SnakePracticeController(configuration: config, history: history, defaults: defaults)
+        let host = PositionPlayViewModel()
+        host.scene.configureShotAwareCamera()
+        host.setupScene(loadsDefaultLayout: false)
+        host.enablePlayerCameraControls(policy: .p01Replayable)
+        defer { host.suspendAuthoringActivity() }
+        let rig = try XCTUnwrap(host.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
+        controller.attach(to: host)
+        XCTAssertNil(history.active)
+
+        ShotPlayCamera.setMode(.perspective3D, on: host)
+        XCTAssertTrue(host.requestPlayerView(.firstPerson, animated: false))
+        XCTAssertTrue(host.requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true))
+        XCTAssertFalse(host.selectTarget(key: "_2"))
+        XCTAssertEqual(controller.targetKey, "_1")
+        XCTAssertTrue(host.selectTarget(key: "_1"))
+        XCTAssertTrue(controller.canPlaceCue)
+        XCTAssertTrue(controller.canStrike)
+        XCTAssertNil(history.active, "Camera and selection input must not create a played attempt")
+
+        let prepareShot = try XCTUnwrap(host.onShotWillStart)
+        let commitShot = try XCTUnwrap(host.onCommittedPracticeShot)
+        prepareShot()
+        let attemptID = try XCTUnwrap(history.active?.id)
+        let legalPot = PositionPlayViewModel.SolvedShot(before: host.currentSnapshot(), shot: shot,
+            prediction: prediction([.ballBall(ballA: cue, ballB: object)], pots: [object]))
+        commitShot(legalPot)
+        commitShot(legalPot)
+        host.refreshLegalAimSelection()
+        XCTAssertEqual(controller.targetKey, "_2")
+        XCTAssertFalse(host.selectTarget(key: "_1"))
+        XCTAssertTrue(host.selectTarget(key: "_2"))
+        XCTAssertFalse(controller.canPlaceCue)
+        XCTAssertTrue(controller.canStrike)
+        XCTAssertEqual(history.active?.id, attemptID)
+        XCTAssertTrue(history.records.isEmpty)
+    }
+
     func testControllerFailureRetainsTargetAndRequiresRecovery() {
         let controller = SnakePracticeController(history: history, defaults: defaults)
         controller.start(.init())

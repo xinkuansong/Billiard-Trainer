@@ -299,18 +299,38 @@ final class MultiBallPracticeTests: XCTestCase {
     }
 
     func testRotationOpeningFixesOnlyBallAndKeepsIndependentRecommendations() throws {
-        let host = PositionPlayViewModel(); host.setupScene(loadsDefaultLayout: false)
+        let host = PositionPlayViewModel()
+        host.scene.configureShotAwareCamera()
+        host.setupScene(loadsDefaultLayout: false)
+        host.enablePlayerCameraControls(policy: .p01Replayable)
+        let rig = try XCTUnwrap(host.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
         defer { host.suspendAuthoringActivity() }
-        let c = MultiBallPracticeController(defaults: defaults, limiter: limiter())
+        var config = MultiBallConfiguration()
+        config.game = .rotation
+        config.positionMode = .planned
+        let c = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
         c.attach(to: host)
+        XCTAssertNil(c.checkpointError)
+        XCTAssertEqual(c.configuration.game, .rotation)
         XCTAssertEqual(c.currentTarget, "_1"); XCTAssertEqual(host.selectedTargetKey, "_1")
         XCTAssertEqual(host.selectedPocketIndex, -1); XCTAssertEqual(c.planningStep, .pocket1)
         XCTAssertEqual(c.draftNextKey, "_2"); XCTAssertFalse(c.requestStrike())
+        let rackBoard = host.currentSnapshot().onTable.mapValues { SIMD2($0.x, $0.y) }
+        ShotPlayCamera.setMode(.perspective3D, on: host)
+        XCTAssertTrue(host.requestPlayerView(.firstPerson, animated: false))
+        XCTAssertTrue(host.requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true))
+        XCTAssertFalse(host.selectTarget(key: "_2"))
+        XCTAssertEqual(c.planningStep, .pocket1)
+        XCTAssertEqual(c.currentTarget, "_1")
+        XCTAssertEqual(c.draftNextKey, "_2")
+        XCTAssertEqual(host.currentSnapshot().onTable.mapValues { SIMD2($0.x, $0.y) }, rackBoard)
+        XCTAssertFalse(c.requestStrike())
         XCTAssertFalse(c.selectContinuationPocket(4))
         c.selectPlanningPocket(2)
         XCTAssertEqual(c.planningStep, .pocket2); XCTAssertTrue(c.selectContinuationPocket(4))
         XCTAssertTrue(c.requestStrike())
-        var config = MultiBallConfiguration(); config.positionMode = .independent
+        config.positionMode = .independent
         c.start(config)
         XCTAssertFalse(host.practiceRequiresExplicitAim); XCTAssertNotNil(host.selectedTargetKey)
     }

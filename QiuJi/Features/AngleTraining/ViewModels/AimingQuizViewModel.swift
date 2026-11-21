@@ -55,14 +55,13 @@ final class AimingQuizViewModel: TeachingCameraHost {
     @Published var topDownContentRevision = 0
     var topDownSelectionChanged = false
     var targetNode: SCNNode? { scene.targetBallNodes.first }
+    var permitsFirstPersonAddress: Bool { false }
+
+    // Observation takes its bearing from the visible table, independently of the answer.
     var currentPlayerAim: SCNVector3? {
         guard let cue = scene.cueBallNode, let target = targetNode,
-              !cue.isHidden, !target.isHidden, selectedPocketIndex >= 0 else { return nil }
-        let pocket = AngleSceneCalculator.effectivePocketAimPoint(
-            targetBall: target.position, pocketIndex: selectedPocketIndex, surfaceY: scene.surfaceY)
-        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target.position,
-            pocket: pocket, ballRadius: AngleSceneCalculator.ballRadius)
-        let direction = SCNVector3(ghost.x - cue.position.x, 0, ghost.z - cue.position.z)
+              !cue.isHidden, !target.isHidden else { return nil }
+        let direction = SCNVector3(target.position.x - cue.position.x, 0, target.position.z - cue.position.z)
         return direction.length() > 0.000001 ? direction.normalized() : nil
     }
     private var pocketMarkers: [SCNNode] = []
@@ -137,7 +136,7 @@ final class AimingQuizViewModel: TeachingCameraHost {
         scene.setupVisualizationNodes(usesTrainingAssistStyle: true)
         pocketMarkers = scene.addPocketMarkers()
 
-        configureTeachingCamera()
+        configureTeachingCamera(policy: .p01Replayable)
         scene.setCameraMode(initialCameraMode, animated: false)
         if autoStart { startTest() }
     }
@@ -417,7 +416,7 @@ final class AimingQuizViewModel: TeachingCameraHost {
             showLineLabels: true,
             extendStrikeLineToRail: true
         )
-        scene.showAuxiliaryCue()
+        scene.showAuxiliaryCue(updatesCamera: false)
     }
 
     private func showResultVisualization() {
@@ -440,7 +439,7 @@ final class AimingQuizViewModel: TeachingCameraHost {
                 pocket: aimPoint,
                 showLineLabels: true
             )
-            scene.showAuxiliaryCue()
+            scene.showAuxiliaryCue(updatesCamera: false)
         }
     }
 

@@ -153,7 +153,7 @@ final class AngleDynamicViewModel: TeachingTableHost, BoardMemoryHosting {
         scene.configureReferenceTableRendering()
         scene.configureShotAwareCamera()
         scene.setupScene()
-        configureTeachingCamera()
+        configureTeachingCamera(policy: .p01Replayable)
         scene.setupVisualizationNodes()
         assistOverlay.attach(to: scene)
         refreshDisplayAssists()

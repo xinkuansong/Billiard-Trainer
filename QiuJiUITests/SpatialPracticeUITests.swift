@@ -79,6 +79,86 @@ final class SpatialPracticeUITests:XCTestCase {
         search.typeText(title)
         let entry=app.buttons[title];ready(entry);entry.tap()
     }
+    func testHorizontalElevationThenRackAssist() throws {
+        app=XCUIApplication()
+        app.launchEnvironment["SPATIAL_TEST_SESSION"]=UUID().uuidString
+        app.launchArguments=["-hasCompletedOnboarding","YES","-firstRun.profileFlow.v1","completed",
+                             "-freeLayout.ephemeral","-forcePremium","-masseJump.probe","-v63.cameraDiagnostics"]
+        app.launch()
+        openPractice("扎杆与跳球")
+        let wheel=element("masseJump.elevation")
+        ready(wheel);settledTable()
+        XCTAssertGreaterThan(wheel.frame.width,wheel.frame.height)
+        XCTAssertGreaterThanOrEqual(wheel.frame.minX,element("masseJump.replay").frame.maxX-1)
+        let before=try XCTUnwrap(previewProbe()["elevation"] as? Double)
+        wheel.coordinate(withNormalizedOffset:.init(dx:0.15,dy:0.5)).press(forDuration:0.05,
+            thenDragTo:wheel.coordinate(withNormalizedOffset:.init(dx:0.85,dy:0.5)))
+        XCTAssertGreaterThan(try XCTUnwrap(previewProbe()["elevation"] as? Double),before)
+        capture("horizontal-elevation-and-table-route")
+        let spin=element("shotStage.spinEntry");ready(spin);spin.tap();capture("spin-boundary")
+        app.buttons["关闭打点"].coordinate(withNormalizedOffset:.init(dx:0.05,dy:0.05)).tap()
+        element("break.entry").tap()
+        XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
+            let p=self.previewProbe()
+            return p["breakMode"] as? Bool == true && p["ready"] as? Bool == true && p["routes"] as? Int == 0
+        },object:app)],timeout:30),.completed)
+        let camera = element("v63.cameraDiagnostics")
+        let rackCamera = NSPredicate(format: "value CONTAINS %@ AND value CONTAINS %@",
+                                     "twoViewMode=thirdPerson", "twoViewMoving=false")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: rackCamera, object: camera)],
+                                      timeout: 40), .completed)
+        capture("rack-shared-aim-only")
+    }
+    func testMovingCueRaisesElevationAndRestoresWheelSetting() throws {
+        app = XCUIApplication()
+        app.launchEnvironment["SPATIAL_TEST_SESSION"] = UUID().uuidString
+        app.launchArguments = ["-hasCompletedOnboarding", "YES", "-firstRun.profileFlow.v1", "completed",
+                               "-freeLayout.ephemeral", "-forcePremium", "-masseJump.probe"]
+        app.launch()
+        openPractice("扎杆与跳球")
+        let wheel = element("masseJump.elevation")
+        ready(wheel)
+        settledTable()
+        wheel.coordinate(withNormalizedOffset: .init(dx: 0.20, dy: 0.5)).press(forDuration: 0.05,
+            thenDragTo: wheel.coordinate(withNormalizedOffset: .init(dx: 0.58, dy: 0.5)))
+        let requested = try XCTUnwrap(previewProbe()["elevation"] as? Double)
+        let topDown = element("shotCamera.temporaryTopDown")
+        func dragCue(to key: String, x: Double, z: Double) throws {
+            topDown.tap()
+            let probe = element("masseJump.placementProbe")
+            func placement() -> [String: [Double]] {
+                guard let text = probe.value as? String else { return [:] }
+                return (try? JSONDecoder().decode([String: [Double]].self, from: Data(text.utf8))) ?? [:]
+            }
+            let projected = XCTNSPredicateExpectation(predicate: NSPredicate { _,_ in
+                let p = placement()
+                return p["cue"]?.count == 2 && p[key]?.count == 2
+            }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [projected], timeout: 20), .completed)
+            let p = placement()
+            let window = app.windows.firstMatch
+            let origin = window.coordinate(withNormalizedOffset: .zero)
+            func coordinate(_ key: String) throws -> XCUICoordinate {
+                let point = try XCTUnwrap(p[key])
+                return origin.withOffset(CGVector(dx: point[0] - window.frame.minX, dy: point[1] - window.frame.minY))
+            }
+            try coordinate("cue").press(forDuration: 0.2, thenDragTo: coordinate(key))
+            let arrived = XCTNSPredicateExpectation(predicate: NSPredicate { _,_ in
+                guard let world = placement()["world"], world.count == 2 else { return false }
+                return abs(world[0] - x) < 0.02 && abs(world[1] - z) < 0.02
+            }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [arrived], timeout: 15), .completed)
+            topDown.tap()
+            ready(element("masseJump.strike"))
+            XCTAssertTrue(element("masseJump.strike").isEnabled)
+        }
+        try dragCue(to: "clearanceTarget", x: 0.685, z: 0)
+        XCTAssertGreaterThan(try XCTUnwrap(previewProbe()["displayedElevation"] as? Double), requested)
+        capture("raised-to-clear-ball")
+        try dragCue(to: "target", x: -0.7, z: 0.25)
+        XCTAssertEqual(try XCTUnwrap(previewProbe()["displayedElevation"] as? Double), requested, accuracy: 0.001)
+        capture("restored-wheel-elevation")
+    }
     private func actualBoard() throws -> [String:[Double]] {
         let value=try XCTUnwrap(element("table.scene").value as? String)
         let object=try XCTUnwrap(JSONSerialization.jsonObject(with:Data(value.utf8)) as? [String:Any])
@@ -89,8 +169,8 @@ final class SpatialPracticeUITests:XCTestCase {
     private func visitSpatialAndReturn() {
         openPractice("扎杆与跳球");ready(element("masseJump.elevation"));settledTable()
         let wheel=element("masseJump.elevation")
-        let start=wheel.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.5))
-        start.press(forDuration:0.05,thenDragTo:start.withOffset(CGVector(dx:0,dy:-8)))
+        let start=wheel.coordinate(withNormalizedOffset:CGVector(dx:0.50,dy:0.5))
+        start.press(forDuration:0.05,thenDragTo:start.withOffset(CGVector(dx:8,dy:0)))
         let strike=element("masseJump.strike");ready(strike);strike.tap()
         XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
             self.previewProbe()["phase"] as? String == "playing"
@@ -99,8 +179,12 @@ final class SpatialPracticeUITests:XCTestCase {
         ready(wheel);element("masseJump.back").tap()
     }
     func testLegacyComposerAndSolverContinueAfterSpatialVisit() throws {
-        app=XCUIApplication.launchClean(extraArgs:["-forcePremium","-freeLayout.ephemeral","-3dDrag.probe","-masseJump.probe"])
-        app.terminate();app.launchEnvironment["BOARD_MEMORY_TEST_DOMAIN"]=UUID().uuidString;app.launch()
+        app = XCUIApplication()
+        app.launchArguments = ["-hasCompletedOnboarding", "YES", "-firstRun.profileFlow.v1", "completed",
+                               "-forcePremium", "-freeLayout.ephemeral", "-3dDrag.probe", "-masseJump.probe"]
+        app.launchEnvironment["BOARD_MEMORY_TEST_DOMAIN"] = UUID().uuidString
+        app.launchEnvironment["SPATIAL_TEST_SESSION"] = UUID().uuidString
+        app.launch()
         for (title,back) in [("分离角与走位","dailyClearance.back"),("走位求解","silu.back")] {
             openPractice(title);ready(element(back));stable(element("paletteBall__7"))
             element("paletteBall__7").tap()
@@ -195,9 +279,9 @@ final class SpatialPracticeUITests:XCTestCase {
         app.maximizeTrainingTestWindow();openPractice("扎杆与跳球")
         ready(element("masseJump.elevation"));settledTable()
         let wheel=element("masseJump.elevation")
-        for _ in 0..<6 where (previewProbe()["elevation"] as? Double ?? 0)<75 {
-            wheel.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.9)).press(forDuration:0.05,
-                thenDragTo:wheel.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.1)))
+        for _ in 0..<12 where (previewProbe()["elevation"] as? Double ?? 0)<75 {
+            wheel.coordinate(withNormalizedOffset:CGVector(dx:0.10,dy:0.5)).press(forDuration:0.05,
+                thenDragTo:wheel.coordinate(withNormalizedOffset:CGVector(dx:0.90,dy:0.5)))
         }
         XCTAssertEqual(previewProbe()["elevation"] as? Double,75)
         XCUIDevice.shared.orientation = .portrait;ready(wheel);settledTable()
@@ -253,8 +337,8 @@ final class SpatialPracticeUITests:XCTestCase {
         for i in 0..<21 {
             let before=rows().filter { $0["rendered"] != nil }.count
             let value=previewProbe()["elevation"] as? Double
-            let start=wheel.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.5))
-            start.press(forDuration:0.05,thenDragTo:start.withOffset(CGVector(dx:0,dy:i.isMultiple(of:2) ? -8:8)))
+            let start=wheel.coordinate(withNormalizedOffset:CGVector(dx:0.50,dy:0.5))
+            start.press(forDuration:0.05,thenDragTo:start.withOffset(CGVector(dx:i.isMultiple(of:2) ? 8:-8,dy:0)))
             wait { rows().filter { $0["rendered"] != nil }.count>before && self.previewProbe()["ready"] as? Bool == true }
             XCTAssertNotEqual(previewProbe()["elevation"] as? Double,value)
         }
@@ -347,15 +431,15 @@ final class SpatialPracticeUITests:XCTestCase {
         XCTAssertFalse(element("masseJump.example.jump").exists)
         element("masseJump.dismissMenu").tap()
         let before=previewProbe()["elevation"] as? Double ?? 0
-        elevation.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.75)).press(forDuration:0.1,
-            thenDragTo:elevation.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.35)))
+        elevation.coordinate(withNormalizedOffset:CGVector(dx:0.25,dy:0.5)).press(forDuration:0.1,
+            thenDragTo:elevation.coordinate(withNormalizedOffset:CGVector(dx:0.65,dy:0.5)))
         XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
             (self.previewProbe()["elevation"] as? Double ?? 0)>before
         },object:app)],timeout:15),.completed)
         capture("v66-elevation-wheel")
-        for _ in 0..<5 where (previewProbe()["elevation"] as? Double ?? 0)<75 {
-            elevation.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.9)).press(forDuration:0.05,
-                thenDragTo:elevation.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.1)))
+        for _ in 0..<12 where (previewProbe()["elevation"] as? Double ?? 0)<75 {
+            elevation.coordinate(withNormalizedOffset:CGVector(dx:0.10,dy:0.5)).press(forDuration:0.05,
+                thenDragTo:elevation.coordinate(withNormalizedOffset:CGVector(dx:0.90,dy:0.5)))
         }
         XCTAssertEqual(previewProbe()["elevation"] as? Double,75)
         let top=element("shotCamera.temporaryTopDown");ready(top)
@@ -388,10 +472,15 @@ final class SpatialPracticeUITests:XCTestCase {
         capture("v66-temporary-cue-dragged")
         top.tap();ready(elevation)
         XCTAssertFalse(previewProbe()["temporaryTopDown"] as? Bool == true)
-        for camera in ["shotCamera.firstPerson","shotCamera.thirdPerson","dailyClearance.observeTable"] {
+        for camera in ["shotCamera.firstPerson","shotCamera.thirdPerson"] {
             let button=element(camera);ready(button);button.tap();ready(elevation)
             capture("v66-camera-"+camera)
         }
+        ready(top);top.tap()
+        XCTAssertTrue(previewProbe()["temporaryTopDown"] as? Bool == true)
+        capture("v68-camera-temporary-top-down")
+        top.tap();ready(elevation)
+        XCTAssertFalse(previewProbe()["temporaryTopDown"] as? Bool == true)
         element("masseJump.more").tap();revealMenu("masseJump.reset").tap()
         app.buttons["恢复默认"].firstMatch.tap();ready(elevation)
         XCTAssertEqual(previewProbe()["elevation"] as? Double,45)
@@ -446,8 +535,10 @@ final class SpatialPracticeUITests:XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
             self.previewProbe()["breakMode"] as? Bool == false && self.element("masseJump.retry").isEnabled
         },object:app)],timeout:90),.completed)
-        XCTAssertEqual(previewProbe()["speed"] as? Double,3)
-        XCTAssertEqual(previewProbe()["elevation"] as? Double,45)
+        XCTAssertEqual(previewProbe()["speed"] as? Double,2)
+        XCTAssertTrue(element("masseJump.strike").isEnabled)
+        XCTAssertEqual(previewProbe()["spinX"] as? Double,0)
+        XCTAssertEqual(previewProbe()["spinY"] as? Double,0)
         XCTAssertFalse(app.buttons["完成"].exists)
         capture("v66-space-break-delivered")
         element("masseJump.retry").tap();ready(strike)
@@ -519,7 +610,12 @@ final class SpatialPracticeUITests:XCTestCase {
         }
         XCTAssertEqual(previewProbe()["speed"] as? Double,8)
         let before=previewProbe()["cueWorld"] as? [Double]
-        element("dailyClearance.observeTable").tap();ready(strike);capture("v66-native-flyout-before")
+        ready(top);top.tap()
+        XCTAssertTrue(previewProbe()["temporaryTopDown"] as? Bool == true)
+        capture("v68-native-flyout-temporary-top-down")
+        top.tap();ready(strike)
+        XCTAssertFalse(previewProbe()["temporaryTopDown"] as? Bool == true)
+        capture("v66-native-flyout-before")
         strike.tap()
         XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
             let p=self.previewProbe()
@@ -543,8 +639,8 @@ final class SpatialPracticeUITests:XCTestCase {
             self.previewProbe()["historyID"] as? String == history
         },object:app)],timeout:15),.completed,"Reentry must restore the persisted original shot")
         XCTAssertEqual(previewProbe()["historyID"] as? String,history)
-        elevation.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.3)).press(forDuration:0.1,
-            thenDragTo:elevation.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.7)))
+        elevation.coordinate(withNormalizedOffset:CGVector(dx:0.70,dy:0.5)).press(forDuration:0.1,
+            thenDragTo:elevation.coordinate(withNormalizedOffset:CGVector(dx:0.30,dy:0.5)))
         XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
             guard let value=self.previewProbe()["elevation"] as? Double else {return false}
             return value<45
@@ -652,7 +748,7 @@ final class SpatialPracticeUITests:XCTestCase {
         element("masseJump.more").tap();revealMenu("masseJump.reset").tap()
         app.buttons["恢复默认"].firstMatch.tap();ready(elevation)
         XCTAssertEqual(previewProbe()["elevation"] as? Double,45)
-        XCTAssertEqual(previewProbe()["speed"] as? Double,3)
+        XCTAssertEqual(previewProbe()["speed"] as? Double,2)
         XCTAssertEqual(previewProbe()["onTable"] as? Int,1)
         let yaw=previewProbe()["yaw"] as? Double
         let direction=element("masseJump.aimWheel");ready(direction)
@@ -662,7 +758,7 @@ final class SpatialPracticeUITests:XCTestCase {
         let power=element("shotStage.powerBar");ready(power)
         power.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.65)).press(forDuration:0.1,
             thenDragTo:power.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.35)))
-        XCTAssertNotEqual(previewProbe()["speed"] as? Double,3)
+        XCTAssertNotEqual(previewProbe()["speed"] as? Double,2)
         let spin=element("shotStage.spinEntry");ready(spin);spin.tap()
         let disc=element("spinPad.disc");ready(disc)
         disc.coordinate(withNormalizedOffset:CGVector(dx:0.58,dy:0.42)).tap()

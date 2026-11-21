@@ -9,6 +9,54 @@ final class AngleDynamicAssistTests: XCTestCase {
         try XCTUnwrap(UserDefaults(suiteName: "AngleDynamicAssistTests.\(UUID().uuidString)"))
     }
 
+    func testCuePlacementMovesBallBeforeCameraFollowsLegalDrop() throws {
+        let vm = AngleDynamicViewModel(displayDefaults: try defaults())
+        vm.setupScene()
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
+        vm.setCameraMode(.perspective3D)
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+        let cue = try XCTUnwrap(vm.scene.cueBallNode)
+        let camera = try XCTUnwrap(vm.scene.cameraNode)
+        let start = cue.simdPosition
+        let heldPose = camera.simdTransform
+        let heldPosition = camera.simdPosition
+        let displacement: Float = start.x >= 0 ? -0.15 : 0.15
+        vm.beginTableBallDrag(cue)
+        XCTAssertTrue(rig.isHoldingP01CueDrag)
+        for step in 1...6 {
+            let position = start + SIMD3<Float>(displacement * Float(step) / 6, 0, 0)
+            vm.dragMoved(node: cue, worldPosition: SCNVector3(position))
+            rig.update(deltaTime: 1 / 60)
+            XCTAssertEqual(camera.simdTransform, heldPose)
+        }
+        XCTAssertGreaterThan(simd_distance(cue.simdPosition, start), 0.05)
+        vm.endTableBallDrag(cue)
+        XCTAssertFalse(rig.isHoldingP01CueDrag)
+        for _ in 0..<240 { rig.update(deltaTime: 1 / 60) }
+        XCTAssertEqual(try XCTUnwrap(rig.p01Snapshot).shot.cue, cue.simdPosition)
+        XCTAssertGreaterThan(simd_distance(camera.simdPosition, heldPosition), 0.01)
+    }
+
+    func testPocketChangeInTemporaryViewReturnsAlongNewDiagramDirection() throws {
+        let vm = AngleDynamicViewModel(displayDefaults: try defaults())
+        vm.setupScene()
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
+        vm.setCameraMode(.perspective3D)
+        XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+        let pocket = (vm.selectedPocketIndex + 1) % 6
+        vm.beginTemporaryTopDown()
+        XCTAssertTrue(vm.temporaryTopDownActive)
+        vm.selectPocket(at: pocket)
+        vm.endTemporaryTopDown()
+        for _ in 0..<360 { rig.update(deltaTime: 1 / 60) }
+        let aim = try XCTUnwrap(vm.currentPlayerAim)
+        let shot = try XCTUnwrap(rig.p01Snapshot).shot
+        XCTAssertLessThan(simd_distance(shot.aim, SIMD3(aim.x, aim.y, aim.z)), 0.0001)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+    }
+
     func testAngleAndGhostOptionsStayIndependentAcrossViewsAndRestore() throws {
         let store = try defaults()
         let vm = AngleDynamicViewModel(displayDefaults: store)

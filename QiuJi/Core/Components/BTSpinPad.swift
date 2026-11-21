@@ -134,6 +134,7 @@ struct BTSpinPad: View {
                 let step=miscue*2/32
                 fixedBlockedCells=(0..<32).flatMap { row in (0..<32).compactMap { column -> CGPoint? in
                     let x = -miscue+(Double(column)+0.5)*step, y = -miscue+(Double(row)+0.5)*step
+                    guard x*x+y*y <= miscue*miscue else { return nil }
                     return access.isAvailable(spinX:x,spinY:y) ? nil : CGPoint(x:x,y:y)
                 } }
             }

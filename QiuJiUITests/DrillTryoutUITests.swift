@@ -53,6 +53,49 @@ final class DrillTryoutUITests: XCTestCase {
         sleep(3)
     }
 
+    func testMiddlePocketCameraEntryAndThirdRecordedShot() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral",
+                                                      "-drillTryout.hasSeenGestureHint", "YES"])
+        openDrillDetail(search: "中袋直线出杆", drillId: "drill_c012")
+        let mode = app.buttons["drillScene.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 20))
+        if mode.value as? String != "3D" { mode.tap() }
+        XCTAssertEqual(mode.value as? String, "3D")
+        snap("c012-detail-shot-1")
+        app.buttons["drillPlayButton"].tap()
+        func waitForThird(_ element: XCUIElement) {
+            let third = NSPredicate(format: "label CONTAINS '3/8'")
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: third, object: element)],
+                                         timeout: 90), .completed)
+        }
+        waitForThird(element(id: "drillScene.step"))
+        snap("c012-detail-shot-3")
+        app.buttons["bottomTryoutButton"].tap()
+        let formation = app.buttons["tryoutFormation_0"]
+        if formation.waitForExistence(timeout: 2) { formation.tap() }
+        let more = app.buttons["freeplay.moreMenu"]
+        XCTAssertTrue(more.waitForExistence(timeout: 30))
+        let brief = element(id: "tryout.briefCard")
+        if brief.isHittable { brief.tap() }
+        more.tap()
+        let setting = app.buttons["freeplay.cameraMode"]
+        if setting.value as? String != "3D" { setting.tap() }
+        app.buttons["关闭菜单"].tap()
+        let eye = app.buttons["shotCamera.temporaryTopDown"]
+        let third = app.buttons["shotCamera.thirdPerson"]
+        let first = app.buttons["shotCamera.firstPerson"]
+        XCTAssertTrue(eye.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        XCTAssertLessThan(eye.frame.midY, third.frame.midY)
+        XCTAssertLessThan(third.frame.midY, first.frame.midY)
+        snap("c012-tryout-shot-1")
+        app.buttons["dailyClearance.strike"].tap()
+        waitForThird(element(id: "composer.status"))
+        snap("c012-tryout-shot-3")
+    }
+
     func testSharedSequenceCameraIndependentEightShotsFromLibrary() throws {
         try verifySharedSequenceCamera(id: "drill_c042", search: "初级蛇彩", count: 8)
     }
@@ -93,9 +136,7 @@ final class DrillTryoutUITests: XCTestCase {
             let shot = XCUIScreen.main.screenshot()
             let attachment = XCTAttachment(screenshot: shot)
             attachment.name = id + "-tryout-" + suffix; attachment.lifetime = .keepAlways; add(attachment)
-            let directory = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/output/snake2-replay-fix-20261014/tryout")
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            try shot.pngRepresentation.write(to: directory.appendingPathComponent(id + "-" + suffix + ".png"))
+
         }
         mode("3D")
         try capture("opening")
@@ -123,7 +164,7 @@ final class DrillTryoutUITests: XCTestCase {
         app.buttons["dailyClearance.undo"].tap()
         wait("label == '继续' AND enabled == true", on: strike)
         XCTAssertTrue(element(id: "composer.status").label.contains("第 \(count - 1)/\(count)"))
-        app.buttons["tryout.rearrange"].tap()
+        app.buttons["重摆"].tap()
         XCTAssertEqual(strike.label, "开始")
         XCTAssertTrue(element(id: "composer.status").label.contains("第 1/\(count)"))
     }
@@ -228,66 +269,132 @@ final class DrillTryoutUITests: XCTestCase {
 
     // MARK: - Q19.2④ 序列模式切换（序列 ⇄ 进袋 ⇄ 自由）
 
-    func testPerspectiveSequencePauseReplayAndModeRoundTrip() {
-        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-deeplink.tryout=drill_c042", "-v63.cameraDiagnostics"])
-        let mode = app.buttons["tryout.cameraMode"]
-        XCTAssertTrue(mode.waitForExistence(timeout: 30))
-        XCTAssertTrue(navSubtitleContains("第 1/", timeout: 20))
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "3D")
-        XCTAssertTrue(app.staticTexts["摆球请切回2D"].exists)
-        sleep(1) // Capture settled camera/card transitions; state assertions above remain immediate.
-        print("V63_CAMERA_INITIAL \(element(id: "v63.cameraDiagnostics").value ?? "missing")")
-        let readout = element(id: "tryout.sequenceReadout")
-        XCTAssertTrue(readout.exists)
-        XCTAssertLessThanOrEqual(readout.frame.maxY, element(id: "v63.cameraDiagnostics").frame.minY,
-                                 "Recorded parameters must stay above the 3D viewport")
-        XCTAssertFalse(element(id: "shotStage.instrument").exists)
-        snap("v63-tryout-3d-sequence")
-        let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.4))
-        origin.press(forDuration: 0.1, thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.45)))
-        app.buttons["tryout.focus"].tap()
-        app.buttons["击打"].firstMatch.tap()
-        app.buttons["暂停"].firstMatch.tap()
-        let resume = app.buttons["继续"].firstMatch
-        XCTAssertTrue(resume.waitForExistence(timeout: 45))
-        let subtitle = navSubtitle.label
-        app.buttons["打点"].firstMatch.tap()
-        XCTAssertFalse(app.buttons["回中"].exists)
-        sleep(1) // Capture settled camera/card transitions; state assertions above remain immediate.
-        let spinCard = element(id: "spinPad.card")
-        XCTAssertTrue(spinCard.exists)
-        XCTAssertLessThan(spinCard.frame.maxX, resume.frame.minX,
-                          "Read-only spin card must leave the shot action column clear")
-        XCTAssertTrue(app.staticTexts["低78%"].exists)
-        snap("v63-tryout-3d-paused-spin")
-        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).tap()
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "2D")
-        XCTAssertEqual(navSubtitle.label, subtitle)
-        XCTAssertTrue(resume.exists)
-        mode.tap()
-        app.buttons["重播"].firstMatch.tap()
-        XCTAssertTrue(resume.waitForExistence(timeout: 45))
-        XCTAssertEqual(navSubtitle.label, subtitle)
-        sleep(1) // Capture settled camera/card transitions; state assertions above remain immediate.
-        print("V63_CAMERA_REPLAY \(element(id: "v63.cameraDiagnostics").value ?? "missing")")
-        snap("v63-tryout-3d-replayed")
-        app.buttons["tryoutMode_自由"].tap()
-        XCTAssertEqual(mode.value as? String, "3D")
-        XCTAssertTrue(app.buttons["击球"].firstMatch.waitForExistence(timeout: 10))
-        let focusReady = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: app.buttons["tryout.focus"])
-        XCTAssertEqual(XCTWaiter.wait(for: [focusReady], timeout: 30), .completed)
-        app.buttons["tryout.focus"].tap()
-        sleep(1) // Capture settled camera/card transitions; state assertions above remain immediate.
-        snap("v63-tryout-3d-free")
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "2D")
-        sleep(1) // Capture settled camera/card transitions; state assertions above remain immediate.
-        snap("v63-tryout-2d-free")
-        app.buttons["tryoutMode_序列"].tap()
-        XCTAssertTrue(navSubtitleContains("第 1/"))
-        XCTAssertTrue(app.buttons["击打"].firstMatch.exists)
+    func testPerspectiveSequencePauseReplayAndModeRoundTrip() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral",
+            "-3dDrag.probe", "-dailyLayout.probe", "-v63.cameraDiagnostics", "-v67.cameraBaseline",
+            "-drillTryout.hasSeenGestureHint", "YES"
+        ])
+        let table = element(id: "table.scene")
+        let diagnostics = element(id: "v63.cameraDiagnostics")
+        struct Scene: Decodable {
+            struct Ball: Decodable { let key: String; let world: [Double] }
+            let balls: [Ball]
+            let camera: [Double]
+            let rendererActive: Bool
+        }
+        func probe() throws -> Scene {
+            try JSONDecoder().decode(Scene.self, from: Data(try XCTUnwrap(table.value as? String).utf8))
+        }
+        func ready(_ item: XCUIElement, timeout: TimeInterval = 40) {
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+                NSPredicate(format: "exists == true AND enabled == true AND hittable == true"), object: item)],
+                timeout: timeout), .completed, item.debugDescription)
+        }
+        func settled() {
+            let quiet = NSPredicate { _, _ in (try? probe().rendererActive) == false }
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: quiet, object: nil)],
+                                         timeout: 20), .completed)
+        }
+        func cameraPolicy() -> String? {
+            guard diagnostics.exists, let value = diagnostics.value as? String,
+                  let tail = value.components(separatedBy: " v67Baseline=").last,
+                  let token = tail.split(separator: " ").first,
+                  let raw = Data(base64Encoded: String(token)),
+                  let camera = (try? JSONSerialization.jsonObject(with: raw)) as? [String: Any]
+            else { return nil }
+            return camera["policy"] as? String
+        }
+        func waitForPolicy(_ expected: String) {
+            let policy = NSPredicate { _, _ in cameraPolicy() == expected }
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: policy, object: nil)],
+                                         timeout: 12), .completed, "Rendered camera policy should be " + expected)
+        }
+        openDrillDetail(search: "初级蛇彩", drillId: "drill_c042")
+        let tryout = app.buttons["bottomTryoutButton"]
+        ready(tryout); tryout.tap()
+        let formation = app.buttons["tryoutFormation_0"]
+        ready(formation); formation.tap()
+        let status = app.descendants(matching: .any)["composer.status"].firstMatch
+        XCTAssertTrue(status.waitForExistence(timeout: 25))
+        let brief = app.descendants(matching: .any)["tryout.briefCard"].firstMatch
+        if brief.isHittable { brief.tap() }
+        let startingStep = status.label
+        XCTAssertTrue(startingStep.contains("第 1/"))
+        func menuRow(_ id: String) -> XCUIElement {
+            let more = app.buttons["freeplay.moreMenu"]
+            ready(more); more.tap()
+            let item = app.buttons[id]
+            ready(item); return item
+        }
+        func dismissMenu() {
+            let dismiss = app.buttons["关闭菜单"]
+            if dismiss.exists { dismiss.tap() }
+        }
+        let mode = menuRow("freeplay.cameraMode")
+        if mode.value as? String != "3D" { mode.tap() }
+        dismissMenu()
+        XCTAssertTrue(diagnostics.waitForExistence(timeout: 30))
+        settled()
+        waitForPolicy("p01Replayable")
+        let initial = try probe()
+        snap("tryout-first-recorded-step")
+        let strike = app.buttons["dailyClearance.strike"]
+        let controls = element(id: "dailyLayout.controlsProbe")
+        ready(strike); strike.tap()
+        let moving = NSPredicate(format: "value CONTAINS 'sequencePhase=moving' AND value CONTAINS 'sequenceStep=0'")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: moving, object: controls)],
+                                     timeout: 25), .completed)
+        strike.tap()
+        let paused = NSPredicate(format: "label == %@ AND enabled == true", "继续")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: paused, object: strike)],
+                                     timeout: 45), .completed)
+        snap("tryout-first-recorded-step-paused")
+        let rearrange = app.buttons["重摆"]
+        ready(rearrange); rearrange.tap()
+        ready(strike)
+        XCTAssertEqual(status.label, startingStep)
+        let toFree = menuRow("tryout.mode")
+        XCTAssertEqual(toFree.value as? String, "序列")
+        toFree.tap(); dismissMenu()
+        let third = app.buttons["shotCamera.thirdPerson"], first = app.buttons["shotCamera.firstPerson"]
+        ready(third); third.tap(); settled()
+        let freeThird = try probe()
+        waitForPolicy("p01Replayable")
+        let opening = Dictionary(uniqueKeysWithValues: initial.balls.map { ($0.key, $0.world) })
+        XCTAssertEqual(Dictionary(uniqueKeysWithValues: freeThird.balls.map { ($0.key, $0.world) }), opening)
+        ready(first); first.tap(); settled()
+        let freeFirst = try probe()
+        snap("tryout-free-first-person")
+        XCTAssertEqual(first.value as? String, "已选中")
+        XCTAssertTrue(zip(freeThird.camera, freeFirst.camera).contains { abs($0 - $1) > 0.01 })
+        let toSequence = menuRow("tryout.mode")
+        XCTAssertEqual(toSequence.value as? String, "自由")
+        toSequence.tap(); dismissMenu()
+        let sequenceReady = NSPredicate(format: "label == %@ AND enabled == true", "开始")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: sequenceReady, object: strike)],
+                                     timeout: 20), .completed)
+        XCTAssertFalse(element(id: "shotStage.aimWheel").isEnabled)
+        settled()
+        let returned = try probe()
+        XCTAssertEqual(Dictionary(uniqueKeysWithValues: returned.balls.map { ($0.key, $0.world) }), opening)
+        XCTAssertEqual(status.label, startingStep)
+        snap("tryout-restored-first-recorded-step")
+        let eye = app.buttons["shotCamera.temporaryTopDown"]
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        XCTAssertLessThan(eye.frame.midY, third.frame.midY)
+        XCTAssertLessThan(third.frame.midY, first.frame.midY)
+        ready(eye); eye.tap()
+        XCTAssertEqual(eye.value as? String, "已选中")
+        ready(eye); eye.tap(); settled()
+        ready(third); third.tap(); settled()
+        let reset = try probe()
+        XCTAssertEqual(reset.camera.count, initial.camera.count)
+        for (a, b) in zip(reset.camera, initial.camera) { XCTAssertEqual(a, b, accuracy: 0.001) }
+        waitForPolicy("p01Replayable")
+        XCTAssertEqual(status.label, startingStep)
     }
 
     func testPerspectivePocketShotPlaybackUndoAndSequenceReturn() {

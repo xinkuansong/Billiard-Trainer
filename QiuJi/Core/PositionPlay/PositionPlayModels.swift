@@ -78,6 +78,10 @@ struct BoardSnapshot: Codable {
 
 // MARK: - Planned shot
 
+enum AimSelectionSource: String, Codable {
+    case automatic, manualTarget, manualPair
+}
+
 /// 一杆的作者意图，两种形态（ADR-P11-03）：
 /// - **袋口模式**：选目标球 + 袋口（`targetKey`/`pocket` 有效，`freeAim == nil`），引擎闭环求瞄。
 /// - **自由模式**：不指定目标球/袋口（`targetKey`/`pocket` 为空串），作者直接给瞄准方向
@@ -102,6 +106,7 @@ struct PlannedShot: Codable {
         var requestedTargetKey: String?
         var requestedPocketIndex: Int?
         var temporaryFreeReason: String?
+        var selectionSource: AimSelectionSource?
     }
     var selectionContext: SelectionContext?
     /// Optional committed object-ball aim in normalized table coordinates.

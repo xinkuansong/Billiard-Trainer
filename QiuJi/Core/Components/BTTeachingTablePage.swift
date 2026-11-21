@@ -188,6 +188,7 @@ struct BTTablePlanningControls {
     var layoutEditingBlocked = false
     var onAimNudged: ((Float) -> Void)? = nil
     var onAimDragActiveChanged: ((Bool) -> Void)? = nil
+    var resolveP01AimPan: (() -> ((Float) -> Void)?)? = nil
     var onObservation: ((String) -> Void)? = nil
     var showsAimCloseupSetting = true
     var showsTrajectorySetting = true
@@ -512,7 +513,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             displayScale: displayScale, spinPadMaximumExtent: UIDevice.current.userInterfaceIdiom == .pad ? 310 : .greatestFiniteMagnitude)
         let compactTitle = plan.diameter < DailyLayoutMetrics.regularBallDiameter
         let primaryEnabled = BTTeachingInstrumentLayout.effectiveEnabled(
-            planning?.primaryEnabled == true, temporaryTopDownActive: vm.temporaryTopDownActive)
+            planning?.primaryEnabled == true && !layoutAimDragging && !aimTouchActive,
+            temporaryTopDownActive: vm.temporaryTopDownActive)
         return ZStack(alignment: .topLeading) {
             if let planning {
                 planning.overlay(projector, sceneFrame)
@@ -641,16 +643,23 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 Button { self.menu = nil } label: { Color.clear.contentShape(Rectangle()) }
                     .buttonStyle(.plain).accessibilityLabel("关闭菜单")
                     .accessibilityIdentifier("\(identifier).dismissMenu")
-                Group {
+                let available = CGSize(width: size.width - 2 * (side + windowControls.right),
+                                       height: size.height - DailyLayoutMetrics.Panels.top - 8)
+                ZStack(alignment: .topTrailing) {
+                    DailyHUDMenuPanel(title: nil, items: settingsItems(for: .settings),
+                        availableSize: available, onBack: { menu = .settings }, onClose: { menu = nil },
+                        grouping: .tableRoot)
+                        .opacity(menu == .settings ? 1 : 0)
+                        .allowsHitTesting(menu == .settings)
+                        .accessibilityHidden(menu != .settings)
                     if menu == .transparency, let planning {
                         DailySpinTransparencyPanel(transparency: planning.transparency,
-                            availableSize: CGSize(width: size.width - 2 * (side + windowControls.right), height: size.height - DailyLayoutMetrics.Panels.top - 8),
-                            onClose: { menu = nil })
-                    } else {
-                        DailyHUDMenuPanel(title: menu == .trajectory ? "轨迹显示" : (menu == .breakGame ? "开球玩法" : (menu == .secondary ? planning?.secondaryMenu?.title : nil)), items: settingsItems,
-                            availableSize: CGSize(width: size.width - 2 * (side + windowControls.right), height: size.height - DailyLayoutMetrics.Panels.top - 8),
-                            onBack: { self.menu = .settings }, onClose: { self.menu = nil },
-                            fitsShortOptions: menu == .trajectory)
+                            availableSize: available, onClose: { menu = nil })
+                    } else if let page = menu, page != .settings {
+                        let title = page == .trajectory ? "轨迹显示" : (page == .breakGame ? "开球玩法" : planning?.secondaryMenu?.title)
+                        DailyHUDMenuPanel(title: title, items: settingsItems(for: page),
+                            availableSize: available, onBack: { menu = .settings }, onClose: { menu = nil },
+                            fitsShortOptions: page == .trajectory)
                     }
                 }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
@@ -749,8 +758,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         updateProjection()
     }
 
-    private var settingsItems: [DailyHUDMenuItem] {
-        if menu == .secondary, let section = planning?.secondaryMenu {
+    private func settingsItems(for page: MenuPage) -> [DailyHUDMenuItem] {
+        if page == .secondary, let section = planning?.secondaryMenu {
             return section.items.map { item in
                 var result = item
                 if item.selected == nil, item.segments.isEmpty, let action = item.action {
@@ -759,11 +768,11 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 return result
             }
         }
-        if menu == .breakGame, let selection = planning?.breakGameSelection {
+        if page == .breakGame, let selection = planning?.breakGameSelection {
             return BreakFlowRunner.gameSettingItems(selection: selection,
                 disabled: planning?.isAnimating == true || planning?.breakGameDisabled == true)
         }
-        if menu == .trajectory, let planning {
+        if page == .trajectory, let planning {
             var items: [DailyHUDMenuItem] = []
             if is3D, let hidden = planning.hides3DAssists {
                 items.append(.init(id: identifier + ".trajectory.off", title: "关闭", selected: hidden.wrappedValue,
@@ -778,41 +787,46 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             return items
         }
         var items: [DailyHUDMenuItem] = [.init(id: "\(identifier).display", title: "显示"),
-         .init(id: "\(identifier).cameraMode", title: "视图", detail: is3D ? "3D" : "2D",
+         .init(id: "\(identifier).cameraMode", group: .table, title: "视图", detail: is3D ? "3D" : "2D",
                segments: ["2D", "3D"], disabled: controlLayoutBusy || editingControlLayout, action: toggleCamera),
-         .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
+         .init(id: "menu.tableGrid", group: .table, title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
              setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1)
          })]
         if fixedView3D != nil { items.removeAll { $0.id == "\(identifier).cameraMode" } }
         if let planning {
-            items.insert(.init(id: identifier + ".transparency", title: "打点盘透明度",
-                detail: "\(Int((planning.transparency.wrappedValue * 100).rounded()))%", disclosure: true, action: { showSpinPad = true; menu = .transparency }), at: 2)
             if planning.showsAimCloseupSetting && (!planning.assessmentMode || planning.allowsAssessmentAimCloseup) {
-            items.append(.init(id: "menu.aimCloseup", title: "瞄准特写", detail: planning.closeupUnavailableReason, selected: pagePreferences.enabled(.closeup),
+            items.append(.init(id: "menu.aimCloseup", group: .shot, title: "瞄准特写", detail: planning.closeupUnavailableReason, selected: pagePreferences.enabled(.closeup),
                 disabled: planning.closeupUnavailableReason != nil,
                 action: { setPagePreference(.closeup, pagePreferences.enabled(.closeup) ? 0 : 1) }))
             }
             if !planning.assessmentMode {
             if planning.showsTrajectorySetting {
-            items.append(.init(id: identifier + ".trajectory", title: "轨迹显示 · " + (is3D && planning.hides3DAssists?.wrappedValue == true ? "关闭" : pagePreferences.trajectoryDetail.label),
+            items.append(.init(id: identifier + ".trajectory", group: .shot, title: "轨迹显示 · " + (is3D && planning.hides3DAssists?.wrappedValue == true ? "关闭" : pagePreferences.trajectoryDetail.label),
                 disclosure: true, action: { menu = .trajectory }))
             }
             if planning.showsSeparationSetting {
             items += [TablePreferenceField.separation].map { field in
-                DailyHUDMenuItem(id: identifier + "." + field.rawValue, title: field.title,
+                DailyHUDMenuItem(id: identifier + "." + field.rawValue, group: .shot, title: field.title,
                     selected: pagePreferences.enabled(field), action: {
                         setPagePreference(field, pagePreferences.enabled(field) ? 0 : 1)
                     })
             }
             }
             }
-            if let selection = planning.breakGameSelection {
-                items.append(.init(id: "break.settings", title: "开球玩法",
-                    detail: BreakFlowRunner.title(for: BreakFlowRunner.game(forBallCount: selection.wrappedValue)),
-                    disclosure: true, disabled: planning.isAnimating || planning.breakGameDisabled, action: { menu = .breakGame }))
-            }
+            items.append(.init(id: identifier + ".transparency", group: .controls, title: "打点盘透明度",
+                detail: "\(Int((planning.transparency.wrappedValue * 100).rounded()))%", disclosure: true, action: { showSpinPad = true; menu = .transparency }))
+        }
+        if preferencePage.usesFreeControlLayout && !FreeControlCatalog.ids(page: preferencePage, mode: is3D ? .threeD : .twoD).isEmpty {
+            items.append(.init(id: "controlLayout.open", group: .controls, title: "操作布局",
+                detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
+                disabled: controlLayoutBusy, action: {
+                    guard !controlLayoutBusy else { return }
+                    menu = nil; showSpinPad = false; editingControlLayout = true
+                }))
+        }
+        if let planning {
             if let section = planning.secondaryMenu {
-                items.append(.init(id: section.id, title: section.title, disclosure: true,
+                items.append(.init(id: section.id, group: .practice, title: section.title, disclosure: true,
                     disabled: section.disabled, action: { menu = .secondary }))
             }
             items += planning.menuItems.map { item in
@@ -823,13 +837,6 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 return closingItem
             }
         }
-        if let memoryHost {
-            items.append(.init(id: identifier + ".reset", title: "恢复默认球形",
-                disabled: planning?.isAnimating == true, action: {
-                    menu = nil
-                    memoryHost.boardMemory.reset { memoryHost.resetRememberedBoard() }
-                }))
-        }
         items += displayMenuItems.map { item in
             var closingItem = item
             if item.selected == nil, item.segments.isEmpty, let action = item.action {
@@ -837,14 +844,20 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             }
             return closingItem
         }
-        if preferencePage.usesFreeControlLayout && !FreeControlCatalog.ids(page: preferencePage, mode: is3D ? .threeD : .twoD).isEmpty {
-            items.insert(.init(id: "controlLayout.open", title: "操作布局",
-                detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
-                disabled: controlLayoutBusy, action: {
-                    guard !controlLayoutBusy else { return }
-                    menu = nil; showSpinPad = false; editingControlLayout = true
-                }), at: min(5, items.count))
+        if let memoryHost {
+            items.append(.init(id: identifier + ".reset", group: .formation, title: "恢复默认球形",
+                disabled: planning?.isAnimating == true, action: {
+                    menu = nil
+                    memoryHost.boardMemory.reset { memoryHost.resetRememberedBoard() }
+                }))
         }
+        if let planning, let selection = planning.breakGameSelection {
+            let game = DailyHUDMenuItem(id: "break.settings", group: .gameplay, title: "开球玩法",
+                detail: BreakFlowRunner.title(for: BreakFlowRunner.game(forBallCount: selection.wrappedValue)),
+                disclosure: true, disabled: planning.isAnimating || planning.breakGameDisabled, action: { menu = .breakGame })
+            items.append(game)
+        }
+        items.insertTargetContactPoint(for: preferencePage, scene: vm.scene, preferences: tablePreferences)
         return items
     }
 
@@ -853,26 +866,29 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
             pocketDisplayOrientation: .init(portrait: portrait),
-            interactionMode: planning?.locksSceneInteraction == true ? .none : (is3D ? .cameraControl : .tapsOnly),
+            interactionMode: planning?.locksSceneInteraction == true
+                && !(planning?.allowsObservationWhileAnimating == true && vm.isTeachingShotRolling)
+                ? .none : (is3D ? .cameraControl : .tapsOnly),
             // Core-template fitting also handles rotated 2D; the legacy rotated
             // fitter imposes an extra minimum scale and detaches the palette from the rail.
             autoFitsLandscapeTable: !is3D,
             backgroundColor: is3D ? .black : .clear,
-            onPocketTapped: planning?.allowsPocketSelection == false ? nil : { index in vm.selectPocket(at: index) },
-            draggableBallNodes: vm.draggableBalls,
+            onPocketTapped: vm.isTeachingShotRolling || planning?.allowsPocketSelection == false ? nil : { index in vm.selectPocket(at: index) },
+            draggableBallNodes: vm.isTeachingShotRolling ? [] : vm.draggableBalls,
+            limitsPerspectiveBallDraggingToCue: allowsPaletteDrag,
             onDragBegan: { node in
                 onFirstDrag()
-                vm.dragBegan(node: node)
+                vm.beginTableBallDrag(node)
             },
             onDragMoved: { node, pos in vm.dragMoved(node: node, worldPosition: pos) },
-            onDragEnded: { node in vm.dragEnded(node: node) },
+            onDragEnded: { node in vm.endTableBallDrag(node) },
             onDragEndedAt: { node, localPoint in
-                guard allowsPaletteDrag,
+                guard allowsPaletteDrag, !is3D || vm.temporaryTopDownActive,
                       BTBallPaletteDragBack.hitPalette(localPoint: localPoint, sceneFrame: sceneFrame, paletteFrame: paletteFrame),
                       let key = vm.scene.ballKey(for: node) else { return }
                 vm.removeFromTable(key)
             },
-            selectableBallNodes: vm.selectableBalls + (is3D ? [vm.scene.cueBallNode].compactMap { $0 } : []),
+            selectableBallNodes: vm.isTeachingShotRolling ? [] : vm.selectableBalls + (is3D ? [vm.scene.cueBallNode].compactMap { $0 } : []),
             onBallTapped: { node in
                 if let key = vm.scene.ballKey(for: node) {
                     if PositionPlayBall.isCue(key) { vm.requestPlayerView(.thirdPerson) }
@@ -891,9 +907,10 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             twoViewReadableFrameInWindow: cameraReadableFrame,
             onCameraObservationBegan: { vm.beginCameraObservation() },
             onCameraObservationEnded: { vm.endCameraObservation() },
+            resolveP01AimPan: vm.isTeachingShotRolling ? nil : planning?.resolveP01AimPan,
             onTemporaryTopDownDismiss: { vm.endTemporaryTopDown() },
             topDownContentRevision: vm.topDownContentRevision,
-            usesStandardTemporaryTable: planning != nil
+            usesStandardTemporaryTable: planning != nil || vm.scene.cameraRig?.p01AnchoredTransitions == true
         )
         .clipped()
         .background(frameReader("scene"))
@@ -902,17 +919,27 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @ViewBuilder private var cameraButtons: some View {
         if let rig = vm.scene.cameraRig {
             ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
-                isEnabled: objectObservationOnly || vm.temporaryTopDownActive || planning?.allowsObservationWhileAnimating == true || (planning.map { !$0.isAnimating } ?? (vm.currentPlayerAim != nil)),
-                onWholeTable: { planning?.onObservation?("wholeTable"); vm.requestSurfaceOverview() }, usesTwoViewControls: rig.usesTwoViewCameraControls,
+                isEnabled: objectObservationOnly || vm.temporaryTopDownActive || planning?.allowsObservationWhileAnimating == true || (planning.map { !$0.isAnimating } ?? (rig.usesP01Camera || vm.currentPlayerAim != nil)),
                 temporaryTopDownActive: vm.temporaryTopDownActive,
                 onTemporaryTopDownBegan: { vm.beginTemporaryTopDown() },
                 onTemporaryTopDownEnded: { vm.endTemporaryTopDown() },
                 observationOnly: objectObservationOnly,
                 observationTargetAvailable: vm.targetNode != nil,
+                firstPersonAvailable: !rig.usesP01Camera || rig.p01RollingShot != nil || (vm.permitsTeachingPlayerView && vm.permitsFirstPersonAddress),
+                thirdPersonAvailable: vm.permitsTeachingPlayerView && (objectObservationOnly || vm.isTeachingShotRolling || vm.currentPlayerAim != nil || vm.targetNode?.isHidden == false),
+                temporaryTopDownAvailable: !rig.usesP01Camera || (vm.permitsTemporaryTopDown && !rig.p01ShotFrozen),
                 onSelect: { view in
                     if objectObservationOnly, let target = vm.targetNode {
-                        vm.refreshObservationCameraContext(); rig.observe(at: target.position)
-                    } else { vm.requestPlayerView(view) }
+                        if rig.usesP01Camera { vm.requestTeachingObjectObservation() }
+                        else { vm.refreshObservationCameraContext(); rig.observe(at: target.position) }
+                    } else if view == .thirdPerson && !vm.isTeachingShotRolling && vm.currentPlayerAim == nil,
+                              let target = vm.targetNode, !target.isHidden {
+                        vm.refreshObservationCameraContext()
+                        _ = rig.observeP01Object(at: target.position, toward: rig.observationPocket?.1,
+                                                 animated: !UIAccessibility.isReduceMotionEnabled)
+                    } else {
+                        vm.requestPlayerView(view, resetThirdPerson: view == .thirdPerson && rig.p01AnchoredTransitions)
+                    }
                 })
         }
     }

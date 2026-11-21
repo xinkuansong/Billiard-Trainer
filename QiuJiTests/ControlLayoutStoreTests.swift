@@ -150,7 +150,7 @@ final class ControlLayoutStoreTests: XCTestCase {
         }
         XCTAssertTrue(FreeControlCatalog.ids(page: .angleDynamic, mode: .twoD).isEmpty)
         XCTAssertEqual(FreeControlCatalog.ids(page: .angleDynamic, mode: .threeD),
-            ["camera.overview", "camera.thirdPerson", "camera.firstPerson", "camera.temporaryTopDown"])
+            ["camera.thirdPerson", "camera.firstPerson", "camera.temporaryTopDown"])
         XCTAssertEqual(FreeControlCatalog.ids(page: .separationAngleAtlas, mode: .twoD).count, 11)
         XCTAssertTrue(store.values(page: .cushionEnglishAtlas, mode: .threeD).isEmpty)
     }
@@ -463,6 +463,31 @@ final class ControlLayoutStoreTests: XCTestCase {
         XCTAssertThrowsError(try store.saveNew(id: UUID(), name: "过期空草稿", page: .dailyClearance, mode: .twoD,
                                               values: [:], expectedPageRevision: 1))
         XCTAssertEqual(store.archive.templates.count, 1)
+    }
+
+    @MainActor func testOldCameraOrderRestoresAtSavedThirdPersonHeight() throws {
+        let ids = FreeCameraColumnLayout.ids
+        let slots = Dictionary(uniqueKeysWithValues: ids.enumerated().map { i, id in
+            (id, CGRect(x: 100, y: 50 + i * 48, width: 44, height: 44))
+        })
+        let saved: FreeControlValues = [ids[0]: .init(x: 0.4, y: 0.8), ids[1]: .init(x: 0.4, y: 0.5),
+            ids[2]: .init(x: 0.4, y: 0.34), "shot.spin": .init(x: 0.2, y: 0.2), "camera.overview": .init(x: 0.4, y: 0.1)]
+        let size = CGSize(width: 600, height: 300)
+        let disk = MemoryStorage()
+        let oldStore = FreeControlLayoutStore(storage: disk)
+        try oldStore.saveNew(id: UUID(), name: "旧四键", page: .drillTryout, mode: .threeD,
+                             values: saved, expectedPageRevision: 0)
+        let reopened = FreeControlLayoutStore(storage: disk)
+        XCTAssertNil(reopened.loadError)
+        let restored = reopened.values(page: .drillTryout, mode: .threeD)
+        XCTAssertEqual(restored, saved)
+        let result = FreeCameraColumnLayout.ordered(restored, frames: slots, window: size)
+        XCTAssertEqual(result[ids[1]], saved[ids[1]])
+        XCTAssertEqual(result[ids[0]]?.y ?? 0, 0.34, accuracy: 0.001)
+        XCTAssertEqual(result[ids[2]]?.y ?? 0, 0.66, accuracy: 0.001)
+        XCTAssertEqual(result["shot.spin"], saved["shot.spin"])
+        XCTAssertNil(result["camera.overview"])
+        XCTAssertEqual(result, FreeCameraColumnLayout.ordered(result, frames: slots, window: size))
     }
 
     func test_freeLegacyFallbackRemainsPendingRatherThanMaterializingDefault() throws {
