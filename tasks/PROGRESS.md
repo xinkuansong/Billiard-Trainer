@@ -1,3 +1,5 @@
+2026-11-23 备份恢复链路已修复并部署：服务器生成失败保留阶段与错误摘要，`source-changed-during-backup` 有限重试；Mac mini 下载/SSH/回执有限重试、临时文件失败不覆盖旧副本、低于20 GiB可用空间拒绝接收并保留最近100次尝试。服务器两个定时器 active，手动生成成功，当前 `issues=[]`、`failures=[]`；Mac mini 连续两次拉取 `issues=[]`，归档摘要匹配。[记录](launch-20261110/备份恢复修复-20261123.md)
+
 2026-11-22 已修复球桌台面瞄准拖动时动作按键和计算文案闪烁：台面手势纳入共享忙碌生命周期，统一覆盖每日清台、自由练习、走位规划、翻袋和解球宿主；`ContinuousTrajectoryPreviewTests` 10/10、`CameraV67PilotUITests/testFormalFramePacingTouchPaths` 1/1 均在 iPhone 模拟器通过。真机和用户手感未验。[记录](table-page-adaptation/SHOT-CONTROL-STABILITY-20261122.md)
 
 2026-11-22 每日清台连续轨迹预览已恢复到P01台面瞄准链路，并将发起上限由15Hz调为24Hz：保留场景／球杆跟手、单在途求解、最新意图合并和完整轨迹档位过滤；“轨迹·双”保留默认瞄准线，并叠加母球与实际首碰球的碰后轨迹。`CameraSurfaceTests` 35/35、`ContinuousTrajectoryPreviewTests` 9/9 通过；两轮均为模拟器验证，真机和用户手感待验。
@@ -15,26 +17,6 @@
 11/20 每日清台子菜单返回后保留滚动位置。模拟器旧版复现跳动 327 pt，修复后瞄准、轨迹、开球玩法返回位置差均为 0 pt。[验证](daily-adaptive/CURRENT.md)
 
 11/20 每日清台「更多」五组原生试版已完成。iPhone 17 Pro Max 模拟器核对了组序、评分联动、开球玩法、透明度和操作布局，待用户看图。[原生截图](../output/settings-audit-20261120/每日清台原生版/菜单滚动实拍.jpg) · [每日页面卡](daily-adaptive/CURRENT.md)
-
-11/20 完成功能页与设置现状盘点：逐项核对练习目录 44 张公开卡，83 项功能或页面共 152 张原生截图，含 25 个桌边「更多」。通用偏好覆盖、训练量命名和桌边分组待讨论。[截图图册](../output/settings-audit-20261120/index.html) · [代码盘点](ui-reviews/UR-20261120-设置与功能页盘点.md)
-
-11/20 13 个交互球桌功能新增「目标球接触点」，三点菜单内按页记忆、默认关闭。iPhone 17 Pro 模拟器定向 4 项通过，真机未验。[范围与截图](table-page-adaptation/TARGET-CONTACT-POINT-20261120.md)
-
-11/23 Apple 邮件与 Edge 账户页均确认个人会籍已转为组织。法人实体显示为 Wuxi Youqiu Technology Co., Ltd，团队 ID KWH2GRNSKG，年费 RMB 688。App Store Connect 已核到现有 App「球迹」App ID 6761309682，iOS 1.0「准备提交」，页面提示中国大陆分发需补安全评估和 AIGC 服务声明。[上线台账](LAUNCH-READINESS-20261109.md)
-
-11/23 已按用户要求先形成 [Apple 组织迁移与首发方案 v4.1](launch-20261110/Apple组织迁移与首发方案_v4.md)。用户倾向首发前统一全部标识，方案补充 Bundle ID、Apple 登录、内购、Keychain、后端、微信和 TestFlight 的影响，并把“现有 App 是否已上传 build”设为路线门槛。当前未提交审核或发布，候选包改名也未作为已验收结果。
-
-11/23 已在 Edge 的 App Store Connect 现有 App「球迹」版本 1.0 页面核验，页面显示“从多种工具中选取一种来上传你的构建版本”，当前没有上传 build；App 信息页读取到 SKU `QJ-001`。按 Apple 官方规则，可优先在现有 App 记录内切换 Bundle ID。Apple Developer 已登记显式 App ID `com.youbilliards.cuephys`（描述 `CuePhys`），启用 Associated Domains 与 Sign in with Apple；下一步切换现有 App 记录的 Bundle ID，再同步工程、登录、内购和微信配置。[核验与迁移方案](launch-20261110/Apple组织迁移与首发方案_v4.md)
-
-11/23 已完成 CuePhys 全量标识迁移的方案和[新旧标识映射](launch-20261110/CuePhys全量标识迁移映射.md)。已实查并登记主 App ID `com.youbilliards.cuephys`，描述 `CuePhys`，启用 Associated Domains 与 Sign in with Apple；已读取 App Store Connect SKU `QJ-001`。代码侧尚未改名，SwiftData schema、旧商品 ID、旧账号令牌命名空间和历史证据列为兼容保留项，防止改名造成训练记录或购买恢复丢失。下一步先切换现有 App 记录的 Bundle ID，再实施工程改名。
-
-11/23 已完成 v4.2 方案复核。修正了旧商品 ID、旧 Apple `APPLE_BUNDLE_ID` 和“build 状态未确认”的残留表述，补充了证书与描述文件、Sign in with Apple 能力、日志 subsystem、模拟器脚本 Bundle ID、当前构建禁止提前上传和 App 备案联动门槛。外部身份已核实：Apple Developer 新 App ID `com.youbilliards.cuephys` 已登记，App Store Connect SKU 为 `QJ-001`，现有 App `6761309682` 仍无 build；代码侧尚未改名，App Store Connect 现有 Bundle ID 尚未切换。
-
-11/23 已完成 v4.3 全量覆盖审计。除 Bundle ID 和 Swift 模块外，明确纳入工程目录／scheme、扩展与测试产物、StoreKit 正式商品和 App Store Server Notifications、Apple／微信回调、Keychain／UserDefaults／SwiftData、后端部署目录／数据库／备份／告警、日志／分析／通知标识、API 与两个域名边界、官网／商店素材、设备脚本和当前文档。处理方式分为“当前构建改名、兼容迁移、历史证据保留”；当前未改代码或生产配置。[覆盖审计](launch-20261110/Apple组织迁移与首发方案_v4.md)
-
-11/23 已将外部阻塞和配置时机写入 v4.4：API 域名是 App 访问后端的 HTTPS 主机，不等于 App 名或 Bundle ID；建议 `api.cuephys.com` 作 API、`youbilliards.com` 保留官网和备案法律页。Apple 登录 `.p8` 密钥用于服务端生成 client secret、交换／撤销 token；微信 AppID 用于移动应用授权，AppSecret 只在服务端换取授权结果。当前只做只读核对和方案准备，等 Bundle ID、HTTPS、Pro 权益和价格冻结后再创建生产凭据和正式商品。[外部阻塞与时机](launch-20261110/Apple组织迁移与首发方案_v4.md)
-
-11/23 对照 CuePhys 代码侧标识：正式包的 `CFBundleName`/`CFBundleDisplayName` 已是 `CuePhys`，商店和产品公开文案已大部分使用 CuePhys。`com.xinkuan.qiuji` Bundle ID、StoreKit 商品 ID、Swift 模块名 `QiuJi`、后端默认数据库名和钥匙串键属于既有技术标识，首发阶段保留以维持现有 App、内购和本地数据连续性。工程配置中的 `PRODUCT_NAME` 仍为历史产物名「球迹」，主要影响构建产物和测试宿主路径，不直接决定 App Store 展示名，待改名候选包统一验证后再改。当前 Release 的 API 地址仍是 HTTP 占位，Apple/微信真实登录不能进行生产联调，HTTPS 和 Apple 密钥仍是后续阻塞项。[上线台账](LAUNCH-READINESS-20261109.md)
 
 11/23 Q 图标商标（申请号 94857392）缴费通知已核对，受理费 270 元。用户确认已支付，付款时间和官方回执待补记。[上线台账](LAUNCH-READINESS-20261109.md)
 
@@ -216,6 +198,12 @@
 
 <!-- 头部会话摘要注释只保留最近 10 条；更早条目见 tasks/archive/PROGRESS-头部注释-归档.md（2026-09-14 起，体积门禁）。 -->
 # 开发进度（PROGRESS）
+
+2026-11-23 Apple/CuePhys 首发继续执行：`api.cuephys.com` 已在 DNSPod 保存 A 记录（`106.54.3.210`，TTL 600），权威 DNS 及 Cloudflare/Google 公共 DNS over HTTPS 均已返回该地址。已签发 Let’s Encrypt 证书（有效期至 2027-02-21），部署独立 Nginx 443 虚拟主机并反代 `127.0.0.1:3000`；HTTP 自动跳转 HTTPS，`https://api.cuephys.com/health` 返回 200 与 `{"status":"ok"}`。官网配置未改，生产 `.env` 仍未改。下一步为 Apple/微信凭据 → 受控部署 → 真机登录回归。[API 域名切换手册](launch-20261110/api-cuephys-cutover-runbook.md)
+2026-11-23 合规 URL 复核：`https://youbilliards.com/support/` 返回 200，但计划中的 `https://youbilliards.com/legal/cuephys-privacy/` 与 `https://youbilliards.com/legal/cuephys-terms/` 均返回 404；API `/health` 正常。隐私政策和用户协议页面仍是 App Store 提交阻塞项，待官网会话补齐并再次核验。
+2026-11-23 官网法律页修复并发布：公司网站正式构建纳入 `CuePhys 隐私政策` 与 `CuePhys 用户协议`，新版本 `8a038cf9108f35306410f252efe0ae2518d26490` 已原子切换到 `/var/www/youbilliards/current`。公网验收：`/legal/cuephys-privacy/`、`/legal/cuephys-terms/`、`/legal/privacy/`、`/support/` 均返回 200，不存在路径返回 404；旧 release 保留可回滚。App Store 法律链接的网页可达性阻塞已解除，Apple/微信生产凭据和真机登录仍待完成。
+2026-11-23 App Release 配置收口：`Config/Secrets.xcconfig`、`Config/Debug.xcconfig` 和 `Config/Release.xcconfig` 已指向 `https://api.cuephys.com` 及官网两份 CuePhys 法律页；Debug 模拟器构建通过，产物 Info.plist 核到 `API_BASE_URL=https://api.cuephys.com`、Bundle ID `com.youbilliards.cuephys`、两份法律 URL 正确。微信仍保留占位 AppID/Universal Link，Apple/微信生产凭据未写入。
+2026-11-23 商品与生产配置核对：StoreKit 当前只请求并购买 `com.youbilliards.cuephys.premium.lifetime` 非消耗型商品，月付/年付只保留兼容读取枚举，不进入首发购买入口；新增 [StoreKit 商品核对表](launch-20261110/StoreKit-商品核对表-20261123.md)。`xcodebuild -showBuildSettings` 已核到 Release API、法律 URL、Bundle ID 与产品名；backend `npm test` 40/40 通过。正式商品后台、通知 URL、Apple/微信凭据、生产变量和真机购买仍待外部配置。
 
 每日入口球动画（10-21）：回程2→5.2秒，与散开等速倒放，总循环15.2秒；生产模型隔离编译、2项XCTest通过，未做新版iOS录屏/真机体验。[记录](ui-reviews/UR-20261019-daily-clearance-icon.md)。
 
@@ -407,8 +395,6 @@ V013独立2D（2026-09-22）✅：18秒/1080×1440/60fps无声已出，逐帧与
 ---
 
 ## 当前状态
-
-- **库边明暗（11-17）✅接入并安装手机待体验**：liveReference库侧细化/轻提＋台面靠库渐变已默认生效；重建漏装修复后原生构建/3项回归通过，五机位同轮候选等价，iOS17着色块编译通过。验证同包已覆盖安装并启动iPhone 16 Pro，保留数据；真机观感/性能待用户体验，非全App回归。[记录](table-page-adaptation/RAIL-BED-SHADOW-20261117.md#正式接入结果与手机交付)。
 
 - **白球反光（11-17）✅修改与定向验证**：参考渲染粗糙度0.34→0.05，与号码球一致；底色/红点/B档及库边保留。原生构建/1项三视角对照通过，非白球像素不变，图已审、临时资源已收尾；待用户看图，未安装手机。[记录](table-page-adaptation/CUE-BALL-GLOSS-20261117.md)。
 
@@ -705,3 +691,14 @@ R0 ✅ → P4 ✅ → P5 ✅ → P6 ✅ → P7 ✅ → R-UI ✅ → R1 ✅ → P
 2026-11-22 CB-01 按用户裁定改为每个基础球形一个障碍位置和一条解：10,000 个球形已各选出一个合法障碍位置，首批 100 个生成 1,600 条跳球／扎杆候选。研究构建已通过，真实模拟器试跑因临时设备租约已满被生命周期管理器拒绝，未终止其他任务，待设备释放后重试。
 2026-11-22 v72 跟进已补齐第一人称捏合仰角保持、重复点击第一人称复位、第三人称往返后复位和旧快照缺少推进字段时默认 0 的兼容处理，并新增对应单元/UI断言。该条的“运行时回归待执行”状态已由下一条 v72.4 记录收口，H-05 继续忽略。
 2026-11-22 v72.4 运行验收完成：重编译后的 P01/TwoView 定向相机单元 77/77 通过；独立第一人称仰角保持与重复进入复位 UI 用例在 iOS 17.0 iPhone SE 1/1 通过；综合四机位 UI 用例在最新代码下 iOS 17.0 iPhone SE 1/1 通过。一次 iOS 26.3.1 标准机重跑遇 Runner Busy 启动失败，历史 iPhone 17 Pro 与 iPad Air 13 证据仍有效。H-05 继续忽略。
+
+2026-11-23 CuePhys 全量改名执行启动：在 `codex/cuephys-full-rename` 分支完成工程目录、target/scheme、Bundle ID、产物名、当前脚本和本地 StoreKit 配置迁移；Keychain 增加旧键只读兼容。`xcodegen`、资源/题库校验、Debug 构建和 build-for-testing 通过。真实 XCTest 因模拟器租约被占用未执行；App Store Connect 外部 Bundle ID 切换因 Edge 桥接超时仍阻塞，未上传 build。详见 `tasks/launch-20261110/Apple组织迁移与首发方案_v4.md` v4.5 与 `CuePhys全量标识迁移映射.md`。
+2026-11-23 CuePhys 改名批次收口：补齐当前几何工厂函数与训练提醒新前缀（旧通知前缀保留点击/清理兼容），更新题库布局哈希记录；题库、资源、`build-for-testing`、`verify-gate` 和 backend `npm test`（40/40）重新通过（FAIL 0）。真实 XCTest 仍待模拟器租约释放，ASC Bundle ID 外部切换仍待人工完成；已直接核实后台下拉唯一选项仍为旧值 `QiuJi App - com.xinkuan.qiuji`，新值尚未出现。
+2026-11-23 ASC 根因处理：按 Apple 官方流程使用连接的 iPhone 16 Pro 真机构建、安装并启动 `com.youbilliards.cuephys`，Xcode 成功签发新 Bundle ID 的开发 provisioning profile；重新打开 ASC 后下拉仍只有旧 `QiuJi App - com.xinkuan.qiuji`，因此外部切换仍未保存、未上传 build，已记录为 ASC 同步/可用性阻塞。
+2026-11-23 真机自动化检查：连接的 iPhone 16 Pro 上定向 XCTest `APIClientProfileTests/testReleaseAPIConfigurationOnlyAllowsCompanyHTTPS` 通过（1/1，0 failures）。本地改名、签名、安装、启动和 Release API 配置门禁已收口；Apple/ASC 外部 Bundle ID 下拉仍只提供旧值，未保存、未上传 build，未进入生产登录联调。
+2026-11-23 ASC 排障调研：核对 Apple 官方 Bundle ID 变更流程，确认“无 build → 真机注册新 ID → 现有 App 信息页切换并保存”是正确路径；当前本地前置条件均已满足，ASC 下拉仍旧值，问题收敛为同组织 Team/权限或 ASC 后台关联同步。已写入 `tasks/launch-20261110/ASC-BundleID-排障调研-20261123.md`，未新建重复 App、未上传旧标识 build。
+2026-11-23 Apple Developer System Status 复核：官方状态页当前没有 App Store Connect、App Processing、App Upload 或 Certificates/Identifiers/Profiles 的进行中事件；未发现公开系统级故障证据。
+2026-11-23 ASC 同步解除：用户截图确认现有 App 的 Bundle ID 下拉已出现 `CuePhys - com.youbilliards.cuephys`。下一步选择该第一项并保存；旧 `QiuJi App` 与下方实验 Bundle ID 均不选，保存前仍不上传 build。
+2026-11-23 Release 归档前置验证：使用临时校验地址 `https://validation.cuephys.com/api` 完成未签名 Release 归档，`** ARCHIVE SUCCEEDED **`；归档包 Bundle ID 为 `com.youbilliards.cuephys`、显示名 CuePhys。未请求校验地址、未上传 build；生产归档等待实际 API HTTPS、法律 URL 和正式凭据。
+2026-11-23 生产 API 只读核查：`http://106.54.3.210:3000/health` 返回 200；服务器 Nginx 当前仅配置 `youbilliards.com` 的证书与站点，`cuephys.com` 已解析到该服务器但尚无可用 TLS/API 反代，`api.cuephys.com` 尚未解析。下一步是确定 API 子域 DNS、签发证书并配置反向代理，不能把 HTTP 健康误当作正式登录可用。
+2026-11-23 生产环境变量只读核查：`/opt/qiuji-backend/.env` 当前仅有 JWT、Mongo、头像与注销备份变量，没有 Apple Team/Key/私钥路径或微信生产变量；与方案的“HTTPS 和标识冻结后再建密钥”一致，未修改线上环境。

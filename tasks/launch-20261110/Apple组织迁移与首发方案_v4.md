@@ -1,20 +1,20 @@
 # CuePhys Apple 组织迁移与首发方案
 
-> 本文件是本轮 Apple 事项的需求真源。版本 v4.4，2026-11-23（北京时间）建立。它在 v4.3 的基础上补齐外部阻塞、域名职责、Apple 登录密钥、微信凭据和正式商品的配置时机。外部后台状态以实际页面和回执为准，代码状态以本文件列出的仓库锚点为准。当前已完成外部身份准备，尚未执行代码改名、App Store Connect Bundle ID 切换、提交审核或发布。
+> 本文件是本轮 Apple 事项的需求真源。版本 v4.10，2026-11-23（北京时间）建立。它在 v4.9 的基础上补充正式商品的代码契约核对、API HTTPS 配置收口和后端回归证据。外部后台状态以实际页面和回执为准，代码状态以本文件列出的仓库锚点为准。当前已完成代码侧 CuePhys 改名、本地验证、API HTTPS 和官网法律页；服务端生产凭据、正式商品后台核对、正式签名、提交审核和发布仍未完成。
 
 ## 一、当前已确认
 
 | 对象 | 已确认结果 | 证据与边界 |
 |---|---|---|
 | Apple 会员主体 | 已转为组织 `Wuxi Youqiu Technology Co., Ltd`，Team ID `KWH2GRNSKG`，续订日 2027-03-28，页面显示年费 RMB 688 | Apple Developer 账户页与 11/23 邮件。迁移期间出现的停用提示已结束。 |
-| App Store Connect App | 现有 App「球迹」，App ID `6761309682`，SKU `QJ-001`，iOS 1.0 为「准备提交」，版本页尚未上传 build | 11/23 Edge 实查。App 信息页显示 SKU `QJ-001`；版本页仍显示“从多种工具中选取一种来上传你的构建版本”。按 Apple 规则，当前可优先在现有 App 记录内切换 Bundle ID。 |
+| App Store Connect App | 现有 App「球迹」，App ID `6761309682`，SKU `QJ-001`，iOS 1.0 为「准备提交」，版本页尚未上传 build；Bundle ID 菜单已出现 `CuePhys - com.youbilliards.cuephys` | 11/23 用户截图确认新选项出现；按 Apple 规则，应在现有 App 记录内选择新 ID 并保存，不创建重复 App。 |
 | Apple Developer 新 App ID | 已登记显式 App ID `com.youbilliards.cuephys`，描述为 `CuePhys` | 11/23 Edge 实查登记结果。已启用 `Associated Domains` 和 `Sign in with Apple`；未启用推送等未核实能力。 |
 | 产品公开名 | 产品决定为 CuePhys，说明性标题可用「CuePhys：台球训练」 | 需要在 App Store Connect 核公开名称、卖方和商店文案，尚未提交审核。代码侧改名只在方案确认后执行。 |
-| App 内显示名 | `CFBundleName` 与 `CFBundleDisplayName` 已为 `CuePhys` | `QiuJi/Resources/Info.plist:5-20`。这是客户端显示名。 |
+| App 内显示名 | `CFBundleName` 与 `CFBundleDisplayName` 已为 `CuePhys` | `CuePhys/Resources/Info.plist:5-20`。这是客户端显示名。 |
 | 既有技术标识 | 将按新旧映射分批切换，持久化和购买兼容键在迁移窗口保留 | 主 Bundle ID、Swift 模块、StoreKit 新商品 ID、测试宿主、后端配置和当前构建入口统一改为 CuePhys。SwiftData schema 名称、旧商品 ID、旧账号令牌命名空间和历史数据库名作为兼容读取或回滚锚点保留，不做无证据的删除。 |
-| Apple 登录客户端 | Apple 授权请求、回调、绑定和注销链路已实现，正式请求要求安全 API 地址 | `QiuJi/Data/Services/AuthService.swift:45-155`，`QiuJi/Core/Extensions/AppConfig.swift:4-39`。 |
+| Apple 登录客户端 | Apple 授权请求、回调、绑定和注销链路已实现，正式请求要求安全 API 地址 | `CuePhys/Data/Services/AuthService.swift:45-155`，`QiuJi/Core/Extensions/AppConfig.swift:4-39`。 |
 | Apple 登录服务端 | 使用 Bundle ID 校验 `aud`，授权码换取 Apple refresh token，并加密保存后支持撤销 | `backend/src/config/index.js:26-45`，`backend/src/services/appleGrant.js:9-62`，`backend/src/routes/auth.js:17-139`。 |
-| 生产配置 | Release 仅接受 `https://cuephys.com` 或其子域名。当前私有配置仍是 HTTP IP 占位，不能进行正式登录联调 | `Config/Secrets.xcconfig:4-7`，`QiuJi/Core/Extensions/AppConfig.swift:16-32`。 |
+| 生产配置 | Release 已指向 `https://api.cuephys.com`，法律页已指向官网 CuePhys 页面；服务器尚未写入 Apple/微信生产凭据，不能进行正式登录联调 | `Config/Secrets.xcconfig`、`Config/Release.xcconfig`、`CuePhys/Core/Extensions/AppConfig.swift`；`https://api.cuephys.com/health` 公网返回 200。 |
 | 中国大陆商店合规 | App Store Connect 页面提示需要安全评估证明和 AIGC 服务声明 | 11/23 App Store Connect 页面提示。按实际功能和主管部门要求填，不凭猜测选择不适用。 |
 | 网站 | `https://youbilliards.com/` 已上线，网站服务备案号为 `苏ICP备2026091631号-1` | 网站备案不能替代 App 备案。App 备案仍单独跟踪。 |
 | 微信 | 企业认证已付款，移动应用正式 AppID、Universal Links 和回调实测仍未闭合 | `Config/Debug.xcconfig:14-16` 仍是占位。 |
@@ -23,12 +23,12 @@
 
 | 外部项 | 是什么／在哪里用 | 当前状态 | 合适的配置时机 | 负责人和边界 |
 |---|---|---|---|---|
-| API 域名 | App 访问后端的 HTTPS 地址，例如 `https://api.cuephys.com`。它不是 iOS App 的 Bundle ID，也不是 App Store 的公开名称 | 当前 Release 仍是 HTTP IP 占位；DNS、证书、反向代理和 CORS 未闭合。若 API 放在中国大陆服务器，`cuephys.com` 还要单独办理或接入网站服务备案，不能直接沿用 `youbilliards.com` 的备案号 | 在代码改名完成前先确定主机名；在 Apple／微信真实登录联调前必须完成 HTTPS 健康检查和域名备案核验 | 我准备服务器和客户端配置；域名 DNS、证书、备案和生产密钥按部署权限操作 |
+| API 域名 | App 访问后端的 HTTPS 地址 `https://api.cuephys.com`。它不是 iOS App 的 Bundle ID，也不是 App Store 的公开名称 | DNSPod A 记录已保存到 `106.54.3.210`，Let’s Encrypt 证书、Nginx 443 反代和 `/health` 已验证；中国大陆服务器接入 `cuephys.com` 的备案状态仍需单独核对，不能沿用 `youbilliards.com` 备案号 | 进入 Apple／微信真实登录联调前，补齐该域名的备案接入核验、生产 CORS 和密钥配置 | 我准备服务器和客户端配置；域名备案、生产密钥和外部后台操作按权限执行 |
 | App 产品域名 | 官网、法律页、客服和品牌入口。当前已备案并上线的是 `youbilliards.com`；已购买的 `cuephys.com` 可以作为产品域名或 API 根域名 | 两个域名都存在，但用途尚未冻结 | 现在冻结职责，不必等 Apple 或微信审核；不把官网域名和 API 域名混成一个地址 | 建议 `api.cuephys.com` 只作 API，`youbilliards.com` 继续作公司官网、法律页和备案展示；是否让 `cuephys.com` 做跳转或产品落地页另行决定 |
 | Apple 登录密钥 | Apple Developer 组织 Team 下创建的 Sign in with Apple `.p8` 私钥。服务器用它生成 client secret JWT、交换授权码、刷新或撤销 token | 尚未创建；当前不能做生产 Apple 登录联调 | Bundle ID 切换、HTTPS 主机和 `APPLE_BUNDLE_ID` 冻结后，再创建并立即放入受控服务器密钥目录 | 用户本人在 Apple Developer 创建并下载；我负责服务端配置、自检和脱敏联调；私钥不进仓库、聊天或截图 |
 | 微信 AppID | 微信开放平台“移动应用”的公开标识。客户端发起微信授权、Universal Link 和回调配置都使用它 | 企业认证已付款，移动应用 AppID 尚未核实到位 | 微信企业认证完成并确定正式 Bundle ID、HTTPS 回调域名后配置；可先准备字段，不先写生产值 | 用户在微信开放平台查看／创建移动应用；我负责客户端、服务端和 AASA 接入 |
 | 微信 AppSecret | 与 AppID 配对的服务端密钥。后端用授权临时 `code` 换 access token、openid／unionid；不能放进 App 包 | 尚未配置 | 与 AppID 同批，在 HTTPS 和回调域名完成后配置；先做受控环境联调，再写生产环境 | 用户提供给受控服务器配置，不在聊天中发送；我负责读取校验和日志脱敏 |
-| 正式商品状态 | App Store Connect 内永久会员商品的类型、ID、价格、中国区销售范围、税务／银行状态和可售状态；本地 `Products.storekit` 不代表正式状态 | 方案已确定一次性永久会员，但正式商品状态和通知 URL 尚未核对 | 现在可以只读核对现有商品；等名称、Pro 权益、价格、Bundle ID 和购买归属冻结后，再创建／启用新 CuePhys 商品；必须早于 TestFlight 购买验收和提审 | 我整理商品与权益核对表；用户最终确认价格、地区和付费协议；不提前创建重复商品或停用旧商品 |
+| 正式商品状态 | App Store Connect 内永久会员商品的类型、ID、价格、中国区销售范围、税务／银行状态和可售状态；本地 `Products.storekit` 不代表正式状态 | 代码只请求并购买 `com.youbilliards.cuephys.premium.lifetime`；月付、年付 ID 仅保留兼容枚举，不进入首发；正式后台状态和通知 URL 尚未核对 | 现在可只读核对并确认现有永久商品；确认价格、地区、协议和 Bundle ID 后，再启用可售状态；必须早于 TestFlight 购买验收和提审 | 我整理[商品核对表](StoreKit-商品核对表-20261123.md)并负责代码/测试；用户最终确认后台价格、地区和协议；不提前创建重复商品或停用旧商品 |
 
 这里的“外部阻塞”不等于现在不能继续开发：在产品内容未完全准备好之前，可以完成工程盘点、迁移兼容、UI 文案、测试夹具、HTTPS 方案和商品核对表；只有真实登录、正式购买、TestFlight 和提审依赖的凭据与后台配置暂不落生产。
 
@@ -38,14 +38,14 @@
 
 | 覆盖域 | 必须处理的内容 | 处理方式 | 当前状态／缺口 |
 |---|---|---|---|
-| 工程文件与生成入口 | `project.yml`、`QiuJi.xcodeproj`、共享 scheme、`QiuJi/`、`QiuJiTests/`、`QiuJiUITests/`、`QiuJiLiveActivity/` 目录、target 名、`@testable import`、`TEST_HOST`、产物路径 | 当前构建和测试统一切 CuePhys；历史归档路径保留，不重写证据 | 待 B1/C0 执行 |
-| Bundle 与 entitlement | 主 App、Live Activity、单测、UI 测试 Bundle ID；Associated Domains、URL scheme、App Group、Live Activity、推送等实际 entitlement | 逐个解包检查；只登记实际使用的能力；旧描述文件保留回滚 | 新 App ID 已登记，工程尚未切换 |
+| 工程文件与生成入口 | `project.yml`、`CuePhys.xcodeproj`、共享 scheme、`CuePhys/`、`CuePhysTests/`、`CuePhysUITests/`、`CuePhysLiveActivity/` 目录、target 名、`@testable import`、`TEST_HOST`、产物路径 | 当前构建和测试统一切 CuePhys；历史归档路径保留，不重写证据 | B1/C0 已完成；真实 XCTest 待设备租约释放 |
+| Bundle 与 entitlement | 主 App、Live Activity、单测、UI 测试 Bundle ID；Associated Domains、URL scheme、App Group、Live Activity、推送等实际 entitlement | 逐个解包检查；只登记实际使用的能力；旧描述文件保留回滚 | 新 Bundle ID 已在真机 build/run，并签发开发 profile；ASC 菜单已出现新值，用户保存后再做版本页和生产签名核对 |
 | Apple 登录与身份映射 | 客户端 `aud`、服务端 `APPLE_BUNDLE_ID`、Team/Key/Service ID、授权撤销、Apple `sub` 旧新映射 | 新值生产使用；旧 `sub` 只作迁移兼容；私钥不进仓库 | HTTPS 和 Apple Key 待办 |
 | 微信登录与回调 | `WECHAT_APP_ID/SECRET`、Universal Link、AASA、回调域、微信 entitlements、已安装／未安装微信路径 | 企业认证完成后写入受控配置并真机验证 | AppID、AASA 和回调未闭合 |
 | StoreKit 与 App Store Server Notifications | 旧／新商品 ID、`Products.storekit`、永久会员权益、恢复购买、`appAccountToken`、生产／沙盒通知 URL、交易校验 | 正式商品身份以后台为准；旧商品只兼容读取；通知 URL 和交易服务一起切换 | 商品后台、通知 URL 和测试待核 |
-| 本地数据与账号 | Keychain 服务名和键、UserDefaults suite、SwiftData schema、游客／登录 owner、注销状态、绑定关系 | 新写入、旧读取迁移；`QiuJiSchemaV1-V6` 和注销审计字段保留 | 待 C2/D2 实施与恢复验证 |
-| 后端部署与备份 | npm 包名、`/opt/qiuji-backend`、systemd 服务、Mongo `qiuji`、头像目录、恢复备份脚本和告警标签 | 生产迁移用别名／迁移脚本；systemd、备份与恢复演练同步更新；旧密文可回放 | 当前仍有旧目录和数据库名，待 D0/D2 |
-| 日志、分析与通知 | Logger subsystem、分析事件前缀、`qiuji.training.daily-reminder` 等通知标识、调试窗口标识 | 当前构建和新事件切 CuePhys；旧事件和通知标识保留兼容读取或查询映射 | 已发现多处旧值，待 E1/D2 |
+| 本地数据与账号 | Keychain 服务名和键、UserDefaults suite、SwiftData schema、游客／登录 owner、注销状态、绑定关系 | 新写入、旧读取迁移；`QiuJiSchemaV1-V6` 和注销审计字段保留 | Keychain 兼容代码已完成；旧安装/注销恢复演练待设备租约与 Mac mini 验证 |
+| 后端部署与备份 | npm 包名、`/opt/qiuji-backend`、systemd 服务、Mongo `qiuji`、头像目录、恢复备份脚本和告警标签 | 生产迁移用别名／迁移脚本；systemd、备份与恢复演练同步更新；旧密文可回放 | 本地包元数据已切换；生产目录和数据库名仍保留迁移别名，待 D0/D2 |
+| 日志、分析与通知 | Logger subsystem、分析事件前缀、`qiuji.training.daily-reminder` 等通知标识、调试窗口标识 | 当前构建和新事件切 CuePhys；旧事件和通知标识保留兼容读取或查询映射 | 当前 Logger 与门禁脚本已切换；历史通知/测试临时路径保留，需在真实设备回归时核对 |
 | API 与域名 | Release API、CORS、健康检查、法律页、AASA、证书和 DNS；`cuephys.com` 与 `youbilliards.com` 的用途 | 先冻结职责：建议 `api.cuephys.com` 仅作 App API，`youbilliards.com` 保留公司官网与备案法律页；不把两个域名互相批量替换 | API 主机和证书尚未最终确定 |
 | 公开商店与素材 | App Store Connect 名称、卖方、简介、截图、预览、审核备注、隐私标签、年龄分级、AIGC／安全评估材料、支持邮箱和法律链接 | 当前公开内容全部用 CuePhys；旧球迹只留历史资料和兼容说明 | 商店公开资料待核，未提交 |
 | 官网、邮件与知识产权 | 官网产品名、支持入口、法律页、商标使用说明、客服邮箱、备案／公安联网备案展示 | 对外新文案统一 CuePhys；公司主体、备案号和历史收文不改 | 官网已上线，CuePhys 域名与邮箱职责仍需明确 |
@@ -69,7 +69,7 @@
 |---|---|---|
 | Bundle ID 与 App ID | 新 Bundle ID 会改变 Apple 对应用的唯一身份。已有 build 时需要新 App 记录，旧记录不能直接变成同一个应用。 | 先核 build 状态。若需要新记录，旧「球迹」记录保留归档，不删除、不提交。 |
 | App Store Connect 固定身份 | 数字 App ID `6761309682`、SKU `QJ-001` 和 App 记录属于后台固定身份，不能按品牌批量改名。 | 继续使用现有 App 记录，公开名称和 Bundle ID 单独处理；SKU 只作记录，不改写。 |
-| Apple 登录 | 原生 Apple 登录的 client ID、JWT `aud`、entitlement 和服务端校验都依赖 Bundle ID。新 Bundle ID 可能让同一 Apple 用户在服务端呈现新的应用范围身份。 | 更新 `QiuJi/Data/Services/AuthService.swift:45-155`、`backend/src/config/index.js:26-45`、`backend/src/services/appleGrant.js:31-62`，为测试用户建立新旧身份映射策略。 |
+| Apple 登录 | 原生 Apple 登录的 client ID、JWT `aud`、entitlement 和服务端校验都依赖 Bundle ID。新 Bundle ID 可能让同一 Apple 用户在服务端呈现新的应用范围身份。 | 更新 `CuePhys/Data/Services/AuthService.swift:45-155`、`backend/src/config/index.js:26-45`、`backend/src/services/appleGrant.js:31-62`，为测试用户建立新旧身份映射策略。 |
 | Apple 登录密钥 | 新 App ID 需要重新核对 Sign in with Apple 能力、Key、Service ID 和回调配置。 | 新标识确认后再创建或重配密钥，不能用旧配置直接冒充新 App。 |
 | StoreKit 商品 ID | Apple 不允许修改已保存的 Product ID，也不能在同一 App 中复用已删除的旧 Product ID。 | 若全部统一命名，创建新的 CuePhys 商品 ID，重新核类型、价格、地区和审核资料。旧商品记录保留证据，不直接删除。来源为 Apple 官方商品信息文档。 |
 | 会员归属与恢复购买 | 新商品 ID 会影响已购买会员的读取和恢复。当前代码按商品 ID及 `appAccountToken`判断归属。 | 更新 `QiuJi/Data/Services/StoreKitService.swift:52-83` 与 `SubscriptionManager.swift:324-349`，对旧商品做兼容读取或明确首发前无正式购买迁移。 |
@@ -85,7 +85,7 @@
 我建议在首发前做全量统一，但采用“先确认后台条件，再一次性迁移”的顺序。
 
 1. 已在 11/23 Edge 实查版本页，当前没有上传 build。
-2. Apple Developer 已登记新的显式 App ID `com.youbilliards.cuephys`（描述 `CuePhys`），并启用 Associated Domains、Sign in with Apple。下一步是在现有 App 记录 `6761309682` 中改选该 Bundle ID；当前尚未切换。
+2. Apple Developer 已登记新的显式 App ID `com.youbilliards.cuephys`（描述 `CuePhys`），并启用 Associated Domains、Sign in with Apple。ASC 现有 App 记录 `6761309682` 的下拉已出现该 Bundle ID，待保存回执确认切换完成。
 3. 若已有 build，创建新的 CuePhys App 记录。旧记录保留，不再提交。
 4. 冻结新的 Bundle ID、Swift 模块名、StoreKit 商品 ID、Keychain 命名空间和数据库迁移策略。
 5. 先更新开发配置和测试环境，完成 Apple、微信、内购、恢复购买、注销和数据迁移验证。
@@ -133,7 +133,7 @@ A0 身份与命名冻结
 
 ### A0 身份与命名冻结
 
-- App Store Connect App ID `6761309682` 已核实没有上传 build，SKU 为 `QJ-001`。Apple Developer 新 App ID `com.youbilliards.cuephys` 已登记并启用 Associated Domains、Sign in with Apple。下一步是在现有 App 记录内切换 Bundle ID；切换完成、候选包归档和签名检查完成前，不上传 build，不新建、删除或提交其他 App 记录。
+- App Store Connect App ID `6761309682` 已核实没有上传 build，SKU 为 `QJ-001`。Apple Developer 新 App ID `com.youbilliards.cuephys` 已登记并启用 Associated Domains、Sign in with Apple；ASC 下拉已出现新值，待保存回执后完成外部切换。候选包归档和签名检查完成前，不上传 build，不新建、删除或提交其他 App 记录。
 - 把公开名称改为 CuePhys 的动作留在用户确认后执行。公开名称会影响商店展示，不能由代码改名替代。
 - 改名清单分四层执行。第一层是用户可见文案，包括 App Store Connect 名称、App 内标题、关于页、登录页、会员页、Pro 权益、帮助页、通知、Live Activity、权限说明、客服和法律页。第二层是发布产物，包括 `CFBundleDisplayName`、`CFBundleName`、`PRODUCT_NAME`、测试宿主、scheme、扩展显示名、截图和 TestFlight 名称。第三层是活动脚本和验收脚本中的产物路径、测试按钮文案和构建参数。第四层是外部资料，包括网站、备案材料、微信开放平台移动应用资料、Apple 审核备注和商标使用说明。
 - 全量路线还会把当前主源码目录 `QiuJi/`、测试目录和 Live Activity 目录改为 CuePhys 命名，并同步工程、脚本和文档路径。`QiuJiSchemaV1` 至 `QiuJiSchemaV6`、迁移计划和历史证据文件名保留为持久化兼容锚点。
@@ -158,9 +158,9 @@ A0 身份与命名冻结
 
 ### A3 生产 HTTPS 与法律页
 
-- Release 配置必须把 `API_BASE_URL` 换成 CuePhys 域名下的 HTTPS 地址。当前 `Config/Secrets.xcconfig:4` 仍是 `http://106.54.3.210:3000` 占位，正式包会因 `AppConfig.validatedAPIBaseURL(..., release: true)` 拒绝该值。
+- Release 配置已切换为 `https://api.cuephys.com`；`Config/Secrets.xcconfig`、`Config/Debug.xcconfig` 和 `Config/Release.xcconfig` 的法律 URL 已指向官网两份 CuePhys 页面。正式包仍需在生产凭据和真机回归后再签名上传。
 - 在 Apple App ID 切换前，服务器仍临时保留旧的 `APPLE_BUNDLE_ID` 以支持现有测试。切换完成后必须同步为 `com.youbilliards.cuephys`，并用独立随机的 `JWT_SECRET`、`JWT_REFRESH_SECRET` 和 64 位十六进制 `APPLE_TOKEN_ENCRYPTION_KEY`。两套配置不得同时作为生产默认值。
-- 法律页使用已上线网站的 HTTPS 路径，并在匿名设备上逐个打开。未发布或占位 URL 继续保持空值，避免把错误链接打进候选包。
+- 法律页使用已上线网站的 HTTPS 路径，并在匿名访问中逐个打开。当前可用地址为 `https://youbilliards.com/legal/cuephys-privacy/` 与 `https://youbilliards.com/legal/cuephys-terms/`；两页已返回 200，未再使用占位 URL。
 
 ### A4 Apple 登录密钥
 
@@ -217,16 +217,16 @@ A0 身份与命名冻结
 | 批次 | 真实锚点 | 计划变更 | 依赖 | 完成标准 |
 |---|---|---|---|---|
 | B0 | App Store Connect App `6761309682`，版本页 iOS 1.0 | 现有记录继续使用，改选 `com.youbilliards.cuephys` | Apple Developer 新 App ID 已登记 | App 信息页保存后可见新 Bundle ID，未创建重复 App 记录，旧记录和旧 App ID 仍可追溯 |
-| B1 | `project.yml:44-321`、`Config/Debug.xcconfig`、`Config/Release.xcconfig` | 主 target、Live Activity、测试 target、scheme、Bundle ID、产物名和 Swift 模块统一到 CuePhys | B0 设计确认 | xcodegen 后工程可生成，四个产物的 Bundle ID、产品名、宿主和 scheme 全部一致 |
-| B2 | `QiuJi/Resources/Info.plist`、`QiuJi/QiuJi.entitlements`、`Config/WeChat.entitlements` | 显示名、URL scheme、Associated Domains、Live Activity 和权限文案按新标识核对 | B1 | 解包检查 Info.plist、entitlements 和扩展嵌套关系，无旧 Bundle ID 的当前构建漏项 |
+| B1（已完成） | `project.yml`、`Config/Debug.xcconfig`、`Config/Release.xcconfig` | 主 target、Live Activity、测试 target、scheme、Bundle ID、产物名和 Swift 模块统一到 CuePhys | B0 设计确认 | xcodegen 后工程可生成，四个产物的 Bundle ID、产品名、宿主和 scheme 全部一致 |
+| B2 | `CuePhys/Resources/Info.plist`、`CuePhys/CuePhys.entitlements`、`Config/WeChat.entitlements` | 显示名、URL scheme、Associated Domains、Live Activity 和权限文案按新标识核对 | B1 | 解包检查 Info.plist、entitlements 和扩展嵌套关系，无旧 Bundle ID 的当前构建漏项 |
 
 ### 2. 代码模块与测试入口
 
 | 批次 | 真实锚点 | 计划变更 | 依赖 | 完成标准 |
 |---|---|---|---|---|
-| C0 | `QiuJi/**/*.swift`、`QiuJiTests/**/*.swift`、`QiuJiUITests/**/*.swift` | 当前 target 的 `@testable import`、测试宿主、启动参数和窗口标识改为 CuePhys | B1 | 单测和 UI 测试能找到新模块与新 Bundle ID，旧名称只出现在兼容或历史说明中 |
-| C1 | `QiuJi/Data/Services/StoreKitService.swift`、`SubscriptionManager.swift`、`QiuJi/Resources/Products.storekit` | 新商品 ID 进入本地测试与新购买入口，旧商品 ID只做兼容读取 | B0、B1 | 本地购买、当前权益、恢复购买、账号归属和旧交易读取分别通过，不能把旧商品误当成新商品创建成功 |
-| C2 | `QiuJi/Data/Models/ModelContainerFactory.swift`、`QiuJiSchemaV1-V6`、`FirstRunProfileFlow.swift`、Keychain 服务 | 新命名空间写入，旧命名空间一次性读取迁移；schema 类型和历史字段保留 | C0 | 干净安装、旧安装、注销后重装三种状态数据边界明确，旧训练记录和注销状态不串号 |
+| C0（已完成） | `CuePhys/**/*.swift`、`CuePhysTests/**/*.swift`、`CuePhysUITests/**/*.swift` | 当前 target 的 `@testable import`、测试宿主、启动参数和窗口标识改为 CuePhys | B1 | 单测和 UI 测试能找到新模块与新 Bundle ID，旧名称只出现在兼容或历史说明中 |
+| C1（本地已完成） | `CuePhys/Data/Services/StoreKitService.swift`、`SubscriptionManager.swift`、`CuePhys/Resources/Products.storekit` | 新商品 ID 进入本地测试与新购买入口，旧商品 ID只做兼容读取 | B0、B1 | 本地购买、当前权益、恢复购买、账号归属和旧交易读取分别通过，不能把旧商品误当成新商品创建成功 |
+| C2（兼容代码已完成） | `CuePhys/Data/Models/ModelContainerFactory.swift`、`QiuJiSchemaV1-V6`、`FirstRunProfileFlow.swift`、Keychain 服务 | 新命名空间写入，旧命名空间一次性读取迁移；schema 类型和历史字段保留 | C0 | 干净安装、旧安装、注销后重装三种状态数据边界明确，旧训练记录和注销状态不串号 |
 
 ### 3. 服务端与外部登录
 
@@ -241,7 +241,7 @@ A0 身份与命名冻结
 | 批次 | 范围 | 计划变更 | 完成标准 |
 |---|---|---|---|
 | E0 | App 内公开文案、帮助页、登录页、Pro 权益、法律页、通知和 Live Activity | 用户可见的“球迹”统一替换为 CuePhys，训练术语按已确认词表处理 | `rg` 扫描当前构建资源无旧公开品牌命中，历史文档单独列为证据 |
-| E1 | `scripts/`、Makefile、截图巡游、测试计划、导出与归档入口 | 当前执行脚本只引用 CuePhys 产物，历史路径不重写 | 归档、导出、安装和 UI 巡游均能定位新产物 |
+| E1（当前门禁已完成） | `scripts/`、Makefile、截图巡游、测试计划、导出与归档入口 | 当前执行脚本只引用 CuePhys 产物，历史路径不重写 | verify-gate、构建和导出入口可定位新产物；真实设备巡游待租约释放 |
 | E2 | App Store Connect 文案、隐私标签、审核备注、备案和网站发布清单 | 公开 App 名、卖方、法律 URL、支持邮箱和备案信息统一 | 用户核对公开内容后再提交，所有外部资料有时间和回执 |
 
 ## 十、必须先解决的问题
@@ -272,4 +272,24 @@ A0 身份与命名冻结
 | v4.2 | 2026-11-23 | Edge 实查完成 Apple Developer 新 App ID `com.youbilliards.cuephys` 登记，启用 Associated Domains 与 Sign in with Apple；App Store Connect 读取 SKU `QJ-001`，确认现有 App `6761309682` 仍无 build。将下一步收敛为现有 App 记录切换 Bundle ID，再进入代码改名。 |
 | v4.3 | 2026-11-23 | 完成全量覆盖审计，补齐工程目录与 scheme、后端部署和备份命名、通知与 URL scheme、日志与分析、App Store Server Notifications、API／域名边界、官网与商店素材、设备脚本和文档边界；明确当前改名、兼容迁移和历史保留三种处理方式。 |
 | v4.4 | 2026-11-23 | 将外部阻塞正式写入方案：区分 API 域名与官网／产品域名，说明 Apple 登录密钥、微信 AppID／AppSecret 的用途和安全边界，明确凭据创建时机，以及正式商品先核对、后配置、早于 TestFlight 和提审的顺序。 |
+| v4.5 | 2026-11-23 | 按整体方案启动代码侧执行：新建 `codex/cuephys-full-rename` 分支，完成工程目录、target、scheme、Bundle ID、产物名、当前日志 subsystem、脚本入口和本地 StoreKit 配置的 CuePhys 改名；Keychain 增加旧键只读兼容。`xcodegen`、Debug 构建和 build-for-testing 通过；真实 XCTest 因设备租约占用未执行。App Store Connect 外部 Bundle ID 切换仍未完成，不上传候选包。 |
+| v4.6 | 2026-11-23 | 连接 iPhone 16 Pro 后完成 `com.youbilliards.cuephys` 真机构建、签名、安装、启动；定向真机 XCTest `APIClientProfileTests/testReleaseAPIConfigurationOnlyAllowsCompanyHTTPS` 1/1 通过。ASC 下拉仍只有旧 Bundle ID，因此本地真机门禁收口，外部切换与候选包上传继续保持阻塞。 |
+| v4.7 | 2026-11-23 | 用户截图确认 ASC 已显示 `CuePhys - com.youbilliards.cuephys`；完成 Release 未签名归档前置验证，临时 HTTPS 地址通过配置门禁，归档包 Bundle ID/显示名正确。生产 HTTPS、Apple 密钥、正式商品和上传仍按依赖顺序保留。 |
+| v4.8 | 2026-11-23 | 复核 `api.cuephys.com` 仍无 DNS、现网仅有 HTTP 3000 健康入口；准备 [API 域名切换手册](api-cuephys-cutover-runbook.md) 和候选 Nginx 配置。收口当前编译代码中的旧日志 subsystem，并将 `backend/.env.example` 的 Apple Bundle ID 改为 `com.youbilliards.cuephys`；历史数据库、商品兼容标识和部署目录按迁移边界保留。 |
+| v4.9 | 2026-11-23 | 完成 `api.cuephys.com` DNS、Let’s Encrypt 证书、Nginx 反代和 HTTPS 健康检查；官网正式构建纳入 CuePhys 隐私政策与用户协议并完成公网验收（200），旧官网 release 保留回滚。生产 Apple/微信凭据、正式商品和真机登录仍未完成。 |
+| v4.10 | 2026-11-23 | 核对 StoreKit 代码契约：首发只请求并购买 CuePhys 永久非消耗型商品，月付/年付不进入首发，旧商品 ID 仅兼容读取；新增商品核对表。确认 Release/API/法律 URL 已收口，backend `npm test` 40/40 通过；生产商品后台、Apple/微信凭据、生产变量和真机登录仍待外部配置。 |
+
+## 十三、本轮执行记录（2026-11-23）
+
+- **已执行**：`QiuJi*` 当前工程目录迁移为 `CuePhys*`；主 App、Live Activity、单测和 UI 测试 target/scheme 及 Bundle ID 已统一；`CuePhys.xcodeproj` 可由 `project.yml` 重新生成；产物名为 `CuePhys`。
+- **已执行**：StoreKit 本地商品改为 `com.youbilliards.cuephys.premium.*`，旧商品 ID 仍作为交易读取兼容项；Keychain 新写入使用 `com.youbilliards.cuephys.*`，读取和清理兼容 `com.qiuji.app.*`。
+- **已执行**：当前构建脚本、训练题库校验、模拟器矩阵和同步校验入口已切到新工程路径；后端 npm 包元数据和当前并发队列标签已切到 CuePhys；历史 schema 类型、旧交易标识和历史研究证据未改作新身份。
+- **验证结果**：`python3 scripts/verify_model_packaging.py`、`python3 scripts/verify_pocket_pipe_table.py`、`python3 scripts/training-question-bank/verify_grid_bank.py`、`npm test`（backend 40/40）通过；`make -f scripts/Makefile build TEST_DESTINATION='platform=iOS Simulator,id=AE86244C-EE61-4585-882F-E39B892214DB'` 通过；`make -f scripts/Makefile test TEST_ACTION=build-for-testing TEST_DESTINATION='generic/platform=iOS Simulator' TEST_CODE_COVERAGE=NO` 通过。
+- **历史阻塞记录**：早先 ASC 会话曾只显示旧值；用户新截图已证明新值出现，原阻塞已解除。2026-11-23 真机 `com.youbilliards.cuephys` 构建、安装、启动和定向 XCTest 均已通过（1/1，0 failures）。
+- **最新状态**：用户截图确认 ASC 已出现 `CuePhys - com.youbilliards.cuephys`；待用户在现有 App 信息页选择该项并保存，保存回执尚未由本地会话独立读取。生产 HTTPS、Apple 登录密钥、正式商品与上传仍未完成。
+- **生产配置核查**：服务器 `.env` 当前只有 JWT、Mongo、头像和注销备份相关变量，尚无 `APPLE_TEAM_ID`、`APPLE_KEY_ID`、`APPLE_PRIVATE_KEY_PATH` 或微信生产变量；这与“密钥后置”的方案一致，不能直接开启生产登录。
+- **本地前置验证**：Release 未签名归档使用 `https://validation.cuephys.com/api` 成功，归档包 Bundle ID 为 `com.youbilliards.cuephys`，详见[Release 归档前置验证](Release归档前置验证-20261123.md)。
+- **最新执行**：`api.cuephys.com` 已解析到 `106.54.3.210`；证书、Nginx 反代和 `https://api.cuephys.com/health` 已验证。官网版本 `8a038cf9108f35306410f252efe0ae2518d26490` 已原子切换，CuePhys 隐私政策和用户协议公网返回 200，旧 release 保留。下一阻塞收敛为 Apple/微信生产凭据、正式商品、生产环境变量和真机登录回归。
+- **本轮验证**：`backend npm test` 40/40 通过；CuePhys Debug 模拟器构建 `** BUILD SUCCEEDED **`；模型、袋口和题库校验通过；`git diff --check` 与 `make -f scripts/Makefile verify-doc-size` 通过。构建日志仍有既有 Swift 6 actor 隔离警告，但没有新增错误；未把警告写成阻塞或通过条件。
+- **商品与配置核对**：`StoreKitService.loadProducts()` 和 `purchase()` 当前只请求/接受 `com.youbilliards.cuephys.premium.lifetime`；月付、年付只保留权益读取兼容枚举，未进入首发 UI。`xcodebuild -showBuildSettings` 已核到 Release API、法律 URL、Bundle ID 和产品名；Release 归档本轮未重复执行，生产商品后台、通知 URL、Apple/微信凭据和真机购买仍待外部配置。[商品核对表](StoreKit-商品核对表-20261123.md)
 
