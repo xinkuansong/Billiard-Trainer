@@ -1,6 +1,6 @@
 # CuePhys Apple 组织迁移与首发方案
 
-> 本文件是本轮 Apple 事项的需求真源。版本 v4.11，2026-11-23（北京时间）建立。它在 v4.10 的基础上补充后端生产配置预检门禁和缺凭据时的失败闭环。外部后台状态以实际页面和回执为准，代码状态以本文件列出的仓库锚点为准。当前已完成代码侧 CuePhys 改名、本地验证、API HTTPS、官网法律页和预检工具；服务端生产凭据、正式商品后台核对、正式签名、提交审核和发布仍未完成。
+> 本文件是本轮 Apple 事项的需求真源。版本 v4.12，2026-11-23（北京时间）建立。它在 v4.11 的基础上补充微信占位配置的代码门禁核对结果。外部后台状态以实际页面和回执为准，代码状态以本文件列出的仓库锚点为准。当前已完成代码侧 CuePhys 改名、本地验证、API HTTPS、官网法律页和预检工具；服务端生产凭据、正式商品后台核对、正式签名、提交审核和发布仍未完成。
 
 ## 一、当前已确认
 
@@ -173,6 +173,7 @@ A0 身份与命名冻结
 
 - 等企业认证结果和移动应用 AppID 到位后，再把 `WECHAT_APP_ID`、`WECHAT_UNIVERSAL_LINK` 和 `WECHAT_LINK_HOST` 写入 Release 私有配置。当前 `Config/Debug.xcconfig:14-16` 是占位，不能拿来做正式登录。
 - Universal Links 必须和 AASA、服务器 HTTPS、微信开放平台配置中的域名完全一致。微信登录回调成功后仍由服务端唯一索引和绑定接口决定账号归属，不以昵称、头像或邮箱自动合并。
+- **代码门禁已核对（2026-11-23）**：`Packages/CuePhysWeChat/Sources/CuePhysWeChat/WeChatAuthorization.swift` 的 `configured` 会拒绝非 `wx` 真实格式 AppID、非 HTTPS、`yourdomain.com`、带凭据／查询／片段或不以 `/` 结尾的链接；`MobileLoginMethod.available` 还要求账号 API 为 HTTPS 且 Universal Link 主机等于 `WECHAT_LINK_HOST`。因此当前占位值会让微信入口保持不可用，不会误发起授权；待企业移动应用 AppID、Secret、AASA 和回调域名齐备后再做真机联调。
 
 ### A6-A8 候选包、验收和提交
 
@@ -279,6 +280,7 @@ A0 身份与命名冻结
 | v4.9 | 2026-11-23 | 完成 `api.cuephys.com` DNS、Let’s Encrypt 证书、Nginx 反代和 HTTPS 健康检查；官网正式构建纳入 CuePhys 隐私政策与用户协议并完成公网验收（200），旧官网 release 保留回滚。生产 Apple/微信凭据、正式商品和真机登录仍未完成。 |
 | v4.10 | 2026-11-23 | 核对 StoreKit 代码契约：首发只请求并购买 CuePhys 永久非消耗型商品，月付/年付不进入首发，旧商品 ID 仅兼容读取；新增商品核对表。确认 Release/API/法律 URL 已收口，backend `npm test` 40/40 通过；生产商品后台、Apple/微信凭据、生产变量和真机登录仍待外部配置。 |
 | v4.11 | 2026-11-23 | 新增 `backend npm run preflight:production` 生产配置预检：校验 Bundle ID、JWT、Mongo、Apple Team/Key/.p8/加密密钥和微信 AppID/Secret，只输出脱敏状态；本地预检按预期因生产凭据缺失失败，backend 测试 42/42 通过。 |
+| v4.12 | 2026-11-23 | 核对微信客户端占位配置的失败闭环：真实 AppID、HTTPS Universal Link、主机一致性和安全 API 均有门禁；当前占位值不会显示为可用登录。`backend npm test`、生产配置预检和文档门禁已重新执行，生产预检仍按预期因凭据缺失失败。 |
 
 ## 十三、本轮执行记录（2026-11-23）
 
@@ -291,7 +293,8 @@ A0 身份与命名冻结
 - **生产配置核查**：服务器 `.env` 当前只有 JWT、Mongo、头像和注销备份相关变量，尚无 `APPLE_TEAM_ID`、`APPLE_KEY_ID`、`APPLE_PRIVATE_KEY_PATH` 或微信生产变量；这与“密钥后置”的方案一致，不能直接开启生产登录。
 - **本地前置验证**：Release 未签名归档使用 `https://validation.cuephys.com/api` 成功，归档包 Bundle ID 为 `com.youbilliards.cuephys`，详见[Release 归档前置验证](Release归档前置验证-20261123.md)。
 - **最新执行**：`api.cuephys.com` 已解析到 `106.54.3.210`；证书、Nginx 反代和 `https://api.cuephys.com/health` 已验证。官网版本 `8a038cf9108f35306410f252efe0ae2518d26490` 已原子切换，CuePhys 隐私政策和用户协议公网返回 200，旧 release 保留。下一阻塞收敛为 Apple/微信生产凭据、正式商品、生产环境变量和真机登录回归。
-- **本轮验证**：`backend npm test` 40/40 通过；CuePhys Debug 模拟器构建 `** BUILD SUCCEEDED **`；模型、袋口和题库校验通过；`git diff --check` 与 `make -f scripts/Makefile verify-doc-size` 通过。构建日志仍有既有 Swift 6 actor 隔离警告，但没有新增错误；未把警告写成阻塞或通过条件。
+- **本轮验证**：`backend npm test` 42/42 通过；CuePhys Debug 模拟器构建 `** BUILD SUCCEEDED **`；模型、袋口和题库校验通过；`git diff --check` 与 `make -f scripts/Makefile verify-doc-size` 通过。构建日志仍有既有 Swift 6 actor 隔离警告，但没有新增错误；未把警告写成阻塞或通过条件。
 - **商品与配置核对**：`StoreKitService.loadProducts()` 和 `purchase()` 当前只请求/接受 `com.youbilliards.cuephys.premium.lifetime`；月付、年付只保留权益读取兼容枚举，未进入首发 UI。`xcodebuild -showBuildSettings` 已核到 Release API、法律 URL、Bundle ID 和产品名；Release 归档本轮未重复执行，生产商品后台、通知 URL、Apple/微信凭据和真机购买仍待外部配置。[商品核对表](StoreKit-商品核对表-20261123.md)
 - **生产预检门禁**：新增 `backend/src/config/productionPreflight.js` 和 `backend/scripts/preflight-production.js`；本地 `npm run preflight:production` 明确报告缺少生产变量，未输出任何密钥内容。正式服务器写入凭据后，必须先通过该门禁再重启服务。[商品核对表](StoreKit-商品核对表-20261123.md)
+- **微信占位门禁复核**：代码读取确认 `WeChatAuthorization.configured` 与 `MobileLoginMethod.available` 会在占位 AppID／Universal Link 或非 HTTPS API 下关闭微信入口；未修改生产凭据，也未把占位值写入 Release。该项等待微信移动应用 AppID、Secret、AASA 和回调域名后做真机实测。
 

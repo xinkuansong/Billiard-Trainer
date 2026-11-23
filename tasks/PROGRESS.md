@@ -1,3 +1,5 @@
+2026-11-23 Apple 首发方案 v4.12：复核微信占位配置失败闭环，`WeChatAuthorization.configured` 拒绝伪造 AppID／非 HTTPS Universal Link／占位域名，登录入口另要求 API HTTPS 与主机一致；未写入生产凭据。`backend npm test` 通过，`npm run preflight:production` 按预期因生产变量缺失失败且未泄露密钥，文档体积门禁通过。下一步仍是用户在 Apple/微信后台完成外部凭据与正式商品核对后，再做服务器预检和真机登录回归。[方案](launch-20261110/Apple组织迁移与首发方案_v4.md)
+
 2026-11-23 备份恢复链路已修复并部署：服务器生成失败保留阶段与错误摘要，`source-changed-during-backup` 有限重试；Mac mini 下载/SSH/回执有限重试、临时文件失败不覆盖旧副本、低于20 GiB可用空间拒绝接收并保留最近100次尝试。服务器两个定时器 active，手动生成成功，当前 `issues=[]`、`failures=[]`；Mac mini 连续两次拉取 `issues=[]`，归档摘要匹配。[记录](launch-20261110/备份恢复修复-20261123.md)
 
 2026-11-22 已修复球桌台面瞄准拖动时动作按键和计算文案闪烁：台面手势纳入共享忙碌生命周期，统一覆盖每日清台、自由练习、走位规划、翻袋和解球宿主；`ContinuousTrajectoryPreviewTests` 10/10、`CameraV67PilotUITests/testFormalFramePacingTouchPaths` 1/1 均在 iPhone 模拟器通过。真机和用户手感未验。[记录](table-page-adaptation/SHOT-CONTROL-STABILITY-20261122.md)
