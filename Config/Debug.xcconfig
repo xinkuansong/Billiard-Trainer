@@ -1,15 +1,14 @@
-CUEPHYS_ENTITLEMENTS = QiuJi/QiuJi.entitlements
+CUEPHYS_ENTITLEMENTS = CuePhys/CuePhys.entitlements
 // Debug.xcconfig
 // 占位示例 — 将真实密钥写入 Config/Secrets.xcconfig（已加入 .gitignore，不提交 Git）
 // 新开发者：复制此文件为 Secrets.xcconfig，填入真实值
 
-// 自建后端 API（H-14 服务器部署后填入）
+// 自建后端 API；正式 HTTPS 已完成公网验收。
 // xcconfig 中 // 会被当作注释，用 $() 空变量打断双斜杠
-API_BASE_URL = http:/$()/106.54.3.210:3000
+API_BASE_URL = https:/$()/api.cuephys.com
 
-// H-09 正式发布并通过 HTTPS 实测后填写；空值会让 App 保持“尚未发布”。
-LEGAL_TERMS_URL =
-LEGAL_PRIVACY_URL =
+LEGAL_TERMS_URL = https:/$()/youbilliards.com/legal/cuephys-terms/
+LEGAL_PRIVACY_URL = https:/$()/youbilliards.com/legal/cuephys-privacy/
 
 // WeChat（H-05 完成后填入）
 WECHAT_APP_ID = YOUR_WECHAT_APP_ID_HERE
