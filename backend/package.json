@@ -1,5 +1,5 @@
 {
-  "name": "qiuji-backend",
+  "name": "cuephys-backend",
   "version": "1.0.0",
   "description": "CuePhys REST API — 用户认证、训练数据同步、Drill 内容 OTA",
   "main": "server.js",
@@ -7,6 +7,7 @@
     "start": "node server.js",
     "dev": "NODE_ENV=development node --watch server.js",
     "test": "node --test test/*.test.js",
+    "preflight:production": "node scripts/preflight-production.js",
     "seed:drills": "node src/scripts/seedDrills.js"
   },
   "dependencies": {

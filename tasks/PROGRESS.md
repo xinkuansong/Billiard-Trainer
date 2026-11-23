@@ -204,6 +204,7 @@
 2026-11-23 官网法律页修复并发布：公司网站正式构建纳入 `CuePhys 隐私政策` 与 `CuePhys 用户协议`，新版本 `8a038cf9108f35306410f252efe0ae2518d26490` 已原子切换到 `/var/www/youbilliards/current`。公网验收：`/legal/cuephys-privacy/`、`/legal/cuephys-terms/`、`/legal/privacy/`、`/support/` 均返回 200，不存在路径返回 404；旧 release 保留可回滚。App Store 法律链接的网页可达性阻塞已解除，Apple/微信生产凭据和真机登录仍待完成。
 2026-11-23 App Release 配置收口：`Config/Secrets.xcconfig`、`Config/Debug.xcconfig` 和 `Config/Release.xcconfig` 已指向 `https://api.cuephys.com` 及官网两份 CuePhys 法律页；Debug 模拟器构建通过，产物 Info.plist 核到 `API_BASE_URL=https://api.cuephys.com`、Bundle ID `com.youbilliards.cuephys`、两份法律 URL 正确。微信仍保留占位 AppID/Universal Link，Apple/微信生产凭据未写入。
 2026-11-23 商品与生产配置核对：StoreKit 当前只请求并购买 `com.youbilliards.cuephys.premium.lifetime` 非消耗型商品，月付/年付只保留兼容读取枚举，不进入首发购买入口；新增 [StoreKit 商品核对表](launch-20261110/StoreKit-商品核对表-20261123.md)。`xcodebuild -showBuildSettings` 已核到 Release API、法律 URL、Bundle ID 与产品名；backend `npm test` 40/40 通过。正式商品后台、通知 URL、Apple/微信凭据、生产变量和真机购买仍待外部配置。
+2026-11-23 生产配置预检门禁：新增 `backend/src/config/productionPreflight.js` 与 `backend/scripts/preflight-production.js`，检查生产 NODE_ENV、JWT/Mongo、CuePhys Bundle ID、Apple Team/Key/.p8/加密密钥和微信 AppID/Secret，只输出状态不输出密钥；本地 `npm run preflight:production` 按预期因缺生产凭据失败，backend `npm test` 42/42 通过。凭据写入服务器后须先通过该门禁再重启服务。
 
 每日入口球动画（10-21）：回程2→5.2秒，与散开等速倒放，总循环15.2秒；生产模型隔离编译、2项XCTest通过，未做新版iOS录屏/真机体验。[记录](ui-reviews/UR-20261019-daily-clearance-icon.md)。
 

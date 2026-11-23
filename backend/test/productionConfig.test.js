@@ -5,6 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { randomBytes } = require("node:crypto");
 const test = require("node:test");
+const { productionPreflight } = require("../src/config/productionPreflight");
 
 test("server refuses invalid signing keys before connecting or listening", t => {
   const cwd = mkdtempSync(path.join(os.tmpdir(), "cuephys-startup-"));
@@ -48,4 +49,36 @@ test("production accepts independent keys and signs and verifies both token type
       JWT_REFRESH_SECRET: randomBytes(32).toString("hex") },
   });
   assert.equal(result.status, 0);
+});
+
+test("production preflight reports missing Apple and WeChat credentials without exposing values", () => {
+  const result = productionPreflight({
+    NODE_ENV: "production",
+    JWT_SECRET: randomBytes(32).toString("hex"),
+    JWT_REFRESH_SECRET: randomBytes(32).toString("hex"),
+    MONGODB_URI: "mongodb://fixture",
+    APPLE_BUNDLE_ID: "com.youbilliards.cuephys",
+  }, { statSync: () => { throw new Error("missing"); } });
+  assert.equal(result.ok, false);
+  assert.ok(result.blockers.some(message => message.includes("APPLE_TEAM_ID")));
+  assert.ok(result.blockers.some(message => message.includes("WECHAT_APP_ID")));
+  assert.doesNotMatch(JSON.stringify(result), /fixture|secret-value|private-key/);
+});
+
+test("production preflight passes only with complete, locked-down credentials", () => {
+  const result = productionPreflight({
+    NODE_ENV: "production",
+    JWT_SECRET: randomBytes(32).toString("hex"),
+    JWT_REFRESH_SECRET: randomBytes(32).toString("hex"),
+    MONGODB_URI: "mongodb://fixture",
+    APPLE_BUNDLE_ID: "com.youbilliards.cuephys",
+    APPLE_TEAM_ID: "KWH2GRNSKG",
+    APPLE_KEY_ID: "ABC1234XYZ",
+    APPLE_SIGNIN_KEY_PATH: "/run/secrets/AuthKey.p8",
+    APPLE_TOKEN_ENCRYPTION_KEY: randomBytes(32).toString("hex"),
+    WECHAT_APP_ID: "wx-fixture",
+    WECHAT_APP_SECRET: "wechat-fixture-secret",
+  }, { statSync: () => ({ isFile: () => true, mode: 0o100600 }) });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.blockers, []);
 });

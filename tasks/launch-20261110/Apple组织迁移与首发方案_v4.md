@@ -1,6 +1,6 @@
 # CuePhys Apple 组织迁移与首发方案
 
-> 本文件是本轮 Apple 事项的需求真源。版本 v4.10，2026-11-23（北京时间）建立。它在 v4.9 的基础上补充正式商品的代码契约核对、API HTTPS 配置收口和后端回归证据。外部后台状态以实际页面和回执为准，代码状态以本文件列出的仓库锚点为准。当前已完成代码侧 CuePhys 改名、本地验证、API HTTPS 和官网法律页；服务端生产凭据、正式商品后台核对、正式签名、提交审核和发布仍未完成。
+> 本文件是本轮 Apple 事项的需求真源。版本 v4.11，2026-11-23（北京时间）建立。它在 v4.10 的基础上补充后端生产配置预检门禁和缺凭据时的失败闭环。外部后台状态以实际页面和回执为准，代码状态以本文件列出的仓库锚点为准。当前已完成代码侧 CuePhys 改名、本地验证、API HTTPS、官网法律页和预检工具；服务端生产凭据、正式商品后台核对、正式签名、提交审核和发布仍未完成。
 
 ## 一、当前已确认
 
@@ -14,7 +14,7 @@
 | 既有技术标识 | 将按新旧映射分批切换，持久化和购买兼容键在迁移窗口保留 | 主 Bundle ID、Swift 模块、StoreKit 新商品 ID、测试宿主、后端配置和当前构建入口统一改为 CuePhys。SwiftData schema 名称、旧商品 ID、旧账号令牌命名空间和历史数据库名作为兼容读取或回滚锚点保留，不做无证据的删除。 |
 | Apple 登录客户端 | Apple 授权请求、回调、绑定和注销链路已实现，正式请求要求安全 API 地址 | `CuePhys/Data/Services/AuthService.swift:45-155`，`QiuJi/Core/Extensions/AppConfig.swift:4-39`。 |
 | Apple 登录服务端 | 使用 Bundle ID 校验 `aud`，授权码换取 Apple refresh token，并加密保存后支持撤销 | `backend/src/config/index.js:26-45`，`backend/src/services/appleGrant.js:9-62`，`backend/src/routes/auth.js:17-139`。 |
-| 生产配置 | Release 已指向 `https://api.cuephys.com`，法律页已指向官网 CuePhys 页面；服务器尚未写入 Apple/微信生产凭据，不能进行正式登录联调 | `Config/Secrets.xcconfig`、`Config/Release.xcconfig`、`CuePhys/Core/Extensions/AppConfig.swift`；`https://api.cuephys.com/health` 公网返回 200。 |
+| 生产配置 | Release 已指向 `https://api.cuephys.com`，法律页已指向官网 CuePhys 页面；服务器尚未写入 Apple/微信生产凭据，不能进行正式登录联调 | `Config/Secrets.xcconfig`、`Config/Release.xcconfig`、`CuePhys/Core/Extensions/AppConfig.swift`；`https://api.cuephys.com/health` 公网返回 200。部署前运行 `cd backend && npm run preflight:production`，缺凭据时必须失败且不得输出密钥。 |
 | 中国大陆商店合规 | App Store Connect 页面提示需要安全评估证明和 AIGC 服务声明 | 11/23 App Store Connect 页面提示。按实际功能和主管部门要求填，不凭猜测选择不适用。 |
 | 网站 | `https://youbilliards.com/` 已上线，网站服务备案号为 `苏ICP备2026091631号-1` | 网站备案不能替代 App 备案。App 备案仍单独跟踪。 |
 | 微信 | 企业认证已付款，移动应用正式 AppID、Universal Links 和回调实测仍未闭合 | `Config/Debug.xcconfig:14-16` 仍是占位。 |
@@ -278,6 +278,7 @@ A0 身份与命名冻结
 | v4.8 | 2026-11-23 | 复核 `api.cuephys.com` 仍无 DNS、现网仅有 HTTP 3000 健康入口；准备 [API 域名切换手册](api-cuephys-cutover-runbook.md) 和候选 Nginx 配置。收口当前编译代码中的旧日志 subsystem，并将 `backend/.env.example` 的 Apple Bundle ID 改为 `com.youbilliards.cuephys`；历史数据库、商品兼容标识和部署目录按迁移边界保留。 |
 | v4.9 | 2026-11-23 | 完成 `api.cuephys.com` DNS、Let’s Encrypt 证书、Nginx 反代和 HTTPS 健康检查；官网正式构建纳入 CuePhys 隐私政策与用户协议并完成公网验收（200），旧官网 release 保留回滚。生产 Apple/微信凭据、正式商品和真机登录仍未完成。 |
 | v4.10 | 2026-11-23 | 核对 StoreKit 代码契约：首发只请求并购买 CuePhys 永久非消耗型商品，月付/年付不进入首发，旧商品 ID 仅兼容读取；新增商品核对表。确认 Release/API/法律 URL 已收口，backend `npm test` 40/40 通过；生产商品后台、Apple/微信凭据、生产变量和真机登录仍待外部配置。 |
+| v4.11 | 2026-11-23 | 新增 `backend npm run preflight:production` 生产配置预检：校验 Bundle ID、JWT、Mongo、Apple Team/Key/.p8/加密密钥和微信 AppID/Secret，只输出脱敏状态；本地预检按预期因生产凭据缺失失败，backend 测试 42/42 通过。 |
 
 ## 十三、本轮执行记录（2026-11-23）
 
@@ -292,4 +293,5 @@ A0 身份与命名冻结
 - **最新执行**：`api.cuephys.com` 已解析到 `106.54.3.210`；证书、Nginx 反代和 `https://api.cuephys.com/health` 已验证。官网版本 `8a038cf9108f35306410f252efe0ae2518d26490` 已原子切换，CuePhys 隐私政策和用户协议公网返回 200，旧 release 保留。下一阻塞收敛为 Apple/微信生产凭据、正式商品、生产环境变量和真机登录回归。
 - **本轮验证**：`backend npm test` 40/40 通过；CuePhys Debug 模拟器构建 `** BUILD SUCCEEDED **`；模型、袋口和题库校验通过；`git diff --check` 与 `make -f scripts/Makefile verify-doc-size` 通过。构建日志仍有既有 Swift 6 actor 隔离警告，但没有新增错误；未把警告写成阻塞或通过条件。
 - **商品与配置核对**：`StoreKitService.loadProducts()` 和 `purchase()` 当前只请求/接受 `com.youbilliards.cuephys.premium.lifetime`；月付、年付只保留权益读取兼容枚举，未进入首发 UI。`xcodebuild -showBuildSettings` 已核到 Release API、法律 URL、Bundle ID 和产品名；Release 归档本轮未重复执行，生产商品后台、通知 URL、Apple/微信凭据和真机购买仍待外部配置。[商品核对表](StoreKit-商品核对表-20261123.md)
+- **生产预检门禁**：新增 `backend/src/config/productionPreflight.js` 和 `backend/scripts/preflight-production.js`；本地 `npm run preflight:production` 明确报告缺少生产变量，未输出任何密钥内容。正式服务器写入凭据后，必须先通过该门禁再重启服务。[商品核对表](StoreKit-商品核对表-20261123.md)
 
