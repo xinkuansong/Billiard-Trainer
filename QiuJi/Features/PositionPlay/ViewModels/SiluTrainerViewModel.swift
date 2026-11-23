@@ -199,6 +199,7 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         }
     }
     @Published private(set) var isComputing = false
+    @Published private(set) var isAimTableDragging = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
     @Published private(set) var statusText = "拖球摆位 · 在桌面上选目标球、袋口及约束"
@@ -260,6 +261,10 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
     private var draftBeforeDrag: Draft?
     private let adjustmentScheduler = LatestPredictionScheduler<ShotPrediction?>()
     @Published private(set) var isAdjustingSolution = false
+
+    func setAimTableDragging(_ active: Bool) {
+        isAimTableDragging = active
+    }
     private var adjustmentIsValid = true
     private var solveGeneration = 0 {
         didSet { automaticSolveTask?.cancel(); automaticSolveTask = nil; solveWork?.cancel(); solveWork = nil; adjustmentScheduler.invalidate(); isAdjustingSolution = false }

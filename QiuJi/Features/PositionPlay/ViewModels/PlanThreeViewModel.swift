@@ -414,6 +414,7 @@ final class PlanThreeViewModel: TeachingTableHost, BoardMemoryHosting {
         }
     }
     @Published private(set) var isComputing = false
+    @Published private(set) var isAimTableDragging = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
     @Published private(set) var statusText = "从球库选择当前球，再选择袋口"
@@ -466,6 +467,10 @@ final class PlanThreeViewModel: TeachingTableHost, BoardMemoryHosting {
     private var isDrawingConstraint = false
     private let adjustmentScheduler = LatestPredictionScheduler<ShotPrediction?>()
     @Published private(set) var isAdjustingSolution = false
+
+    func setAimTableDragging(_ active: Bool) {
+        isAimTableDragging = active
+    }
     private var adjustmentIsValid = true
     var solveGeneration = 0 {
         didSet { automaticSolveTask?.cancel(); automaticSolveTask = nil; solveWork?.cancel(); solveWork = nil; adjustmentScheduler.invalidate(); isAdjustingSolution = false }

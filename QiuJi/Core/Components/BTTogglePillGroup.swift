@@ -7,9 +7,9 @@ struct BTSelectionIndicator: View {
     var unselectedColor: Color = .btTextSecondary
 
     var body: some View {
-        Image(systemName: isSelected ? "checkmark" : "square")
+        Image(systemName: isSelected ? BTIcon.checkmarkSquare : BTIcon.square)
             .foregroundStyle(isSelected ? selectedColor : unselectedColor)
-            .frame(width: 20)
+            .frame(width: 20, height: 20)
             .accessibilityHidden(true)
     }
 }

@@ -62,6 +62,58 @@ final class P01CameraMotionTests: XCTestCase {
         XCTAssertEqual(c.pose, standard)
     }
 
+    func testFirstPersonPinchMovesAlongShaftKeepsLensAndReverses() throws {
+        var c = try XCTUnwrap(P01CameraMotion(shot: shot(yaw: 0.7, side: 0.019), layout: layout,
+                                              anchoredTransitions: true))
+        XCTAssertTrue(c.select(.firstPerson, animated: false))
+        let initial = c.pose
+        let initialFOV = initial.verticalFOV
+        c.pinch(1.4)
+        let advanced = c.pose
+        XCTAssertGreaterThan(simd_dot(advanced.eye - initial.eye, initial.forward), 0.01)
+        XCTAssertEqual(advanced.verticalFOV, initialFOV, accuracy: 0.00001)
+        XCTAssertEqual(advanced.pitch, initial.pitch, accuracy: 0.00001)
+        c.pinch(1 / 1.4)
+        XCTAssertLessThan(simd_distance(c.pose.eye, initial.eye), 0.00001)
+        XCTAssertEqual(c.state.firstPersonDolly ?? 0, 0, accuracy: 0.00001)
+
+        c.pinch(1.4)
+        XCTAssertTrue(c.select(.firstPerson, animated: false, shot: c.shot))
+        XCTAssertLessThan(simd_distance(c.pose.eye, initial.eye), 0.00001)
+        c.pinch(1.4)
+        XCTAssertTrue(c.select(.thirdPerson, animated: false))
+        XCTAssertTrue(c.select(.firstPerson, animated: false, shot: c.shot))
+        XCTAssertLessThan(simd_distance(c.pose.eye, initial.eye), 0.00001)
+    }
+
+    func testFirstPersonPinchStopsAtGeometryBoundsAndCanReverse() throws {
+        var c = try XCTUnwrap(P01CameraMotion(shot: shot(x: 1.2, z: 0.57, yaw: 1.3), layout: layout,
+                                              anchoredTransitions: true))
+        XCTAssertTrue(c.select(.firstPerson, animated: false))
+        let initialFOV = c.pose.verticalFOV
+        for _ in 0..<40 { c.pinch(20) }
+        let forwardStop = c.pose
+        XCTAssertTrue(layout.legalEye(forwardStop.eye))
+        XCTAssertEqual(forwardStop.verticalFOV, initialFOV, accuracy: 0.00001)
+        for _ in 0..<40 { c.pinch(0.05) }
+        let backwardStop = c.pose
+        XCTAssertTrue(layout.legalEye(backwardStop.eye))
+        XCTAssertEqual(backwardStop.verticalFOV, initialFOV, accuracy: 0.00001)
+        XCTAssertGreaterThan(simd_distance(forwardStop.eye, backwardStop.eye), 0.1)
+    }
+
+    func testLegacyStateWithoutFirstPersonDollyUsesDefaultEye() throws {
+        var current = P01CameraMotion.State()
+        current.firstPersonDolly = 0.4
+        let encoded = try JSONEncoder().encode(current)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object.removeValue(forKey: "firstPersonDolly")
+        let legacy = try JSONSerialization.data(withJSONObject: object)
+        let decoded = try JSONDecoder().decode(P01CameraMotion.State.self, from: legacy)
+        XCTAssertNil(decoded.firstPersonDolly)
+        XCTAssertEqual(decoded.shaftSetback(for: shot()), 0.90, accuracy: 0.00001)
+    }
+
     func testThirdPersonZoomClipsAtReadableBoundsWithoutTilting() throws {
         var compact = layout
         compact.viewport = .init(667, 375)

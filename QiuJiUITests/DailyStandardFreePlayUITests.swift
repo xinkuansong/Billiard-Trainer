@@ -471,8 +471,8 @@ final class TablePreferencesUITests: XCTestCase {
         let unselected = options.allElementsBoundByIndex.first { $0.value as? String == "未选择" }!
         unselected.tap()
         XCTAssertEqual(unselected.value as? String, "已选择")
-        XCTAssertTrue(unselected.images["checkmark"].waitForExistence(timeout: 5),
-                      "The selected row must render its checkmark, not only update its accessibility value")
+        XCTAssertTrue(unselected.images["checkmark.square"].waitForExistence(timeout: 5),
+                      "The selected row must render its boxed checkmark, not only update its accessibility value")
         try capture("room-style-choices")
     }
 

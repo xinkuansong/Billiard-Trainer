@@ -73,7 +73,11 @@ struct SceneAimingView: View {
     var body: some View {
         ZStack {
             if !showingTable { settingsContent }
-            else { quizTable.modifier(TableEntryRenderObserver(rendered: $entryRendered, enabled: usesPhone2DEntry)).background { if usesPhone2DEntry { Color.black.ignoresSafeArea() } } }
+            else {
+                quizTable
+                    .modifier(TableEntryRenderObserver(rendered: $entryRendered, enabled: usesPhone2DEntry))
+                    .background(Color.black.ignoresSafeArea())
+            }
         }
         .alert("出题未完成", isPresented: Binding(get: { vm.generationError != nil }, set: { if !$0 { vm.generationError = nil } })) {
             Button("重新生成") { vm.nextQuestion() }
@@ -270,6 +274,9 @@ struct SceneAimingView: View {
                     onBack: { showMenu = false }, onClose: { showMenu = false }, grouping: .tableRoot)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, DailyLayoutMetrics.Panels.top).padding(.trailing, side + windowControls.right)
+            }
+            if usesPhone2DEntry && portrait {
+                Color.black.ignoresSafeArea().allowsHitTesting(false)
             }
         }
         .frame(width: size.width, height: size.height)

@@ -8,7 +8,12 @@ final class PocketToleranceUITests: XCTestCase {
     private func ready(_ e: XCUIElement) { XCTAssertTrue(e.waitForExistence(timeout:60)) }
     private func waitProbe(_ text: String) {
         let e = element("pocketTolerance.probe")
-        XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate(format:"value CONTAINS %@",text),object:e)],timeout:30),.completed)
+        let compact = text
+            .replacingOccurrences(of: "target=", with: "t=")
+            .replacingOccurrences(of: "pocket=", with: "p=")
+            .replacingOccurrences(of: "count=", with: "c=")
+            .replacingOccurrences(of: "edges=", with: "e=")
+        XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate(format:"value CONTAINS %@",compact),object:e)],timeout:30),.completed)
     }
     private func waitCamera(overview: Bool = false) throws {
         let diagnostic = element("v63.cameraDiagnostics")
@@ -33,11 +38,14 @@ final class PocketToleranceUITests: XCTestCase {
     }
     private func open() {
         XCUIDevice.shared.orientation = .landscapeLeft
-        app = XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-3dDrag.probe","-pocketTolerance.probe","-v63.cameraDiagnostics","-freeLayout.ephemeral"])
-        app.switchTab(.angle); app.buttons["angleHomeTab_基础"].tap()
-        let card = app.buttons["进球容错角"]
-        for _ in 0..<7 { if card.isHittable { break }; app.swipeUp() }
-        ready(card); card.tap(); ready(app.buttons["pocketTolerance.more"])
+        // The page already has a production deep-link used by menu tests. Use it
+        // here so a transient tab-bar AX snapshot cannot hide the SceneKit page
+        // that this test is meant to inspect.
+        app = XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-3dDrag.probe","-pocketTolerance.probe","-v63.cameraDiagnostics","-freeLayout.ephemeral","-dailyInteraction.sharedPage=pocketTolerance"])
+        ready(app.buttons["pocketTolerance.more"])
+        app.buttons["pocketTolerance.more"].tap()
+        let reset = app.buttons["pocketTolerance.reset"]
+        ready(reset); reset.tap(); ready(app.buttons["pocketTolerance.more"])
         XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
             let window = self.app.windows.firstMatch.frame
             return window.width > window.height && self.app.buttons["pocketTolerance.more"].isHittable
@@ -101,6 +109,42 @@ final class PocketToleranceUITests: XCTestCase {
         targetCamera.tap(); try waitCamera(); capture("pocket-3D-selected-target")
         view("2D"); waitProbe("target=_1 pocket=2 count=2 edges=2")
     }
+
+    func testNearRailReferencePipeUsesZeroToleranceVisual() throws {
+        open(); view("2D")
+        waitProbe("target=_3 pocket=-1 count=1 edges=0")
+        let table = element("table.scene")
+        let start = table.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5))
+        let nearLowerRail = table.coordinate(withNormalizedOffset: .init(dx: 0.36, dy: 0.94))
+        start.press(forDuration: 0.15, thenDragTo: nearLowerRail,
+            withVelocity: XCUIGestureVelocity(rawValue: 150), thenHoldForDuration: 0.2)
+        waitProbe("target=_3 pocket=-1 count=1 edges=0")
+        try tapPocket(2)
+        waitProbe("pocket=2")
+        waitProbe("e=2 m=1 d=2")
+        XCTAssertEqual(element("pocketTolerance.angle").value as? String, "0°")
+        XCTAssertFalse(element("pocketTolerance.status").exists)
+        capture("pocket-near-rail-zero-tolerance")
+    }
+
+    func testIntermediateRailPositionKeepsMeasuredToleranceAngle() throws {
+        open(); view("2D")
+        waitProbe("target=_3 pocket=-1 count=1 edges=0")
+        let table = element("table.scene")
+        let start = table.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5))
+        let intermediate = table.coordinate(withNormalizedOffset: .init(dx: 0.66, dy: 0.57))
+        start.press(forDuration: 0.15, thenDragTo: intermediate,
+            withVelocity: XCUIGestureVelocity(rawValue: 150), thenHoldForDuration: 0.2)
+        waitProbe("target=_3 pocket=-1 count=1 edges=0")
+        try tapPocket(2)
+        waitProbe("e=2 m=1 d=2")
+        let angle = try XCTUnwrap(element("pocketTolerance.angle").value as? String)
+        XCTAssertNotEqual(angle, "0°")
+        XCTAssertNotEqual(angle, "—")
+        XCTAssertFalse(element("pocketTolerance.status").exists)
+        capture("pocket-intermediate-measured-angle")
+    }
+
     func testRemovalBackgroundAndReentry() throws {
         open(); view("2D");try tapPocket(4);waitProbe("edges=2")
         let before = element("pocketTolerance.probe").value as? String

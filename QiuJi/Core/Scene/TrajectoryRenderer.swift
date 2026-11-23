@@ -58,24 +58,27 @@ enum TrajectoryRenderer {
         detailOverride: TrajectoryDetail? = nil
     ) {
         let detail = detailOverride ?? scene.effectiveTrajectoryDetail
-        scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail, into: &nodes)
-
-        if options.includeObjectPath, detail != .minimal {
-            var objPath = p.objectPath
-            if options.extendToPocketRim, p.objectPocketed,
-               let pocket = context.pocket,
-               let pocketIndex = ShotIntent.pocketIndex(for: pocket) {
-                objPath = PositionPlayShotSolver.extendPathToPocketRim(
-                    objPath, pocketIndex: pocketIndex, surfaceY: context.surfaceY
-                )
+        if detail == .core {
+            drawPostContactPair(p, options: options, context: context, scene: scene, into: &nodes)
+        } else {
+            scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail, into: &nodes)
+            if options.includeObjectPath, detail != .minimal {
+                var objPath = p.objectPath
+                if options.extendToPocketRim, p.objectPocketed,
+                   let pocket = context.pocket,
+                   let pocketIndex = ShotIntent.pocketIndex(for: pocket) {
+                    objPath = PositionPlayShotSolver.extendPathToPocketRim(
+                        objPath, pocketIndex: pocketIndex, surfaceY: context.surfaceY
+                    )
+                }
+                scene.addObjectTrajectory(objPath, ballKey: context.targetKey, into: &nodes)
             }
-            scene.addObjectTrajectory(objPath, ballKey: context.targetKey, into: &nodes)
-        }
 
-        appendExtraBallPaths(
-            p.extraBallPaths, detail: detail, mode: options.extraBallMode,
-            targetKey: context.targetKey, scene: scene, into: &nodes
-        )
+            appendExtraBallPaths(
+                p.extraBallPaths, detail: detail, mode: options.extraBallMode,
+                targetKey: context.targetKey, scene: scene, into: &nodes
+            )
+        }
 
         placeGhost(
             prediction: p, options: options, context: context, scene: scene
@@ -83,6 +86,36 @@ enum TrajectoryRenderer {
 
         if options.includesSeparationLine && (scene.tablePreferences?.enabled(.separation) ?? UserPreferences.shared.showSeparationAngle) {
             scene.addSeparationAngleLine(for: p, into: &nodes)
+        }
+    }
+
+    /// Free aim names every ball by its board key. Pocket shots store the designated
+    /// target under "object", even when the cue actually hits a different ball first.
+    static func drawPostContactPair(
+        _ prediction: ShotPrediction, options: Options, context: Context,
+        scene: AngleTrainingScene, into nodes: inout [SCNNode]
+    ) {
+        guard let impact = prediction.firstContact else { return }
+        let cue = ShotInput.cueBallName
+        let hit = prediction.events.lazy.compactMap { event -> String? in
+            guard case let .ballBall(a, b) = event.kind else { return nil }
+            if a == cue { return b }
+            return b == cue ? a : nil
+        }.first
+        guard let hit else { return }
+        scene.addCueTrajectory(prediction.cuePath, contact: impact, detail: .core, into: &nodes)
+        if hit == ShotInput.targetBallName, !prediction.objectPath.isEmpty {
+            var path = prediction.objectPath
+            if options.extendToPocketRim, prediction.objectPocketed,
+               let pocket = context.pocket,
+               let pocketIndex = ShotIntent.pocketIndex(for: pocket) {
+                path = PositionPlayShotSolver.extendPathToPocketRim(
+                    path, pocketIndex: pocketIndex, surfaceY: context.surfaceY
+                )
+            }
+            scene.addObjectTrajectory(path, ballKey: context.targetKey, into: &nodes)
+        } else if let path = prediction.extraBallPaths[hit] {
+            scene.addObjectTrajectory(path, ballKey: hit, into: &nodes)
         }
     }
 

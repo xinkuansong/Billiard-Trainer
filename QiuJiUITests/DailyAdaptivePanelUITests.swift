@@ -2715,8 +2715,27 @@ final class CameraV67PilotUITests: XCTestCase {
             XCTAssertEqual(fp["policy"] as? String,"p01Replayable")
             table.pinch(withScale:1.1,velocity:1)
             let fpPinch=try capture(app,"v67-rail-\(index)-first-pinch")
-            XCTAssertEqual(fp["eye"] as? [Double],fpPinch["eye"] as? [Double])
+            let fpEye = try XCTUnwrap(fp["eye"] as? [Double])
+            let fpPinchEye = try XCTUnwrap(fpPinch["eye"] as? [Double])
+            let fpTravel = zip(fpEye, fpPinchEye).map { $0 - $1 }.map { $0 * $0 }.reduce(0, +).squareRoot()
+            XCTAssertGreaterThan(fpTravel, 0.0001, "First-person pinch must move the eye along the shaft")
             XCTAssertEqual(fp["fov"] as? Double,fpPinch["fov"] as? Double)
+            let beforeRotation = try XCTUnwrap(fp["orientationXYZW"] as? [Double])
+            let afterRotation = try XCTUnwrap(fpPinch["orientationXYZW"] as? [Double])
+            XCTAssertEqual(beforeRotation.count, 4)
+            XCTAssertEqual(afterRotation.count, 4)
+            for (before, after) in zip(beforeRotation, afterRotation) {
+                XCTAssertEqual(before, after, accuracy: 0.00001)
+            }
+            app.buttons["shotCamera.firstPerson"].tap()
+            let fpReset=try capture(app,"v67-rail-\(index)-first-reset")
+            XCTAssertEqual(fp["eye"] as? [Double],fpReset["eye"] as? [Double],
+                           "Tapping first-person again must restore its default eye")
+            app.buttons["shotCamera.thirdPerson"].tap();settle(app)
+            app.buttons["shotCamera.firstPerson"].tap();settle(app)
+            let fpRoundTrip=try capture(app,"v67-rail-\(index)-third-first-reset")
+            XCTAssertEqual(fp["eye"] as? [Double],fpRoundTrip["eye"] as? [Double],
+                           "Third-person to first-person must enter the default first-person eye")
             let wheel=node(app,"shotStage.aimWheel"),p=node(app,"shotStage.aimWheel").coordinate(withNormalizedOffset:.init(dx:0.5,dy:0.5))
             XCTAssertTrue(wheel.isEnabled)
             p.press(forDuration:0.1,thenDragTo:p.withOffset(.init(dx:0,dy:-20)),withVelocity:.slow,thenHoldForDuration:0.1)
@@ -2758,6 +2777,48 @@ final class CameraV67PilotUITests: XCTestCase {
             }
         }
     }
+
+    func testFirstPersonZoomKeepsPitchAndReentersDefault() throws {
+        let app = try launchFormal()
+        defer { app.terminate() }
+
+        func cameraSnapshot() throws -> [String: Any] {
+            settle(app)
+            let raw = try XCTUnwrap(node(app, "v63.cameraDiagnostics").value as? String)
+            let encoded = try XCTUnwrap(raw.split(separator: " ").first { $0.hasPrefix("v67Baseline=") })
+            let data = try XCTUnwrap(Data(base64Encoded: String(encoded.dropFirst("v67Baseline=".count))))
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+
+        app.buttons["shotCamera.firstPerson"].tap()
+        let initial = try cameraSnapshot()
+        let table = node(app, "table.scene")
+        table.pinch(withScale: 1.1, velocity: 1)
+        let zoomed = try cameraSnapshot()
+        let initialEye = try XCTUnwrap(initial["eye"] as? [Double])
+        let zoomedEye = try XCTUnwrap(zoomed["eye"] as? [Double])
+        XCTAssertNotEqual(initialEye, zoomedEye)
+        let initialOrientation = try XCTUnwrap(initial["orientationXYZW"] as? [Double])
+        let zoomedOrientation = try XCTUnwrap(zoomed["orientationXYZW"] as? [Double])
+        XCTAssertEqual(initialOrientation.count, 4)
+        XCTAssertEqual(zoomedOrientation.count, 4)
+        for (before, after) in zip(initialOrientation, zoomedOrientation) {
+            XCTAssertEqual(before, after, accuracy: 0.00001)
+        }
+
+        app.buttons["shotCamera.firstPerson"].tap()
+        let reset = try cameraSnapshot()
+        XCTAssertEqual(initialEye, try XCTUnwrap(reset["eye"] as? [Double]))
+
+        table.pinch(withScale: 1.1, velocity: 1)
+        _ = try cameraSnapshot()
+        app.buttons["shotCamera.thirdPerson"].tap()
+        settle(app)
+        app.buttons["shotCamera.firstPerson"].tap()
+        let roundTrip = try cameraSnapshot()
+        XCTAssertEqual(initialEye, try XCTUnwrap(roundTrip["eye"] as? [Double]))
+    }
+
     func testFormalShotRetryPlaybackAndBackground() throws {
         let app=try launchFormal();defer { app.terminate() }
         app.buttons["shotCamera.firstPerson"].tap()

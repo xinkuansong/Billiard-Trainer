@@ -11,7 +11,7 @@ struct SiluTrainerView: View {
     @AppStorage("silu.breakGameBallCount") private var breakGameBallCount = 15
     @State private var showsToolChoices = false
     @ScaledMetric(relativeTo: .body) private var toolChoicesWidth = 112
-    private var busy: Bool { vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true }
+    private var busy: Bool { vm.isPlaying || vm.isComputing || vm.isAimTableDragging || vm.breakRunner?.isBusy == true }
     private var toolName: String {
         switch vm.activeTool { case .region: return "落区"; case .restPoint: return "落点"; case .passPoint: return "过点" }
     }
@@ -106,7 +106,7 @@ struct SiluTrainerView: View {
             allowsObservationWhileAnimating: true,
             paletteEnabled: !busy && !vm.isBreakMode,
             showsPlacementHint: vm.informationEvent.kind != .failure,
-            primaryTitle: vm.isBreakMode ? "开球" : (vm.isComputing ? "计算中" : "击球"),
+            primaryTitle: vm.isBreakMode ? "开球" : (vm.isComputing && !vm.isAimTableDragging ? "计算中" : "击球"),
             primaryEnabled: vm.isBreakMode ? !busy : vm.canStrike,
             onPrimary: {
                 if let runner = vm.breakRunner {
@@ -119,6 +119,7 @@ struct SiluTrainerView: View {
             boardMemoryImported: initialBoard != nil, onDisappear: { vm.stopForDismissal() },
             layoutEditingBlocked: showsToolChoices || vm.isDrawingConstraint,
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
+            onAimDragActiveChanged: { vm.setAimTableDragging($0) },
             resolveP01AimPan: {
                 guard !busy, !vm.temporaryTopDownActive, let runner = vm.breakRunner,
                       !runner.isBusy else { return nil }

@@ -5,7 +5,9 @@ import SceneKit
 final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
     let boardMemory = BoardMemory(page: "tolerance")
     let scene = AngleTrainingScene()
+    private let centerRoot = SCNNode()
     private let boundaryRoot = SCNNode()
+    private let standardPipeRoot = SCNNode()
     private var markers: [SCNNode] = []
     private var pocketsByBall: [String: Int] = [:]
     private var initialized = false
@@ -35,6 +37,8 @@ final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
     var draggableBalls: [SCNNode] { onTableKeys.compactMap { scene.allBallNodes[$0] } }
     var selectableBalls: [SCNNode] { draggableBalls }
     var boundaryCount: Int { boundaryRoot.childNodes.count }
+    var centerLineCount: Int { centerRoot.childNodes.count }
+    var standardPipeCount: Int { standardPipeRoot.childNodes.count }
 
     func setupScene() {
         guard !initialized else { return }
@@ -46,8 +50,12 @@ final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
         scene.setupVisualizationNodes()
         scene.hideAllBalls()
         scene.hideCueStick()
+        centerRoot.name = "pocketTolerance.center"
         boundaryRoot.name = "pocketTolerance.boundaries"
+        standardPipeRoot.name = "pocketTolerance.standardPipe"
+        scene.rootNode.addChildNode(centerRoot)
         scene.rootNode.addChildNode(boundaryRoot)
+        scene.rootNode.addChildNode(standardPipeRoot)
         markers = scene.addPocketMarkers()
         scene.showBall(key: "_3", scenePosition: SCNVector3(0, scene.surfaceY + AngleSceneCalculator.ballRadius, 0))
         onTableKeys = ["_3"]
@@ -168,7 +176,9 @@ final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
     private func scheduleCalculation() {
         generation += 1
         pending = nil
+        centerRoot.childNodes.forEach { $0.removeFromParentNode() }
         boundaryRoot.childNodes.forEach { $0.removeFromParentNode() }
+        standardPipeRoot.childNodes.forEach { $0.removeFromParentNode() }
         angleText = "—"; result = .unavailable
         guard let target = targetNode else { message = "从球库添加目标球"; return }
         guard selectedPocketIndex >= 0 else { message = "点击袋口选择目标"; return }
@@ -196,18 +206,61 @@ final class PocketToleranceViewModel: TeachingTableHost, BoardMemoryHosting {
         case .window(let window):
             angleText = PocketToleranceGeometry.displayDegrees(window.degrees)
             message = ""
-            for edge in window.edges {
-                let node = scene.addLine(from: SCNVector3(edge.startX, scene.surfaceY, edge.startZ),
-                    to: SCNVector3(edge.endX, scene.surfaceY, edge.endZ), color: .white,
-                    radius: 0.0007, placement: .table, layer: .aiming)
-                boundaryRoot.addChildNode(node)
-            }
+            drawPipe(window)
         case .noStraightWindow:
-            message = "暂无直线管道；袋角附近暂无法评估"
+            if drawReferencePipeIfAvailable() {
+                angleText = "0°"
+                message = ""
+            } else {
+                message = "暂无直线管道；袋角附近暂无法评估"
+            }
         case .unavailable:
-            message = "当前球位暂无法评估"
+            if drawReferencePipeIfAvailable() {
+                angleText = "0°"
+                message = ""
+            } else {
+                message = "当前球位暂无法评估"
+            }
         }
         topDownContentRevision &+= 1
+    }
+
+    private func drawPipe(_ window: PocketToleranceGeometry.Window) {
+        centerRoot.addChildNode(addVisibleLine(window.center, dashed: false,
+            color: UIColor.white.withAlphaComponent(0.55), radius: 0.0006))
+        for edge in window.edges {
+            boundaryRoot.addChildNode(addVisibleLine(edge, dashed: false, color: .white, radius: 0.0007))
+        }
+        for edge in window.standardEdges {
+            standardPipeRoot.addChildNode(addVisibleLine(edge, dashed: true,
+                color: UIColor.white.withAlphaComponent(0.8), radius: 0.00055))
+        }
+    }
+
+    @discardableResult
+    private func drawReferencePipeIfAvailable() -> Bool {
+        guard let target = targetNode, selectedPocketIndex >= 0,
+              let window = PocketToleranceGeometry.referenceWindow(
+                x: target.position.x, z: target.position.z, pocket: selectedPocketIndex) else { return false }
+        drawPipe(window)
+        return true
+    }
+
+    /// Table assists use the same clipped cloth surface as the aiming pipe.
+    /// Keeping the line in table placement is important here. A spatial
+    /// fallback would draw the untrimmed extension over the cushion at a
+    /// corner-pocket entry.
+    private func addVisibleLine(_ edge: PocketToleranceGeometry.Edge, dashed: Bool,
+                                color: UIColor, radius: Float) -> SCNNode {
+        let start = SCNVector3(edge.startX, scene.surfaceY, edge.startZ)
+        let end = SCNVector3(edge.endX, scene.surfaceY, edge.endZ)
+        if dashed {
+            return scene.addDashedLine(from: start, to: end, color: color, radius: radius,
+                placement: .table, layer: .aiming)
+        } else {
+            return scene.addLine(from: start, to: end, color: color, radius: radius,
+                placement: .table, layer: .aiming)
+        }
     }
 }
 

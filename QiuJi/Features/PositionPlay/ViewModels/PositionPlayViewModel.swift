@@ -386,7 +386,9 @@ final class PositionPlayViewModel: ObservableObject {
     private var livePreviewLastStart: CFTimeInterval = 0
     private(set) var livePreviewShot: SolvedShot?
     /// A presentation budget, not a physics precision or simulation-time limit.
-    private static let livePreviewInterval: TimeInterval = 1.0 / 15.0
+    /// 24 Hz keeps continuous previews visually fluid while single-flight coalescing
+    /// still prevents a slow solve from creating a backlog.
+    private static let livePreviewInterval: TimeInterval = 1.0 / 24.0
     var automaticRecommendationEnabled = true
     var hasRuleDefinedTargets = false
     private var selectionSource: AimSelectionSource = .automatic
@@ -651,7 +653,8 @@ final class PositionPlayViewModel: ObservableObject {
     }
     /// Solver work can finish between gesture samples. Action controls stay busy
     /// for the whole adjustment, while the rulers and live previews remain active.
-    var isAdjustingShot: Bool { isPowerDragging || isAimWheelDragging }
+    @Published private(set) var isAimTableDragging = false
+    var isAdjustingShot: Bool { isPowerDragging || isAimWheelDragging || isAimTableDragging }
     var shotControlsBusy: Bool { isAdjustingShot || isComputing }
     var showsShotComputationStatus: Bool { isComputing && !isAdjustingShot }
 
@@ -1803,7 +1806,16 @@ final class PositionPlayViewModel: ObservableObject {
     func setAimTableDragging(_ active: Bool) {
         if active { scene.cancelPocketSelectionFeedback() }
         closeupGate.setDragging(active, source: .table)
-        if !active, p01AimSolvePending { recompute(debounceInterval: 0) }
+        isAimTableDragging = active
+        if !active {
+            if p01AimSolvePending {
+                recompute(debounceInterval: 0)
+            } else if livePreviewActive {
+                // The P01 camera and the physical preview run together. On release,
+                // request one more solve so the displayed route catches the last input.
+                recompute(continuousPreview: true)
+            }
+        }
     }
 
     /// v23 W2：瞄准轮毫米口径增益（°/pt）——杠杆臂 = 母球→首碰球（空杆取前方最近球）。
@@ -2240,9 +2252,10 @@ final class PositionPlayViewModel: ObservableObject {
     /// （丢弃中间态）。每日普通杆力度/方向走下方连续预览分支，其余保持去抖。一致性红线：`predictGeneration` 代际检查保留——任何最终上屏的解必对应最新一次
     /// intent。每日连续预览允许同盘面的稍早参数仅作变淡展示；可击球结果仍须完全匹配。
     ///
-    /// - Parameter interactive: G14 语义。`true` = 连续交互（拖瞄准线/拖球/刻度轮微调）——拖动过程中
-    ///   **不求解**，只保留纯几何预览（假想球/首碰点/瞄准线），停 0.5s（无新输入）后才触发求解；
-    ///   `false` = 离散变更（点选目标/袋口、参数微调），按 ~20ms 快速触发（原手感）。
+    /// - Parameter interactive: G14 语义。非连续预览宿主的 `true` = 连续交互（拖瞄准线/拖球/刻度轮微调）——
+    ///   拖动过程中只保留纯几何预览（假想球/首碰点/瞄准线），停 0.5s（无新输入）后才触发求解；
+    ///   每日连续预览在此之前分流为限频的完整物理求解。`false` = 离散变更（点选目标/袋口、参数微调），
+    ///   按 ~20ms 快速触发（原手感）。
     func recompute(interactive: Bool = false, debounceInterval: TimeInterval? = nil,
                    continuousPreview: Bool = false, adjustingAim: Bool = false) {
         if isFormationEditing {
@@ -2279,7 +2292,7 @@ final class PositionPlayViewModel: ObservableObject {
 
         let immediateAimGeometry = adjustingAim && aimMode == .free && cameraMode == .perspective3D
             && !isBreakMode && scene.cameraRig?.p01AnchoredTransitions == true
-        if continuousPreview, usesContinuousTrajectoryPreview, !isBreakMode, !immediateAimGeometry {
+        if continuousPreview, usesContinuousTrajectoryPreview, !isBreakMode {
             requestLiveTrajectoryPreview()
             return
         }
@@ -2403,6 +2416,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     func cancelInteractiveTrajectoryPreview() {
         isAimWheelDragging = false
+        isAimTableDragging = false
         invalidatePendingPredict()
     }
 

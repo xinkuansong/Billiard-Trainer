@@ -2213,6 +2213,11 @@ private extension FreePlayView {
                 }
             }
         }
+        .overlay {
+            if usesPhone2DEntry && dailyPortrait {
+                Color.black.ignoresSafeArea().allowsHitTesting(false)
+            }
+        }
         .coordinateSpace(name: "freeplay")
         .overlay {
             if let key = draggingKey {

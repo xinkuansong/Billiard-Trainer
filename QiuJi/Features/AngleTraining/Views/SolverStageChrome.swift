@@ -13,6 +13,7 @@ protocol SolverStageHosting: TeachingTableHost {
     var observationPocket: Int? { get }
     var mode: BankKickPageMode { get }
     var isSolving: Bool { get }
+    var isAimTableDragging: Bool { get }
     var isDragging: Bool { get }
     var isAdjustingSolution: Bool { get }
     var statusText: String { get }
@@ -248,7 +249,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             hides3DAssists: Binding(get: { hides3DAssists }, set: { tablePreferences.apply(.shows3DTrajectory, value: $0 ? 0 : 1, to: preferencePage) }),
             velocityRange: Double(CushionReflectionSettings.minPower)...Double(CushionReflectionSettings.maxPower),
             instrumentsEnabled: !vm.isPlaying && (!vm.isSolving || vm.isAdjustingSolution), showsSpinSlot: free || vm.solutionCount > 0,
-            isAnimating: vm.isPlaying || vm.isSolving, allowsObservationWhileAnimating: vm.isTeachingShotRolling,
+            isAnimating: vm.isPlaying || vm.isSolving || vm.isAimTableDragging, allowsObservationWhileAnimating: vm.isTeachingShotRolling,
             paletteEnabled: !vm.isPlaying,
             allowsPocketSelection: onPocketTapped != nil,
             primaryTitle: free ? (vm.isPlaying ? "击球中" : "击球") : vm.primaryActionTitle,
@@ -313,7 +314,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                     .overlay(alignment: .top) { cushionControl }
                     .overlay(alignment: .bottom) {
                         TeachingSolutionButton(count: vm.solutionCount, currentIndex: vm.currentIndex,
-                            enabled: !vm.isPlaying && !vm.isSolving && !vm.temporaryTopDownActive,
+                            enabled: !vm.isPlaying && !vm.isSolving && !vm.isAimTableDragging && !vm.temporaryTopDownActive,
                             next: { vm.nextSolution() })
                             .freeControlItem("planning.nextSolution", name: "下一解")
                             .frame(width: metrics.horizontalActions ? metrics.auxiliarySize * 2 + metrics.groupSpacing : metrics.columnWidth, alignment: metrics.horizontalActions ? .leading : .center)

@@ -206,6 +206,7 @@ final class DiamondSystemViewModel: ObservableObject, BoardMemoryHosting {
 
     /// 正在后台求解（供 UI 显示加载态）。
     @Published private(set) var isSolving = false
+    @Published private(set) var isAimTableDragging = false
     @Published private(set) var hasAttemptedSolve = false
 
     var canSolve: Bool {
@@ -214,7 +215,7 @@ final class DiamondSystemViewModel: ObservableObject, BoardMemoryHosting {
             && scene.cueBallNode?.isHidden == false && scene.targetBallNodes.first?.isHidden == false
     }
     var primaryActionTitle: String {
-        isPlaying ? "击球中" : isSolving ? "计算中" : "击球"
+        isPlaying ? "击球中" : (isSolving && !isAimTableDragging ? "计算中" : "击球")
     }
     func requestPrimaryAction() {
         if canStrike { strike() }
@@ -804,6 +805,7 @@ final class DiamondSystemViewModel: ObservableObject, BoardMemoryHosting {
 
     func setAimTableDragging(_ active: Bool) {
         closeupGate.setDragging(active, source: .table)
+        isAimTableDragging = active
     }
 
     /// v23 W3：与场景假想球/接触点同源的近区特写（层集 = 瞄准线 + 假想球 + 接触点）。
@@ -891,10 +893,21 @@ final class DiamondSystemViewModel: ObservableObject, BoardMemoryHosting {
         scene.clearResultNodes(nodes: &freePreviewNodes)
         guard !(cameraMode == .perspective3D && hides3DShotAssists) else { return }
         let detail = scene.effectiveTrajectoryDetail
-        scene.addCueTrajectory(prediction.cuePath, contact: prediction.firstContact, detail: detail, into: &freePreviewNodes)
-        if detail != .minimal {
-            for (key, path) in prediction.extraBallPaths {
-                scene.addObjectTrajectory(path, ballKey: key, into: &freePreviewNodes)
+        if detail == .core {
+            TrajectoryRenderer.drawPostContactPair(
+                prediction,
+                options: .positionPlay,
+                context: .init(prediction: prediction, targetKey: Self.freeTargetName,
+                               pocket: nil, surfaceY: scene.surfaceY),
+                scene: scene,
+                into: &freePreviewNodes
+            )
+        } else {
+            scene.addCueTrajectory(prediction.cuePath, contact: prediction.firstContact, detail: detail, into: &freePreviewNodes)
+            if detail == .full {
+                for (key, path) in prediction.extraBallPaths {
+                    scene.addObjectTrajectory(path, ballKey: key, into: &freePreviewNodes)
+                }
             }
         }
         freePreviewNodes.forEach { $0.opacity = current ? 1 : 0.45 }

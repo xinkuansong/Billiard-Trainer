@@ -1127,6 +1127,7 @@ final class TwoViewCamera {
         let defaultPose: Pose?
         let temporaryObserving: Bool
         let yaw, progress, headYaw: Float
+        let firstPersonDolly: Float
         let firstPersonBase: Pose?
         let context: UUID
         let entryContext: UUID?
@@ -1139,6 +1140,7 @@ final class TwoViewCamera {
         let pose: Pose
         let profile: RailProfile?
         let yaw, progress, headYaw: Float
+        let firstPersonDolly: Float
         let firstPersonBase: Pose?
         let context: UUID
     }
@@ -1162,6 +1164,8 @@ final class TwoViewCamera {
     private var targetProgress: Float = 1
     private var targetHeadYaw: Float = 0
     private var firstPersonBase: Pose?
+    private(set) var firstPersonDolly: Float = 0
+    private var firstPersonDollyHeld = false
     private var connector: (origin: Pose, elapsed: Float, duration: Float)?
     private var context = UUID()
     private var entryContext: UUID?
@@ -1279,6 +1283,15 @@ final class TwoViewCamera {
             requestRevision &+= 1
             return
         }
+        if mode == .firstPerson, firstPersonDollyHeld {
+            firstPersonDollyHeld = false
+            owner = .manual
+            observationReturn = nil; memoryDestination = nil; connector = nil
+            targetHeadYaw = headYaw
+            suspendedPose = true
+            requestRevision &+= 1
+            return
+        }
         returnToShotDefault(duration: duration)
     }
 
@@ -1359,12 +1372,60 @@ final class TwoViewCamera {
         mode = .firstPerson
         owner = .automatic
         firstPersonBase = base
+        firstPersonDolly = 0
+        firstPersonDollyHeld = false
         headYaw = 0
         targetHeadYaw = 0
         // Aim following requests an immediate pose. Creating even a short connector
         // would lock the host's direction control and cancel its active drag.
         connector = duration > 0 ? (pose, 0, max(0.1, duration)) : nil
         if duration <= 0 { pose = base }
+    }
+
+    /// Returns the first-person eye after moving along the current view direction.
+    /// Positive offsets move toward the table and preserve the frozen lens and gaze.
+    func firstPersonPose(for dolly: Float) -> Pose? {
+        guard mode == .firstPerson, let base = firstPersonBase,
+              dolly.isFinite else { return nil }
+        let eye = base.eye + base.forward * dolly
+        if headYaw == 0 { return Pose(eye: eye, orientation: base.orientation, fov: base.fov) }
+        let yaw = atan2(-base.forward.z, -base.forward.x) + headYaw
+        let pitch = asin(max(-1, min(1, base.forward.y)))
+        return .looking(eye: eye, yaw: yaw, pitch: pitch, fov: base.fov)
+    }
+
+    /// Rebase a first-person gesture at the visible pose when an entry transition
+    /// is still running. Stable dolly offsets remain relative to the original base.
+    @discardableResult
+    func prepareFirstPersonDolly() -> Bool {
+        guard mode == .firstPerson, firstPersonBase != nil else { return false }
+        if connector != nil {
+            firstPersonBase = pose
+            firstPersonDolly = 0
+            headYaw = 0
+            targetHeadYaw = 0
+            connector = nil
+        }
+        owner = .manual
+        suspendedPose = true
+        memoryDestination = nil
+        requestRevision &+= 1
+        return true
+    }
+
+    @discardableResult
+    func setFirstPersonDolly(_ value: Float) -> Bool {
+        guard mode == .firstPerson, value.isFinite,
+              let next = firstPersonPose(for: value) else { return false }
+        firstPersonDolly = value
+        pose = next
+        owner = .manual
+        suspendedPose = true
+        memoryDestination = nil
+        targetHeadYaw = headYaw
+        firstPersonDollyHeld = true
+        requestRevision &+= 1
+        return true
     }
 
     /// New shot observation is context-owned; the legacy table rail keeps its table-owned semantics.
@@ -1393,6 +1454,8 @@ final class TwoViewCamera {
         // A first-person destination authorized by the old shot cannot finish on the new shot.
         connector = nil
         memoryDestination = nil
+        firstPersonDolly = 0
+        firstPersonDollyHeld = false
         targetYaw = yaw
         targetProgress = progress
         targetHeadYaw = headYaw
@@ -1404,7 +1467,8 @@ final class TwoViewCamera {
         guard (mode == .thirdPerson
             ? profile != nil : entryContext == context && firstPersonBase != nil) else { return }
         let memory = ModeMemory(mode: mode, owner: owner, pose: pose, profile: profile,
-            yaw: yaw, progress: progress, headYaw: headYaw, firstPersonBase: firstPersonBase, context: context)
+            yaw: yaw, progress: progress, headYaw: headYaw, firstPersonDolly: firstPersonDolly,
+            firstPersonBase: firstPersonBase, context: context)
         if mode == .firstPerson { firstPersonMemory = memory } else { thirdPersonMemory = memory }
     }
 
@@ -1428,6 +1492,7 @@ final class TwoViewCamera {
         yaw = memory.yaw; targetYaw = yaw
         progress = memory.progress; targetProgress = progress
         headYaw = memory.headYaw; targetHeadYaw = headYaw
+        firstPersonDolly = memory.firstPersonDolly
         firstPersonBase = memory.firstPersonBase
         if let layout { profile = profile?.preservingLens(viewport: layout.viewport, insets: layout.insets) }
         suspendedPose = false
@@ -1474,6 +1539,7 @@ final class TwoViewCamera {
         guard delta.isFinite, delta != 0,
               mode == .firstPerson || profile != nil || shotProfile != nil else { return false }
         if shotProfile != nil && !beginTemporaryObservation() { return false }
+        if mode == .firstPerson { firstPersonDollyHeld = false }
         takeManualControl()
         // Shot-aware third person drags the visible scene: right drag moves a
         // forward reference right. Legacy table orbit retains its existing sign.
@@ -1502,6 +1568,10 @@ final class TwoViewCamera {
 
     @discardableResult
     func pinch(scale: Float) -> Bool {
+        if mode == .firstPerson, scale.isFinite, scale > 0, scale != 1 {
+            guard prepareFirstPersonDolly() else { return false }
+            return setFirstPersonDolly(firstPersonDolly + log(scale) * 0.45)
+        }
         if mode == .thirdPerson, let shot = simpleShot, scale.isFinite, scale > 0 {
             return vertical(delta: -log2(scale) * Float(shot.viewport.height) / 2)
         }
@@ -1609,10 +1679,8 @@ final class TwoViewCamera {
             railMotionLimited = false
             target = fitted
         }
-        else if let base = firstPersonBase {
-            let forward = base.forward
-            target = headYaw == 0 ? base : .looking(eye: base.eye, yaw: atan2(-forward.z, -forward.x) + headYaw,
-                              pitch: asin(max(-1, min(1, forward.y))), fov: base.fov)
+        else if let firstPerson = firstPersonPose(for: firstPersonDolly) {
+            target = firstPerson
         } else { return }
         if var connector {
             connector.elapsed = min(connector.duration, connector.elapsed + deltaTime)
@@ -1641,7 +1709,7 @@ final class TwoViewCamera {
         if let displayedSurface { visibleShot?.surface = displayedSurface }
         return Snapshot(mode: mode, owner: owner, pose: pose, profile: profile,
                  shotProfile: shotProfile, simpleShot: visibleShot, defaultPose: defaultPose, temporaryObserving: temporaryObserving, yaw: yaw,
-                 progress: progress, headYaw: headYaw, firstPersonBase: firstPersonBase,
+                 progress: progress, headYaw: headYaw, firstPersonDolly: firstPersonDolly, firstPersonBase: firstPersonBase,
                  context: context, entryContext: entryContext,
                  firstPersonMemory: firstPersonMemory, thirdPersonMemory: thirdPersonMemory)
     }
@@ -1667,6 +1735,8 @@ final class TwoViewCamera {
         targetProgress = progress
         headYaw = snapshot.headYaw
         targetHeadYaw = headYaw
+        firstPersonDolly = snapshot.firstPersonDolly
+        firstPersonDollyHeld = false
         firstPersonBase = snapshot.firstPersonBase
         entryContext = snapshot.entryContext
         firstPersonMemory = snapshot.context == context ? snapshot.firstPersonMemory : nil

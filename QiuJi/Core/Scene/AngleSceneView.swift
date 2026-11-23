@@ -427,6 +427,7 @@ struct AngleSceneView: UIViewRepresentable {
         private var temporaryTopDownImageReadableRect: CGRect?
         private var temporaryTopDownImageScale: CGFloat?
         private var temporaryTopDownImageActivation = -1
+        private var temporaryTopDownImageContentRevision = -1
         private var temporaryTopDownCaptureCount = 0
         private var temporaryTopDownCaptureMatrix: simd_float4x4?
         private var temporaryTopDownCaptureFOV: CGFloat = 0
@@ -457,6 +458,7 @@ struct AngleSceneView: UIViewRepresentable {
             temporaryTopDownImageBounds = nil
             temporaryTopDownImageReadableRect = nil
             temporaryTopDownImageScale = nil
+            temporaryTopDownImageContentRevision = -1
         }
 
         private func updateMergedOverlay(view: SCNView, rig: CameraRig, frame: CameraRig.TemporaryTopDownFrame) {
@@ -489,8 +491,11 @@ struct AngleSceneView: UIViewRepresentable {
             let standardScale = CameraRig.landscapeOrthographicScale(viewSize: stage.size,
                 halfLength: rotated ? rig.tableOuterHalfWidth : rig.tableOuterHalfLength,
                 halfWidth: rotated ? rig.tableOuterHalfLength : rig.tableOuterHalfWidth)
-            overlay.backgroundColor = .clear
-            overlay.isOpaque = false
+            // The temporary diagram is composited above the live perspective
+            // scene. An opaque matte prevents translucent assists, such as the
+            // aiming pipe, from revealing the live 3D table through the overlay.
+            overlay.backgroundColor = .black
+            overlay.isOpaque = true
             overlay.isUserInteractionEnabled = false
             overlay.isPlaying = false
             overlay.rendersContinuously = false
@@ -730,7 +735,8 @@ struct AngleSceneView: UIViewRepresentable {
                 || temporaryTopDownImageBounds != view.bounds
                 || temporaryTopDownImageReadableRect != frame.readableRect
                 || temporaryTopDownImageScale != scale
-                || temporaryTopDownImageActivation != rig.temporaryTopDownActivationCount else { return }
+                || temporaryTopDownImageActivation != rig.temporaryTopDownActivationCount
+                || temporaryTopDownImageContentRevision != topDownContentRevision else { return }
 
             if temporaryTopDownImageActivation != rig.temporaryTopDownActivationCount {
                 temporaryTopDownCaptureMatrix = scene.cameraNode?.presentation.simdWorldTransform
@@ -790,8 +796,11 @@ struct AngleSceneView: UIViewRepresentable {
             }
             let imageView = temporaryTopDownImageView ?? UIImageView()
             imageView.frame = view.bounds
-            imageView.backgroundColor = .clear
-            imageView.isOpaque = false
+            // Keep transparent pixels contained by the temporary 2D matte. If
+            // this image view stays transparent, the live 3D scene appears
+            // beneath semi-transparent pipe fills and reads as a ghost trail.
+            imageView.backgroundColor = .black
+            imageView.isOpaque = true
             imageView.contentMode = .scaleToFill
             imageView.isUserInteractionEnabled = false
             imageView.isAccessibilityElement = true
@@ -804,6 +813,7 @@ struct AngleSceneView: UIViewRepresentable {
             temporaryTopDownImageReadableRect = frame.readableRect
             temporaryTopDownImageScale = scale
             temporaryTopDownImageActivation = rig.temporaryTopDownActivationCount
+            temporaryTopDownImageContentRevision = topDownContentRevision
             temporaryTopDownCaptureCount += 1
             temporaryTopDownHoldCaptureCount = temporaryTopDownCaptureCount - temporaryTopDownCaptureStartCount
             imageView.accessibilityValue = "静态正投影；生成\(temporaryTopDownCaptureCount)次"
@@ -2107,8 +2117,8 @@ struct AngleSceneView: UIViewRepresentable {
                 guard interactionMode == .cameraControl else { return }
                 if rig.usesTwoViewPoseControl {
                     guard gesture.state == .changed, gesture.scale != 1,
-                          rig.twoViewMode == .thirdPerson else { return }
-                    if !cameraObservationActive {
+                          rig.twoViewMode == .thirdPerson || rig.twoViewMode == .firstPerson else { return }
+                    if rig.twoViewMode == .thirdPerson, !cameraObservationActive {
                         cameraObservationActive = true
                         onCameraObservationBegan?()
                         #if DEBUG
@@ -2184,6 +2194,26 @@ struct AngleSceneView: UIViewRepresentable {
             handleTap(at: gesture.location(in: scnView))
         }
 
+        /// Returns a screen-space touch radius that follows the displayed ball
+        /// scale while keeping a generous minimum for a fingertip. The region is
+        /// interaction-only and does not change pocket or physics geometry.
+        private func pocketHitRadius(for position: SCNVector3, in view: SCNView) -> CGFloat {
+            let center = view.projectPoint(position)
+            let radius = AngleSceneCalculator.ballRadius
+            let samples = [
+                SCNVector3(position.x + radius, position.y, position.z),
+                SCNVector3(position.x - radius, position.y, position.z),
+                SCNVector3(position.x, position.y, position.z + radius),
+                SCNVector3(position.x, position.y, position.z - radius),
+                SCNVector3(position.x, position.y + radius, position.z)
+            ]
+            let projectedBallRadius = samples.map { sample in
+                let point = view.projectPoint(sample)
+                return hypot(CGFloat(point.x - center.x), CGFloat(point.y - center.y))
+            }.max() ?? 0
+            return min(52, max(36, projectedBallRadius + 12))
+        }
+
         func handleTap(at location: CGPoint) {
             guard gesturesEnabled, interactionMode != .none, let scnView else { return }
             selectedDragBall = hitTestBall(at: location)
@@ -2235,7 +2265,6 @@ struct AngleSceneView: UIViewRepresentable {
 
             // Fallback: project pocket marker positions to screen and pick the nearest within radius.
             let pocketPositions = AngleSceneCalculator.pocketMarkerPositions(surfaceY: scene.surfaceY)
-            let tapRadius: CGFloat = 44
             var bestIndex: Int?
             var bestDist: CGFloat = .greatestFiniteMagnitude
             for (index, pos) in pocketPositions.enumerated() {
@@ -2244,14 +2273,11 @@ struct AngleSceneView: UIViewRepresentable {
                       projected.x >= 0, projected.x <= Float(scnView.bounds.width),
                       projected.y >= 0, projected.y <= Float(scnView.bounds.height) else { continue }
                 let screenPos = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
-                // A projected point may be inside the viewport yet hidden by the
-                // near rail in 3D. Do not select it through foreground geometry.
-                if let camera = scnView.pointOfView,
-                   let front = scnView.hitTest(screenPos, options: [.searchMode: SCNHitTestSearchMode.closest.rawValue]).first {
-                    let hitDepth = camera.convertPosition(front.worldCoordinates, from: nil).z
-                    let pocketDepth = camera.convertPosition(pos, from: nil).z
-                    if hitDepth > pocketDepth + 0.015 { continue }
-                }
+                // The direct hit test above already gives balls and visible
+                // leather priority. The fallback intentionally accepts the
+                // nearby rail around a pocket so a user can tap above or below
+                // the visible opening in a tilted view.
+                let tapRadius = pocketHitRadius(for: pos, in: scnView)
                 let dist = hypot(location.x - screenPos.x, location.y - screenPos.y)
                 if dist < tapRadius, dist < bestDist {
                     bestDist = dist
@@ -2440,7 +2466,9 @@ struct AngleSceneView: UIViewRepresentable {
                             }
                         }
                     }
-                    return ["index": marker.pocketIndex, "screen": [p.x, p.y, p.z], "tapWindow": tap, "receiver": receiver,
+                    return ["index": marker.pocketIndex, "screen": [p.x, p.y, p.z],
+                        "hitRadius": pocketHitRadius(for: points[marker.pocketIndex], in: scnView),
+                        "tapWindow": tap, "receiver": receiver,
                         "style": marker.style.rawValue, "yellow": pulse?.opacity ?? 0,
                         "pending": pulse?.hasActions ?? false]
                 }

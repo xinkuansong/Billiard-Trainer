@@ -259,7 +259,7 @@ enum TrajectoryStyle {
 
 /// 击打页轨迹标注三档（全局偏好，所有击打页统一）：
 /// - `full`：所有会移动的球的轨迹（母球 + 目标球 + 被带动球）
-/// - `core`：仅母球 + 目标球轨迹
+/// - `core`：默认瞄准线 + 母球 + 目标球的碰后轨迹
 /// - `minimal`：仅瞄准线 + 假想球（自由模式空杆时瞄准线延伸到库边）
 enum TrajectoryDetail: Int, CaseIterable {
     case full = 0

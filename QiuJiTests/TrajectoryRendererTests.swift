@@ -78,6 +78,37 @@ final class TrajectoryRendererTests: XCTestCase {
         XCTAssertFalse(o.requireVisibleTargetForGhost)
     }
 
+    @MainActor
+    func testCoreTrajectoryUsesTheBallActuallyHitAfterCueContact() {
+        let scene = AngleTrainingScene()
+        scene.setupScene(enhancedRendering: false)
+        scene.setupVisualizationNodes()
+        let y = scene.surfaceY + BallPhysics.radius
+        var prediction = ShotPrediction()
+        prediction.cuePath = [
+            SCNVector3(-0.4, y, 0), SCNVector3(0, y, 0), SCNVector3(0.3, y, 0.2)
+        ]
+        prediction.firstContact = prediction.cuePath[1]
+        prediction.events = [
+            .init(time: 0.2, kind: .ballBall(ballA: ShotInput.cueBallName, ballB: "_5"))
+        ]
+        prediction.extraBallPaths["_5"] = [
+            SCNVector3(0.2, y, 0), SCNVector3(0.4, y, 0.1)
+        ]
+
+        var nodes: [SCNNode] = []
+        TrajectoryRenderer.drawPostContactPair(
+            prediction,
+            options: .positionPlay,
+            context: .init(prediction: prediction, targetKey: "_5", pocket: nil, surfaceY: scene.surfaceY),
+            scene: scene,
+            into: &nodes
+        )
+
+        XCTAssertEqual(Set(scene.closeupObjectPaths.keys), Set(["_5"]))
+        XCTAssertEqual(scene.closeupObjectPaths["_5"]?.count, 2)
+    }
+
 
 
     func testSceneStrokeConstantsMatchPriorCopies() {

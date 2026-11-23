@@ -81,15 +81,15 @@ private struct BTCompactMenuLabelStyle: LabelStyle {
     }
 }
 
-/// Keep the original checkmark column aligned even for unselected options.
+/// Keep a stable selection column for every option.
 struct BTCompactMenuChoiceLabel: View {
     let title: String
     let isSelected: Bool
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "checkmark").frame(width: 22)
-                .foregroundStyle(Color.btPrimary).opacity(isSelected ? 1 : 0)
+            Image(systemName: isSelected ? BTIcon.checkmarkSquare : BTIcon.square).frame(width: 22)
+                .foregroundStyle(isSelected ? Color.btPrimary : Color.btTextSecondary)
                 .accessibilityHidden(true)
             Text(title)
         }

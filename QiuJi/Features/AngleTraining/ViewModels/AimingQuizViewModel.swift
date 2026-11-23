@@ -333,6 +333,15 @@ final class AimingQuizViewModel: TeachingCameraHost {
         showResult = false
         userInput = ""
         phase = .observing
+        applyAimingPoseIfNeeded()
+    }
+
+    /// Match the aim-point training entry. A 3D angle question must settle into
+    /// the player-facing third-person view after its balls are installed instead
+    /// of leaving the initial surface overview visible.
+    func applyAimingPoseIfNeeded() {
+        guard cameraMode == .perspective3D, phase == .observing else { return }
+        requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true)
     }
 
 

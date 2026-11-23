@@ -54,7 +54,7 @@ final class CameraRig: ObservableObject {
         case .aim, .shot:
             if let shot = input.shot { p01Camera?.updateShot(shot, manuallyAimed: input.kind == .aim, clear: twoViewTableSightlinesClear) }
         case .release: p01Camera?.release(clear: twoViewTableSightlinesClear)
-        default: p01Camera?.apply(input)
+        default: p01Camera?.apply(input, clear: twoViewTableSightlinesClear)
         }
         var recorded=input; recorded.clearanceLift=p01Camera?.state.firstPersonClearanceLift
         p01Recording?.inputs.append(recorded)
@@ -448,6 +448,50 @@ final class CameraRig: ObservableObject {
         }
         let eye = cameraNode.simdPosition
         return hypot(eye.x, eye.z) > 0.001 ? atan2(eye.z, eye.x) : CameraRig.overviewYaw
+    }
+
+    private func twoViewFirstPersonProtectedPoints() -> [SIMD3<Float>]? {
+        guard let reference = twoViewShotReference else { return nil }
+        let cue = SIMD3<Float>(reference.cue.x, reference.cue.y, reference.cue.z)
+        let aim = SIMD3<Float>(reference.aim.x, 0, reference.aim.z)
+        guard simd_length_squared(aim) > 0.000001 else { return nil }
+        let axis = simd_normalize(aim)
+        let strike = cuePose.map { SIMD3<Float>($0.strike.x, $0.strike.y, $0.strike.z) } ?? cue
+        let right = SIMD3<Float>(-axis.z, 0, axis.x)
+        let radius = BallPhysics.radius
+        let lower = cue - axis * (radius * 0.4) + SIMD3<Float>(0, -radius * 0.5, 0)
+        return [strike, cue + SIMD3<Float>(0, -radius * 0.85, 0),
+                lower + right * (radius * 0.7), lower - right * (radius * 0.7)]
+    }
+
+    private func handleTwoViewFirstPersonPinch(scale: Float) -> Bool {
+        guard scale.isFinite, scale > 0, scale != 1 else { return false }
+        let camera = activeTwoViewCamera()
+        guard camera.mode == .firstPerson, camera.prepareFirstPersonDolly() else { return false }
+        let current = camera.firstPersonDolly
+        let geometricLimit = Float(max(tableOuterHalfLength, tableOuterHalfWidth) * 2)
+        let increment = Float(log(Double(scale))) * 0.45
+        let requested = current + increment
+        let desired = min(geometricLimit, max(-geometricLimit, requested))
+        let protected = twoViewFirstPersonProtectedPoints()
+        func isValid(_ offset: Float) -> Bool {
+            guard let pose = camera.firstPersonPose(for: offset),
+                  pose.eye.x.isFinite, pose.eye.y.isFinite, pose.eye.z.isFinite else { return false }
+            guard let clear = twoViewTableSightlinesClear, let protected else { return true }
+            return clear(pose.eye, protected)
+        }
+        guard isValid(current) else { return false }
+        var resolved = desired
+        if !isValid(desired) {
+            var valid = current
+            var invalid = desired
+            for _ in 0..<18 {
+                let middle = (valid + invalid) * 0.5
+                if isValid(middle) { valid = middle } else { invalid = middle }
+            }
+            resolved = valid
+        }
+        return camera.setFirstPersonDolly(resolved)
     }
 
     /// Rebuild stale layout samples only on an effective TP input, retaining the visible eye.
@@ -1345,7 +1389,8 @@ final class CameraRig: ObservableObject {
                 firstPerson.focusPoint = nil
                 firstPerson.watchingBreak = nil
                 firstPerson.headYaw = 0
-                let nominal = firstPerson.shaftSetback(for: shot)
+                firstPerson.firstPersonDolly = nil
+                let nominal = firstPerson.baseShaftSetback(for: shot)
                 for fraction: Float in [1, 0.80, 0.60, 0.40, 0.25] {
                     var candidate = shot
                     candidate.addressButtOffset = nominal * fraction
@@ -1697,6 +1742,7 @@ final class CameraRig: ObservableObject {
             camera.restore(.init(mode: mode, owner: .manual, pose: pose, profile: base.profile,
                 shotProfile: base.shotProfile, simpleShot: base.simpleShot, defaultPose: base.defaultPose,
                 temporaryObserving: false, yaw: saved.viewing[0], progress: saved.viewing[1], headYaw: saved.viewing[2],
+                firstPersonDolly: base.firstPersonDolly,
                 firstPersonBase: base.firstPersonBase, context: base.context, entryContext: base.entryContext,
                 firstPersonMemory: nil, thirdPersonMemory: nil))
             surfaceOverviewActive = saved.overview; applyTwoViewPose()
@@ -2054,7 +2100,10 @@ final class CameraRig: ObservableObject {
         if usesP01Camera { p01Input(.init(time: p01Time, kind: .pinch, scale: scale, preservePinchPitch: p01AnchoredTransitions)); p01Manual = true; onManualCameraControl?(); return }
         if usesTwoViewPoseControl {
             if scale.isFinite, scale > 0, scale != 1, !prepareTwoViewRailForInput() { return }
-            if activeTwoViewCamera().pinch(scale: scale) {
+            let changed = twoViewMode == .firstPerson
+                ? handleTwoViewFirstPersonPinch(scale: scale)
+                : activeTwoViewCamera().pinch(scale: scale)
+            if changed {
                 finishPendingTwoViewEntry(notify: true)
                 keepsWholeTableFramed = false
                 onManualCameraControl?()

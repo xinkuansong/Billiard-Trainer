@@ -80,8 +80,8 @@ struct OnboardingStyleLab: View {
                         // The single SceneKit view below keeps its scene identity.
                         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { style = item }
                     } label: {
-                        if item == style { Label(item.title, systemImage: "checkmark") }
-                        else { Text(item.title) }
+                        Label(item.title, systemImage: item == style
+                            ? BTIcon.checkmarkSquare : BTIcon.square)
                     }
                     .accessibilityIdentifier("introLab.style.\(item.rawValue)")
                 }

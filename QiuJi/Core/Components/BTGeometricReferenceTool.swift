@@ -221,7 +221,7 @@ struct BTChoiceMenuItem: View {
     let selected: Bool
     let action: () -> Void
     var body: some View {
-        Button(action: action) { Label(title, systemImage: selected ? "checkmark" : "square") }
+        Button(action: action) { Label(title, systemImage: selected ? BTIcon.checkmarkSquare : BTIcon.square) }
             .accessibilityValue(selected ? "已选" : "未选")
             .accessibilityAddTraits(selected ? .isSelected : [])
     }

@@ -37,6 +37,8 @@ enum BTIcon {
     // MARK: - Status
 
     static let checkmark        = "checkmark"
+    static let square           = "square"
+    static let checkmarkSquare  = "checkmark.square"
     static let checkmarkCircle  = "checkmark.circle.fill"
     static let completeSeal     = "checkmark.seal.fill"
     static let successShield    = "checkmark.shield.fill"

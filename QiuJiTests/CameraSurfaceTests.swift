@@ -1400,7 +1400,8 @@ final class P01CameraIntegrationTests: XCTestCase {
                 XCTAssertEqual(shot.shot.cue, cue.simdPosition)
                 XCTAssertEqual(node.simdPosition, shot.pose.eye)
                 XCTAssertTrue(vm.scene.closeupCuePath.isEmpty)
-                XCTAssertNil(vm.livePreviewShot)
+                XCTAssertTrue(vm.isComputing || vm.livePreviewShot != nil,
+                              "P01 table aim keeps the physical route preview active")
                 XCTAssertEqual(vm.scene.rootNode.childNode(withName: "freeAimPreview", recursively: false) != nil, !hidden)
                 trace.append(node.simdPosition)
                 try await Task.sleep(for: .milliseconds(35))

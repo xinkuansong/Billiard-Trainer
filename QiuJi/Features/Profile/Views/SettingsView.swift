@@ -348,8 +348,8 @@ struct SettingsView: View {
                 Menu {
                     ForEach(TrajectoryDetail.allCases, id: \.rawValue) { detail in
                         Button { applyPreference(.trajectory, Double(detail.rawValue)) } label: {
-                            if detail == tablePreferences.general.trajectoryDetail { Label(detail.label, systemImage: "checkmark") }
-                            else { Text(detail.label) }
+                            Label(detail.label, systemImage: detail == tablePreferences.general.trajectoryDetail
+                                ? BTIcon.checkmarkSquare : BTIcon.square)
                         }
                     }
                 } label: {

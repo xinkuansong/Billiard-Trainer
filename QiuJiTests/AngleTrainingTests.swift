@@ -356,6 +356,25 @@ import SceneKit
 
 @MainActor
 final class TrainingAssistSceneTests: XCTestCase {
+    func test3DQuizEntrySettlesIntoThirdPersonAfterInstallingQuestion() throws {
+        let suite = "TrainingAssistSceneTests.entry.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults)
+        limiter.isPremium = true
+        let vm = AimingQuizViewModel(limiter: limiter)
+        vm.setupScene(initialCameraMode: .perspective3D, autoStart: false)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
+
+        vm.startTest()
+
+        XCTAssertNotNil(vm.currentQuestion)
+        XCTAssertEqual(vm.phase, .observing)
+        XCTAssertEqual(rig.playerView, .thirdPerson)
+        XCTAssertNotNil(rig.p01Snapshot)
+    }
+
     func test3DQuizReusesCameraAndEndsTemporaryViewBeforeNextQuestion() async throws {
         let suite = "TrainingAssistSceneTests.camera.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

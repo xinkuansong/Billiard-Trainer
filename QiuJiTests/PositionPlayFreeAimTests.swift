@@ -2959,6 +2959,21 @@ final class ContinuousTrajectoryPreviewTests: XCTestCase {
         try await checkStableControlsDuringAdjustment(power: false)
     }
 
+    func testTableAimControlsStayBusyAcrossCompletedPreviews() async throws {
+        let vm = try await makeVM()
+        defer { vm.suspendAuthoringActivity(); vm.clearTable() }
+        vm.setAimTableDragging(true)
+        XCTAssertTrue(vm.isAdjustingShot)
+        XCTAssertTrue(vm.shotControlsBusy)
+        vm.nudgeFreeAim(byDegrees: 0.1)
+        try await ready { !vm.isComputing }
+        XCTAssertTrue(vm.shotControlsBusy, "A completed preview must not unlock controls under the finger")
+        XCTAssertFalse(vm.showsShotComputationStatus)
+        vm.setAimTableDragging(false)
+        XCTAssertTrue(vm.showsShotComputationStatus)
+        try await ready { !vm.shotControlsBusy }
+    }
+
     func testBackgroundCancelsAdjustmentWithoutLeavingControlsBusy() async throws {
         let vm = try await makeVM()
         defer { vm.suspendAuthoringActivity(); vm.clearTable() }

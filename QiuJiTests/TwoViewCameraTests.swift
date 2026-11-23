@@ -120,6 +120,43 @@ final class TwoViewCameraTests: XCTestCase {
         XCTAssertGreaterThan(simd_length(camera.pose.forward - base.forward), 0.5)
     }
 
+    func testFirstPersonPinchMovesAlongViewDirectionKeepsLensAndReverses() {
+        let base = TwoViewCamera.Pose.looking(eye: SIMD3(-1, 1.15, 0), yaw: .pi, pitch: -0.2, fov: 32)
+        let camera = TwoViewCamera(pose: base)
+        camera.enterFirstPerson(base, duration: 0)
+        let initial = camera.pose
+        XCTAssertTrue(camera.pinch(scale: 1.4))
+        let advanced = camera.pose
+        XCTAssertGreaterThan(simd_dot(advanced.eye - initial.eye, initial.forward), 0.01)
+        XCTAssertEqual(advanced.fov, initial.fov)
+        XCTAssertEqual(advanced.forward.y, initial.forward.y, accuracy: 0.00001)
+        XCTAssertLessThan(simd_distance(advanced.forward, initial.forward), 0.00001)
+        XCTAssertTrue(camera.pinch(scale: 1 / 1.4))
+        XCTAssertLessThan(simd_distance(camera.pose.eye, initial.eye), 0.00001)
+        XCTAssertEqual(camera.firstPersonDolly, 0, accuracy: 0.00001)
+    }
+
+    func testFirstPersonDollySurvivesSnapshotAndModeRoundTrip() throws {
+        let base = TwoViewCamera.Pose.looking(eye: SIMD3(-1, 1.15, 0), yaw: .pi, pitch: -0.2, fov: 32)
+        let camera = TwoViewCamera(pose: base)
+        camera.enterFirstPerson(base, duration: 0)
+        XCTAssertTrue(camera.pinch(scale: 1.3))
+        let first = camera.pose
+        let snapshot = camera.snapshot()
+        camera.enterThirdPerson(try profile(), yaw: .pi, duration: 0)
+        camera.restore(snapshot)
+        XCTAssertLessThan(simd_distance(camera.pose.eye, first.eye), 0.00001)
+        XCTAssertEqual(camera.firstPersonDolly, snapshot.firstPersonDolly, accuracy: 0.00001)
+        camera.enterFirstPerson(base, duration: 0)
+        XCTAssertEqual(camera.firstPersonDolly, 0, accuracy: 0.00001)
+        XCTAssertLessThan(simd_distance(camera.pose.eye, base.eye), 0.00001)
+        XCTAssertTrue(camera.pinch(scale: 1.3))
+        camera.enterThirdPerson(try profile(), yaw: .pi, duration: 0)
+        camera.enterFirstPerson(base, duration: 0)
+        XCTAssertEqual(camera.firstPersonDolly, 0, accuracy: 0.00001)
+        XCTAssertLessThan(simd_distance(camera.pose.eye, base.eye), 0.00001)
+    }
+
     func testImmediateFirstPersonEntryDoesNotAcquireTransitionLock() {
         let old = TwoViewCamera.Pose.looking(eye: SIMD3(-2, 2, 0), yaw: 0, pitch: -0.4, fov: 45)
         let target = TwoViewCamera.Pose.looking(eye: SIMD3(-1, 1.15, 0), yaw: 0.2, pitch: -0.2, fov: 32)

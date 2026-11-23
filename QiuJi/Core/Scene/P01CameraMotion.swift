@@ -109,9 +109,14 @@ struct P01CameraMotion {
         var overviewInitialized = false
         // Stored with the camera so older trajectories keep their original eye position.
         var firstPersonSetback: Float? = nil
-        func shaftSetback(for shot: Shot) -> Float { shot.addressButtOffset ?? firstPersonSetback ?? 0.90 }
+        // Positive values move the eye forward along the current shaft. The base
+        // setback remains derived from the shot or the camera preset.
+        var firstPersonDolly: Float? = nil
+        func baseShaftSetback(for shot: Shot) -> Float { shot.addressButtOffset ?? firstPersonSetback ?? 0.90 }
+        func shaftSetback(for shot: Shot) -> Float { baseShaftSetback(for: shot) - (firstPersonDolly ?? 0) }
         var firstPersonClearanceLift: Float = 0
         var focusPoint: SIMD3<Float>? = nil
+
     }
     struct Snapshot: Codable {
         var schema = 1
@@ -265,6 +270,63 @@ struct P01CameraMotion {
                 shot.cue + towardTable * radius * 0.35 + SIMD3<Float>(0, radius * 0.55, 0)]
     }
 
+    /// Setback limits are derived from the current shaft, room envelope and
+    /// cue-ball clearance. They are intentionally independent of the page.
+    private static func firstPersonSetbackBounds(shot: Shot, layout: Layout) -> ClosedRange<Float> {
+        let axis = simd_normalize(SIMD3<Float>(shot.aim.x, 0, shot.aim.z))
+        let horizontalStep = max(0.05, abs(cos(shot.elevation)))
+        let minimum = max(CueClearance.tipOffset + CueStroke.addressPull,
+                          layout.ballRadius * 2)
+        var maximum = Float.infinity
+        let xStep = abs(axis.x) * horizontalStep
+        let zStep = abs(axis.z) * horizontalStep
+        if xStep > 0.0001 {
+            maximum = min(maximum, (layout.roomHalfExtents.x + abs(shot.strike.x)) / xStep)
+        }
+        if zStep > 0.0001 {
+            maximum = min(maximum, (layout.roomHalfExtents.y + abs(shot.strike.z)) / zStep)
+        }
+        let verticalStep = sin(shot.elevation)
+        if verticalStep > 0.0001 {
+            maximum = min(maximum, (layout.ceilingY - 0.2 - shot.strike.y - 0.13) / verticalStep)
+        } else if verticalStep < -0.0001 {
+            maximum = min(maximum, (shot.strike.y + 0.13 - (layout.surfaceY + 0.12)) / -verticalStep)
+        }
+        if !maximum.isFinite {
+            maximum = minimum + 2 * max(layout.roomHalfExtents.x, layout.roomHalfExtents.y)
+        }
+        return minimum...max(minimum, maximum)
+    }
+
+    private static func boundedFirstPersonDolly(state: State, shot: Shot, layout: Layout,
+                                                desired: Float,
+                                                clear: ((SIMD3<Float>, [SIMD3<Float>]) -> Bool)?) -> Float {
+        let bounds = firstPersonSetbackBounds(shot: shot, layout: layout)
+        let base = state.baseShaftSetback(for: shot)
+        let minimumDolly = base - bounds.upperBound
+        let maximumDolly = base - bounds.lowerBound
+        let target = min(maximumDolly, max(minimumDolly, desired))
+        let current = min(maximumDolly, max(minimumDolly, state.firstPersonDolly ?? 0))
+        func isValid(_ offset: Float) -> Bool {
+            var candidate = state
+            candidate.firstPersonDolly = offset
+            return evaluate(state: candidate, shot: shot, layout: layout, clear: clear) != nil
+        }
+        guard isValid(current) else { return current }
+        guard !isValid(target) else { return target }
+        var valid = current
+        var invalid = target
+        for _ in 0..<18 {
+            let middle = (valid + invalid) * 0.5
+            if isValid(middle) {
+                valid = middle
+            } else {
+                invalid = middle
+            }
+        }
+        return valid
+    }
+
     static func evaluate(state: State, shot: Shot, layout: Layout,
                          clear: ((SIMD3<Float>, [SIMD3<Float>]) -> Bool)? = nil) -> Pose? {
         guard shot.valid, layout.valid else { return nil }
@@ -358,14 +420,19 @@ struct P01CameraMotion {
         if let point=state.focusPoint {
             let delta=point-eye, distance=hypot(delta.x,delta.z)
             guard distance > 0.01 else { return nil }
-            return .looking(eye:eye,yaw:atan2(-delta.z,-delta.x),pitch:atan2(delta.y,distance),verticalFOV:fov)
+            return .looking(eye:eye,yaw:atan2(-delta.z,-delta.x),
+                            pitch: atan2(delta.y,distance) + (state.view == .firstPerson ? state.gazePitchOffset : 0),
+                            verticalFOV:fov)
         }
         // Use shaft-plane forward depth, not lateral distance, so sidespin keeps the shaft centred.
         let flatForward = SIMD3<Float>(-cos(heading),0,-sin(heading))
         let depth = simd_dot(shot.cue-eye,flatForward)
         guard depth > 0.01 else { return nil }
         let pitch = atan2(shot.cue.y-eye.y,referenceDepth ?? depth) + atan((2*anchor-1)*tan(fov * .pi/360))
-        return .looking(eye: eye, yaw: heading + (state.view == .firstPerson ? state.headYaw : state.gazeYawOffset), pitch: pitch + (state.view == .firstPerson ? 0 : state.gazePitchOffset + (state.thirdPersonZoomPitchOffset ?? 0)), verticalFOV: fov)
+        return .looking(eye: eye,
+                        yaw: heading + (state.view == .firstPerson ? state.headYaw : state.gazeYawOffset),
+                        pitch: pitch + state.gazePitchOffset + (state.view == .firstPerson ? 0 : (state.thirdPersonZoomPitchOffset ?? 0)),
+                        verticalFOV: fov)
     }
 
     /// Fit the full heading envelope once for this H/scale/layout, never once per orbit frame.
@@ -438,6 +505,8 @@ struct P01CameraMotion {
     mutating func setContext(_ id: UUID) {
         guard context != id else { return }
         context=id; transition=nil; headBase=nil; state.watchingBreak=nil; state.observationYaw=0; state.headYaw=0
+        state.firstPersonDolly = nil
+        state.firstPersonClearanceLift = 0
     }
     mutating func setLayout(_ value: Layout) {
         guard value != layout, value.valid else { return }
@@ -468,6 +537,9 @@ struct P01CameraMotion {
             if next.view == .overview { next.view=next.lastAimView }
             next.focusPoint=nil
             next.observationYaw=0; next.headYaw=0; next.gazeYawOffset=0; next.gazePitchOffset=0; next.observationHorizontalFOV=nil
+        } else {
+            next.firstPersonDolly = nil
+            next.firstPersonClearanceLift = 0
         }
         let needsReturn=manuallyAimed && (state.watchingBreak == true || state.view == .overview || abs(state.observationYaw)>0.0001 || headBase != nil || state.focusPoint != nil || abs(state.gazeYawOffset)>0.0001 || abs(state.gazePitchOffset)>0.0001 || state.observationHorizontalFOV != nil || detached)
         if !accept(next, animated:needsReturn, duration:0.35, restart:false, clear:clear) { shot=old }
@@ -515,6 +587,10 @@ struct P01CameraMotion {
         }
         var next=state; next.watchingBreak=nil; next.view=view; next.headYaw=0; next.observationYaw=0
         next.gazeYawOffset=0; next.gazePitchOffset=0; next.focusPoint=nil;next.observationHorizontalFOV=nil
+        if view == .firstPerson || (newShot != nil && newShot != oldShot) {
+            next.firstPersonDolly = nil
+            next.firstPersonClearanceLift = 0
+        }
         if resetThirdPerson && view == .thirdPerson {
             next.distance = State().distance
             next.height = State().height
@@ -647,8 +723,28 @@ struct P01CameraMotion {
         }
         _ = accept(next,animated:false)
     }
-    mutating func pinch(_ scale: Float, preservingPitch: Bool = false) {
-        guard scale.isFinite, scale>0, state.view != .firstPerson else { return }
+    mutating func pinch(_ scale: Float, preservingPitch: Bool = false,
+                        clear: ((SIMD3<Float>, [SIMD3<Float>]) -> Bool)? = nil) {
+        guard scale.isFinite, scale > 0 else { return }
+        if state.view == .firstPerson {
+            guard scale != 1 else { return }
+            var next = state
+            let desired = (state.firstPersonDolly ?? 0) + log(scale) * 0.45
+            next.firstPersonDolly = Self.boundedFirstPersonDolly(state: state, shot: shot, layout: layout,
+                                                                 desired: desired, clear: clear)
+            guard (next.firstPersonDolly ?? 0) != (state.firstPersonDolly ?? 0) else { return }
+            let previousPitch = pose.pitch
+            next.gazePitchOffset = 0
+            if let reprojected = Self.evaluate(state: next, shot: shot, layout: layout, clear: clear) {
+                next.gazePitchOffset = previousPitch - reprojected.pitch
+            }
+            transition = nil
+            if accept(next, animated: false, clear: clear), headBase != nil {
+                headBase = .looking(eye: pose.eye, yaw: pose.yaw - state.headYaw,
+                                    pitch: previousPitch, verticalFOV: pose.verticalFOV)
+            }
+            return
+        }
         if transition != nil || state.watchingBreak == true || (preservingPitch && state.view == .thirdPerson && state.focusPoint != nil) { beginObservation() }
         var next=state
         if next.view == .overview { next.overviewScale=Self.adjusted(next.overviewScale/scale,from:next.overviewScale,within:0.7...1) }
@@ -856,7 +952,8 @@ struct P01CameraMotion {
                         verticalFOV:move.origin.verticalFOV+(target.verticalFOV-move.origin.verticalFOV)*t)
         if u>=1 { pose=target; transition=nil }
     }
-    mutating func apply(_ input: Input) {
+    mutating func apply(_ input: Input,
+                        clear: ((SIMD3<Float>, [SIMD3<Float>]) -> Bool)? = nil) {
         advance(to:input.time)
         let maximumLift: Float = state.anchoredTransitions == true || (input.shot ?? shot).observationOnlyAddress == true ? 0.65 : 0.20
         if let lift=input.clearanceLift, lift.isFinite, (0...(maximumLift + 0.0001)).contains(lift) {
@@ -872,7 +969,7 @@ struct P01CameraMotion {
         case .watchBreak: watchBreak(animated: input.animated, duration: input.breakPullbackSeconds)
         case .beginObservation: beginObservation()
         case .pan: pan(input.delta)
-        case .pinch: pinch(input.scale, preservingPitch: input.preservePinchPitch == true)
+        case .pinch: pinch(input.scale, preservingPitch: input.preservePinchPitch == true, clear: clear)
         case .view: if let view=input.view { _=select(view,animated:input.animated,shot:input.shot,turnPace:input.turnPace,resetThirdPerson:input.resetThirdPerson == true) }
         case .aim: if let shot=input.shot { updateShot(shot,manuallyAimed:true) }
         case .shot: if let shot=input.shot { updateShot(shot,manuallyAimed:false) }

@@ -1,3 +1,9 @@
+## v72 · 第一人称推进与后退跨球桌页面（2026-11-22）
+
+按用户授权实施《问题集合 v72》。P01CameraMotion 与 TwoViewCamera 增加同语义的第一人称沿杆 dolly，保持当前 FOV，边界复用布局、桌房几何、球杆净空和 `twoViewTableSightlinesClear`。CameraRig 与 AngleSceneView 统一派发，第一人称不进入第三人称临时观察回退，快照、模式记忆、新杆和上下文清除规则已接入。共用宿主矩阵覆盖 `BTTeachingTablePage`、FreePlay、角度训练、瞄准点、球体提取、Drill 及批量编辑入口，页面禁用合同保留。
+
+验证结果：Debug 模拟器构建通过；新增与关键生命周期单元 8/8 通过；P01/TwoView 选择全集执行 76 项，其中 P01 27/27 通过，TwoView 49 项有 13 项既有视口重建、布局取消和精度断言失败；iPhone SE、iPhone 17 Pro、iPad Air 13-inch 原生第一人称捏合用例各 1/1 通过。真机、完整 App 全量 UI、用户手感确认未验。详见 `tasks/camera-v72/RESULTS.md`。H-05 为无关外部项，按用户授权不作为本任务阻塞。
+
 <!-- 2026-11-16 FL-261 补充：跨页诊断三球缺选袋，9次点击中3次不构成真实出杆；已纠正覆盖口径，四状态r2补选袋及结果phase，原证据保留。已应用至 .cursor/rules/55-test-engineer.mdc §FL-261业务前置补充；tasks/table-idle-20261116/RESULTS.md。 -->
 ## DR-436 r4 — 重打再次提示原目标袋（2026-11-16）
 
@@ -6956,3 +6962,9 @@ FL-271候选时序补充（2026-11-15）：app.screenshot裁切不作全屏视�
 ### FL-280 · 贴库切镜与验收盘（2026-11-19）
 
 - 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-280。依据为每日清台原失败盘、合法贴库对照及原生界面回归，见[相机推广记录](camera-v68/RESULTS.md)。
+
+## DR-468 · 全 App 选择标记方框加对号（2026-11-21）
+
+按用户确认的《问题集合 v71》统一自绘选择状态。未选使用 `square`，已选使用 `checkmark.square`，保证方框完整包住对号。改动覆盖 `BTSelectionIndicator`、`BTChoiceMenuItem`、`BTCompactMenuChoiceLabel` 及轨迹档位、风格预览、球形选择三个直接使用对号的原生 Menu 入口。原生 Toggle、Picker、胶囊分段、完成状态和操作按钮图标保留现状。
+
+已应用至 `IconToken.swift`、`BTTogglePillGroup.swift`、`BTGeometricReferenceTool.swift`、`BTOverflowMenu.swift`、`BTSetInputGrid.swift`、`SettingsView.swift`、`OnboardingStyleLab.swift`，并同步 UI 实施规范、球桌统一规范、来源表和讨论记录。Debug generic iOS Simulator build 已通过，`TablePreferencesUITests.testCustomChoicesAndNativeSwitchEvidence` 与 `TableMenuRetentionUITests.testDailyTargetContactPointMenu` 已通过。前后对比图使用用户原始球桌菜单截图和本轮模拟器球桌菜单截图，见 `output/selection-markers-v71/before-after-table.png`。真实设备触感、全量页面逐项人工复看和用户最终视觉认可仍待后续验收，不以本次编译结果替代。

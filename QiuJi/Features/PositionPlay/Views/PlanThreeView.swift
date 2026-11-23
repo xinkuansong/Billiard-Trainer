@@ -9,7 +9,7 @@ struct PlanThreeView: View {
     @StateObject private var vm = PlanThreeViewModel()
     @State private var pocketOrientation = PocketDisplay.Orientation.landscape
     @AppStorage("planThree.breakGameBallCount") private var breakGameBallCount = 15
-    private var busy: Bool { vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true }
+    private var busy: Bool { vm.isPlaying || vm.isComputing || vm.isAimTableDragging || vm.breakRunner?.isBusy == true }
 
     @ObservedObject private var tablePreferences = TablePreferencesStore.shared
     private var spinTransparency: Double {
@@ -118,6 +118,7 @@ struct PlanThreeView: View {
             boardMemoryImported: initialBoard != nil, onDisappear: { vm.stopForDismissal() },
             layoutEditingBlocked: informationPanel != nil || vm.breakRunner?.showsConfirm == true,
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
+            onAimDragActiveChanged: { vm.setAimTableDragging($0) },
             resolveP01AimPan: { vm.canNudgeP01BreakAim ? { vm.nudgeP01BreakAim(byDegrees: $0) } : nil },
             showsAimCloseupSetting: false,
             showsTrajectorySetting: false,

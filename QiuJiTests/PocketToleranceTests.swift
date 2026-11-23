@@ -15,6 +15,9 @@ final class PocketToleranceTests: XCTestCase {
         for pocket in 0..<6 {
             let w = try window(0, 0, pocket)
             XCTAssertEqual(w.edges.count, 2)
+            XCTAssertEqual(w.standardEdges.count, 2)
+            XCTAssertEqual(w.center.startX, 0, accuracy: 0.000001)
+            XCTAssertEqual(w.center.startZ, 0, accuracy: 0.000001)
             var directions: [(Double, Double)] = []
             for e in w.edges {
                 let x = Double(e.startX), z = Double(e.startZ)
@@ -27,7 +30,43 @@ final class PocketToleranceTests: XCTestCase {
             let a = directions[0], b = directions[1]
             let angle = abs(atan2(a.0*b.1-a.1*b.0, a.0*b.0+a.1*b.1)) * 180 / .pi
             XCTAssertEqual(angle, w.degrees, accuracy: 0.00002)
+
+            let centerDX = Double(w.center.endX - w.center.startX)
+            let centerDZ = Double(w.center.endZ - w.center.startZ)
+            let centerLength = hypot(centerDX, centerDZ)
+            let pocketPosition = AngleSceneCalculator.pocketPositions(surfaceY: 0)[pocket]
+            let expectedCenterAngle = atan2(Double(pocketPosition.z), Double(pocketPosition.x))
+            XCTAssertEqual(atan2(centerDZ, centerDX), expectedCenterAngle, accuracy: 0.000002)
+            for edge in w.standardEdges {
+                let dx = Double(edge.endX - edge.startX), dz = Double(edge.endZ - edge.startZ)
+                XCTAssertEqual((dx * centerDZ - dz * centerDX) / centerLength, 0, accuracy: 0.000002)
+                XCTAssertEqual(hypot(Double(edge.startX), Double(edge.startZ)), r, accuracy: 0.000001)
+            }
         }
+    }
+
+    func testNearRailSmallWindowStillProvidesCenterAndReferencePipe() throws {
+        let railZ = AngleSceneCalculator.innerWidth / 2 - AngleSceneCalculator.ballRadius - 0.002
+        var witness: PocketToleranceGeometry.Window?
+        for pocket in 0..<4 {
+            for x in stride(from: Float(-1.0), through: Float(1.0), by: Float(0.2)) {
+                for z in [railZ, -railZ] {
+                    if case .window(let candidate) = PocketToleranceGeometry.evaluate(x: x, z: z,
+                        pocket: pocket, useTable: false), candidate.degrees < 2 {
+                        witness = candidate
+                        break
+                    }
+                }
+                if witness != nil { break }
+            }
+            if witness != nil { break }
+        }
+        let w = try XCTUnwrap(witness, "Expected a positive small-angle window next to a cushion")
+        XCTAssertEqual(w.edges.count, 2)
+        XCTAssertEqual(w.standardEdges.count, 2)
+        XCTAssertGreaterThan(w.degrees, 0)
+        XCTAssertGreaterThan(hypot(Double(w.center.endX - w.center.startX),
+                                   Double(w.center.endZ - w.center.startZ)), 0)
     }
     func testNearerMiddlePocketWidensWindowAndMirrorMatches() throws {
         let far = try window(0, 0.3, 4), near = try window(0, -0.3, 4)
@@ -61,12 +100,15 @@ final class PocketToleranceTests: XCTestCase {
         vm.selectTarget(key: "_3")
         XCTAssertEqual(vm.selectedPocketIndex, 4)
         try await settled(vm)
-        XCTAssertEqual(vm.angleText, original); XCTAssertEqual(vm.boundaryCount, 2)
+        XCTAssertEqual(vm.angleText, original); XCTAssertEqual(vm.centerLineCount, 1)
+        XCTAssertEqual(vm.boundaryCount, 2); XCTAssertEqual(vm.standardPipeCount, 2)
         vm.selectTarget(key: "_1"); XCTAssertEqual(vm.selectedPocketIndex, 2)
         vm.removeFromTable("_1")
         XCTAssertEqual(vm.selectedTargetKey, "_3"); XCTAssertEqual(vm.selectedPocketIndex, 4)
         vm.removeFromTable("_3")
-        XCTAssertNil(vm.selectedTargetKey); XCTAssertEqual(vm.boundaryCount, 0); XCTAssertEqual(vm.angleText, "—")
+        XCTAssertNil(vm.selectedTargetKey); XCTAssertEqual(vm.boundaryCount, 0)
+        XCTAssertEqual(vm.centerLineCount, 0); XCTAssertEqual(vm.standardPipeCount, 0)
+        XCTAssertEqual(vm.angleText, "—")
     }
     func testDragKeepsPocketAndSuspensionRejectsPendingResult() async throws {
         let vm = PocketToleranceViewModel(); vm.setupScene()
@@ -81,9 +123,10 @@ final class PocketToleranceTests: XCTestCase {
         XCTAssertEqual(vm.angleText, PocketToleranceGeometry.displayDegrees(try window(target.position.x,target.position.z,4,table:true).degrees))
         vm.selectPocket(at:5);vm.suspendTeachingActivity()
         try await Task.sleep(nanoseconds:100_000_000)
-        XCTAssertEqual(vm.boundaryCount,0)
+        XCTAssertEqual(vm.boundaryCount,0); XCTAssertEqual(vm.centerLineCount,0)
         vm.resumeTeachingActivity();try await settled(vm)
-        XCTAssertEqual(vm.boundaryCount,2)
+        XCTAssertEqual(vm.boundaryCount,2); XCTAssertEqual(vm.centerLineCount,1)
+        XCTAssertEqual(vm.standardPipeCount,2)
         vm.suspendTeachingActivity()
     }
     func testKnownCornerCoverageGapDoesNotBecomePositiveWindow() {
@@ -91,6 +134,65 @@ final class PocketToleranceTests: XCTestCase {
             return XCTFail("The existing C model gap must remain explicit")
         }
     }
+
+    func testNearRailReferencePipeRemainsAvailableForVisualisation() throws {
+        for (x, z) in [(-0.35 as Float, 0.58 as Float), (-0.35, 0.56)] {
+            let aim = AngleSceneCalculator.effectivePocketAimPoint(
+                targetBall: .init(x, 0, z), pocketIndex: 2, surfaceY: 0)
+            switch PocketToleranceGeometry.evaluate(x: x, z: z, pocket: 2, useTable: false) {
+            case .window:
+                XCTFail("The directed samples should exercise the unavailable/no-window path")
+            case .noStraightWindow, .unavailable:
+                break
+            }
+            let reference = try XCTUnwrap(PocketToleranceGeometry.referenceWindow(
+                x: x, z: z, pocket: 2))
+            XCTAssertEqual(reference.edges.count, 2)
+            XCTAssertEqual(reference.standardEdges.count, 2)
+            XCTAssertGreaterThan(hypot(Double(reference.center.endX - reference.center.startX),
+                                       Double(reference.center.endZ - reference.center.startZ)), 0)
+            XCTAssertEqual(reference.degrees, 0)
+            XCTAssertEqual(reference.center.endX, aim.x, accuracy: 0.000001)
+            XCTAssertEqual(reference.center.endZ, aim.z, accuracy: 0.000001)
+        }
+    }
+
+    func testNearRailZeroReferenceShowsZeroWithoutStatusMessage() async throws {
+        let vm = PocketToleranceViewModel()
+        vm.setupScene()
+        defer { vm.suspendTeachingActivity() }
+        let target = try XCTUnwrap(vm.targetNode)
+        target.position = .init(-0.35, vm.scene.surfaceY + AngleSceneCalculator.ballRadius, 0.58)
+        vm.selectPocket(at: 2)
+        try await settled(vm)
+        XCTAssertEqual(vm.angleText, "0°")
+        XCTAssertTrue(vm.message.isEmpty)
+        XCTAssertEqual(vm.centerLineCount, 1)
+        XCTAssertEqual(vm.boundaryCount, 2)
+        XCTAssertEqual(vm.standardPipeCount, 2)
+    }
+
+    func testIntermediateRailClearanceKeepsMeasuredToleranceWindow() throws {
+        for (x, z) in [(0.40 as Float, 0.085 as Float), (0.40, -0.28), (0.40, 0.20)] {
+            let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: .init(x, 0, z), pocketIndex: 2, surfaceY: 0)
+            guard case .window(let window) = PocketToleranceGeometry.evaluate(
+                x: x, z: z, pocket: 2, useTable: false) else {
+                return XCTFail("Intermediate position unexpectedly fell back to zero reference: \(x), \(z)")
+            }
+            XCTAssertGreaterThan(window.degrees, 0)
+            XCTAssertEqual(window.edges.count, 2)
+            XCTAssertEqual(window.standardEdges.count, 2)
+            let centerDX = window.center.endX - window.center.startX
+            let centerDZ = window.center.endZ - window.center.startZ
+            let aimDX = aim.x - x
+            let aimDZ = aim.z - z
+            XCTAssertEqual(centerDX * aimDZ - centerDZ * aimDX, 0, accuracy: 0.00001)
+            for edge in window.edges + window.standardEdges {
+                XCTAssertGreaterThan(hypot(edge.endX - edge.startX, edge.endZ - edge.startZ), 0)
+            }
+        }
+    }
+
     func testObjectOnlyOverviewDoesNotRequireCueShot() throws {
         let vm = PocketToleranceViewModel(); vm.setupScene()
         defer { vm.suspendTeachingActivity() }

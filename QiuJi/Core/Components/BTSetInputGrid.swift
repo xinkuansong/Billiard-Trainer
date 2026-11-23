@@ -718,11 +718,8 @@ struct BTFormationMenu: View {
                     token = option.token
                     name = option.name
                 } label: {
-                    if token == option.token {
-                        Label(option.displayLabel, systemImage: BTIcon.checkmark)
-                    } else {
-                        Text(option.displayLabel)
-                    }
+                    Label(option.displayLabel, systemImage: token == option.token
+                        ? BTIcon.checkmarkSquare : BTIcon.square)
                 }
             }
         } label: {

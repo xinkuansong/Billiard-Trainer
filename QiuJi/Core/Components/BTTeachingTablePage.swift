@@ -313,6 +313,14 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         || vm.temporaryTopDownActive || vm.cameraTransitionBusy || vm.isDragging
         || aimTouchActive || powerTouchActive || spinTouchActive || layoutAimDragging || draggingKey != nil
     }
+    private var effectivePrimaryTitle: String {
+        guard layoutAimDragging || aimTouchActive,
+              let title = planning?.primaryTitle,
+              title.contains("计算") || title.contains("求解") else {
+            return planning?.primaryTitle ?? (atlasCushions == nil ? "击球" : "库数")
+        }
+        return "击球"
+    }
     @Environment(\.displayScale) private var displayScale
     @ViewBuilder var title: () -> Title
     @ViewBuilder var leftContent: (CGSize) -> Left
@@ -557,13 +565,13 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                         .controlLayoutGroup(.instrument)
                     if let planning {
                         Button { showSpinPad = false; planning.onPrimary() } label: {
-                            Text(planning.primaryTitle).font(.btSubheadlineSemibold)
+                            Text(effectivePrimaryTitle).font(.btSubheadlineSemibold)
                                 .frame(width: instruments.strikeDiameter, height: instruments.strikeDiameter)
                         }.buttonStyle(DailyStrikeButtonStyle())
                             .disabled(!primaryEnabled)
                             .opacity(primaryEnabled ? 1 : 0.3)
                             .accessibilityIdentifier(identifier + ".strike")
-                            .freeControlItem(planning.primaryControlID, name: planning.primaryTitle)
+                            .freeControlItem(planning.primaryControlID, name: effectivePrimaryTitle)
                             .controlLayoutGroup(.primary)
                     } else if let atlasCushions {
                         Button { showSpinPad = false; menu = nil; showAtlasCushions.toggle() } label: {
@@ -665,13 +673,16 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, DailyLayoutMetrics.Panels.top).padding(.trailing, side + windowControls.right)
             }
+            if usesPhone2DEntry && portrait {
+                Color.black.ignoresSafeArea().allowsHitTesting(false)
+            }
         }
         .frame(width: size.width, height: size.height)
         .controlLayoutHost(page: preferencePage, mode: is3D ? .threeD : .twoD, size: size,
             leading: f.left, trailing: f.right, defaultFits: f.fits && plan.fits,
             obstacles: plan.controlLayoutProtectionFrames(table: f.table),
             busy: controlLayoutBusy, editing: $editingControlLayout, rulerHeight: instruments.rulerLength,
-            primaryTitle: planning?.primaryTitle ?? (atlasCushions == nil ? "击球" : "库数"), editorToolbarTop: f.table.minY)
+            primaryTitle: effectivePrimaryTitle, editorToolbarTop: f.table.minY)
         .background {
             GeometryReader { viewport in
                 let fullFrame = viewport.frame(in: .global)
@@ -919,7 +930,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @ViewBuilder private var cameraButtons: some View {
         if let rig = vm.scene.cameraRig {
             ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
-                isEnabled: objectObservationOnly || vm.temporaryTopDownActive || planning?.allowsObservationWhileAnimating == true || (planning.map { !$0.isAnimating } ?? (rig.usesP01Camera || vm.currentPlayerAim != nil)),
+                isEnabled: !layoutAimDragging && !aimTouchActive && (objectObservationOnly || vm.temporaryTopDownActive || planning?.allowsObservationWhileAnimating == true || (planning.map { !$0.isAnimating } ?? (rig.usesP01Camera || vm.currentPlayerAim != nil))),
                 temporaryTopDownActive: vm.temporaryTopDownActive,
                 onTemporaryTopDownBegan: { vm.beginTemporaryTopDown() },
                 onTemporaryTopDownEnded: { vm.endTemporaryTopDown() },

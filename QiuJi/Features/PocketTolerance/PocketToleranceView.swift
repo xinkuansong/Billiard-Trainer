@@ -18,7 +18,7 @@ struct PocketToleranceView: View {
             if ProcessInfo.processInfo.arguments.contains("-pocketTolerance.probe") {
                 Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
                     .accessibilityElement().accessibilityIdentifier("pocketTolerance.probe")
-                    .accessibilityValue("target=\(vm.selectedTargetKey ?? "none") pocket=\(vm.selectedPocketIndex) count=\(vm.onTableKeys.count) edges=\(vm.boundaryCount) angle=\(vm.angleText)")
+                    .accessibilityValue("t=\(vm.selectedTargetKey ?? "none") p=\(vm.selectedPocketIndex) c=\(vm.onTableKeys.count) e=\(vm.boundaryCount) m=\(vm.centerLineCount) d=\(vm.standardPipeCount)")
             }
         }
         #endif

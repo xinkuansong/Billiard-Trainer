@@ -2257,6 +2257,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// 母球轨迹（线语言 v2）：碰前段 = 白**实线**瞄准线；碰后段 = 白**虚线**轨迹。
     /// `contact` = 首次球-球碰撞时母球位置；nil（空杆）时以首个吃库拐点为界——
     /// 瞄准线延伸到库边（条 12.5），吃库反弹后为虚线轨迹。
+    /// 双线档在默认瞄准线之外，再画真实球碰后的虚线。
     /// `detail == .minimal` 时只画实线瞄准段（三档标注最简档）。
     func addCueTrajectory(_ pts: [SCNVector3], contact: SCNVector3?,
                           detail: TrajectoryDetail = .full,

@@ -679,7 +679,11 @@ struct AimPointSceneTrainingView: View {
 
     var body: some View {
         ZStack {
-            if showingTable { tableContent.modifier(TableEntryRenderObserver(rendered: $entryRendered, enabled: usesPhone2DEntry)).background { if usesPhone2DEntry { Color.black.ignoresSafeArea() } } }
+            if showingTable {
+                tableContent
+                    .modifier(TableEntryRenderObserver(rendered: $entryRendered, enabled: usesPhone2DEntry))
+                    .background(Color.black.ignoresSafeArea())
+            }
             else { settingsContent }
         }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
@@ -930,6 +934,9 @@ struct AimPointSceneTrainingView: View {
                     onBack: { showMenu = false }, onClose: { showMenu = false }, grouping: .tableRoot)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, DailyLayoutMetrics.Panels.top).padding(.trailing, side + windowControls.right)
+            }
+            if usesPhone2DEntry && portrait {
+                Color.black.ignoresSafeArea().allowsHitTesting(false)
             }
         }
         .frame(width: size.width, height: size.height)

@@ -1,3 +1,4 @@
+<!-- Changelog 2026-11-22 v72：第一人称双指捏合沿当前实际杆轴推进／后退，保持当前fieldOfView；P01与TwoView共用推进状态、几何／清障边界、快照和模式恢复，AngleSceneView与CameraRig统一派发。页面原有firstPersonAvailable、观察只读、播放和编辑态门禁保持。实现与验收见tasks/camera-v72/RESULTS.md；真机与用户认可仍单独记录。 -->
 <!-- Changelog 2026-11-17 FL-276：v66自由页规范复审打回；v66.4记录最新开球/抬杆滚轮布局、空间预览/自动回收与性能返工方案，待确认。只改文档，无正式组件API变更；共享接线验收纪律回填table-page-adaptation技能v1.7。 -->
 <!-- Changelog 2026-11-17 库边接入：liveReference静态床面直射可见率＋库侧细化/轻提；修复已有灯光时重建台呢漏装，重复apply幂等。原生3项通过，同包已装iPhone。见table-page-adaptation/RAIL-BED-SHADOW-20261117.md。 -->
 <!-- Changelog 2026-11-17 DR-466修订：用户反馈C过亮，liveReference台呢/球改B档0.35；球房及接线沿用。参数与shader编译通过，完整App未重验。 -->
@@ -1185,7 +1186,9 @@ struct BTShareCard: View {
 
 2026-10-05 用户授权每日普通杆连续预览试用：力度/方向输入改为单任务持续求解、最新意图合并与15Hz发起上限；旧参数轨迹仅变淡预览，击球仍须当前完整参数匹配。其余页面、拖球和开球保留下列约定。详见 `ui-reviews/UR-20261005-live-trajectory.md`。
 
-- 任何需要求解的瞄准/拖动变更（拖瞄准线、拖球、瞄准刻度条），拖动过程中**不触发求解**，只做纯几何预览（假想球 / 首碰点 / 闭式瞄准线，空杆延伸库边走共享 `rayToInnerRail`）。
+2026-11-22 当前实现将每日连续预览发起上限调整为24Hz；P01相机／球杆跟手不再屏蔽物理预览，台面瞄准释放时追上最后参数。完整物理精度、单在途任务、最新意图合并及最终击球一致性约束保持。“轨迹·双”保留默认瞄准线，并叠加母球和目标球首次碰撞后的真实轨迹。
+
+- 除每日普通杆的24Hz连续预览例外，任何需要求解的瞄准/拖动变更（拖瞄准线、拖球、瞄准刻度条），拖动过程中**不触发求解**，只做纯几何预览（假想球 / 首碰点 / 闭式瞄准线，空杆延伸库边走共享 `rayToInnerRail`）。
 - 用户停下（无新输入）**0.5s idle** 后才触发求解（`SolveDebounceScheduler`：交互态拖动挂起 + 0.5s idle 触发；离散态保留 ~20ms）。
 - 落点：`PositionPlayViewModel.recompute(interactive:)` 调度层、`BankShotViewModel`/`DiamondSystemViewModel` 求解模式（原 120ms → 0.5s idle）、`BTAimWheel` 消费方及后续新页。纯几何预览路径（翻袋/反射自由模式拖动本就不求解）不受影响。
 
@@ -3448,7 +3451,7 @@ DR-407 每日简化决定（2026-10-19，覆盖上文共享/派生/菜单选键�
 
 
 ### DR-410 — 设置选择与下级入口（2026-10-19）
-自定义选择行未选用灰色空心方框，选中用绿色对勾，统一 BTSelectionIndicator；原生 Toggle/Picker 与分段控件保留。DailyHUDMenuItem.selected 为 Bool?：nil=动作/导航、false=未选、true=已选，未选也有可见标记和读屏值。disclosure 仅用于打开下一层选择/编辑/说明；清空、重置、播放等动作不因此加框。默认模板文字保持可使用，右侧独立灰色 disabled 三点不可触发父行。
+自定义选择行未选用灰色空心方框，选中用绿色方框加对号，统一 BTSelectionIndicator；原生 Toggle/Picker 与分段控件保留。DailyHUDMenuItem.selected 为 Bool?：nil=动作/导航、false=未选、true=已选，未选也有可见标记和读屏值。disclosure 仅用于打开下一层选择/编辑/说明；清空、重置、播放等动作不因此加框。默认模板文字保持可使用，右侧独立灰色 disabled 三点不可触发父行。
 Changelog：2026-10-19 / DR-410 / 共用球桌菜单与自定义设置选择提示；验证记录 UR-20261019-settings-affordance.md。
 
 DR-410 v2 / Changelog（2026-10-19）：操作布局编辑浮层固定深色，覆盖2D/3D的工具栏、模板下拉与操作子菜单；移除 controlLayoutHost.editorColorScheme 参数。其他设置页继续原有外观策略，默认灰色禁用三点保留。
