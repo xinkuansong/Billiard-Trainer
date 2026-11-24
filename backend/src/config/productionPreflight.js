@@ -59,10 +59,15 @@ function productionPreflight(env = process.env, filesystem = fs) {
   }
   if (!checks.appleKeyMaterial) blockers.push("Apple .p8 必须是有效的 P-256 私钥");
 
+  checks.wechatMode = env.WECHAT_LOGIN_ENABLED === undefined ||
+    ["true", "false"].includes(env.WECHAT_LOGIN_ENABLED);
+  if (!checks.wechatMode) blockers.push("WECHAT_LOGIN_ENABLED 必须明确为 true 或 false");
+  checks.wechatEnabled = env.WECHAT_LOGIN_ENABLED !== "false";
   checks.wechat = /^wx[0-9a-f]{16}$/i.test(env.WECHAT_APP_ID || "") &&
     /^[0-9a-f]{32}$/i.test(env.WECHAT_APP_SECRET || "") &&
     !/^wx0{16}$/i.test(env.WECHAT_APP_ID) && !/^0{32}$/.test(env.WECHAT_APP_SECRET);
-  if (!checks.wechat) blockers.push("WECHAT_APP_ID/WECHAT_APP_SECRET 尚未配置");
+  if (checks.wechatEnabled && !checks.wechat) blockers.push("WECHAT_APP_ID/WECHAT_APP_SECRET 尚未配置");
+  if (!checks.wechatEnabled) warnings.push("微信登录已明确关闭；登录与绑定接口均不可用");
 
   // Website legal pages are validated separately; the API's legacy document
   // routes remain fail-closed until their own production facts are supplied.

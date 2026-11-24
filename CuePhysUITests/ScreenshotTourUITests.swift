@@ -98,9 +98,15 @@ final class ScreenshotTourUITests: XCTestCase {
             @unknown default: mode = "unknown"
             }
         }
+        #if targetEnvironment(simulator)
         return projectRootURL
             .appendingPathComponent("build/v50/manual", isDirectory: true)
             .appendingPathComponent(mode, isDirectory: true)
+        #else
+        return FileManager.default.temporaryDirectory
+            .appendingPathComponent("cuephys-screenshot-tour", isDirectory: true)
+            .appendingPathComponent(mode, isDirectory: true)
+        #endif
     }
 
     private func snap(_ name: String) {

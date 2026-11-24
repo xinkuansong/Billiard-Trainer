@@ -445,7 +445,7 @@ final class V52DailyClearanceUITests: XCTestCase {
         let environment = ProcessInfo.processInfo.environment
         let path = environment["V52_SHOT_DIR"]
             ?? environment["TEST_RUNNER_V52_SHOT_DIR"]
-            ?? "/Users/song/projects/13.billiard_trainer/build/v52-screenshots/after"
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent("daily-clearance-evidence").path
         return URL(fileURLWithPath: path, isDirectory: true)
     }
 

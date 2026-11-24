@@ -1,11 +1,14 @@
 // Only the mobile app's server-side code exchange establishes the WeChat identity.
 async function wechatIdentity(code) {
+  const unavailable = () => Object.assign(new Error("微信登录服务暂不可用"), { status: 503 });
+  // Allow Apple-only deployment while WeChat approval is pending. Both login
+  // and binding use this exchange, so stale credentials cannot bypass the switch.
+  if (process.env.WECHAT_LOGIN_ENABLED === "false") throw unavailable();
   if (typeof code !== "string" || !code.trim() || code.length > 1024) {
     throw Object.assign(new Error("需要有效的微信授权码"), { status: 400 });
   }
   const appID = process.env.WECHAT_APP_ID;
   const secret = process.env.WECHAT_APP_SECRET;
-  const unavailable = () => Object.assign(new Error("微信登录服务暂不可用"), { status: 503 });
   if (!appID || !secret) throw unavailable();
   const endpoint = new URL("https://api.weixin.qq.com/sns/oauth2/access_token");
   endpoint.search = new URLSearchParams({ appid: appID, secret, code, grant_type: "authorization_code" });

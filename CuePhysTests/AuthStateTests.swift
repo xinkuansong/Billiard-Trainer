@@ -1,4 +1,5 @@
 import Combine
+import Security
 import XCTest
 @testable import CuePhys
 
@@ -623,5 +624,31 @@ final class AuthStateTests: XCTestCase {
             yearsPlaying: "threeToFive",
             weeklyGoalDays: 4
         )
+    }
+}
+
+/// Exercise the signed app's real default Keychain group without touching account credentials.
+final class SignedKeychainAccessTests: XCTestCase {
+    func testCurrentSignedGroupCanWriteUpdateReadAndDeleteIsolatedItem() throws {
+        XCTAssertEqual(Bundle.main.bundleIdentifier, "com.youbilliards.cuephys")
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: "com.youbilliards.cuephys.validation." + UUID().uuidString
+        ]
+        defer { SecItemDelete(query as CFDictionary) }
+        var attributes = query
+        attributes[kSecValueData as String] = Data("initial".utf8)
+        attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        XCTAssertEqual(SecItemAdd(attributes as CFDictionary, nil), errSecSuccess)
+        XCTAssertEqual(SecItemUpdate(query as CFDictionary,
+            [kSecValueData as String: Data("updated".utf8)] as CFDictionary), errSecSuccess)
+        var read = query
+        read[kSecReturnData as String] = true
+        read[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        XCTAssertEqual(SecItemCopyMatching(read as CFDictionary, &result), errSecSuccess)
+        XCTAssertEqual(result as? Data, Data("updated".utf8))
+        XCTAssertEqual(SecItemDelete(query as CFDictionary), errSecSuccess)
+        XCTAssertEqual(SecItemCopyMatching(read as CFDictionary, &result), errSecItemNotFound)
     }
 }
