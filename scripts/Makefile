@@ -445,6 +445,7 @@ export: archive
 	  -archivePath $(ARCHIVE_PATH) \
 	  -exportOptionsPlist $(PROJECT_ROOT)/scripts/ExportOptions.plist \
 	  -exportPath $(EXPORT_PATH)
+	@python3 "$(PROJECT_ROOT)/scripts/verify_release_identity.py" --ipa "$(EXPORT_PATH)/CuePhys.ipa" --require-distribution
 	@echo "✅ IPA 导出完成: $(EXPORT_PATH)"
 
 # ExportOptions.plist 示例（手动创建 scripts/ExportOptions.plist）：
