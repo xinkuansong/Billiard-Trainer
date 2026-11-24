@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// DR-296 (2026-09-14): 3D assist visuals + 2D zoom/pan + 2D/3D orientation parity.
 /// Coordinate contract: SceneKit world, X = long axis (+X = head/break-line end), Z = short axis,

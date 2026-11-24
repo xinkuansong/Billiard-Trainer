@@ -10,7 +10,7 @@ final class V29W2aHistoryDetailUITests: XCTestCase {
     private let outDir = URL(
         fileURLWithPath: #filePath, isDirectory: false
     )
-        .deletingLastPathComponent()   // QiuJiUITests/
+        .deletingLastPathComponent()   // CuePhysUITests/
         .deletingLastPathComponent()   // <repo root>
         .appendingPathComponent("build/w2a-screenshots", isDirectory: true)
 

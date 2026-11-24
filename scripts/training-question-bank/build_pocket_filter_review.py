@@ -15,7 +15,7 @@ def main():
     previous = ROOT / 'output/two-ball-pocket-filter-20261024'
     output = previous / 'review-1000'
     summary = json.loads((previous / 'summary.json').read_text())
-    source = (ROOT / 'QiuJi/Resources/training-grid-bank.json').read_bytes()
+    source = (ROOT / 'CuePhys/Resources/training-grid-bank.json').read_bytes()
     if hashlib.sha256(source).hexdigest() != summary['sourceSHA256']:
         raise ValueError('Bank changed since existing screening')
     if hashlib.sha256(Path(__file__).with_name('pocket_geometry_filter.py').read_bytes()).hexdigest() != summary['scriptSHA256']:
@@ -54,7 +54,7 @@ def main():
         source='existing full screening', uniformSampleWithoutReplacement=True,
         sampleSize=1000, seed=seed, counts=counts, uniqueIDs=1000,
         sampledDecisionsMatchExistingResults=True, totalNewEvaluations=1000,
-        bankUnmodified=hashlib.sha256((ROOT/'QiuJi/Resources/training-grid-bank.json').read_bytes()).hexdigest()==summary['sourceSHA256']
+        bankUnmodified=hashlib.sha256((ROOT/'CuePhys/Resources/training-grid-bank.json').read_bytes()).hexdigest()==summary['sourceSHA256']
     ), ensure_ascii=False, indent=2)+'\n')
     print(json.dumps(dict(output=str(output), counts=counts, seed=seed), ensure_ascii=False))
 

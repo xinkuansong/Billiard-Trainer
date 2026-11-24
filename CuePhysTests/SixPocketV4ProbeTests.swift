@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// v4 phase 0 atomic probes. Read-only calls into the production engine: the three
 /// transfer functions (pot map, single-collision response, free run + cushion) are
@@ -15,7 +15,7 @@ final class SixPocketV4ProbeTests: XCTestCase {
     private let numbers = [1, 2, 3, 4, 5, 8]
     /// Same mapping as `SixPocketSearchTests`: ball 1→pocket_1, 2→3, 3→5, 4→2, 5→0, 8→4.
     private let pocketIndices = [1, 3, 5, 2, 0, 4]
-    private var geometry: TableGeometry { .chineseEightBallQiuJi(surfaceY: y) }
+    private var geometry: TableGeometry { .chineseEightBallCuePhys(surfaceY: y) }
     private var cueName: String { ShotInput.cueBallName }
 
     /// v4 §4: d = corner hole radius + ball radius + g, g ∈ {0, ½D, D, 1½D, 2D}.

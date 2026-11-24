@@ -11,10 +11,10 @@ ROOT = Path(__file__).resolve().parents[2]
 # Layout compatibility is separate from the historical potting experiment.
 # Keep these geometry sources pinned even when the runtime physics changes.
 GEOMETRY_SOURCES = (
-    'QiuJi/Core/Physics/TableGeometry.swift',
-    'QiuJi/Core/Physics/TableGeometry+QiuJi.swift',
-    'QiuJi/Core/Scene/AngleSceneCalculator.swift',
-    'QiuJi/Core/Physics/DrillBoardBuilder.swift',
+    'CuePhys/Core/Physics/TableGeometry.swift',
+    'CuePhys/Core/Physics/TableGeometry+CuePhys.swift',
+    'CuePhys/Core/Scene/AngleSceneCalculator.swift',
+    'CuePhys/Core/Physics/DrillBoardBuilder.swift',
 )
 # Reviewed against the bank's original constants; expressions are checked, not
 # evaluated as Python. Physics coefficients in the same Swift file are excluded.
@@ -40,7 +40,7 @@ def verify_geometry(manifest):
         # rewriting the historical physics evidence fingerprint.
         expected = manifest.get('layoutSourceHashes', {}).get(path, manifest['physicalSourceHashes'][path])
         assert hashlib.sha256((ROOT / path).read_bytes()).hexdigest() == expected, f'Layout geometry changed: {path}; review bank compatibility'
-    source = (ROOT / 'QiuJi/Core/Physics/BTPhysicsConstants.swift').read_text()
+    source = (ROOT / 'CuePhys/Core/Physics/BTPhysicsConstants.swift').read_text()
     source = re.sub(r'/\*.*?\*/', '', source, flags=re.S)
     source = re.sub(r'//[^\n]*', '', source)
     for name, expected in GEOMETRY_CONSTANTS.items():
@@ -49,7 +49,7 @@ def verify_geometry(manifest):
 
 
 def verify(require_current_physics=False):
-    directory = ROOT / 'QiuJi/Resources'
+    directory = ROOT / 'CuePhys/Resources'
     data = (directory / 'training-grid-bank.json').read_bytes()
     manifest = json.loads((directory / 'training-grid-bank-manifest.json').read_text())
     bank = json.loads(data)

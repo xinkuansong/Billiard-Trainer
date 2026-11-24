@@ -4,7 +4,7 @@ import os
 /// Align only the rendered bed and its printed marks with the existing physical plane.
 /// The USDZ, positions, ball radius, pockets, rails, and collision model stay unchanged.
 enum MobileClothAlignment {
-    private static let logger = Logger(subsystem: "com.xinkuan.qiuji", category: "MobileClothAlignment")
+    private static let logger = Logger(subsystem: "com.youbilliards.cuephys", category: "MobileClothAlignment")
 
     static func apply(to scene: AngleTrainingScene) {
         do {

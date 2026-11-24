@@ -1,6 +1,6 @@
 //
 //  SCNVector3+Physics.swift
-//  QiuJi
+//  CuePhys
 //
 //  SCNVector3 向量运算扩展（被物理引擎广泛依赖）。
 //  移植自 01.billiard_app/BilliardTrainer/Utilities/Extensions/SCNVector3+Extensions.swift。

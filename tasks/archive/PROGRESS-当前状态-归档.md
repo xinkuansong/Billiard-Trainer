@@ -1,6 +1,116 @@
 # PROGRESS「当前状态」历史归档
 
+- **白球反光（11-17）✅修改与定向验证**：参考渲染粗糙度0.34→0.05，与号码球一致；底色/红点/B档及库边保留。原生构建/1项三视角对照通过，非白球像素不变，图已审、临时资源已收尾；待用户看图，未安装手机。[记录](table-page-adaptation/CUE-BALL-GLOSS-20261117.md)。
+
+- **代码提交（11-16）**：按用户要求提交按钮形状适配、菜单收窄、精讲图集手势、台呢／球亮度、模型打包及配套脚本／任务记录，目标 `origin/main`。内容不变量、文档体积、同步字段对齐及模型配置检查通过，打包门禁测试6项通过；本轮未重跑App构建或模拟器回归。研究输出、临时备份及个人Xcode配置留本机，推送执行既有pre-push门禁。
+
+- **菜单收窄（11-16）**：13处已改，旧交互保留；r4构建通过，16ProMax全清单＋SE浅深色代表复验。主菜单/透明度保留，真机/iPad/大字号未验；待用户看[前后图册](../output/menu-compact-20261116/index.html)／[报告](ui-reviews/UR-20261116-menu-whitespace.md)。
+
+- **模型包体（11-16）✅定向完成**：旧球桌／球杆移出包、原件保留，减少资源109.98MB；新真机平台Debug包669.63MB。构建、6项打包门禁及iPhone16Pro/iOS26.2六项测试通过，两张原生渲染图已审；临时资源已收尾，未装手机。[记录](MODEL-PACKAGE-SLIMMING-20261116.md)。
+
+- **球桌品牌（11-16）**：H 五桌款接入 ✅。用户复看后取消中央 CuePhys 与「显示名称」开关，已完整撤回，恢复干净台呢；桌边、域名、袋口品牌保留。撤回源码／资源引用检查，前轮中央方案测试仅留历史；真机未重装。[任务](TABLE-BRANDING-20261116.md)。
+
+- 11-15 六页续打复位，iPhone 17 模拟器六页实打通过。[截图与记录](table-page-adaptation/DEFAULT-SHOT-SPEED-20261026.md#2026-11-15续打复位)。
+
+- **iPhone 18 Pro 真机安装（11-14）✅**：修正实时活动扩展描述文件缺失的构建阻塞；当前工作区优化 Debug 1.0.0 (1) 编译签名通过，两个描述文件均包含该机。13:07 安装、启动并确认进程在运行。视觉与手感待体验。[构建与部署证据](../output/iphone18pro-install-20261114/)。
+
+<a id="archived-20261124-rui"></a>
+
+## R-UI Existing Page Alignment — ✅ 附条件通过
+
+> 详见 `tasks/phases/R-UI-alignment.md`
+
+| 任务 | 状态 |
+|------|------|
+| T-RUI-01 TrainingHomeView 对齐 | ✅ 已完成（2026-04-05）— 今日安排卡片 + BTSegmentedTab 计划浏览 + 筛选 Chip + 固定底部按钮 + 空状态 |
+| T-RUI-02 DrillListView + DrillDetailView 对齐 | ✅ 已完成（2026-04-05）— 灰色操作图标行 + 标签行 + darkPill/primary 固定底栏 + Pro 金色底栏 |
+| T-RUI-03 ActiveTrainingView 对齐 | ✅ 已完成（2026-04-05）— 毛玻璃顶栏 4 图标 + 计划名进度条 + 5 键底栏带文字标签 + 橙色热身标记 |
+| T-RUI-04 ProfileView + LoginView 对齐 | ✅ 已完成（2026-04-05）— 彩色圆底图标菜单 + 月度概览 + 游客警告/Pro 推广卡 + 三按钮登录 + 药丸验证码输入 |
+| T-RUI-05 OnboardingView 对齐 | ✅ 已完成（2026-04-05）— 品牌绿圆底图标 + QJ Logo + 强制浅色 + 3 FeatureRow |
+| QA-RUI 验收 | ✅ 附条件通过（2026-04-05）— D-1 已修复；8 项 P2 改进记入 P8 |
+
+---
+
+
+<a id="archived-20261124-r1-p9-completed"></a>
+
+## 2026-11-24 已完成阶段滚动归档
+
+## R1 UI 逐页审查 — ✅ 已完成
+
+> 详见 `tasks/phases/R1-ui-review.md` + `tasks/ui-reviews/UR-20260406-*.md`（11 份）
+
+| 任务 | 状态 |
+|------|------|
+| T-R1-01 TrainingHomeView 审查 | ✅ 已完成（2026-04-06）— 10 项（P1:3 / P2:7）|
+| T-R1-02 ActiveTrainingView 审查 | ✅ 已完成（2026-04-06）— 16 项（P1:3 / P2:13）|
+| T-R1-03 TrainingSummary + ShareView 审查 | ✅ 已完成（2026-04-06）— 17 项（P1:3 / P2:14）|
+| T-R1-04 Plans（List+Detail+Builder）审查 | ✅ 已完成（2026-04-06）— 18 项（P1:7 / P2:11）|
+| T-R1-05 DrillLibrary 审查 | ✅ 已完成（2026-04-06）— 13 项（P1:6 / P2:7）|
+| T-R1-06 AngleTraining 审查 | ✅ 已完成（2026-04-06）— 16 项（P1:1 / P2:15）|
+| T-R1-07 History + Statistics 审查 | ✅ 已完成（2026-04-06）— 13 项（P1:2 / P2:11）|
+| T-R1-08 Profile + Settings 审查 | ✅ 已完成（2026-04-06）— 13 项（P1:4 / P2:9）|
+| T-R1-09 Onboarding + Login 审查 | ✅ 已完成（2026-04-06）— 7 项（P1:1 / P2:6）|
+| T-R1-10 SubscriptionView 审查 | ✅ 已完成（2026-04-06）— 11 项（P2:11）|
+| T-R1-11 全局 + 组件审查 | ✅ 已完成（2026-04-06）— 11 项（P1:3 / P2:8）|
+
+**汇总**：全部 11 个审查任务完成，共发现 **145 项偏差**（P0: 0 / P1: 33 / P2: 112）。
+
+---
+
+## P9 Aiming Feature Expansion — ✅ 已完成（QA-P9 通过 2026-06-02）
+
+> 详见 `tasks/phases/P9-aiming.md`
+
+| 任务 | 状态 |
+|------|------|
+| T-P9-00 UI 设计交付文档更新 | ✅ 已完成（2026-06-02）— `09-UI设计交付文档.md` §3.3 补 5 页 + AngleHome 分组 + 对照表增强 + 导航树 + §7.5 |
+| T-P9-D-01~06 UI 设计出图 | ✅ 已完成（2026-04-14，6/7 APPROVED） |
+| T-P9-D-REVIEW 设计一致性审查 | ✅ 已完成（2026-06-02）— `ui_design/tasks/P9-REVIEW/consistency-review.md`，无 P1 偏差 |
+| T-P9-01 SceneKit 场景基础设施 | ✅ 已完成（2026-04-14）— ADR-P9-01 |
+| T-P9-02 数据层扩展 | ✅ 已完成（2026-04-14） |
+| T-P9-03 AngleHomeView 导航重构 | ✅ 已完成（2026-04-14） |
+| T-P9-04 瞄准原理页 | ✅ 已完成（2026-04-14） |
+| T-P9-05 角度与打点动态关系页 | ✅ 已完成（2026-04-14） |
+| T-P9-06 几何角度预测训练 | ✅ 已完成（2026-04-14） |
+| T-P9-07 SceneKit 角度预测页（2D/3D） | ✅ 已完成（2026-04-14） |
+| T-P9-08 SceneKit 角度预测增强 | ✅ 已完成（2026-04-14） |
+| T-P9-09 进球点对照表增强 | ✅ 已完成（2026-04-14） |
+| T-P9-10 浅淡球感页 | ✅ 已完成（2026-04-14） |
+| T-P9-11 AngleHistoryView 增强 | ✅ 已完成（2026-04-14） |
+| QA-P9 验收 | ✅ 通过（2026-06-02）— `tasks/qa-reports/QA-P9.md`；241/241 自动化 + 人工功能验收（用户确认）；修复 FL-016（几何训练 Freemium 闸门）+ PD-007（测试宿主/模块名，恢复命令行测试） |
+
+---
+
+
 <a id="archived-20261118-p10-b1"></a>
+
+## 2026-11-23 进度滚动归档
+
+- **库边明暗（11-17）✅接入并安装手机待体验**：liveReference库侧细化/轻提＋台面靠库渐变已默认生效；重建漏装修复后原生构建/3项回归通过，五机位同轮候选等价，iOS17着色块编译通过。验证同包已覆盖安装并启动iPhone 16 Pro，保留数据；真机观感/性能待用户体验，非全App回归。[记录](../table-page-adaptation/RAIL-BED-SHADOW-20261117.md#正式接入结果与手机交付)。
+
+
+## 2026-11-23 当前状态滚动归档
+
+11/20 完成功能页与设置现状盘点：逐项核对练习目录 44 张公开卡，83 项功能或页面共 152 张原生截图，含 25 个桌边「更多」。通用偏好覆盖、训练量命名和桌边分组待讨论。[截图图册](../output/settings-audit-20261120/index.html) · [代码盘点](ui-reviews/UR-20261120-设置与功能页盘点.md)
+
+11/20 13 个交互球桌功能新增「目标球接触点」，三点菜单内按页记忆、默认关闭。iPhone 17 Pro 模拟器定向 4 项通过，真机未验。[范围与截图](table-page-adaptation/TARGET-CONTACT-POINT-20261120.md)
+
+11/23 Apple 邮件与 Edge 账户页均确认个人会籍已转为组织。法人实体显示为 Wuxi Youqiu Technology Co., Ltd，团队 ID KWH2GRNSKG，年费 RMB 688。App Store Connect 已核到现有 App「球迹」App ID 6761309682，iOS 1.0「准备提交」，页面提示中国大陆分发需补安全评估和 AIGC 服务声明。[上线台账](LAUNCH-READINESS-20261109.md)
+
+11/23 已按用户要求先形成 [Apple 组织迁移与首发方案 v4.1](launch-20261110/Apple组织迁移与首发方案_v4.md)。用户倾向首发前统一全部标识，方案补充 Bundle ID、Apple 登录、内购、Keychain、后端、微信和 TestFlight 的影响，并把“现有 App 是否已上传 build”设为路线门槛。当前未提交审核或发布，候选包改名也未作为已验收结果。
+
+11/23 已在 Edge 的 App Store Connect 现有 App「球迹」版本 1.0 页面核验，页面显示“从多种工具中选取一种来上传你的构建版本”，当前没有上传 build；App 信息页读取到 SKU `QJ-001`。按 Apple 官方规则，可优先在现有 App 记录内切换 Bundle ID。Apple Developer 已登记显式 App ID `com.youbilliards.cuephys`（描述 `CuePhys`），启用 Associated Domains 与 Sign in with Apple；下一步切换现有 App 记录的 Bundle ID，再同步工程、登录、内购和微信配置。[核验与迁移方案](launch-20261110/Apple组织迁移与首发方案_v4.md)
+
+11/23 已完成 CuePhys 全量标识迁移的方案和[新旧标识映射](launch-20261110/CuePhys全量标识迁移映射.md)。已实查并登记主 App ID `com.youbilliards.cuephys`，描述 `CuePhys`，启用 Associated Domains 与 Sign in with Apple；已读取 App Store Connect SKU `QJ-001`。代码侧尚未改名，SwiftData schema、旧商品 ID、旧账号令牌命名空间和历史证据列为兼容保留项，防止改名造成训练记录或购买恢复丢失。下一步先切换现有 App 记录的 Bundle ID，再实施工程改名。
+
+11/23 已完成 v4.2 方案复核。修正了旧商品 ID、旧 Apple `APPLE_BUNDLE_ID` 和“build 状态未确认”的残留表述，补充了证书与描述文件、Sign in with Apple 能力、日志 subsystem、模拟器脚本 Bundle ID、当前构建禁止提前上传和 App 备案联动门槛。外部身份已核实：Apple Developer 新 App ID `com.youbilliards.cuephys` 已登记，App Store Connect SKU 为 `QJ-001`，现有 App `6761309682` 仍无 build；代码侧尚未改名，App Store Connect 现有 Bundle ID 尚未切换。
+
+11/23 已完成 v4.3 全量覆盖审计。除 Bundle ID 和 Swift 模块外，明确纳入工程目录／scheme、扩展与测试产物、StoreKit 正式商品和 App Store Server Notifications、Apple／微信回调、Keychain／UserDefaults／SwiftData、后端部署目录／数据库／备份／告警、日志／分析／通知标识、API 与两个域名边界、官网／商店素材、设备脚本和当前文档。处理方式分为“当前构建改名、兼容迁移、历史证据保留”；当前未改代码或生产配置。[覆盖审计](launch-20261110/Apple组织迁移与首发方案_v4.md)
+
+11/23 已将外部阻塞和配置时机写入 v4.4：API 域名是 App 访问后端的 HTTPS 主机，不等于 App 名或 Bundle ID；建议 `api.cuephys.com` 作 API、`youbilliards.com` 保留官网和备案法律页。Apple 登录 `.p8` 密钥用于服务端生成 client secret、交换／撤销 token；微信 AppID 用于移动应用授权，AppSecret 只在服务端换取授权结果。当前只做只读核对和方案准备，等 Bundle ID、HTTPS、Pro 权益和价格冻结后再创建生产凭据和正式商品。[外部阻塞与时机](launch-20261110/Apple组织迁移与首发方案_v4.md)
+
+11/23 对照 CuePhys 代码侧标识：正式包的 `CFBundleName`/`CFBundleDisplayName` 已是 `CuePhys`，商店和产品公开文案已大部分使用 CuePhys。`com.xinkuan.qiuji` Bundle ID、StoreKit 商品 ID、Swift 模块名 `QiuJi`、后端默认数据库名和钥匙串键属于既有技术标识，首发阶段保留以维持现有 App、内购和本地数据连续性。工程配置中的 `PRODUCT_NAME` 仍为历史产物名「球迹」，主要影响构建产物和测试宿主路径，不直接决定 App Store 展示名，待改名候选包统一验证后再改。当前 Release 的 API 地址仍是 HTTP 占位，Apple/微信真实登录不能进行生产联调，HTTPS 和 Apple 密钥仍是后续阻塞项。[上线台账](LAUNCH-READINESS-20261109.md)
 
 ## P10 B1历史实证（2026-06-04）
 

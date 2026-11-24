@@ -31,7 +31,7 @@
 
 2026-09-13 球贴纸：`BallStickerTests` / `BallStickerUITests` 只写 `output/ball-stickers-20260913/app-renders` 与 `ui`，所有写盘错误抛出。UV 相机校验帧为测试 Bundle 中的 `BallStickerUVFrames.json`，不依赖旧 output。SettingsView → BallStickerSettingsView 为正常生产导航，六款选择与本地重启保留由 BallStickerUITests 覆盖；深链取证外观使用已有显式 Light 参数，不将默认强制 Dark 的图冒充 Light。
 
-机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。2026-10-16实扫登记181个文件；新增写盘测试未登记时 `verify-gate` 失败。
+机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `CuePhysTests/` 与 `CuePhysUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。2026-10-16实扫登记181个文件；新增写盘测试未登记时 `verify-gate` 失败。
 
 ### 2026-10-16 当前文案审核与迁移测试写盘面复核
 
@@ -45,17 +45,17 @@
 
 | 类型 | 默认执行集 | 允许目录 | 清理 / 污染要求 |
 |---|---|---|---|
-| 普通单元测试临时文件 | `QiuJi` scheme 的 `QiuJiTests` | `FileManager.default.temporaryDirectory`、测试专属临时目录 | 测试自行删除或由系统回收；不得写仓库真源 |
-| 诊断 / evidence renderer | 多数在 `QiuJiTests` 默认执行集 | `build/<task>-*` | 允许覆盖同任务 build 产物；不得写 `QiuJi/Resources` 或 docs 基线 |
-| bake / export runner | scheme 内但应由内部 gate 或 `-only-testing` 控制 | 明确的 `build/`；显式发布命令才可写 `QiuJi/Resources` / `content` | 默认全量测试必须证明 runner gate 未开启时不写真源 |
-| UI 截图 | `QiuJiUITests`；普通 `QiuJi` scheme 会包含 | `build/<task>-screenshots`、`tmp/` | PNG 写入失败必须让测试失败；不得默认写 `docs/ui-polish` |
+| 普通单元测试临时文件 | `QiuJi` scheme 的 `CuePhysTests` | `FileManager.default.temporaryDirectory`、测试专属临时目录 | 测试自行删除或由系统回收；不得写仓库真源 |
+| 诊断 / evidence renderer | 多数在 `CuePhysTests` 默认执行集 | `build/<task>-*` | 允许覆盖同任务 build 产物；不得写 `CuePhys/Resources` 或 docs 基线 |
+| bake / export runner | scheme 内但应由内部 gate 或 `-only-testing` 控制 | 明确的 `build/`；显式发布命令才可写 `CuePhys/Resources` / `content` | 默认全量测试必须证明 runner gate 未开启时不写真源 |
+| UI 截图 | `CuePhysUITests`；普通 `QiuJi` scheme 会包含 | `build/<task>-screenshots`、`tmp/` | PNG 写入失败必须让测试失败；不得默认写 `docs/ui-polish` |
 | 旧 worktree 绝对路径 | 仍存在于历史测试 | 对应旧 worktree `build/` | 属已知技术债；若路径不存在应写当前仓 `build/` 或显式失败，禁止回退到 docs/Resources |
 | 内容录制特例 | `B1_ManualFormationUITests` 等 | `content/position_play/sequences` | 只允许显式 `-only-testing` 的录制流程；不得进入普通 smoke / W15a 默认巡游 |
 
 ## 已确认的默认执行关系
 
-- `QiuJi.xcscheme` 的 TestAction 同时包含 `QiuJiTests` 与 `QiuJiUITests`，没有 `.xctestplan`。
-- `QiuJiUITour.xcscheme` 只包含 `QiuJiUITests`，用于长巡游；必须配合 `-only-testing`，否则会运行整个 UI target。
+- `QiuJi.xcscheme` 的 TestAction 同时包含 `CuePhysTests` 与 `CuePhysUITests`，没有 `.xctestplan`。
+- `CuePhysUITour.xcscheme` 只包含 `CuePhysUITests`，用于长巡游；必须配合 `-only-testing`，否则会运行整个 UI target。
 - `make test` 当前末尾带 `|| true`，不能作为诚实的全量测试结论；v47 基线和收官一律用直接 `xcodebuild` 并检查退出码。
 - `ScreenshotTourUITests` 已改为默认写 `build/v47-screenshots/{light|dark}`，建目录和 PNG 写入不再使用 `try?`；完整设计师巡游按 66 张预期 manifest 做缺图断言。
 - v49 的 21 个文案取证测试统一写入仓库忽略目录 `build/v49-screenshots/`；写入失败会触发 `XCTFail`，不会回写 Drill、精讲图或设计基线真源。
@@ -66,7 +66,7 @@
 ## W15a 复核
 
 1. 重跑机器差集，确认写盘文件数与本清单一致。
-2. 对所有默认执行的 runner 检查 gate，实际测试前后用 `git status --short` 确认未改 `QiuJi/Resources`、`content/`、`docs/ui-polish/`。
+2. 对所有默认执行的 runner 检查 gate，实际测试前后用 `git status --short` 确认未改 `CuePhys/Resources`、`content/`、`docs/ui-polish/`。
 3. 所有 v47 截图只出现在 `build/v47-*` 或 `tmp/`；Stitch 选中截图只进入 `docs/design/v47/stitch/selected/`，且不冒充 App 截图。
 
 ## v57 持久恢复测试追加审计（2026-09-05）
@@ -110,9 +110,9 @@ RenderQualityV62Tests 与 RenderQualityV62UITests 仅输出渲染 PNG/诊断 JSO
 
 ## v63 W03 辅助线几何与性能证据
 
-- `QiuJiTests/TrajectoryRendererTests.swift` 中 `TableAssistSurfaceV63Tests.testLoadedClothFootprintAndRenderEvidence` 写入当前仓库 `output/3d-v63/W03/footprint-r1/{measurement.json,before.png,projected.png}`，为固定几何夹具复跑覆盖目录。构建结果、其他附件和失败日志存入每轮独立的xcresult；不默认删除证据。
+- `CuePhysTests/TrajectoryRendererTests.swift` 中 `TableAssistSurfaceV63Tests.testLoadedClothFootprintAndRenderEvidence` 写入当前仓库 `output/3d-v63/W03/footprint-r1/{measurement.json,before.png,projected.png}`，为固定几何夹具复跑覆盖目录。构建结果、其他附件和失败日志存入每轮独立的xcresult；不默认删除证据。
 - 同文件的CPU成本报告采用XCTAttachment JSON，随每轮xcresult隔离；训练截图附件同样由结果包保留。源码路径用`#filePath`计算，写盘失败向外抛错使测试失败。
-- 不写训练内容、资源、物理真源或截图设计基线。默认QiuJiTests执行集可能运行该类；本批使用显式only-testing，重跑前应先保存需要对比的footprint固定目录。
+- 不写训练内容、资源、物理真源或截图设计基线。默认CuePhysTests执行集可能运行该类；本批使用显式only-testing，重跑前应先保存需要对比的footprint固定目录。
 
 ## 2026-09-13 球桌风格收尾时的并行球杆测试登记
 
@@ -262,7 +262,7 @@ ProfileView 路由签名仅因同步/游客合并说明加入自定义球形而�
 
 ### 2026-10-28 练习视图合并
 
-`TrainingQuotaLedgerTests` 在系统 temporaryDirectory/UUID 下创建额度 JSON，模拟原子恢复和损坏；defer 仅移除自己创建的目录。`TrainingViewMergeStateTests` 经生产 checkpoint API 在独立临时 owner/project 目录写入并清理，多球测试使用独立 UserDefaults suite 和随机 checkpoint 目录；不写 Bundle、内容资产、用户真实存档或设计基线。新 UI 测试的截图只写 XCTAttachment/本轮 xcresult，启动使用内存 SwiftData 和进程隔离额度/checkpoint。生产新写盘面为 Application Support/QiuJi/TrainingQuota 及 TrainingCheckpoints，按项目和 owner 隔离；额度是设备项目桶，不按账号重置。
+`TrainingQuotaLedgerTests` 在系统 temporaryDirectory/UUID 下创建额度 JSON，模拟原子恢复和损坏；defer 仅移除自己创建的目录。`TrainingViewMergeStateTests` 经生产 checkpoint API 在独立临时 owner/project 目录写入并清理，多球测试使用独立 UserDefaults suite 和随机 checkpoint 目录；不写 Bundle、内容资产、用户真实存档或设计基线。新 UI 测试的截图只写 XCTAttachment/本轮 xcresult，启动使用内存 SwiftData 和进程隔离额度/checkpoint。生产新写盘面为 Application Support/CuePhys/TrainingQuota 及 TrainingCheckpoints，按项目和 owner 隔离；额度是设备项目桶，不按账号重置。
 
 ## 2026-11-15 H17 Compute研究附件登记
 
@@ -270,7 +270,7 @@ ProfileView 路由签名仅因同步/游客合并说明加入自定义球形而�
 
 ## 2026-11-16 七页球形记忆测试登记
 
-`DailyComfortRecommendationTests.swift` 的球形记忆用例在系统 temporaryDirectory 下创建独立 UUID 目录，写入版本、损坏、原子提交和 owner/page 隔离 fixture；defer 仅尝试移除本用例目录，清理失败不代表成功。原生恢复测试使用 DEBUG 专用 `BOARD_MEMORY_TEST_DOMAIN` 临时存储域跨启动读取，截图写入 XCTAttachment/本轮 xcresult。生产存储为 Application Support/QiuJi/BoardMemory，按 owner 和页面隔离；这些测试不写用户真实存档、Bundle、内容资产或设计基线。受管构建与证据目录由 local-test / simulator 生命周期工具收尾。
+`DailyComfortRecommendationTests.swift` 的球形记忆用例在系统 temporaryDirectory 下创建独立 UUID 目录，写入版本、损坏、原子提交和 owner/page 隔离 fixture；defer 仅尝试移除本用例目录，清理失败不代表成功。原生恢复测试使用 DEBUG 专用 `BOARD_MEMORY_TEST_DOMAIN` 临时存储域跨启动读取，截图写入 XCTAttachment/本轮 xcresult。生产存储为 Application Support/CuePhys/BoardMemory，按 owner 和页面隔离；这些测试不写用户真实存档、Bundle、内容资产或设计基线。受管构建与证据目录由 local-test / simulator 生命周期工具收尾。
 
 2026-11-19 · SpatialPracticeRecoveryTests.swift 在临时目录下创建 UUID 隔离的归档和写入障碍，写损坏样本来验证恢复，使用独立 defaults suite。测试结束清理专用目录及偏好域；输出不进入资源包。
 

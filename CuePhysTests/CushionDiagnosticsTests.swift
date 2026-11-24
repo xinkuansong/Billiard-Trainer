@@ -1,11 +1,11 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// 库边碰撞速度诊断 —— 把 Han 2005 闭式库边模型在不同入射角 / 速度 / 旋转下的
 /// 「入射速度 → 反弹速度」逐条打印出来，便于分析「吃库后速度衰减」是否合理。
 ///
-/// 运行：`xcodebuild ... test -only-testing:QiuJiTests/CushionDiagnosticsTests`
+/// 运行：`xcodebuild ... test -only-testing:CuePhysTests/CushionDiagnosticsTests`
 /// 输出见控制台（每行：入射角/入射速度/反弹速度/速度保留率/入射角/反弹角）。
 final class CushionDiagnosticsTests: XCTestCase {
 

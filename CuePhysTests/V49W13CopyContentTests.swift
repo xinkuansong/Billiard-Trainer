@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W13：新录多杆链的顺序、换边与关键杆边界。
 @MainActor

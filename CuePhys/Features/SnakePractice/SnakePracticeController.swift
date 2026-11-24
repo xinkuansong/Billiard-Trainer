@@ -91,7 +91,7 @@ final class SnakePracticeHistory: ObservableObject {
     @Published private(set) var records: [SnakePracticeRecord] = []
     private(set) var active: SnakePracticeRecord?
     private let defaults: UserDefaults
-    private let logger = Logger(subsystem: "com.xinkuan.qiuji", category: "SnakePracticeHistory")
+    private let logger = Logger(subsystem: "com.youbilliards.cuephys", category: "SnakePracticeHistory")
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults

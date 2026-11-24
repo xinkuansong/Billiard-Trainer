@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// 规则引擎单测（条 15.10）：中式八球开放/定边/犯规/8 号胜负 + 追分计分/首触/终局。
 /// 规则依据：docs/research/20260707-中八追分规则调研.md。

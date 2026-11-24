@@ -64,7 +64,7 @@
 
 ## [BLOCKING] H-05 — 微信开放平台申请移动应用资质
 
-- **状态**：⏳ 已纳入首发，按用户 2026-11-09 决定先记录，后续统一办理
+- **状态**：⏳ 2026-11-24 用户回执确认移动应用已创建并提交审核，预计 1–7 个工作日；Universal Links 已部署，待审核结果与真实 AppID/Secret
 - **做什么**：
   1. 注册/登录 [微信开放平台](https://open.weixin.qq.com)
   2. 创建移动应用（填写 App 名称、简介、图标）
@@ -75,6 +75,8 @@
 - **影响任务**：T-P1-08（微信登录集成需要 AppID）
 - **完成后**：将 AppID 填入 `Config/Debug.xcconfig` 的 `WECHAT_APP_ID` 字段
 - **备注**：首发采用微信与 Apple 两种账号登录方式，见[首发台账第 20 项](LAUNCH-READINESS-20261109.md)。
+
+- **当前填写值**：iPhone/iPad 的 Universal Links 均为 `https://youbilliards.com/cuephys/wechat/`，Bundle ID 为 `com.youbilliards.cuephys`。源站与签名配置已验；Apple CDN/真机回跳仍待闭环，见[验证](launch-20261110/微信UniversalLinks产品路径调整-20261124.md)。
 
 ---
 

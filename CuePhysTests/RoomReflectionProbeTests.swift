@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import Metal
-@testable import QiuJi
+@testable import CuePhys
 
 /// Ball reflection probe (room-baked environment) — deterministic checks plus
 /// optional evidence renders (`TEST_RUNNER_V62_SHOT_DIR`).

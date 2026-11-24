@@ -2,7 +2,7 @@ import XCTest
 import SwiftData
 import SwiftUI
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class StatisticsViewModelTests: XCTestCase {

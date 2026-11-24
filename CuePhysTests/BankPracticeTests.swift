@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 final class BankPracticeTests: XCTestCase {
     func testSelectedBankDemonstrationRebuildsRealShot() throws {
@@ -99,7 +99,7 @@ final class BankPracticeTests: XCTestCase {
     func testStrictTargetRouteRejectsFewerExtraWrongOrderAndWrongPocket() throws {
         let source = try XCTUnwrap(BankPracticeBankStore.load().questions.first { $0.walls.count == 3 })
         let cue = ShotInput.cueBallName, target = ShotInput.targetBallName
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
         let hit = ShotEvent(time: 1, kind: .ballBall(ballA: cue, ballB: target))
         let rails = source.railSegments.enumerated().map { ShotEvent(time: Float($0.offset + 2), kind: .ballCushion(ball: target), cushionIndex: $0.element) }
         let pot = ShotEvent(time: 10, kind: .pocket(ball: target, pocketId: geometry.pockets[source.pocket].id))
@@ -544,7 +544,7 @@ final class BankPracticeTests: XCTestCase {
         prediction.termination = .settled; prediction.recorder = TrajectoryRecorder()
         prediction.strikeDirection = question.source.direction.vector
         prediction.finalPositions = [ShotInput.cueBallName: question.board.cue.vector]
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
         prediction.events = [.init(time: 1, kind: .ballBall(ballA: ShotInput.cueBallName, ballB: ShotInput.targetBallName))]
         if success {
             prediction.events += question.railSegments.enumerated().map {

@@ -1,6 +1,8 @@
 import pathlib
 import tempfile
 import unittest
+import io
+import subprocess
 from unittest.mock import patch
 
 import common
@@ -9,6 +11,13 @@ import mac_worker as mac
 
 
 class BackupChecks(unittest.TestCase):
+    def test_append_json_event_is_bounded(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = pathlib.Path(temp) / 'events.json'
+            for index in range(3):
+                common.append_json_event(path, {'id': index}, limit=2)
+            self.assertEqual(common.read_json(path), [{'id': 1}, {'id': 2}])
+
     def test_named_archives_expire_at_boundary(self):
         now = 1800000000
         with tempfile.TemporaryDirectory() as temp:
@@ -57,6 +66,31 @@ class BackupChecks(unittest.TestCase):
                     mac.receive(meta,{})
             self.assertEqual(target.read_bytes(),b'old')
             self.assertEqual(list(target.parent.iterdir()),[target])
+
+    def test_low_disk_space_blocks_receive_before_download(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(mac, 'ARCHIVES', pathlib.Path(temp)):
+            name='full-1794283525-2.cms'
+            meta=dict(name=name,size=5,sha256='a'*64,seq=2,identity='sample',hash='b'*64,captured=1794283525)
+            usage = type('Usage', (), {'free': mac.MIN_FREE_BYTES - 1})()
+            with patch.object(mac.shutil, 'disk_usage', return_value=usage), patch.object(mac, 'remote') as remote:
+                with self.assertRaisesRegex(OSError, '至少 20 GiB'):
+                    mac.receive(meta,{})
+            remote.assert_not_called()
+
+    def test_remote_get_retries_and_truncates_partial_output(self):
+        payload = b'complete'
+        failures = [subprocess.CalledProcessError(1, ['ssh'], stderr=b'temporary network'),
+                    subprocess.CalledProcessError(1, ['ssh'], stderr=b'temporary network')]
+        def fake_remote(*args, output=subprocess.PIPE):
+            if failures:
+                output.write(b'partial')
+                raise failures.pop(0)
+            output.write(payload)
+        with patch.object(mac, 'remote', side_effect=fake_remote), patch.object(mac.time, 'sleep') as sleep:
+            target = io.BytesIO()
+            mac.remote_get_retry('full-1794283525-2.cms', target)
+        self.assertEqual(target.getvalue(), payload)
+        self.assertEqual(sleep.call_count, 2)
 
     def test_notification_throttle_and_recovery(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(mac,'banner') as banner:

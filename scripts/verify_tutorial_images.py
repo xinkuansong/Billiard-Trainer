@@ -2,8 +2,8 @@
 """
 verify_tutorial_images.py — 校验 drill JSON 精讲 `image` 引用 vs DrillTutorials 磁盘文件
 
-扫描 QiuJi/Resources/Drills/**/*.json 中 tutorial.sections / tutorial.formations[].sections
-的 image 字段（不含扩展名），对照 QiuJi/Resources/DrillTutorials/ 下实际文件。
+扫描 CuePhys/Resources/Drills/**/*.json 中 tutorial.sections / tutorial.formations[].sections
+的 image 字段（不含扩展名），对照 CuePhys/Resources/DrillTutorials/ 下实际文件。
 
 用法：
   python3 scripts/verify_tutorial_images.py
@@ -21,8 +21,8 @@ from collections import defaultdict
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DRILLS_DIR = REPO_ROOT / "QiuJi" / "Resources" / "Drills"
-TUTORIALS_ROOT = REPO_ROOT / "QiuJi" / "Resources" / "DrillTutorials"
+DRILLS_DIR = REPO_ROOT / "CuePhys" / "Resources" / "Drills"
+TUTORIALS_ROOT = REPO_ROOT / "CuePhys" / "Resources" / "DrillTutorials"
 
 
 def collect_image_refs(drills_dir: Path | None = None) -> list[tuple[str, str, str]]:

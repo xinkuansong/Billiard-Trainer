@@ -4,7 +4,7 @@ import UIKit
 
 /// 极简 H.264 MP4 逐帧写入器（ADR-P11-01）。
 ///
-/// 从 `QiuJiTests/DrillShotReconstructionTests` 的 `AVAssetWriter` 原型抽出到 app 模块：
+/// 从 `CuePhysTests/DrillShotReconstructionTests` 的 `AVAssetWriter` 原型抽出到 app 模块：
 /// 创建 → 逐帧 `append(_:)`（按固定帧率推进 PTS）→ `finish()`。供走位序列视频导出复用。
 final class VideoWriter {
 

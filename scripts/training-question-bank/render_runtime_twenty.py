@@ -12,7 +12,7 @@ import grid_anchor_gallery as base
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'output/accuracy-runtime-twenty-20261021'
-BANK = ROOT / 'QiuJi/Resources/training-grid-bank.json'
+BANK = ROOT / 'CuePhys/Resources/training-grid-bank.json'
 FONT = base.FONT
 INK, GREEN, ORANGE = '#173f35', '#137f70', '#d58726'
 LABELS = [['近直球0–10°', '小角度11–30°', '中角度31–50°', '大角度51–70°', '极薄球71–85°'],

@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class TrainingBankProductionTests: XCTestCase {
     private func actual(_ board: TrainingBankBoard, tip: TrainingFixedTip,
@@ -41,7 +41,7 @@ final class TrainingBankProductionTests: XCTestCase {
             .isAvailable(spinX: Double(proof.tip.x), spinY: Double(proof.tip.y))
     }
     private func search(_ board: TrainingBankBoard, tip: TrainingFixedTip) -> TrainingPotProof? {
-        let pocket = TableGeometry.chineseEightBallQiuJi(surfaceY: 0).pockets[board.pocketIndex].center
+        let pocket = TableGeometry.chineseEightBallCuePhys(surfaceY: 0).pockets[board.pocketIndex].center
         let points: [SCNVector3?] = [nil, pocket]
         var pots = 0, direct = 0, best = 0
         for speed: Float in [1, 1.1, 0.9, 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2, 0.8, 0.7, 0.6, 2.5, 3.5, 5] {

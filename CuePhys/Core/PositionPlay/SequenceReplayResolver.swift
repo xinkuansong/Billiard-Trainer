@@ -39,7 +39,7 @@ enum SequenceReplayResolver {
         let ghost = ShotPredictor.ghostAlongFinalAim(cue: cue, target: target,
             aim: direction, ballRadius: BallPhysics.radius) ?? target
         let context = ShotPredictor.AimContext(aimPoint: pocket, ghost: ghost, aimDir: direction,
-            geometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY), pocketCenter: pocket)
+            geometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY), pocketCenter: pocket)
         var seed = ShotPrediction()
         seed.pocketAimPoint = pocket
         seed.ghost = ghost

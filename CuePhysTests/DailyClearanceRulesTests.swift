@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class DailyClearanceRulesTests: XCTestCase {
     private var fullEightBallTable: Set<String> { Set((1...15).map { "_\($0)" }) }

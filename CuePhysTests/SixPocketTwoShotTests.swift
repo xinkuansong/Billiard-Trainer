@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Research-only two-stroke baseline. Production physics is read-only.
 /// XZ horizontal, Y up, metres; portrait up=+X, right=+Z.
@@ -9,7 +9,7 @@ final class SixPocketTwoShotTests: XCTestCase {
     private let numbers = [1, 2, 3, 4, 5, 8]
     private let pockets = [1, 3, 5, 2, 0, 4]
     private let y: Float = 0.8
-    private var geometry: TableGeometry { .chineseEightBallQiuJi(surfaceY: y) }
+    private var geometry: TableGeometry { .chineseEightBallCuePhys(surfaceY: y) }
     private let cue = ShotInput.cueBallName
     private var calls = 0
     private var rng: UInt64 = 20260920

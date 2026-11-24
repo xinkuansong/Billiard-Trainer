@@ -491,7 +491,7 @@ enum AngleSceneCalculator {
         Segment2D(a: Vector2( 1.270, -0.5321), b: Vector2( 1.270,  0.5321)),
     ]
 
-    private static let aimingPockets = TableGeometry.chineseEightBallQiuJi(surfaceY: 0).pockets
+    private static let aimingPockets = TableGeometry.chineseEightBallCuePhys(surfaceY: 0).pockets
 
     /// 袋口开始捕获后球已离开平面滚动阶段；管道检查只延伸到同源 CCD 的入口。
     private static func capturePipeEnd(origin: Vector2, dir: Vector2, length: Float,

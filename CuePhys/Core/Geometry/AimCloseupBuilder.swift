@@ -170,7 +170,7 @@ enum IdealObjectDirection {
     }
     // The same production geometry factory as ShotPredictor. Y is irrelevant
     // to XZ ray queries; keep a single immutable table rather than rebuilding on drag.
-    private static let table = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+    private static let table = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
 
     static func preview(target: CGPoint, ghost: CGPoint) -> Preview? {
         let dx = target.x - ghost.x, dz = target.y - ghost.y

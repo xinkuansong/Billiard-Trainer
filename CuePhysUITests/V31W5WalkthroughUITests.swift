@@ -14,7 +14,7 @@ import XCTest
 final class V31W5WalkthroughUITests: XCTestCase {
 
     private let outDir = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()   // QiuJiUITests/
+        .deletingLastPathComponent()   // CuePhysUITests/
         .deletingLastPathComponent()   // <repo root>
         .appendingPathComponent("build/v31-w5-screenshots", isDirectory: true)
 

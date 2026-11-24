@@ -1,6 +1,6 @@
 import XCTest
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 final class SwiftDataModelTests: XCTestCase {
 

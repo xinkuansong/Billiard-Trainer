@@ -1,7 +1,7 @@
 import XCTest
 import SwiftUI
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// v46 W0：一卡一 `CoverArtKey`；Tab 母题仍是 6 张 `felt*`。
 final class AtmosphereCatalogTests: XCTestCase {

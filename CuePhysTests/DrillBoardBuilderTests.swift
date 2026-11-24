@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// `DrillBoardBuilder` 单测（动作库试打模式方案 D1）：
 /// drill 根级球局 → `BoardSnapshot` 的球数 / 键名 / 坐标恒等直传约定。

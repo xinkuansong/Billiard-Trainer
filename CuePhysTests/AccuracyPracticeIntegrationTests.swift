@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class AccuracyPracticeIntegrationTests: XCTestCase {
     /// One-use review export of the production draw, without a second generator or solver.

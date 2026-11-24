@@ -1,6 +1,6 @@
 //
 //  DrillBoardBuilder.swift
-//  QiuJi
+//  CuePhys
 //
 //  动作库 drill → 编排台球形（试打模式数据通路，方案 20260709-动作库试打模式）。
 //

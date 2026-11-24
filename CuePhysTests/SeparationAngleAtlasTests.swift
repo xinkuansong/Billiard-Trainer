@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// v11 Y3：「分离角图谱」spinY 档位 / 轨迹切片 / 90° 法则不变量。
 final class SeparationAngleAtlasTests: XCTestCase {

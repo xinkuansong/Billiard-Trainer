@@ -1,7 +1,7 @@
 import XCTest
 import SwiftData
 import Combine
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class HistoryViewModelTests: XCTestCase {

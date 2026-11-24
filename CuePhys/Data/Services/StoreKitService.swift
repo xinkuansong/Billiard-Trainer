@@ -54,11 +54,29 @@ actor StoreKitService {
     static let shared = StoreKitService()
     private init() {}
 
-    static let monthlyID  = "com.xinkuan.qiuji.premium.monthly"
-    static let yearlyID   = "com.xinkuan.qiuji.premium.yearly"
-    static let lifetimeID = "com.xinkuan.qiuji.premium.lifetime"
+    // Product identifiers follow the public CuePhys bundle namespace. The
+    // legacy set remains readable so a rename cannot strand prior purchases.
+    static let monthlyID  = "com.youbilliards.cuephys.premium.monthly"
+    static let yearlyID   = "com.youbilliards.cuephys.premium.yearly"
+    static let lifetimeID = "com.youbilliards.cuephys.premium.lifetime"
 
-    static let allProductIDs: Set<String> = [monthlyID, yearlyID, lifetimeID]
+    static let legacyMonthlyID  = "com.xinkuan.qiuji.premium.monthly"
+    static let legacyYearlyID   = "com.xinkuan.qiuji.premium.yearly"
+    static let legacyLifetimeID = "com.xinkuan.qiuji.premium.lifetime"
+
+    static let allProductIDs: Set<String> = [
+        monthlyID, yearlyID, lifetimeID,
+        legacyMonthlyID, legacyYearlyID, legacyLifetimeID
+    ]
+
+    static func canonicalProductID(_ productID: String) -> String {
+        switch productID {
+        case legacyMonthlyID: return monthlyID
+        case legacyYearlyID: return yearlyID
+        case legacyLifetimeID: return lifetimeID
+        default: return productID
+        }
+    }
 
     // Stable for the lifetime of a CuePhys user, across providers and devices.
     // This namespace and byte layout are part of the persisted transaction format.
@@ -113,7 +131,7 @@ actor StoreKitService {
             if case .verified(let tx) = result {
                 if tx.revocationDate == nil {
                     snapshots.append(StoreEntitlementSnapshot(
-                        productID: tx.productID,
+                        productID: Self.canonicalProductID(tx.productID),
                         expirationDate: tx.expirationDate,
                         revocationDate: tx.revocationDate,
                         appAccountToken: tx.appAccountToken

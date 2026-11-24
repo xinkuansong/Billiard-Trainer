@@ -1,6 +1,6 @@
 //
 //  BankKickAdjustmentDraftLayerTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  问题集合 v8 · X5 / K11：翻袋/反射微调草稿层钉子单测（对齐 X6 AdjustmentDraftLayerTests）。
 //
@@ -12,7 +12,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class BankKickAdjustmentDraftLayerTests: XCTestCase {

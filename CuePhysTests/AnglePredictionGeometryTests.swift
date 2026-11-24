@@ -1,6 +1,6 @@
 import XCTest
 import CoreGraphics
-@testable import QiuJi
+@testable import CuePhys
 
 final class AnglePredictionGeometryTests: XCTestCase {
 

@@ -11,7 +11,7 @@ import XCTest
 final class V31W2MultiFormationUITests: XCTestCase {
 
     private let outDir = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()   // QiuJiUITests/
+        .deletingLastPathComponent()   // CuePhysUITests/
         .deletingLastPathComponent()   // <repo root>
         .appendingPathComponent("build/v31-w2-screenshots", isDirectory: true)
 

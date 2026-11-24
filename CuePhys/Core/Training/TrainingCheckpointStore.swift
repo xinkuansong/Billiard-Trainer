@@ -20,7 +20,7 @@ final class TrainingCheckpointStore<Value: Codable> {
         self.owner = owner; self.project = project
         let hash = SHA256.hash(data: Data(owner.utf8)).map { String(format: "%02x", $0) }.joined()
         var base = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("QiuJi/TrainingCheckpoints")
+            .appendingPathComponent("CuePhys/TrainingCheckpoints")
         #if DEBUG
         if root == nil, ProcessInfo.processInfo.arguments.contains("-v50.inMemoryStore") { base = Self.testRoot }
         #endif

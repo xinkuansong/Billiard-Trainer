@@ -2,7 +2,7 @@ import XCTest
 import Combine
 import SwiftData
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class DrillListViewModelTests: XCTestCase {

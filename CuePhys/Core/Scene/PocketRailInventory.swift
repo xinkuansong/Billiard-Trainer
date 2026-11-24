@@ -1,6 +1,6 @@
 //
 //  PocketRailInventory.swift
-//  QiuJi
+//  CuePhys
 //
 //  W17-D (v63, DR-299): potted balls stay on the pocket return rails across shots.
 //

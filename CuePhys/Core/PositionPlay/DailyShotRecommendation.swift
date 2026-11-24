@@ -116,7 +116,7 @@ enum DailyShotRecommendation {
             return lhs.pocketIndex < rhs.pocketIndex
         }
     }
-    private static let table = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+    private static let table = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
     private static let mainCushionSegments: [Segment2D] = table.linearCushions.filter { $0.soundSurface == .cushion }.map {
             Segment2D(a: Vector2($0.start.x, $0.start.z), b: Vector2($0.end.x, $0.end.z))
         }

@@ -55,7 +55,7 @@ make screenshot SCREEN=1  # 截取并保存到 build/screenshots/screenshot_1.pn
 CuePhys
 ```
 
-> 限 30 字符。首发正式名称使用 CuePhys，待在现有 App Store Connect 记录中核名。介绍页可用“CuePhys：台球训练”。
+> 限 30 字符。首发正式名称使用 CuePhys；现有 App Store Connect 记录 `6761309682` 已保存 `CuePhys - com.youbilliards.cuephys`。介绍页可用“CuePhys：台球训练”。
 
 ### 副标题（Subtitle）
 
@@ -138,11 +138,11 @@ CuePhys 首次发布。挑选动作或跟随计划练球，记录每组成绩和
 
 ## 八、待完成清单
 
-- [ ] App 图标设计完成（1024 × 1024）
+- [x] App 图标资产已准备（1024 × 1024，当前 `CuePhys/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`）
 - [ ] 5 张截图拍摄并添加文案（H-10）
 - [ ] 截图上传到 App Store Connect
 - [ ] App 描述、关键词填写完成
-- [ ] 隐私政策页面上线（H-09）
+- [x] 隐私政策页面上线（H-09）：`https://youbilliards.com/legal/cuephys-privacy/` 已公网返回 200（2026-11-24）
 - [ ] 支持 URL 配置
 - [ ] 发布说明填写
 

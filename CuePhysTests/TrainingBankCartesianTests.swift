@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Explicit offline job. Independent candidates/solves run concurrently; only
 /// the coordinator mutates the family index or writes shard checkpoints.

@@ -25,7 +25,7 @@ def merge(work,family):
     stage(out,family)
     resource='bank-practice-bank.json' if family=='bank' else 'KBallBank/index.json'
     previous=(work/'staged'/resource).read_bytes()
-    live=Path(__file__).resolve().parents[2]/'QiuJi/Resources'/resource
+    live=Path(__file__).resolve().parents[2]/'CuePhys/Resources'/resource
     assert live.read_bytes()==previous
     delta=dict(source=sha((work/'Runner.app'/resource).read_bytes()),
                result=sha((out/'staged'/resource).read_bytes()),changes=changes)

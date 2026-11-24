@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W7：基础高低杆、距离阶梯与斯登控制的边界。
 @MainActor

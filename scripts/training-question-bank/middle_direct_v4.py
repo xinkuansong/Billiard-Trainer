@@ -59,7 +59,7 @@ def prepare():
     oldmanifest=json.loads((OLD/'source-manifest.json').read_text())
     for name,h in oldmanifest['files'].items():
         assert sha(OLD/'source'/name)==h
-        if name!='QiuJiTests/TrainingSpeedScreeningTests.swift':assert sha(ROOT/name)==h,name
+        if name!='CuePhysTests/TrainingSpeedScreeningTests.swift':assert sha(ROOT/name)==h,name
     groups=collections.Counter();reasons=collections.Counter();retry=[];controls={};regression=[]
     for s,r in old_records():
         why=event_route(r)
@@ -105,7 +105,7 @@ def finish():
     manifest=json.loads((OUT/'source-manifest.json').read_text())
     for n,h in manifest['files'].items():
         assert sha(OUT/'source'/n)==h
-        if n=='QiuJiTests/TrainingSpeedScreeningTests.swift' and sha(ROOT/n)!=h:
+        if n=='CuePhysTests/TrainingSpeedScreeningTests.swift' and sha(ROOT/n)!=h:
             # The later review-only method does not change the frozen screening implementation.
             current=(ROOT/n).read_text();start=current.index('    /// Review-only replay at a proven speed;')
             end=current.index('    @MainActor func testMiddleConcurrencyBenchmark()',start)

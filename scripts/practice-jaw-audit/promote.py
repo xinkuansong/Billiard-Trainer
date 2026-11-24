@@ -6,7 +6,7 @@ repo=Path(__file__).resolve().parents[2]
 work=Path(sys.argv[1]).resolve()
 family=sys.argv[2]
 name={'bank':'bank-practice-bank.json','kball':'KBallBank','two':'TwoBallBank'}[family]
-resources=repo/'QiuJi/Resources'
+resources=repo/'CuePhys/Resources'
 if family=='two':
     from check_two_pack import verify
     verify(work)
@@ -34,7 +34,7 @@ if stage.is_dir():
     finally:
         shutil.rmtree(temp)
 else:
-    swift=repo/'QiuJi/Features/BankPractice/BankQuestionPreparer.swift'
+    swift=repo/'CuePhys/Features/BankPractice/BankQuestionPreparer.swift'
     old=sha(live.read_bytes())
     text=swift.read_text()
     binding='static let fingerprint = "'+old+'"'

@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v22 W5 立档：加塞计划解码 + 结构自检。
 /// v34 W3 重排后更新（问题集合_v34.md R6/D-v34-2）：plan_english = 杆法Ⅱ·加塞挤偏，

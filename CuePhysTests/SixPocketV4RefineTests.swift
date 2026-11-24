@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// v4 phase 2: in-cell refinement of the phase-1 candidates against the real engine.
 ///
@@ -31,7 +31,7 @@ final class SixPocketV4RefineTests: XCTestCase {
         pocketIndices.remove(at: index)
         omittedBall = ball
     }
-    private var geometry: TableGeometry { .chineseEightBallQiuJi(surfaceY: y) }
+    private var geometry: TableGeometry { .chineseEightBallCuePhys(surfaceY: y) }
     private var cueName: String { ShotInput.cueBallName }
     private func key(_ ball: Int) -> String { "_\(ball)" }
     /// Pocket id each ball must fall into, by ball number.
@@ -1065,7 +1065,7 @@ final class SixPocketV4RefineTests: XCTestCase {
             maxEvents: 4000, maxTime: 90, includePresentation: true)
         XCTAssertEqual(Set(prediction.pocketedBalls), Set(numbers.map(key)))
         XCTAssertFalse(prediction.cuePocketed)
-        XCTAssertEqual(String(describing: prediction.termination), "Optional(QiuJi.EventDrivenEngine.Termination.settled)")
+        XCTAssertEqual(String(describing: prediction.termination), "Optional(CuePhys.EventDrivenEngine.Termination.settled)")
         var replayPockets: [String: String] = [:]
         for entry in prediction.recorder?.pocketEntries ?? [] {
             replayPockets[entry.ball.name] = entry.pocketID

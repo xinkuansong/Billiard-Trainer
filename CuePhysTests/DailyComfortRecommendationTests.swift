@@ -2,7 +2,7 @@ import XCTest
 import Combine
 import SceneKit
 import simd
-@testable import QiuJi
+@testable import CuePhys
 
 final class DailyComfortRecommendationTests: XCTestCase {
     private let y = BTTablePhysics.surfaceY
@@ -132,10 +132,10 @@ final class DailyComfortRecommendationTests: XCTestCase {
         }
         XCTAssertEqual(MiddlePocketRegion.assess(target:p(0,0),pocket:0,calibration:c),.uncalibrated)
         XCTAssertEqual(MiddlePocketRegion.assess(target:p(0,0),pocket:4,calibration:nil),.uncalibrated)
-        var changed=TableGeometry.chineseEightBallQiuJi(surfaceY:y)
+        var changed=TableGeometry.chineseEightBallCuePhys(surfaceY:y)
         changed.pockets[4].captureLip[0].x += 0.001
         XCTAssertNil(MiddlePocketRegion.calibration(table:changed,length:2.54,width:1.27,radius:0.028575))
-        changed = TableGeometry.chineseEightBallQiuJi(surfaceY:y)
+        changed = TableGeometry.chineseEightBallCuePhys(surfaceY:y)
         let index = try XCTUnwrap(changed.circularCushions.firstIndex { abs($0.center.x) < 0.1 })
         let arc = changed.circularCushions[index]
         changed.circularCushions[index] = .init(center: arc.center, radius: arc.radius,
@@ -227,7 +227,7 @@ final class DailyComfortRecommendationTests: XCTestCase {
     }
 
     func testFarTableInteriorStillHasDirectMiddlePocketWitness() throws {
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: y)
         // Opposite-half corners extend beyond the original 1.28 m radial sweep.
         for side: Float in [-1, 1] { for hand: Float in [-1, 1] {
             let start = p(hand * 1.20, -side * 0.57)

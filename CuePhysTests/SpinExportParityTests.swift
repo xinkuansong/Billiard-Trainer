@@ -1,6 +1,6 @@
 //
 //  SpinExportParityTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  问题集合 v17 W2 完成标准 ①「同源一致性」：离线出片的球体自转与 App 内回放同口径。
 //
@@ -18,15 +18,15 @@
 //  与 `ffmpeg` 抽出的视频帧裁剪图人工对照（旋向一致、无「App 内转、视频不转」）。
 //
 //  运行：
-//    xcodebuild test -scheme QiuJi -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-//      -only-testing:QiuJiTests/SpinExportParityTests
+//    xcodebuild test -scheme CuePhys -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+//      -only-testing:CuePhysTests/SpinExportParityTests
 //
 
 import XCTest
 import UIKit
 import SceneKit
 import simd
-@testable import QiuJi
+@testable import CuePhys
 
 final class SpinExportParityTests: XCTestCase {
 

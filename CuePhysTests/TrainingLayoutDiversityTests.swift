@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class TrainingLayoutDiversityTests: XCTestCase {
     private func board(cue: SCNVector3, target: SCNVector3, pocket: Int) -> TrainingBankBoard {
@@ -143,7 +143,7 @@ final class TrainingLayoutDiversityTests: XCTestCase {
                 inventory[cell.id,default:0] += 1
             }
         }
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY:0)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY:0)
         let result = Review(ruleVersion:TrainingLayoutFeatures.version,radius:BallPhysics.radius,
             length:AngleSceneCalculator.innerLength,width:AngleSceneCalculator.innerWidth,
             pockets:geometry.pockets.map { .init($0.center) },

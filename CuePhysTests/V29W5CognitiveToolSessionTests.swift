@@ -1,6 +1,6 @@
 import XCTest
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 /// 问题集合 v29 W5：练习 cognitive session + tool 活跃度。
 ///

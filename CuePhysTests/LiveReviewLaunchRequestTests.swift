@@ -1,6 +1,6 @@
 #if DEBUG
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 final class LiveReviewLaunchRequestTests: XCTestCase {
     func testNoRequestLeavesLegacyArgumentsAlone() throws {

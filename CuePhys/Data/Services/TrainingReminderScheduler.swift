@@ -25,7 +25,8 @@ extension TrainingReminderCenter {
 @MainActor
 final class SystemTrainingReminderCenter: TrainingReminderCenter {
     enum Failure: Error { case restorationFailed }
-    static let requestIdentifier = "qiuji.training.daily-reminder"
+    static let requestIdentifier = "cuephys.training.daily-reminder"
+    static let legacyRequestIdentifier = "qiuji.training.daily-reminder"
     private let center = UNUserNotificationCenter.current()
 
     func authorization() async -> TrainingReminderAuthorization {
@@ -70,7 +71,10 @@ final class SystemTrainingReminderCenter: TrainingReminderCenter {
         }
     }
 
-    static var identifiers: [String] { [requestIdentifier] + (1...7).map { "\(requestIdentifier).\($0)" } }
+    static var identifiers: [String] {
+        [requestIdentifier, legacyRequestIdentifier]
+            .flatMap { prefix in [prefix] + (1...7).map { "\(prefix).\($0)" } }
+    }
 
     func cancel() {
         center.removePendingNotificationRequests(withIdentifiers: Self.identifiers)

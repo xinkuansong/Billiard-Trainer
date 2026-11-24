@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 /// DR-076：多球形精讲分段在滚动外；单球形不出分段。
 /// 滚动隔离本身靠各球形自带 ScrollView（退出即清），此处锁住「分段是否上屏」这条布局契约。

@@ -1,7 +1,7 @@
 import SceneKit
 import Metal
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class PocketMarkerHighlightTests: XCTestCase {

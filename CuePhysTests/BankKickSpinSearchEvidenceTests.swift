@@ -1,6 +1,6 @@
 //
 //  BankKickSpinSearchEvidenceTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  问题集合 v8 · X5 / K10：加塞搜索解锁盘面 + 性能留档 + before/after 截图。
 //  产物：build/x5-evidence/、build/x5-screenshots/
@@ -9,7 +9,7 @@
 import XCTest
 import SceneKit
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class BankKickSpinSearchEvidenceTests: XCTestCase {
 

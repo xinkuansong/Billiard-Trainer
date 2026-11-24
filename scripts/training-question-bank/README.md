@@ -12,12 +12,12 @@
 
 ## 历史生产流程（以下不覆盖上述现行合同）
 
-六入口共用 `QiuJi/Resources/training-question-bank.json`。旧四类消费“存在实际进球证明”的基础球形，准度消费指定打点、直接进指定袋且不落母球的稳定变体；两种资格不可混用。实际题量与指纹见同目录 manifest；验收记录见 `tasks/table-page-adaptation/ACCURACY-PRACTICE-IMPLEMENTATION-20261020.md`。
+六入口共用 `CuePhys/Resources/training-question-bank.json`。旧四类消费“存在实际进球证明”的基础球形，准度消费指定打点、直接进指定袋且不落母球的稳定变体；两种资格不可混用。实际题量与指纹见同目录 manifest；验收记录见 `tasks/table-page-adaptation/ACCURACY-PRACTICE-IMPLEMENTATION-20261020.md`。
 
 ## 生产与复验
 
-1. 首次建库：`python3 scripts/training-question-bank/bank.py request --count 300 --seed 20261020`，再经模拟器 fleet/lifecycle 运行 `QiuJiTests/TrainingQuestionBankTests/testGenerateOfflinePilot`。请求只消费一次，取消／崩溃后不自动重新生成。
-2. 扩充或源变更后：`python3 scripts/training-question-bank/bank.py production --thin 20 --frozen 20 --distances 0`，再运行 `QiuJiTests/TrainingBankProductionTests/testRevalidateAndSupplementOfflineBank`。从上一份生产库（首次可用细化试点）逐个重放所有名义证明并重新验证九点，随后补题；`--distances N`分别补N个母球长距离、目标球中距袋和长距袋的极薄球。镜像球形也须重新模拟，不能继承证明。
+1. 首次建库：`python3 scripts/training-question-bank/bank.py request --count 300 --seed 20261020`，再经模拟器 fleet/lifecycle 运行 `CuePhysTests/TrainingQuestionBankTests/testGenerateOfflinePilot`。请求只消费一次，取消／崩溃后不自动重新生成。
+2. 扩充或源变更后：`python3 scripts/training-question-bank/bank.py production --thin 20 --frozen 20 --distances 0`，再运行 `CuePhysTests/TrainingBankProductionTests/testRevalidateAndSupplementOfflineBank`。从上一份生产库（首次可用细化试点）逐个重放所有名义证明并重新验证九点，随后补题；`--distances N`分别补N个母球长距离、目标球中距袋和长距袋的极薄球。镜像球形也须重新模拟，不能继承证明。
 3. 初次或源码已变而Bundle尚旧时，只对离线生产的Debug构建传入 `TEST_BUILD_SETTINGS=TRAINING_BANK_REVALIDATION=YES`。这是明确的复验入口；Release不能用该标志绕过门禁。生产前冻结源码，生成中不要修改指纹清单中的文件。
 4. 报告：`python3 scripts/training-question-bank/bank.py report output/accuracy-practice-20261020/production-bank.json`。生产器输出12组库距／杆法配置×10个seed抽题报告。运行 `AccuracyPracticeIntegrationTests`，核实际Bundle的单项筛选覆盖、20题唯一性／精确打点配额，以及正式模型球杆的可击打性。
 5. 经实际复验后打包：
@@ -70,7 +70,7 @@
 
 最新用户合同采用P—G—C、1°方向／切角和10cm距离步长，镜像作为不同视角保留。普通PG／GC网格与精确贴库边界补充分别记账；分类仍按CO／OP。完整几何取App原生44条有限线段、12条圆弧及6袋捕获区，保留参考进袋通道受阻的候选供实际求解，不能由参考线受阻推断无解。
 
-`QiuJiTests/TrainingGridInventoryTests.swift`的三个入口分别检查几何谓词、读取单次`request.json`清点、读取独立`validation-request.json`验解。请求及`source-manifest.json`均位于`output/accuracy-grid-inventory-20261021/`；指纹包含本生产器与当前物理源码。运行继续走fleet/lifecycle；请求消费后不自动重跑。
+`CuePhysTests/TrainingGridInventoryTests.swift`的三个入口分别检查几何谓词、读取单次`request.json`清点、读取独立`validation-request.json`验解。请求及`source-manifest.json`均位于`output/accuracy-grid-inventory-20261021/`；指纹包含本生产器与当前物理源码。运行继续走fleet/lifecycle；请求消费后不自动重跑。
 
 用支持NumPy／Pillow的bundled Python运行`grid_inventory_report.py`，从全部紧凑掩码独立复算270格，输出`audit.json`、`组合分布.html`／`.md`及求解样例图。几何清点不计为物理合格题数；15个代表球形试跑已完成，6份稳定证明存于`validation-pilot.json`，无轨迹。每格500近似去重生产、其余打点补解与正式Bundle发布尚未完成。完整参数、数量和原生证据见`tasks/table-page-adaptation/ACCURACY-GRID-INVENTORY-20261021.md`。
 

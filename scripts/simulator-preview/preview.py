@@ -17,7 +17,7 @@ from simulator_lifecycle import device_lease
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = Path(__file__).with_name('devices.json')
-DRILL_INDEX = ROOT / 'QiuJi/Resources/Drills/index.json'
+DRILL_INDEX = ROOT / 'CuePhys/Resources/Drills/index.json'
 THEORY_IDS = tuple(f't{index:02}' for index in range(1, 11)) + ('flow', 'quickRef')
 LIVE_REVIEW_CAPABILITY = b'QIUJI_LIVE_REVIEW_THEORY_V1'
 DRILL_DETAIL_CAPABILITY = b'QIUJI_LIVE_REVIEW_DRILL_DETAIL_V1'

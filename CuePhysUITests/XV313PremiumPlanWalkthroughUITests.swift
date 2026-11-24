@@ -19,7 +19,7 @@ final class XV313PremiumPlanWalkthroughUITests: XCTestCase {
     private static let fullSkillPlanName = "全能精选"
 
     private let outDir = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()   // QiuJiUITests/
+        .deletingLastPathComponent()   // CuePhysUITests/
         .deletingLastPathComponent()   // <repo root>
         .appendingPathComponent("build/x-v31-3-screenshots", isDirectory: true)
 

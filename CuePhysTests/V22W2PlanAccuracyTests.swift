@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v22 W2 立档：准度计划解码 + 结构自检。
 /// v34 W3 重排后更新为「准度Ⅰ·近中台」货架规格（问题集合_v34.md R6/D-v34-2）：

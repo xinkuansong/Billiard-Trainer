@@ -13,7 +13,7 @@ def require(value, reason):
 
 
 def verify(root, check_project=True):
-    bank = root / 'QiuJi/Resources/KBallBank'
+    bank = root / 'CuePhys/Resources/KBallBank'
     index = json.loads((bank / 'index.json').read_bytes())
     fingerprint = index.pop('fingerprint')
     canonical = json.dumps(index, ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode()
@@ -50,10 +50,10 @@ def verify(root, check_project=True):
     require(distribution == index['distribution'], 'distributions')
     if check_project:
         project = (root/'project.yml').read_text()
-        generated = (root/'QiuJi.xcodeproj/project.pbxproj').read_text()
+        generated = (root/'CuePhys.xcodeproj/project.pbxproj').read_text()
         require('"Resources/KBallBank/**"' in project, 'source auto-resource exclusion')
-        require('path: QiuJi/Resources/KBallBank\n        type: folder\n        buildPhase: resources' in project, 'source folder reference')
-        require('/* KBallBank in Resources */' in generated and 'path = QiuJi/Resources/KBallBank;' in generated, 'generated folder reference')
+        require('path: CuePhys/Resources/KBallBank\n        type: folder\n        buildPhase: resources' in project, 'source folder reference')
+        require('/* KBallBank in Resources */' in generated and 'path = CuePhys/Resources/KBallBank;' in generated, 'generated folder reference')
         require('KBallBankStore.swift in Sources' in generated, 'reader in build')
     return dict(passed=True, questions=len(ids), layouts=len(locations), bytes=sum(p.stat().st_size for p in bank.iterdir()))
 

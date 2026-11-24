@@ -1499,7 +1499,7 @@ extension V52DailyClearanceUITests {
         XCUIDevice.shared.orientation = .landscapeRight
         let app = launch(["-dailyClearance.fixture=progress"])
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let windowControls = springboard.buttons["window-controls:com.xinkuan.qiuji"]
+        let windowControls = springboard.buttons["window-controls:com.youbilliards.cuephys"]
         if windowControls.exists {
             windowControls.tap()
             let zoom = springboard.buttons["Zoom-button"]
@@ -1905,7 +1905,7 @@ extension V52DailyClearanceUITests {
         for (argument, prefix) in pages where pageFilter == nil || prefix == pageFilter {
             let app = XCUIApplication.launchClean(extraArgs: [argument])
             let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-            let windowControls = springboard.buttons["window-controls:com.xinkuan.qiuji"]
+            let windowControls = springboard.buttons["window-controls:com.youbilliards.cuephys"]
             if windowControls.exists {
                 windowControls.tap()
                 let zoom = springboard.buttons["Zoom-button"]
@@ -2006,7 +2006,7 @@ extension V52DailyClearanceUITests {
         let mode = app.buttons["freeplay.cameraMode"]
         XCTAssertTrue(mode.waitForExistence(timeout: 15))
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let controls = springboard.buttons["window-controls:com.xinkuan.qiuji"]
+        let controls = springboard.buttons["window-controls:com.youbilliards.cuephys"]
         if controls.exists {
             controls.tap()
             let zoom = springboard.buttons["Zoom-button"]
@@ -2118,7 +2118,7 @@ extension V52DailyClearanceUITests {
             let mode = app.buttons["freeplay.cameraMode"]
             XCTAssertTrue(mode.waitForExistence(timeout: 15))
             let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-            let controls = springboard.buttons["window-controls:com.xinkuan.qiuji"]
+            let controls = springboard.buttons["window-controls:com.youbilliards.cuephys"]
             if controls.exists {
                 controls.tap()
                 let zoom = springboard.buttons["Zoom-button"]

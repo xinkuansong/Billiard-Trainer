@@ -104,7 +104,7 @@ class PocketGeometryFilterTests(unittest.TestCase):
 
     def test_current_bank_contract_and_reconstruction_sample(self):
         root = Path(__file__).resolve().parents[2]
-        bank = json.loads((root/'QiuJi/Resources/training-grid-bank.json').read_text())
+        bank = json.loads((root/'CuePhys/Resources/training-grid-bank.json').read_text())
         g = Geometry(**{k: bank['geometry'][k] for k in ('length', 'width', 'radius')})
         validate_bank(bank, g)
         # One real layout per target, retaining all six pockets and target positions.
@@ -123,7 +123,7 @@ class PocketGeometryFilterTests(unittest.TestCase):
 
     def test_actual_cli_preserves_source_and_refuses_overwrite(self):
         script = Path(__file__).with_name('pocket_geometry_filter.py')
-        source = script.parents[2]/'QiuJi/Resources/training-grid-bank.json'
+        source = script.parents[2]/'CuePhys/Resources/training-grid-bank.json'
         before = source.read_bytes()
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp)/'result'

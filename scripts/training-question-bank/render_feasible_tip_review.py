@@ -12,7 +12,7 @@ OUT = ROOT / 'output/accuracy-feasible-tip-20261021'
 
 def main():
     samples = json.loads((OUT/'samples.json').read_text())
-    geom = json.loads((ROOT/'QiuJi/Resources/training-grid-bank.json').read_text())['geometry']
+    geom = json.loads((ROOT/'CuePhys/Resources/training-grid-bank.json').read_text())['geometry']
     def font(n): return ImageFont.truetype(base.FONT,n)
     def xy(p): return (420+float(p[0])*280,350+float(p[1])*280)
     def point(p): return np.array([p['x'],p['z']])

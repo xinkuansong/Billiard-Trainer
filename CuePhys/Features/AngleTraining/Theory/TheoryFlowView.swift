@@ -4,7 +4,7 @@ import SwiftUI
 
 /// 5 步流程的练习用时示例（秒），不是水平分级或比赛时限。
 ///
-/// 数值**逐字**取仓内 vendored `QiuJi/Resources/Theory/contracts/run-out-flow.json`
+/// 数值**逐字**取仓内 vendored `CuePhys/Resources/Theory/contracts/run-out-flow.json`
 /// 的 `states[].duration_target_s` 与 `time_budget_seconds`（转写模板 §2.4 数值纪律：
 /// 不四舍五入、不换算）。运行时**不读 JSON**（D-v30-1 裁定硬编码），
 /// 但 `TheoryFlowContentTests` 会拿这份硬编码值与 vendored JSON 逐项比对，防止漂移。

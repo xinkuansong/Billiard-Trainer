@@ -140,7 +140,7 @@ final class PerformanceProfiler {
 
     // MARK: - Reporting
 
-    private static let reportLogger = Logger(subsystem: "com.billiardtrainer", category: "Profiler")
+    private static let reportLogger = Logger(subsystem: "com.youbilliards.cuephys", category: "Profiler")
 
     /// 打印所有已收集区段的统计报告（通过 Logger 输出，可在 Console.app 查看）
     static func printReport(tag: String = "PerformanceProfiler") {

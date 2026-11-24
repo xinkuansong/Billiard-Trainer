@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 final class TrainingAtmosphereTests: XCTestCase {
     func testLocalTimeBoundariesAndMidnight() throws {

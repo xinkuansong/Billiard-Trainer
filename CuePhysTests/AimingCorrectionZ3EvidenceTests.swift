@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Z3 数值补稿（问题集合 v12 Z3）：④⑤ 节新增定性符号的数值核验 + 插图手性契约锁定。
 /// 按 geometry-spatial-reasoning 技能：先测后写，正文/插图符号以本草稿为准。
@@ -9,7 +9,7 @@ final class AimingCorrectionZ3EvidenceTests: XCTestCase {
 
     private var evidenceDir: URL {
         let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // QiuJiTests
+            .deletingLastPathComponent() // CuePhysTests
             .deletingLastPathComponent() // repo root
         return root.appendingPathComponent("build/z3-evidence", isDirectory: true)
     }

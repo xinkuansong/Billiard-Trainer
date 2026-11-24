@@ -31,10 +31,10 @@ from local_test_lifecycle import execute as run_local_workspace, DEFAULT_ROOT as
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = REPO / "scripts/simulator-matrix.json"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-FINGERPRINT_ROOTS = ("QiuJi", "QiuJiTests", "QiuJiUITests")
+FINGERPRINT_ROOTS = ("QiuJi", "CuePhysTests", "CuePhysUITests")
 FINGERPRINT_STANDALONE = (
     "project.yml",
-    "QiuJi.xcodeproj/project.pbxproj",
+    "CuePhys.xcodeproj/project.pbxproj",
     "scripts/Makefile",
     "scripts/run_simulator_matrix.py",
     "scripts/simulator-matrix.json",

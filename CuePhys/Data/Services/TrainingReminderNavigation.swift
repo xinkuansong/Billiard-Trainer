@@ -9,7 +9,8 @@ final class TrainingReminderNavigation: NSObject, UNUserNotificationCenterDelega
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
-        guard response.notification.request.identifier.hasPrefix("qiuji.training.daily-reminder") else {
+        guard response.notification.request.identifier.hasPrefix("cuephys.training.daily-reminder")
+            || response.notification.request.identifier.hasPrefix("qiuji.training.daily-reminder") else {
             completionHandler(); return
         }
         DispatchQueue.main.async {

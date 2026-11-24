@@ -15,7 +15,7 @@ final class V29W4TrainingRecordUITests: XCTestCase {
 
     /// 截图输出目录：由 #filePath 推导仓库根（支持 worktree，原 worktree 绝对路径已随合并失效）。
     private let outDir = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()   // QiuJiUITests/
+        .deletingLastPathComponent()   // CuePhysUITests/
         .deletingLastPathComponent()   // <repo root>
         .appendingPathComponent("build/w4-screenshots", isDirectory: true)
 

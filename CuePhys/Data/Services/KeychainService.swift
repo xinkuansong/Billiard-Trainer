@@ -3,20 +3,38 @@ import Security
 
 enum KeychainService {
     enum Key: String {
-        case appleUserID = "com.qiuji.app.apple_user_id"
-        case appleIdentityToken = "com.qiuji.app.apple_identity_token"
-        case accessToken = "com.qiuji.app.access_token"
-        case refreshToken = "com.qiuji.app.refresh_token"
-        case trustedLocalAccount = "com.qiuji.app.trusted_local_account"
+        case appleUserID = "com.youbilliards.cuephys.apple_user_id"
+        case appleIdentityToken = "com.youbilliards.cuephys.apple_identity_token"
+        case accessToken = "com.youbilliards.cuephys.access_token"
+        case refreshToken = "com.youbilliards.cuephys.refresh_token"
+        case trustedLocalAccount = "com.youbilliards.cuephys.trusted_local_account"
+    }
+
+    // Read-only migration bridge for installs made before the CuePhys rename.
+    // New writes always use the new namespace; old values are never discarded
+    // until the owning flow explicitly clears them.
+    private static let legacyPrefix = "com.qiuji.app."
+
+    private static func legacyRawValue(for key: Key) -> String {
+        legacyPrefix + key.rawValue.replacingOccurrences(of: "com.youbilliards.cuephys.", with: "")
+    }
+
+    private static func query(for rawValue: String, returningData: Bool = false) -> [String: Any] {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: rawValue
+        ]
+        if returningData {
+            query[kSecReturnData as String] = true
+            query[kSecMatchLimit as String] = kSecMatchLimitOne
+        }
+        return query
     }
 
     @discardableResult
     static func save(key: Key, value: String) -> Bool {
         let data = Data(value.utf8)
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key.rawValue
-        ]
+        let query = query(for: key.rawValue)
         let attributes: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
@@ -28,25 +46,23 @@ enum KeychainService {
     }
 
     static func load(key: Key) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key.rawValue,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess, let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        for rawValue in [key.rawValue, legacyRawValue(for: key)] {
+            var result: AnyObject?
+            let status = SecItemCopyMatching(query(for: rawValue, returningData: true) as CFDictionary, &result)
+            if status == errSecSuccess, let data = result as? Data,
+               let value = String(data: data, encoding: .utf8) {
+                return value
+            }
+        }
+        return nil
     }
 
     @discardableResult
     static func delete(key: Key) -> Bool {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key.rawValue
-        ]
-        return SecItemDelete(query as CFDictionary) == errSecSuccess
+        let statuses = [key.rawValue, legacyRawValue(for: key)].map {
+            SecItemDelete(query(for: $0) as CFDictionary)
+        }
+        return statuses.contains(errSecSuccess)
     }
 
     static func clearAll() {

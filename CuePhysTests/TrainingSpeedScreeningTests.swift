@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import CryptoKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Opt-in experiment: fixed C->G strike direction, each fixed tip independent,
 /// speed only. Existence screening is NOT a nine-point accuracy qualification.
@@ -204,7 +204,7 @@ final class TrainingSpeedScreeningTests: XCTestCase {
     private func initialFrozenCompression(_ p: ShotPrediction, event: ShotEvent, index: Int) -> Bool {
         guard let frames = p.recorder?.framesByBallName[ShotInput.targetBallName],
               let first = frames.first, first.time <= 0.00001 else { return false }
-        let rail = TableGeometry.chineseEightBallQiuJi(surfaceY:0).linearCushions[index]
+        let rail = TableGeometry.chineseEightBallCuePhys(surfaceY:0).linearCushions[index]
         let delta = rail.end-rail.start
         let length2 = delta.x*delta.x+delta.z*delta.z
         let u = ((first.position.x-rail.start.x)*delta.x+(first.position.z-rail.start.z)*delta.z)/length2
@@ -707,7 +707,7 @@ extension TrainingSpeedScreeningTests {
         }
         struct Job: Decodable { let sample: Sample; let speed: Float; let originalIndex: Int }
         struct Result: Codable { let originalIndex: Int; let route: String }
-        let fixture = root.appendingPathComponent("QiuJiTests/GridRevalidationInput")
+        let fixture = root.appendingPathComponent("CuePhysTests/GridRevalidationInput")
         let input = FileManager.default.fileExists(atPath: fixture.appendingPathComponent("request.json").path)
             ? fixture : root.appendingPathComponent("output/training-accessibility-numerics-20261028/grid-revalidation")
         let output = FileManager.default.temporaryDirectory.appendingPathComponent("grid-revalidation-" + UUID().uuidString)
@@ -723,7 +723,7 @@ extension TrainingSpeedScreeningTests {
         for (path, hash) in request.physicalSourceHashes {
             XCTAssertEqual(digest(try Data(contentsOf: root.appendingPathComponent(path))), hash, path)
         }
-        XCTAssertEqual(digest(try Data(contentsOf: root.appendingPathComponent("QiuJi/Resources/training-grid-bank.json"))), request.bankSHA256)
+        XCTAssertEqual(digest(try Data(contentsOf: root.appendingPathComponent("CuePhys/Resources/training-grid-bank.json"))), request.bankSHA256)
         let started = ProcessInfo.processInfo.systemUptime
         var done = 0, failed: [Result] = []
         for (index, batch) in request.batches.enumerated() {

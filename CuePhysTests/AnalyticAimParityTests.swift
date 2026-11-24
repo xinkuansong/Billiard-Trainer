@@ -1,6 +1,6 @@
 //
 //  AnalyticAimParityTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  B2 — 解析瞄准层对拍验证（先于替换线上路径，方案 §3 B2「对拍验证先行」）。
 //
@@ -19,7 +19,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class AnalyticAimParityTests: XCTestCase {
 

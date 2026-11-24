@@ -6,7 +6,7 @@ import CryptoKit
 struct DefenseAttackAssessment {
 let widthLimit=0.008,comfortLimit=10.0
 let rad=Double(AngleSceneCalculator.ballRadius), hx=Double(AngleSceneCalculator.innerLength)/2, hz=Double(AngleSceneCalculator.innerWidth)/2
-let table=TableGeometry.chineseEightBallQiuJi(surfaceY:0)
+let table=TableGeometry.chineseEightBallCuePhys(surfaceY:0)
 var mainRails: [(P,P)] {
  table.linearCushions.filter { $0.soundSurface == .cushion }.map {
   (P(Double($0.start.x),Double($0.start.z)),P(Double($0.end.x),Double($0.end.z)))

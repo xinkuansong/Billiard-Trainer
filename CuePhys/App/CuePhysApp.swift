@@ -4,10 +4,10 @@ import SwiftData
 import UserNotifications
 
 @main
-struct QiuJiApp: App {
+struct CuePhysApp: App {
     // Eagerly capture installation history BEFORE the properties below create guest/store data.
     private let firstRunProfile = FirstRunProfileFlow.prepareForLaunch()
-    @UIApplicationDelegateAdaptor(QiuJiOrientationDelegate.self) private var orientationDelegate
+    @UIApplicationDelegateAdaptor(CuePhysOrientationDelegate.self) private var orientationDelegate
     @StateObject private var authState: AuthState
     @StateObject private var ownerContext = CurrentOwnerContext.shared
     @StateObject private var dataCoordinator = AccountDataCoordinator()
@@ -187,7 +187,7 @@ struct QiuJiApp: App {
 
 /// Ordinary pages stay portrait; landscape tools own a scene-local override.
 @MainActor
-final class QiuJiOrientationDelegate: NSObject, UIApplicationDelegate {
+final class CuePhysOrientationDelegate: NSObject, UIApplicationDelegate {
     static var masks: [ObjectIdentifier: UIInterfaceOrientationMask] = [:]
     static var owners: [ObjectIdentifier: UUID] = [:]
 
@@ -298,8 +298,8 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
             let changed = appliedLandscape != landscape || ownedScene !== scene
             if changed {
                 if ownedScene !== scene, restoresPreviousOwner {
-                    previousMask = QiuJiOrientationDelegate.masks[ObjectIdentifier(scene)]
-                    previousOwner = QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)]
+                    previousMask = CuePhysOrientationDelegate.masks[ObjectIdentifier(scene)]
+                    previousOwner = CuePhysOrientationDelegate.owners[ObjectIdentifier(scene)]
                 }
                 requestAttempts = 0
                 requestInFlight = false
@@ -312,7 +312,7 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
                                               : scene.interfaceOrientation == .portrait)
             if !changed && matches { return }
             guard !requestInFlight, requestAttempts < 2 else { return }
-            QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] = owner
+            CuePhysOrientationDelegate.owners[ObjectIdentifier(scene)] = owner
             requestAttempts += 1
             requestInFlight = !matches
             request(mask, in: scene)
@@ -323,10 +323,10 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
             requestGeneration += 1
             requestInFlight = false
             guard let scene = ownedScene else { return }
-            if QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] == owner {
+            if CuePhysOrientationDelegate.owners[ObjectIdentifier(scene)] == owner {
                 request(restoresPreviousOwner ? (previousMask ?? .portrait) : .portrait, in: scene)
-                QiuJiOrientationDelegate.masks[ObjectIdentifier(scene)] = restoresPreviousOwner ? previousMask : nil
-                QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] = restoresPreviousOwner ? previousOwner : nil
+                CuePhysOrientationDelegate.masks[ObjectIdentifier(scene)] = restoresPreviousOwner ? previousMask : nil
+                CuePhysOrientationDelegate.owners[ObjectIdentifier(scene)] = restoresPreviousOwner ? previousOwner : nil
             }
             previousMask = nil
             previousOwner = nil
@@ -354,7 +354,7 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
                 fields["mask"] = mask.rawValue
                 DailyLayoutProbe.record("orientation.request", fields)
             }
-            QiuJiOrientationDelegate.masks[ObjectIdentifier(scene)] = mask
+            CuePhysOrientationDelegate.masks[ObjectIdentifier(scene)] = mask
             let root = scene.windows.first(where: \.isKeyWindow)?.rootViewController
             root?.setNeedsUpdateOfSupportedInterfaceOrientations()
             root?.presentedViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()

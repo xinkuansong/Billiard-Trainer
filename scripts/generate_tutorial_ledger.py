@@ -4,7 +4,7 @@ generate_tutorial_ledger.py — 精讲资产台账（由校验数据自动生成
 
 输出：docs/research/精讲资产台账.md
 数据来源：content/position_play/sequences、build/position_play_export、
-         QiuJi/Resources/DrillTutorials、QiuJi/Resources/Drills/**/*.json
+         CuePhys/Resources/DrillTutorials、CuePhys/Resources/Drills/**/*.json
 
 用法：
   python3 scripts/generate_tutorial_ledger.py

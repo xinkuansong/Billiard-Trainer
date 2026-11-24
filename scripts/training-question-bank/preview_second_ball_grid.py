@@ -45,9 +45,9 @@ def main():
     r, hx, hz = g.radius, g.length/2, g.width/2
     dx, dz = (g.length-2*r)/12, (g.width-2*r)/6
     # Read calibrated production mouth polygons, rather than using target aim points.
-    geom_path = ROOT / 'QiuJi/Core/Physics/TableGeometry+QiuJi.swift'
+    geom_path = ROOT / 'CuePhys/Core/Physics/TableGeometry+QiuJi.swift'
     geom_text = geom_path.read_text()
-    const_path = ROOT / 'QiuJi/Core/Physics/BTPhysicsConstants.swift'
+    const_path = ROOT / 'CuePhys/Core/Physics/BTPhysicsConstants.swift'
     constants = const_path.read_text()
     def const(name):
         return float(re.search(r'static let '+name+r': Float = ([0-9.]+)', constants)[1])

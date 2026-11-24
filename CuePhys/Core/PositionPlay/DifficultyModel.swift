@@ -1,6 +1,6 @@
 //
 //  DifficultyModel.swift
-//  QiuJi
+//  CuePhys
 //
 //  可执行性感知求解（E1/E2/E4，docs/research/20260709-可执行性感知求解方案.md）。
 //

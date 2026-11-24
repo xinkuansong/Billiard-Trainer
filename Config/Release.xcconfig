@@ -1,4 +1,4 @@
-CUEPHYS_ENTITLEMENTS = CuePhys/CuePhys.entitlements
+CUEPHYS_ENTITLEMENTS = Config/WeChat.entitlements
 // Release.xcconfig
 // Release 构建使用 Secrets.xcconfig 中的真实值
 // 确保 Secrets.xcconfig 已加入 .gitignore
@@ -8,3 +8,5 @@ LEGAL_TERMS_URL = https:/$()/youbilliards.com/legal/cuephys-terms/
 LEGAL_PRIVACY_URL = https:/$()/youbilliards.com/legal/cuephys-privacy/
 
 #include "Secrets.xcconfig"
+// Public link contract takes precedence over legacy empty private values.
+#include "WeChatLinks.xcconfig"

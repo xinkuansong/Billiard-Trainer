@@ -87,8 +87,8 @@ def verify_screenshots() -> int:
 
 
 def route_source_files() -> list[Path]:
-    files: list[Path] = [ROOT / "QiuJi/App/RootView.swift"]
-    for base in (ROOT / "QiuJi/App", ROOT / "QiuJi/Features"):
+    files: list[Path] = [ROOT / "CuePhys/App/RootView.swift"]
+    for base in (ROOT / "CuePhys/App", ROOT / "CuePhys/Features"):
         for path in base.rglob("*.swift"):
             text = path.read_text(encoding="utf-8")
             if any(marker in text for marker in ROUTE_MARKERS):
@@ -154,7 +154,7 @@ def verify_routes() -> int:
 def current_write_surface_files() -> list[str]:
     results: list[str] = []
     patterns = (".write(", "FileManager.default.createDirectory", "pngRepresentation")
-    for base in (ROOT / "QiuJiTests", ROOT / "QiuJiUITests"):
+    for base in (ROOT / "CuePhysTests", ROOT / "CuePhysUITests"):
         for path in base.rglob("*.swift"):
             text = path.read_text(encoding="utf-8")
             if any(pattern in text for pattern in patterns):
@@ -178,7 +178,7 @@ def verify_write_surfaces() -> int:
             f" missing={sorted(set(expected)-set(actual))} extra={sorted(set(actual)-set(expected))}"
         )
 
-    tour = (ROOT / "QiuJiUITests/ScreenshotTourUITests.swift").read_text(encoding="utf-8")
+    tour = (ROOT / "CuePhysUITests/ScreenshotTourUITests.swift").read_text(encoding="utf-8")
     if re.search(r'let\s+base\s*=.*docs/ui-polish/screenshots-latest', tour):
         fail("ScreenshotTour 默认路径仍指向 docs/ui-polish/screenshots-latest")
     if re.search(r"try\?[^\n]*(?:pngRepresentation|createDirectory)", tour):

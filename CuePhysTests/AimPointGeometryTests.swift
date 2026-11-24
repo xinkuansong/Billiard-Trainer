@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// 问题集合 v3 批次 S3 — G1 瞄准点几何金标准。
 ///

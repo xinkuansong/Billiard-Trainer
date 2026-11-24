@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v7 W1/C2：历史筛选项含瞄准点三档，文案对齐 HistoryViewModel.AngleQuizType。
 final class AngleQuizTypeFilterTests: XCTestCase {

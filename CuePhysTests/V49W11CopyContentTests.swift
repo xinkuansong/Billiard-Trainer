@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W11：走位方向、距离、目标区域与库数边界。
 @MainActor

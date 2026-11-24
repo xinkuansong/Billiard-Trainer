@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W12：连续链、独立路线对照与初级蛇彩的语义边界。
 @MainActor

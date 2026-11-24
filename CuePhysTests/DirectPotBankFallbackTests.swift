@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// 直击失败 → 翻袋备选闸门与装配（复用 `BankKickSolvePipeline.solveBank`）。
 final class DirectPotBankFallbackTests: XCTestCase {
@@ -209,7 +209,7 @@ final class DirectPredictionCancellationTests: XCTestCase {
     }
 
     func testCancellationStopsAnAlreadyAdvancingEngine() {
-        let engine = EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: y))
+        let engine = EventDrivenEngine(tableGeometry: .chineseEightBallCuePhys(surfaceY: y))
         engine.setBall(BallState(position: SCNVector3(0, y + BallPhysics.radius, 0),
             velocity: SCNVector3(3, 0, 0.5), angularVelocity: SCNVector3Zero,
             state: .sliding, name: "cueBall"))

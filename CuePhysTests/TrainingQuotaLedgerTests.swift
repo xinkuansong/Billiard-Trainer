@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 final class TrainingQuotaLedgerTests: XCTestCase {
     private var defaults: UserDefaults!

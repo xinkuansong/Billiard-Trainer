@@ -1,6 +1,6 @@
 //
 //  DrillShotReconstructionTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  里程碑 B（截图逆向 → 引擎反解）：读取 Python 抠图产出的 extraction.json
 //  （球位 + 选袋 + 母球轨迹点云，归一化坐标），在物理引擎里反解出每杆的
@@ -13,16 +13,16 @@
 //    build/shot_reconstruction/drill_c005/solved.json        反解参数（喂给里程碑 C 视频合成）
 //
 //  运行：
-//    xcodebuild test -scheme QiuJi \
+//    xcodebuild test -scheme CuePhys \
 //      -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-//      -only-testing:QiuJiTests/DrillShotReconstructionTests/test_solveDrillC005
+//      -only-testing:CuePhysTests/DrillShotReconstructionTests/test_solveDrillC005
 //
 
 import XCTest
 import UIKit
 import SceneKit
 import AVFoundation
-@testable import QiuJi
+@testable import CuePhys
 
 final class DrillShotReconstructionTests: XCTestCase {
 
@@ -481,7 +481,7 @@ final class DrillShotReconstructionTests: XCTestCase {
             let felt = UIBezierPath(roundedRect: plot, cornerRadius: 10)
             cg.addPath(felt.cgPath); cg.fillPath()
 
-            let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+            let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
             // 库边（直库 + jaw 直线段）
             cg.setStrokeColor(UIColor.white.withAlphaComponent(0.5).cgColor); cg.setLineWidth(1.4)
             for seg in geo.linearCushions {
@@ -611,7 +611,7 @@ final class DrillShotReconstructionTests: XCTestCase {
 
         cg.setFillColor(UIColor(red: 0.10, green: 0.22, blue: 0.16, alpha: 1).cgColor)
         cg.fill(plot)
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
 
         // 袋口
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: sY)

@@ -1,6 +1,6 @@
 import SwiftData
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// Launch with the private fixture produced by tasks/launch-20261110/verify-sync-privacy.cjs.
 @MainActor

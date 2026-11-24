@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 /// v10 W1：用 ImageRenderer 落盘三处缩略图接线证据（同生产尺寸与组件调用）。
 @MainActor

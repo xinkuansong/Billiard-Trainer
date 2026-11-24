@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W6：挤偏认知、长台放大与塞量阶梯的训练边界。
 @MainActor

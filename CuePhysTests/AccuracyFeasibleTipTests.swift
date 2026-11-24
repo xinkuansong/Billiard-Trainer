@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class AccuracyFeasibleTipTests: XCTestCase {
     private func fixture(_ index: Int, cue: SCNVector3, target: SCNVector3 = SCNVector3(0,0,0), pocket: Int = 4) -> TrainingBankBoard {

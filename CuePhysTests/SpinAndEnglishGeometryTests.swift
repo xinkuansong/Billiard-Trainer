@@ -1,6 +1,6 @@
 import XCTest
 import CoreGraphics
-@testable import QiuJi
+@testable import CuePhys
 
 /// v11 Y2 / v12 Z4：「旋转与加塞」教学路径不变量。
 /// 半球锁 90/60/120；切角扫描下示意角仍为教学折线（见 `build/z4-evidence/`）。

@@ -107,7 +107,7 @@ def _worker(spec, args):
                 actual=subprocess.check_output(['xcrun','simctl','ui',udid,'appearance'],text=True).strip()
                 if actual!=job['theme']:raise RuntimeError('appearance readback failed')
                 if run_command(['xcrun','simctl','status_bar',udid,'override','--time','9:41','--dataNetwork','wifi','--wifiMode','active','--wifiBars','3','--batteryState','charged','--batteryLevel','100'],log)!=0:raise RuntimeError('status bar setup failed')
-                test=expand(template,products.resolve());target=test['QiuJiUITests']
+                test=expand(template,products.resolve());target=test['CuePhysUITests']
                 target.setdefault('EnvironmentVariables',{}).update({'V50_SHOT_DIR':str(output.resolve()),'ATLAS_ORIENTATION':job['orientation']})
                 if job.get('flow'):
                     flowpath=Path(job['flow']).resolve();flow=json.loads(flowpath.read_text())
@@ -119,7 +119,7 @@ def _worker(spec, args):
                     target['EnvironmentVariables']['ATLAS_FLOW_PATH']=str(frozenflow)
                 target['OnlyTestIdentifiers']=job['selectors']
                 testpath=output/'job.xctestrun';testpath.write_bytes(plistlib.dumps(test))
-                command=['xcodebuild','test-without-building','-xctestrun',str(testpath),'-destination','platform=iOS Simulator,id='+udid,'-parallel-testing-enabled','NO','-resultBundlePath',str(output/'result.xcresult')]+['-only-testing:QiuJiUITests/'+s for s in job['selectors']]
+                command=['xcodebuild','test-without-building','-xctestrun',str(testpath),'-destination','platform=iOS Simulator,id='+udid,'-parallel-testing-enabled','NO','-resultBundlePath',str(output/'result.xcresult')]+['-only-testing:CuePhysUITests/'+s for s in job['selectors']]
                 code=run_command(command,output/'test.log',timeout=job.get('timeout',240))
                 evidence,errors=validate(job,output)
                 record.update(exitCode=code,images=evidence,errors=errors,status='CAPTURED_NEEDS_VISUAL_REVIEW' if code==0 and not errors else 'FAILED')
@@ -130,7 +130,7 @@ def _worker(spec, args):
     finally:
         cleanup={}
         if acquired:
-            cleanup['terminate']=run_command(['xcrun','simctl','terminate',udid,'com.xinkuan.qiuji'],log)
+            cleanup['terminate']=run_command(['xcrun','simctl','terminate',udid,'com.youbilliards.cuephys'],log)
             cleanup['shutdown']=run_command(['xcrun','simctl','shutdown',udid],log)
         write(directory/'cleanup.json',{'acquired':acquired,**cleanup})
     result={'worker':spec['id'],'udid':udid,'jobs':results};write(directory/'worker.json',result);return result

@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class TwoViewCameraTests: XCTestCase {
     private func profile() throws -> TwoViewCamera.RailProfile {

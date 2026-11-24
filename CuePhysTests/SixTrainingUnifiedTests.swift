@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class SixTrainingUnifiedTests: XCTestCase {
@@ -175,7 +175,7 @@ final class SixTrainingUnifiedTests: XCTestCase {
             defer { vm.suspendTeachingActivity(); vm.limiter.isPremium = wasPremium }
             vm.attach(context: ModelContext(container))
             vm.setupScene()
-            for pocket in TableGeometry.chineseEightBallQiuJi(surfaceY: vm.scene.surfaceY).pockets {
+            for pocket in TableGeometry.chineseEightBallCuePhys(surfaceY: vm.scene.surfaceY).pockets {
                 let index = try XCTUnwrap(Int(pocket.id.replacingOccurrences(of: "pocket_", with: "")))
                 let direction = SCNVector3(pocket.isCorner ? (pocket.center.x > 0 ? Float(1) : -1) : 0,
                                            0, pocket.center.z > 0 ? 1 : -1).normalized()

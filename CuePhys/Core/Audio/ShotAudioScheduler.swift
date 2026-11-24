@@ -1,6 +1,6 @@
 //
 //  ShotAudioScheduler.swift
-//  QiuJi
+//  CuePhys
 //
 //  将一次击球的物理事件流（`ShotPrediction.events` + `recorder`）按**真实时刻**
 //  排程为音效。回放为原速（speed=1.0），故事件 `time`（模拟秒）即真实延迟秒，

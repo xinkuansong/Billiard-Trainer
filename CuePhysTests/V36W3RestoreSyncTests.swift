@@ -1,6 +1,6 @@
 import XCTest
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 /// v36 W3：下行恢复（Q3 / D-v36-1）。
 ///

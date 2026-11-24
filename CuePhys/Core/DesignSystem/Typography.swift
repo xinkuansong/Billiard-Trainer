@@ -23,7 +23,7 @@ extension Font {
     static let btOnboardingMessage = Font.system(size: 20, weight: .regular)
     /// Journal day masthead; body copy retains the standard app typography.
     static let btJournalDay = Font.system(size: 52, weight: .regular, design: .serif)
-    /// A2 introduction: bundled OFL Noto Serif SC subset, renamed QiuJi Intro Serif.
+    /// A2 introduction: bundled OFL Noto Serif SC subset, renamed CuePhys Intro Serif.
     /// License ships in introSerifLicense; the subset covers the introduction copy.
     static let btIntroTitle: Font = {
         if let data = NSDataAsset(name: "introSerif")?.data,

@@ -1,5 +1,5 @@
 // Frozen A/B reference; source SHA recorded in output/position-solver-20261102/before-sha.json.
-@testable import QiuJi
+@testable import CuePhys
 import Foundation
 import SceneKit
 

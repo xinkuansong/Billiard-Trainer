@@ -23,12 +23,12 @@ asset_names=(
 )
 
 asset_paths=(
-  "QiuJi/Resources/Assets.xcassets/Atmosphere/coverPlanPositioning.imageset/coverPlanPositioning.png"
-  "QiuJi/Resources/Assets.xcassets/Atmosphere/coverPlanAccuracy3.imageset/coverPlanAccuracy3.png"
-  "QiuJi/Resources/Assets.xcassets/Atmosphere/coverPlanFullskill.imageset/coverPlanFullskill.png"
-  "QiuJi/Resources/Assets.xcassets/Atmosphere/coverPracticeSpinAndEnglish.imageset/coverPracticeSpinAndEnglish.png"
-  "QiuJi/Resources/Assets.xcassets/Atmosphere/coverPracticeSeparationAtlas.imageset/coverPracticeSeparationAtlas.png"
-  "QiuJi/Resources/Assets.xcassets/Atmosphere/coverPracticeDiamond.imageset/coverPracticeDiamond.png"
+  "CuePhys/Resources/Assets.xcassets/Atmosphere/coverPlanPositioning.imageset/coverPlanPositioning.png"
+  "CuePhys/Resources/Assets.xcassets/Atmosphere/coverPlanAccuracy3.imageset/coverPlanAccuracy3.png"
+  "CuePhys/Resources/Assets.xcassets/Atmosphere/coverPlanFullskill.imageset/coverPlanFullskill.png"
+  "CuePhys/Resources/Assets.xcassets/Atmosphere/coverPracticeSpinAndEnglish.imageset/coverPracticeSpinAndEnglish.png"
+  "CuePhys/Resources/Assets.xcassets/Atmosphere/coverPracticeSeparationAtlas.imageset/coverPracticeSeparationAtlas.png"
+  "CuePhys/Resources/Assets.xcassets/Atmosphere/coverPracticeDiamond.imageset/coverPracticeDiamond.png"
 )
 
 restore_assets() {
@@ -63,11 +63,11 @@ for appearance in light dark; do
   fi
 
   xcodebuild test \
-    -project QiuJi.xcodeproj \
-    -scheme QiuJi \
+    -project CuePhys.xcodeproj \
+    -scheme CuePhys \
     -destination "platform=iOS Simulator,id=$simulator_udid" \
     -derivedDataPath build/cover-pilot-derived \
-    -only-testing:"QiuJiUITests/W3_HomeCoverUITests/$practice_test"
+    -only-testing:"CuePhysUITests/W3_HomeCoverUITests/$practice_test"
 
   cp "$repo_dir/build/w3-screenshots/w3-c20-01-home-all-$appearance.png" \
     "$output_dir/$appearance/practice-01-home-all.png"
@@ -79,11 +79,11 @@ for appearance in light dark; do
     "$output_dir/$appearance/practice-04-home-solve.png"
 
   xcodebuild test \
-    -project QiuJi.xcodeproj \
-    -scheme QiuJi \
+    -project CuePhys.xcodeproj \
+    -scheme CuePhys \
     -destination "platform=iOS Simulator,id=$simulator_udid" \
     -derivedDataPath build/cover-pilot-derived \
-    -only-testing:QiuJiUITests/V37W4PlanShelfUITests/testCoverPilotTargetCards
+    -only-testing:CuePhysUITests/V37W4PlanShelfUITests/testCoverPilotTargetCards
 
   cp "$repo_dir/build/v38-w7-screenshots/pilot-plan_accuracy3.png" \
     "$output_dir/$appearance/plan-01-accuracy3.png"

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "project": "QiuJi.xcodeproj",
+  "project": "CuePhys.xcodeproj",
   "scheme": "QiuJi",
   "deployment_floor": "17.0",
   "artifact_root": "build/v51/matrix",
@@ -27,61 +27,61 @@
     {"id": "A1", "tier": "A", "runtime": "17.0", "name": "QiuJi-Remaining-SE-20261013", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation", "role": "compact-phone-floor", "udid": "16365EE2-0C42-4EE1-B707-09AC55A0ABA7"}
   ],
   "suites": {
-    "tour": ["QiuJiUITests/ScreenshotTourUITests/testDesignerPageDump"],
-    "contract": ["QiuJiUITests/DeviceMatrixUITests"],
-    "v51-responsive": ["QiuJiUITests/V51ResponsiveLayoutUITests"],
+    "tour": ["CuePhysUITests/ScreenshotTourUITests/testDesignerPageDump"],
+    "contract": ["CuePhysUITests/DeviceMatrixUITests"],
+    "v51-responsive": ["CuePhysUITests/V51ResponsiveLayoutUITests"],
     "v51-responsive-ax-isolated": {"selector_file": "scripts/v51-responsive-ui-tests.txt", "isolate_selectors": true},
-    "v51-responsive-unit": ["QiuJiTests/V51ResponsiveLayoutTests"],
-    "v51-active-training": ["QiuJiUITests/V51ResponsiveLayoutUITests/testActiveTrainingTimerIsSingleLineAndClearsActions"],
+    "v51-responsive-unit": ["CuePhysTests/V51ResponsiveLayoutTests"],
+    "v51-active-training": ["CuePhysUITests/V51ResponsiveLayoutUITests/testActiveTrainingTimerIsSingleLineAndClearsActions"],
     "v51-minimized-training": [
-      "QiuJiUITests/V51ResponsiveLayoutUITests/testMinimizedTrainingClearsAllFiveTabs",
-      "QiuJiUITests/V51ResponsiveLayoutUITests/testMinimizedTrainingShortTimeClearsAllFiveTabs"
+      "CuePhysUITests/V51ResponsiveLayoutUITests/testMinimizedTrainingClearsAllFiveTabs",
+      "CuePhysUITests/V51ResponsiveLayoutUITests/testMinimizedTrainingShortTimeClearsAllFiveTabs"
     ],
-    "v51-rest-training": ["QiuJiUITests/V51ResponsiveLayoutUITests/testRestOverlayAndSessionLocalMinimizeRemainReachable"],
-    "v51-shot-stage": ["QiuJiUITests/V51ResponsiveLayoutUITests/testCompactShotStageRailsAndPaletteDoNotOverlap"],
-    "v51-components": ["QiuJiUITests/V51ResponsiveLayoutUITests/testResponsiveComponentProbeKeepsPaletteStatusAndChipsReachable"],
+    "v51-rest-training": ["CuePhysUITests/V51ResponsiveLayoutUITests/testRestOverlayAndSessionLocalMinimizeRemainReachable"],
+    "v51-shot-stage": ["CuePhysUITests/V51ResponsiveLayoutUITests/testCompactShotStageRailsAndPaletteDoNotOverlap"],
+    "v51-components": ["CuePhysUITests/V51ResponsiveLayoutUITests/testResponsiveComponentProbeKeepsPaletteStatusAndChipsReachable"],
     "root-smoke": [
-      "QiuJiUITests/DeviceMatrixUITests/testRootSafeAreaScrollAndPrimaryCTA",
-      "QiuJiUITests/DeviceMatrixUITests/testRepresentativeTableStageAndCTA"
+      "CuePhysUITests/DeviceMatrixUITests/testRootSafeAreaScrollAndPrimaryCTA",
+      "CuePhysUITests/DeviceMatrixUITests/testRepresentativeTableStageAndCTA"
     ],
-    "keyboard": ["QiuJiUITests/DeviceMatrixUITests/testPhoneLoginKeyboardAndAdaptiveSheet"],
-    "ipad-angle-regression": ["QiuJiUITests/ScreenshotTourUITests/testV50IPadAngleRouteNavigationRegression"],
-    "ipad-theory-regression": ["QiuJiUITests/ScreenshotTourUITests/testV50IPadTheoryT07NavigationRegression"],
-    "large-ipad-route-regression": ["QiuJiUITests/ScreenshotTourUITests/testV50LargeIPadMissingRouteRegression"],
-    "ipad-login-regression": ["QiuJiUITests/ScreenshotTourUITests/testV50IPadLoginNavigationRegression"],
-    "ipad-window-boundary": ["QiuJiUITests/ScreenshotTourUITests/testV50IPadPortraitOnlyBoundary"],
-    "photo-permission-deny": ["QiuJiUITests/V50SystemStateUITests/testPhotoPermissionRealPromptDenied"],
-    "photo-permission-allow": ["QiuJiUITests/V50SystemStateUITests/testPhotoPermissionRealPromptAllowed"],
-    "state-onboarding": ["QiuJiUITests/V50StateMatrixUITests/testFirstLaunchCompletionAndRelaunchPersistence"],
-    "state-identity": ["QiuJiUITests/V50StateMatrixUITests/testGuestFreeAndForcedProBoundaries"],
-    "state-ax-roots": ["QiuJiUITests/V50StateMatrixUITests/testFiveRootsAndLongContentAtCurrentContentSize"],
+    "keyboard": ["CuePhysUITests/DeviceMatrixUITests/testPhoneLoginKeyboardAndAdaptiveSheet"],
+    "ipad-angle-regression": ["CuePhysUITests/ScreenshotTourUITests/testV50IPadAngleRouteNavigationRegression"],
+    "ipad-theory-regression": ["CuePhysUITests/ScreenshotTourUITests/testV50IPadTheoryT07NavigationRegression"],
+    "large-ipad-route-regression": ["CuePhysUITests/ScreenshotTourUITests/testV50LargeIPadMissingRouteRegression"],
+    "ipad-login-regression": ["CuePhysUITests/ScreenshotTourUITests/testV50IPadLoginNavigationRegression"],
+    "ipad-window-boundary": ["CuePhysUITests/ScreenshotTourUITests/testV50IPadPortraitOnlyBoundary"],
+    "photo-permission-deny": ["CuePhysUITests/V50SystemStateUITests/testPhotoPermissionRealPromptDenied"],
+    "photo-permission-allow": ["CuePhysUITests/V50SystemStateUITests/testPhotoPermissionRealPromptAllowed"],
+    "state-onboarding": ["CuePhysUITests/V50StateMatrixUITests/testFirstLaunchCompletionAndRelaunchPersistence"],
+    "state-identity": ["CuePhysUITests/V50StateMatrixUITests/testGuestFreeAndForcedProBoundaries"],
+    "state-ax-roots": ["CuePhysUITests/V50StateMatrixUITests/testFiveRootsAndLongContentAtCurrentContentSize"],
     "state-keyboards": [
-      "QiuJiUITests/DeviceMatrixUITests/testPhoneLoginKeyboardAndAdaptiveSheet",
-      "QiuJiUITests/V50StateMatrixUITests/testProfileAndPlanKeyboardReachability"
+      "CuePhysUITests/DeviceMatrixUITests/testPhoneLoginKeyboardAndAdaptiveSheet",
+      "CuePhysUITests/V50StateMatrixUITests/testProfileAndPlanKeyboardReachability"
     ],
     "state-offline-recovery": [
-      "QiuJiTests/V36W2DeleteSyncTests/test_networkError_keepsItemForRetry",
-      "QiuJiTests/AngleResultSaveFailureTests/test_retryFailedSaves_clearsErrorWhenRepositoryRecovers"
+      "CuePhysTests/V36W2DeleteSyncTests/test_networkError_keepsItemForRetry",
+      "CuePhysTests/AngleResultSaveFailureTests/test_retryFailedSaves_clearsErrorWhenRepositoryRecovers"
     ],
-    "localization-unit": ["QiuJiTests/PhotoPermissionInfoPlistTests"],
+    "localization-unit": ["CuePhysTests/PhotoPermissionInfoPlistTests"],
     "w7-focused-regression": [
-      "QiuJiTests/DrillBoardBuilderTests",
-      "QiuJiTests/DrillContentValidationTests",
-      "QiuJiTests/DrillTryoutBoardStoreTests",
-      "QiuJiTests/V30X1TutorialEmptyContentRenderTests",
-      "QiuJiTests/SwiftDataMigrationTests",
-      "QiuJiTests/SwiftDataModelTests",
-      "QiuJiTests/LocalTrainingSessionRepositoryTests"
+      "CuePhysTests/DrillBoardBuilderTests",
+      "CuePhysTests/DrillContentValidationTests",
+      "CuePhysTests/DrillTryoutBoardStoreTests",
+      "CuePhysTests/V30X1TutorialEmptyContentRenderTests",
+      "CuePhysTests/SwiftDataMigrationTests",
+      "CuePhysTests/SwiftDataModelTests",
+      "CuePhysTests/LocalTrainingSessionRepositoryTests"
     ],
-    "w7-swiftdata-model": ["QiuJiTests/SwiftDataModelTests"],
-    "w7-local-repository": ["QiuJiTests/LocalTrainingSessionRepositoryTests"],
-    "w7-bank-adjustment": ["QiuJiTests/BankKickAdjustmentDraftLayerTests"],
-    "w7-active-training": ["QiuJiTests/ActiveTrainingViewModelTests"],
+    "w7-swiftdata-model": ["CuePhysTests/SwiftDataModelTests"],
+    "w7-local-repository": ["CuePhysTests/LocalTrainingSessionRepositoryTests"],
+    "w7-bank-adjustment": ["CuePhysTests/BankKickAdjustmentDraftLayerTests"],
+    "w7-active-training": ["CuePhysTests/ActiveTrainingViewModelTests"],
     "w7-history-data": [
-      "QiuJiTests/V29W5CognitiveToolSessionTests",
-      "QiuJiTests/V29W6HistoryStatisticsKindTests"
+      "CuePhysTests/V29W5CognitiveToolSessionTests",
+      "CuePhysTests/V29W6HistoryStatisticsKindTests"
     ],
-    "w7-restore-sync": ["QiuJiTests/V36W3RestoreSyncTests"],
+    "w7-restore-sync": ["CuePhysTests/V36W3RestoreSyncTests"],
     "safe-unit-1": {"selector_file": "scripts/simulator-regression-tests.txt", "selector_slice": [0, 38]},
     "safe-unit-2": {"selector_file": "scripts/simulator-regression-tests.txt", "selector_slice": [38, 76]},
     "safe-unit-3": {"selector_file": "scripts/simulator-regression-tests.txt", "selector_slice": [76, 114]},

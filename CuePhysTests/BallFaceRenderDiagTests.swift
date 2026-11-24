@@ -1,6 +1,6 @@
 //
 //  BallFaceRenderDiagTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  球库球面缩略图渲染诊断（FL 候选 #15）：BallFaceRenderer 此前以「节点原点 = 球心」取景，
 //  但 USDZ 球节点 pivot ≠ 网格中心（`AngleTrainingScene.visualCenter` 即为此而生），
@@ -9,15 +9,15 @@
 //  2. 量化断言：中心区域不透明像素占比 > 0.5（球应占满取景框中心）。
 //
 //  运行：
-//    xcodebuild test -scheme QiuJi -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-//      -only-testing:QiuJiTests/BallFaceRenderDiagTests
+//    xcodebuild test -scheme CuePhys -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+//      -only-testing:CuePhysTests/BallFaceRenderDiagTests
 //
 
 import XCTest
 import SwiftUI
 import UIKit
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class BallFaceRenderDiagTests: XCTestCase {
 

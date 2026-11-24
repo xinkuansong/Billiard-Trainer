@@ -443,7 +443,7 @@ enum DrillCategory: String, CaseIterable, Identifiable {
 /// 34/77 条 drill 因缺必填字段而静默消失于动作库，长期无人发现。
 enum DrillContentDiagnostics {
 
-    private static let logger = Logger(subsystem: "com.billiardtrainer", category: "DrillContent")
+    private static let logger = Logger(subsystem: "com.youbilliards.cuephys", category: "DrillContent")
 
     /// 把 `DecodingError` 压成一行可定位的说明：类型 + codingPath + 原因。
     /// 非 `DecodingError` 原样返回其描述。测试直接断言这段文本。

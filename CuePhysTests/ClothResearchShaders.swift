@@ -1,6 +1,6 @@
 import Foundation
 import CryptoKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Research only. The production renderer never imports this builder.
 enum ClothResearchShaders {

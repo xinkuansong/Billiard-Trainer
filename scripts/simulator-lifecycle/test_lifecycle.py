@@ -242,7 +242,7 @@ class LifecycleTests(unittest.TestCase):
         exe = '91 /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild\n'
         cases = [
             ('xcodebuild -destination generic/platform=iOS Simulator build-for-testing', {}),
-            ('xcodebuild -destination \'generic/platform=iOS Simulator\' -only-testing:QiuJiTests/A build-for-testing', {}),
+            ('xcodebuild -destination \'generic/platform=iOS Simulator\' -only-testing:CuePhysTests/A build-for-testing', {}),
             ('xcodebuild -destination generic/platform=iOS Simulator build-for-testing test', {'*': [91]}),
             ('xcodebuild -destination generic/platform=iOS Simulator test-without-building', {'*': [91]}),
             ('xcodebuild build-for-testing', {'*': [91]}),

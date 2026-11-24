@@ -1,7 +1,7 @@
 // Frozen pre-change predictor; same current physics. Test-only A/B reference.
 import Foundation
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 enum FrozenBankKickPredictor20261102 {
     /// A transition may commit another frame at the same event time.
@@ -103,7 +103,7 @@ enum FrozenBankKickPredictor20261102 {
             return nil
         }
         // 几何统一：CAD 真源几何（袋口孔心 = pocketPositions，ADR-P10-09）。模拟几何 == 瞄准几何。
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: y)
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: y)
         return AimContext(aimPoint: aimPoint, ghost: ghost, aimDir: aimDir,
                           geometry: geometry, pocketCenter: pockets[input.pocketIndex])
@@ -169,7 +169,7 @@ enum FrozenBankKickPredictor20261102 {
             result.infeasibleReason = "母球挡住目标球出发路线"
             return nil
         }
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: y)
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: y)
         return AimContext(aimPoint: result.pocketAimPoint, ghost: ghost, aimDir: aimDir,
                           geometry: geometry, pocketCenter: pockets[input.pocketIndex])
@@ -206,7 +206,7 @@ enum FrozenBankKickPredictor20261102 {
         // kick 无进袋语义：`pocketAimPoint` 置目标球心（`pocketIndex` 不参与判定）。
         result.pocketAimPoint = SCNVector3(input.targetBall.x, input.targetBall.y + r,
                                            input.targetBall.z)
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: y)
         // AimContext.pocketCenter 以目标球心占位（runShot 的 objMinDist 在 kick 评分中不消费）。
         return AimContext(aimPoint: result.pocketAimPoint, ghost: ghost, aimDir: aimDir,
                           geometry: geometry, pocketCenter: result.pocketAimPoint)
@@ -386,7 +386,7 @@ enum FrozenBankKickPredictor20261102 {
             aimDirection: dir, velocity: velocity,
             spinX: spinX, spinY: spinY, elevation: 0
         )
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: y)
         let engine = EventDrivenEngine(tableGeometry: geometry)
         engine.getTrajectoryRecorder().cueStrikeSpeed = velocity
         if let cancellation { engine.predictionCancellationRequested = { cancellation.isCancelled } }

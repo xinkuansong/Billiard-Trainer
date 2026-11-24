@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 /// v14 B1：轻量编译引用——证明学页壳 / 控件条公开 API 进入 app target。
 final class LearnDocChromeCompileTests: XCTestCase {

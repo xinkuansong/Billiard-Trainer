@@ -1,6 +1,6 @@
 //
 //  TrajectoryPlaybackSettleTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  G15（问题集合 v5）：球停止禁尾速截断——回放/渲染一律播到引擎自然静止，
 //  不做 0.07 m/s 感知截断。本用例用**手工构造的确定性 recorder**（不依赖具体物理系数）
@@ -16,7 +16,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class TrajectoryPlaybackSettleTests: XCTestCase {
 

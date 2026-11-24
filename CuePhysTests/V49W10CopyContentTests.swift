@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W10：分离角走位、参考球校准与吃库边界。
 @MainActor

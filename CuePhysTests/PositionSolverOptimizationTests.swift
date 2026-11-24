@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Fixed, reproducible A/B corpus. The reference is frozen solver source, with the
 /// same current physics, tolerances, compiler and process as the candidate.

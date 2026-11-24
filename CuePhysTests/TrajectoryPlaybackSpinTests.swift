@@ -1,6 +1,6 @@
 //
 //  TrajectoryPlaybackSpinTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  问题集合 v17 W1：回放层球体姿态由「位移弧长 / R + 轴 = ŷ × v̂」改为**引擎角速度 ω 逐帧积分**。
 //  本文件用手工构造的确定性 recorder（不依赖具体物理系数，范式沿用
@@ -17,7 +17,7 @@
 import XCTest
 import SceneKit
 import simd
-@testable import QiuJi
+@testable import CuePhys
 
 final class TrajectoryPlaybackSpinTests: XCTestCase {
 

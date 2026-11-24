@@ -1,7 +1,7 @@
 import XCTest
 import CoreGraphics
-#if canImport(QiuJi)
-@testable import QiuJi
+#if canImport(CuePhys)
+@testable import CuePhys
 #else
 @testable import ControlLayoutHarness
 #endif

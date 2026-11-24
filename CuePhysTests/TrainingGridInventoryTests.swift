@@ -1,12 +1,12 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Geometry-only inventory. Deliberately has no ShotPredictor or tip/power search.
 /// X/Z metres, Y up. P=aim point, O=object, G=ghost, C=cue.
 private struct GridGeometry {
     typealias V = SIMD2<Double>
-    let table = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+    let table = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
     let radius = Double(BallPhysics.radius)
     let epsilon = Double(SceneTrainingRailGeometry.contactRoundoff)
     func vector(_ p: SCNVector3) -> V { V(Double(p.x), Double(p.z)) }

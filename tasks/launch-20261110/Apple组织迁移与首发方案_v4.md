@@ -1,13 +1,13 @@
 # CuePhys Apple 组织迁移与首发方案
 
-> 本文件是本轮 Apple 事项的需求真源。版本 v4.12，2026-11-23（北京时间）建立。它在 v4.11 的基础上补充微信占位配置的代码门禁核对结果。外部后台状态以实际页面和回执为准，代码状态以本文件列出的仓库锚点为准。当前已完成代码侧 CuePhys 改名、本地验证、API HTTPS、官网法律页和预检工具；服务端生产凭据、正式商品后台核对、正式签名、提交审核和发布仍未完成。
+> 本文件是本轮 Apple 事项的需求真源。版本 v4.19，2026-11-24（北京时间）更新。按用户确认将微信 Universal Links 改为产品路径 `/cuephys/wechat/` 并完成重新部署与签名验证，Apple CDN 刷新和微信 AppID/真机回跳仍待闭环；付费 App 协议入口沿 v4.16 实查仍未出现。外部后台状态以实际页面和回执为准，代码状态以本文件列出的仓库锚点为准。当前已完成代码侧 CuePhys 改名、本地验证、API HTTPS、官网法律页和预检工具；服务端生产凭据、正式商品后台核对、正式签名、提交审核和发布仍未完成。
 
 ## 一、当前已确认
 
 | 对象 | 已确认结果 | 证据与边界 |
 |---|---|---|
 | Apple 会员主体 | 已转为组织 `Wuxi Youqiu Technology Co., Ltd`，Team ID `KWH2GRNSKG`，续订日 2027-03-28，页面显示年费 RMB 688 | Apple Developer 账户页与 11/23 邮件。迁移期间出现的停用提示已结束。 |
-| App Store Connect App | 现有 App「球迹」，App ID `6761309682`，SKU `QJ-001`，iOS 1.0 为「准备提交」，版本页尚未上传 build；Bundle ID 菜单已出现 `CuePhys - com.youbilliards.cuephys` | 11/23 用户截图确认新选项出现；按 Apple 规则，应在现有 App 记录内选择新 ID 并保存，不创建重复 App。 |
+| App Store Connect App | 现有 App「球迹」，App ID `6761309682`，SKU `QJ-001`，iOS 1.0 为「准备提交」，版本页尚未上传 build；Bundle ID 已保存为 `CuePhys - com.youbilliards.cuephys` | 11/23 在 Edge 中选择新 ID，页面显示“已保存”，刷新后仍为新 ID；未创建重复 App、未上传 build。 |
 | Apple Developer 新 App ID | 已登记显式 App ID `com.youbilliards.cuephys`，描述为 `CuePhys` | 11/23 Edge 实查登记结果。已启用 `Associated Domains` 和 `Sign in with Apple`；未启用推送等未核实能力。 |
 | 产品公开名 | 产品决定为 CuePhys，说明性标题可用「CuePhys：台球训练」 | 需要在 App Store Connect 核公开名称、卖方和商店文案，尚未提交审核。代码侧改名只在方案确认后执行。 |
 | App 内显示名 | `CFBundleName` 与 `CFBundleDisplayName` 已为 `CuePhys` | `CuePhys/Resources/Info.plist:5-20`。这是客户端显示名。 |
@@ -17,7 +17,7 @@
 | 生产配置 | Release 已指向 `https://api.cuephys.com`，法律页已指向官网 CuePhys 页面；服务器尚未写入 Apple/微信生产凭据，不能进行正式登录联调 | `Config/Secrets.xcconfig`、`Config/Release.xcconfig`、`CuePhys/Core/Extensions/AppConfig.swift`；`https://api.cuephys.com/health` 公网返回 200。部署前运行 `cd backend && npm run preflight:production`，缺凭据时必须失败且不得输出密钥。 |
 | 中国大陆商店合规 | App Store Connect 页面提示需要安全评估证明和 AIGC 服务声明 | 11/23 App Store Connect 页面提示。按实际功能和主管部门要求填，不凭猜测选择不适用。 |
 | 网站 | `https://youbilliards.com/` 已上线，网站服务备案号为 `苏ICP备2026091631号-1` | 网站备案不能替代 App 备案。App 备案仍单独跟踪。 |
-| 微信 | 企业认证已付款，移动应用正式 AppID、Universal Links 和回调实测仍未闭合 | `Config/Debug.xcconfig:14-16` 仍是占位。 |
+| 微信 | 11/24 用户回执确认移动应用已创建并提交审核，页面预计 1–7 个工作日；Universal Links 已部署为 `https://youbilliards.com/cuephys/wechat/`，iPhone/iPad 共用；正式 AppID/Secret 与回调实测仍待完成 | 2026-11-24 公网 AASA/回调 200，签名 Debug 包核对通过；Apple CDN 旧失败缓存待刷新。[验证](微信UniversalLinks产品路径调整-20261124.md)。 |
 
 ## 九-B、外部阻塞与配置时机（v4.4）
 
@@ -281,6 +281,9 @@ A0 身份与命名冻结
 | v4.10 | 2026-11-23 | 核对 StoreKit 代码契约：首发只请求并购买 CuePhys 永久非消耗型商品，月付/年付不进入首发，旧商品 ID 仅兼容读取；新增商品核对表。确认 Release/API/法律 URL 已收口，backend `npm test` 40/40 通过；生产商品后台、Apple/微信凭据、生产变量和真机登录仍待外部配置。 |
 | v4.11 | 2026-11-23 | 新增 `backend npm run preflight:production` 生产配置预检：校验 Bundle ID、JWT、Mongo、Apple Team/Key/.p8/加密密钥和微信 AppID/Secret，只输出脱敏状态；本地预检按预期因生产凭据缺失失败，backend 测试 42/42 通过。 |
 | v4.12 | 2026-11-23 | 核对微信客户端占位配置的失败闭环：真实 AppID、HTTPS Universal Link、主机一致性和安全 API 均有门禁；当前占位值不会显示为可用登录。`backend npm test`、生产配置预检和文档门禁已重新执行，生产预检仍按预期因凭据缺失失败。 |
+| v4.14 | 2026-11-23 | 用户已按原登记内容将法律实体地址拆分到两行，商务页现已显示拆分后的地址。公司卡片仍显示 2 项待处理；当前可见待办包括 EU DSA 交易商合规入口和新的付费 App 协议。未接受付费协议，下一步先由用户核对 DSA 身份并处理法律协议。 |
+| v4.15 | 2026-11-23 | Edge 实查确认用户已完成 EU DSA 合规，页面显示“你目前已完成所有监管要求”，商务页公司卡片从 2 项待处理变为 1 项，剩余为新的付费 App 协议。未接受协议；下一步由账号持有人阅读并决定是否接受，之后才能配置正式商品和内购。 |
+| v4.17 | 2026-11-24 | 完成 App 备案、网站备案、API 域名、ASC 合规问卷和商店资料的只读核对，补齐当前状态与依赖；确认可先推进 App 备案材料、隐私标签、年龄分级、安全评估、AIGC 声明和商店资料，继续等待付费协议入口。 |
 
 ## 十三、本轮执行记录（2026-11-23）
 
@@ -289,12 +292,18 @@ A0 身份与命名冻结
 - **已执行**：当前构建脚本、训练题库校验、模拟器矩阵和同步校验入口已切到新工程路径；后端 npm 包元数据和当前并发队列标签已切到 CuePhys；历史 schema 类型、旧交易标识和历史研究证据未改作新身份。
 - **验证结果**：`python3 scripts/verify_model_packaging.py`、`python3 scripts/verify_pocket_pipe_table.py`、`python3 scripts/training-question-bank/verify_grid_bank.py`、`npm test`（backend 40/40）通过；`make -f scripts/Makefile build TEST_DESTINATION='platform=iOS Simulator,id=AE86244C-EE61-4585-882F-E39B892214DB'` 通过；`make -f scripts/Makefile test TEST_ACTION=build-for-testing TEST_DESTINATION='generic/platform=iOS Simulator' TEST_CODE_COVERAGE=NO` 通过。
 - **历史阻塞记录**：早先 ASC 会话曾只显示旧值；用户新截图已证明新值出现，原阻塞已解除。2026-11-23 真机 `com.youbilliards.cuephys` 构建、安装、启动和定向 XCTest 均已通过（1/1，0 failures）。
-- **最新状态**：用户截图确认 ASC 已出现 `CuePhys - com.youbilliards.cuephys`；待用户在现有 App 信息页选择该项并保存，保存回执尚未由本地会话独立读取。生产 HTTPS、Apple 登录密钥、正式商品与上传仍未完成。
+- **最新状态**：ASC 现有 App `6761309682` 已在 Edge 中选择 `CuePhys - com.youbilliards.cuephys` 并保存；刷新后仍显示该值，保存已核实。商务页的公司法律实体地址已拆分并显示为两行；EU DSA 合规已显示“你目前已完成所有监管要求”，公司卡片剩余 1 项待处理，即新的付费 App 协议。生产 HTTPS、Apple 登录密钥、正式商品与上传仍未完成。
 - **生产配置核查**：服务器 `.env` 当前只有 JWT、Mongo、头像和注销备份相关变量，尚无 `APPLE_TEAM_ID`、`APPLE_KEY_ID`、`APPLE_PRIVATE_KEY_PATH` 或微信生产变量；这与“密钥后置”的方案一致，不能直接开启生产登录。
 - **本地前置验证**：Release 未签名归档使用 `https://validation.cuephys.com/api` 成功，归档包 Bundle ID 为 `com.youbilliards.cuephys`，详见[Release 归档前置验证](Release归档前置验证-20261123.md)。
 - **最新执行**：`api.cuephys.com` 已解析到 `106.54.3.210`；证书、Nginx 反代和 `https://api.cuephys.com/health` 已验证。官网版本 `8a038cf9108f35306410f252efe0ae2518d26490` 已原子切换，CuePhys 隐私政策和用户协议公网返回 200，旧 release 保留。下一阻塞收敛为 Apple/微信生产凭据、正式商品、生产环境变量和真机登录回归。
 - **本轮验证**：`backend npm test` 42/42 通过；CuePhys Debug 模拟器构建 `** BUILD SUCCEEDED **`；模型、袋口和题库校验通过；`git diff --check` 与 `make -f scripts/Makefile verify-doc-size` 通过。构建日志仍有既有 Swift 6 actor 隔离警告，但没有新增错误；未把警告写成阻塞或通过条件。
-- **商品与配置核对**：`StoreKitService.loadProducts()` 和 `purchase()` 当前只请求/接受 `com.youbilliards.cuephys.premium.lifetime`；月付、年付只保留权益读取兼容枚举，未进入首发 UI。`xcodebuild -showBuildSettings` 已核到 Release API、法律 URL、Bundle ID 和产品名；Release 归档本轮未重复执行，生产商品后台、通知 URL、Apple/微信凭据和真机购买仍待外部配置。[商品核对表](StoreKit-商品核对表-20261123.md)
+- **商品与配置核对**：`StoreKitService.loadProducts()` 和 `purchase()` 当前只请求/接受 `com.youbilliards.cuephys.premium.lifetime`；月付、年付只保留权益读取兼容枚举，未进入首发 UI。`xcodebuild -showBuildSettings` 已核到 Release API、法律 URL、Bundle ID 和产品名；Release 归档本轮未重复执行。App Store Connect 商务页尚未完成法律实体更新，付费 App 协议和正式商品状态仍不能进入最终配置；通知 URL、Apple/微信凭据和真机购买仍待外部配置。[商品核对表](StoreKit-商品核对表-20261123.md)
 - **生产预检门禁**：新增 `backend/src/config/productionPreflight.js` 和 `backend/scripts/preflight-production.js`；本地 `npm run preflight:production` 明确报告缺少生产变量，未输出任何密钥内容。正式服务器写入凭据后，必须先通过该门禁再重启服务。[商品核对表](StoreKit-商品核对表-20261123.md)
 - **微信占位门禁复核**：代码读取确认 `WeChatAuthorization.configured` 与 `MobileLoginMethod.available` 会在占位 AppID／Universal Link 或非 HTTPS API 下关闭微信入口；未修改生产凭据，也未把占位值写入 Release。该项等待微信移动应用 AppID、Secret、AASA 和回调域名后做真机实测。
+- **App Store Connect 外部执行**：现有 App `6761309682` 的 Bundle ID 已切换为 `com.youbilliards.cuephys`，刷新后保存状态保持。公司法律实体地址已按原登记内容拆分到两行并在商务页显示；EU DSA 合规已完成，商务页剩余 1 项待处理，即新的付费 App 协议。未接受付费 App 协议。
+- **2026-11-24 复核**：在 Edge 中强制刷新公司商务详情页，付费 App 协议仍显示“新”；右侧“查看”打开的是 175 个国家/地区列表，页面顶部“协议”只是当前栏目标题，均不是接受协议入口。页面提示仍要求先完成法律实体信息更新；当前没有出现 Apple 官方流程中的“查看并同意条款”操作，因此继续按外部处理/同步阻塞记录，未接受任何法律协议。
+
+### 14.1 当前外部阻塞
+
+- **Apple 付费 App 协议入口未生成**：公司地址已在页面显示，但刷新后仍无“查看并同意条款”；不能通过国家/地区“查看”替代接受协议。待 Apple 完成法律实体变更同步并出现正式接受入口后，由账号持有人阅读并决定是否接受。
 

@@ -1,7 +1,7 @@
 // Frozen r9 pipeline for Kick-only equivalence under the current physics constants.
 import Foundation
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 enum FrozenKickQualityPipeline20261102 {
 

@@ -2,7 +2,7 @@ import SceneKit
 import Combine
 import XCTest
 import simd
-@testable import QiuJi
+@testable import CuePhys
 
 final class AimCloseupCoordsTests: XCTestCase {
 

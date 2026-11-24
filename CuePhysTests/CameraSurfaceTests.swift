@@ -2,7 +2,7 @@ import XCTest
 import SceneKit
 import Metal
 import Combine
-@testable import QiuJi
+@testable import CuePhys
 
 final class CameraSurfaceTests: XCTestCase {
     private let viewport = CGSize(width:874,height:402)

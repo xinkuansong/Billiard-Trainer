@@ -1,6 +1,6 @@
 //
 //  PositionPlaySolverTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  走位反解器（思路训练器，ADR-P13-01）：
 //  - 落区有符号距离 SDF 金标准（确定性，禁止脑算 → 数值验证）。
@@ -13,7 +13,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class PositionPlaySolverTests: XCTestCase {
 

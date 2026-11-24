@@ -1,5 +1,5 @@
 import Foundation
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class TrainingAnswerRepositoryStub: AngleTestRepositoryProtocol {

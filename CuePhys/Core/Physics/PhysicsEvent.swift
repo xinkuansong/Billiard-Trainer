@@ -1,6 +1,6 @@
 //
 //  PhysicsEvent.swift
-//  QiuJi
+//  CuePhys
 //
 //  事件驱动引擎的事件类型与球状态值类型（D-A1 第三梯队：从 `EventDrivenEngine` 巨型文件
 //  中抽出，作为引擎的公共词汇表，便于独立阅读与单测）。

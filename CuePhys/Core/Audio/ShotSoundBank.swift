@@ -1,6 +1,6 @@
 //
 //  ShotSoundBank.swift
-//  QiuJi
+//  CuePhys
 //
 //  击球音效资源/引擎层：AVAudioEngine + 多 AVAudioPlayerNode 池。
 //

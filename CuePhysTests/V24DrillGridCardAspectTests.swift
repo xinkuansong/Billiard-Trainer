@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 /// v24 W1：动作库网格卡封面 2:1（与烘焙 PNG 同比），ImageRenderer 落盘证据。
 @MainActor

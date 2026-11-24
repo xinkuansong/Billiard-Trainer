@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W14：力度标尺、碰库往返与高低杆距离边界。
 @MainActor

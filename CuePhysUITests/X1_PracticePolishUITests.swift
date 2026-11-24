@@ -1,7 +1,7 @@
 import XCTest
 
 /// v8 X1（K1–K4）截图取证。写入 `build/x1-screenshots/`。
-/// 禁止覆盖 `docs/ui-polish/` 与 `QiuJi/Resources/DrillThumbnails/`。
+/// 禁止覆盖 `docs/ui-polish/` 与 `CuePhys/Resources/DrillThumbnails/`。
 final class X1_PracticePolishUITests: XCTestCase {
 
     private var shotDir: URL {

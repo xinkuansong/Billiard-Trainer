@@ -1,6 +1,6 @@
 //
 //  PocketBehaviorDiagTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  袋口行为诊断（观察用，配合「分离角与走位」「走位编排台」求解器讨论）。
 //
@@ -20,15 +20,15 @@
 //  产出 PNG：build/pocket_diag/*.png
 //
 //  运行：
-//    xcodebuild test -scheme QiuJi \
+//    xcodebuild test -scheme CuePhys \
 //      -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-//      -only-testing:QiuJiTests/PocketBehaviorDiagTests
+//      -only-testing:CuePhysTests/PocketBehaviorDiagTests
 //
 
 import XCTest
 import UIKit
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class PocketBehaviorDiagTests: XCTestCase {
 
@@ -1221,7 +1221,7 @@ final class PocketBehaviorDiagTests: XCTestCase {
             let up = SCNVector3(0, 1, 0)
             let roll = up.cross(vIn) * (1.0 / R)
             let start = SCNVector3(0.0, sY + R, -(halfW - R) + 0.30)
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: sY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: sY))
             engine.setBall(BallState(position: start, velocity: vIn, angularVelocity: roll, state: .rolling, name: "obj"))
             engine.simulate(maxEvents: 60, maxTime: 6)
             let rec = engine.getTrajectoryRecorder()
@@ -1287,7 +1287,7 @@ final class PocketBehaviorDiagTests: XCTestCase {
     /// 转引擎直跑一个失败贴库球，dump 目标球撞的每段库（恢复系数区分 喉壁0.45/主库0.85）+ 法线。
     func test_L_whichCushion() throws {
         let halfW = AngleSceneCalculator.innerWidth / 2
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let mainCount = TableGeometry.chineseEightBallCushions(y: sY).linear.count
         print("\n[L·撞哪种库] 主库段数=\(mainCount) 总线段=\(geo.linearCushions.count)（其余为喉腔壁）")
         let tgt = SCNVector3(-0.70, sY + R, -0.35)
@@ -1326,7 +1326,7 @@ final class PocketBehaviorDiagTests: XCTestCase {
     ///   ③ 急转点对应喉腔壁/jaw/圆弧事件但位置远离袋口 → 撞错段（隐形墙）。
     /// 打印异常样本完整复现参数 + 事件上下文，并出 PNG。
     func test_S_cueRailReboundScan() throws {
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let mainCount = 6
         let jawLineEnd = 14            // 6 主库 + 8 jaw 直线段
         let linearCount = geo.linearCushions.count   // 之后为喉腔壁（6 袋 × 3）
@@ -1510,7 +1510,7 @@ final class PocketBehaviorDiagTests: XCTestCase {
     /// S2 · 复现截图场景族：38° 切角 + 高杆/大力，目标袋=角袋，渲染母球走位多库路径，
     /// 并打印每次吃库的入/反角与对应库段，肉眼比对截图中「左长库反弹不合理」。
     func test_S2_screenshotLikeFollowShot() throws {
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let mainCount = 6
         let jawLineEnd = 14
         let linearCount = geo.linearCushions.count
@@ -1589,7 +1589,7 @@ final class PocketBehaviorDiagTests: XCTestCase {
     ///  case2 = S2 v4.4 spinY0（反131°）：dump 吃库前后全帧，区分「Han 输出朝库内（bug）」
     ///          vs「反弹后高杆回弯再扎库（物理）」。
     func test_S3_frameLevelConfirm() throws {
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         func segKind(_ idx: Int) -> String {
             if idx < 6 { return "主库#\(idx)" }
             if idx < 14 { return "jaw#\(idx)" }
@@ -1688,7 +1688,7 @@ final class PocketBehaviorDiagTests: XCTestCase {
     ///  ③ dump 全事件链（两球）直到模拟结束，确认「吃库→远端弧→进袋」链条是否真实存在；
     ///  ④ 对照 pred.cuePath（页面真实渲染数据）在库边附近的折点。
     func test_S4_replicateS2EventChain() throws {
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let linearCount = geo.linearCushions.count
         func segKind(_ idx: Int) -> String {
             if idx < 6 { return "主库#\(idx)" }
@@ -1821,7 +1821,7 @@ final class PocketBehaviorDiagTests: XCTestCase {
         let v = SCNVector3(dir.x * speed, 0, dir.z * speed)
         let up = SCNVector3(0, 1, 0)
         let roll = up.cross(v) * (1.0 / R)
-        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: sY))
+        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: sY))
         engine.setBall(BallState(position: start, velocity: v, angularVelocity: roll, state: .rolling, name: "obj"))
         engine.simulate(maxEvents: 300, maxTime: 10)
         let rec = engine.getTrajectoryRecorder()
@@ -1929,7 +1929,7 @@ final class PocketBehaviorDiagTests: XCTestCase {
     private func runCueShot(cue: SCNVector3, target: SCNVector3, aimDir: SCNVector3, velocity: Float, pocketIndex: Int)
         -> (potted: Bool, objCush: Int, minDist: Float, path: [SCNVector3]) {
         let strike = CueBallStrike.executeStrike(aimDirection: aimDir, velocity: velocity, spinX: 0, spinY: 0)
-        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: sY))
+        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: sY))
         engine.setBall(BallState(position: cue, velocity: strike.velocity, angularVelocity: strike.angularVelocity, state: .sliding, name: "cue"))
         engine.setBall(BallState(position: target, velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero, state: .stationary, name: "obj"))
         engine.simulate(maxEvents: 500, maxTime: 12)
@@ -1973,7 +1973,7 @@ final class PocketBehaviorDiagTests: XCTestCase {
         let up = SCNVector3(0, 1, 0)
         let roll = up.cross(v) * (1.0 / R)               // 自然滚动角速度
         let w = SCNVector3(roll.x, roll.y + wUp, roll.z) // 叠加竖轴英式
-        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: sY))
+        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: sY))
         engine.setBall(BallState(position: start, velocity: v, angularVelocity: w, state: .rolling, name: "obj"))
         engine.simulate(maxEvents: 300, maxTime: 10)
         let rec = engine.getTrajectoryRecorder()
@@ -2053,7 +2053,7 @@ final class PocketBehaviorDiagTests: XCTestCase {
     private func drawTable(_ cg: CGContext, plot: CGRect, P: (SCNVector3) -> CGPoint, sx: CGFloat, sz: CGFloat) {
         cg.setFillColor(UIColor(red: 0.10, green: 0.22, blue: 0.16, alpha: 1).cgColor)
         cg.fill(plot)
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: sY)
         for (i, pc) in pockets.enumerated() {
             let drop = CGFloat(AngleSceneCalculator.pocketDropRadius(index: i))
@@ -2148,7 +2148,7 @@ final class PocketBehaviorDiagTests: XCTestCase {
             let v = SCNVector3(speed, 0, 0)
             let up = SCNVector3(0, 1, 0)
             let roll = up.cross(v) * (1.0 / R)
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: sY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: sY))
             engine.setBall(BallState(position: start, velocity: v, angularVelocity: roll,
                                      state: .rolling, name: "obj"))
             engine.simulate(maxEvents: 200, maxTime: 12, highFidelityBounds: true)
@@ -2260,7 +2260,7 @@ final class PocketToleranceKeyframeCaptureTests: XCTestCase {
         let base = atan2(seed.z-start.z, seed.x-start.x)
         let a = base + offset * .pi / 180
         let v = SCNVector3(cos(a)*speed,0,sin(a)*speed)
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY)
         let aim = SCNVector3(start.x+distance*cos(a),surfaceY,start.z+distance*sin(a))
         let pipeKind = AngleSceneCalculator.videoPipeCandidateKind(targetBall:start,aimPoint:aim,pocketIndex:0,surfaceY:surfaceY)
         let engine = EventDrivenEngine(tableGeometry: geometry)

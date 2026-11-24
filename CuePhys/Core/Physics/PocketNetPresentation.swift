@@ -1,6 +1,6 @@
 //
 //  PocketNetPresentation.swift
-//  QiuJi
+//  CuePhys
 //
 //  W17-B/D (v63, DR-294 / DR-297 / DR-298): presentation-only descent of a planar-potted
 //  ball through the net and down the ball-return rail, ending at a deterministic resting
@@ -455,7 +455,7 @@ enum PocketNetPresentation {
     }
 
     /// Net pockets keyed by id, built from the planar geometry each entry was judged against.
-    /// Pocket centres sit on the cloth surface (TableGeometry.chineseEightBallQiuJi(surfaceY:));
+    /// Pocket centres sit on the cloth surface (TableGeometry.chineseEightBallCuePhys(surfaceY:));
     /// `TrajectoryPlayback.surfaceY` is the ball-centre plane and is deliberately not used.
     static func netPockets(in recorder:TrajectoryRecorder)->[String:NetPocket] {
         var pockets:[String:NetPocket]=[:]

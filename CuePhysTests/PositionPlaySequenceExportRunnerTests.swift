@@ -1,6 +1,6 @@
 //
 //  PositionPlaySequenceExportRunnerTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  走位序列 JSON → 教学素材默认配方 离线出片 runner（ADR-P11-04 / P11-10 / P11-11，#11）。
 //
@@ -27,7 +27,7 @@
 import XCTest
 import UIKit
 import CryptoKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class PositionPlaySequenceExportRunnerTests: XCTestCase {
 

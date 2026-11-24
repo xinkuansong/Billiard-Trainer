@@ -19,11 +19,11 @@
 
 - 上述 ZIP 的 SHA-256 为 `ebbdd935f840bedabe1c39ad6149356b37764645ff939ce0160a438520545697`。升级时从腾讯源取包、核对 SDK 模块、真机和模拟器架构、附带的隐私清单及授权接口，再分别构建与回归。主 App 通过 project.yml 引用包，链接参数包含 `-ObjC`。
 - 已获移动应用资质后，把**完整**微信 AppID（含 wx 前缀）写入 `WECHAT_APP_ID`，客户端回调 Scheme 使用该值一次。AppSecret 仅在后端配置。后端要求 HTTPS；绑定还需本次账号的会话。
-- 打开公司正式 App ID 的 Associated Domains 能力并更新签名配置。将 `WECHAT_LINK_HOST` 设为实际 HTTPS 域名（计划 cuephys.com），`WECHAT_UNIVERSAL_LINK` 设为平台注册的同域目录（计划 `https://cuephys.com/wechat/`，xcconfig 中用 `https:/$()/cuephys.com/wechat/`）。在目标配置中设 `CUEPHYS_ENTITLEMENTS = Config/WeChat.entitlements`。普通个人开发配置沿用原 Apple entitlement。
-- 域名启用后，在 `/.well-known/apple-app-site-association` 提供 JSON，使用真实已签名 App 的 application-identifier。以下是准备模板，发布前以公司签名包回读的值替换占位。核对无重定向的 HTTPS 响应、签名权限及设备上实际 Universal Link 回调。
+- 2026-11-24 已启用 Debug/Release 的 `Config/WeChat.entitlements`，公共链接真源为 `Config/WeChatLinks.xcconfig`：host=`youbilliards.com`，link=`https://youbilliards.com/cuephys/wechat/`。iPhone/iPad 共用，Release 在 Secrets 之后包含公共配置；不要恢复早先 cuephys.com 候选或 yourdomain 占位。
+- 官网 AASA 已部署且公网 HTTPS 200/JSON/无重定向。以下为当前发布值，已与公司签名 Debug 包回读一致；Apple CDN 旧失败缓存尚待刷新，真机微信回跳待真实 AppID 后验证，见[部署记录](launch-20261110/微信UniversalLinks产品路径调整-20261124.md)。
 
 ```json
-{"applinks":{"apps":[],"details":[{"appID":"<已签名 App 的 application-identifier>","paths":["/wechat/*"]}]}}
+{"applinks":{"apps":[],"details":[{"appID":"KWH2GRNSKG.com.youbilliards.cuephys","paths":["/cuephys/wechat/*"]}]}}
 ```
 
 - SwiftUI 入口接收 URL Scheme 和 Universal Link；授权后由 SDK 验证响应，App 只接收与当前随机 state 匹配的 code。新登录方式先查询已有身份，用户选择创建账号才发创建请求；已有账号从设置中绑定。正式 AppID、微信授权成功／拒绝／中断、Apple 真机授权及线上回执待验。

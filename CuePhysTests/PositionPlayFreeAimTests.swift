@@ -1,6 +1,6 @@
 //
 //  PositionPlayFreeAimTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  走位编排台自由瞄准模式（ADR-P11-03）：坐标契约数值验证 + 自由球直瞄模拟不变量。
 //
@@ -11,7 +11,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class PositionPlayFreeAimTests: XCTestCase {
 
@@ -1183,7 +1183,7 @@ final class CueScratchLifecycleV63Tests: XCTestCase {
         let scratchPlayback = TrajectoryPlayback(recorder: scratchRecorder, surfaceY: vm.scene.surfaceY + BallPhysics.radius)
         let scratchTail = try XCTUnwrap(scratchRecorder.collectionTailsByBallName[ShotInput.cueBallName])
         XCTAssertNil(scratchTail.fadeStart)
-        let scratchPocket = try XCTUnwrap(TableGeometry.chineseEightBallQiuJi(surfaceY: vm.scene.surfaceY).pockets.first { $0.id == "pocket_4" })
+        let scratchPocket = try XCTUnwrap(TableGeometry.chineseEightBallCuePhys(surfaceY: vm.scene.surfaceY).pockets.first { $0.id == "pocket_4" })
         let scratchNet = PocketNetPresentation.NetPocket(pocket: scratchPocket, surfaceY: Double(vm.scene.surfaceY))
         XCTAssertEqual(scratchTail.end.position, scratchNet.slots(ballRadius: Double(BallPhysics.radius))[0])
         XCTAssertEqual(scratchPlayback.collectionOpacity(ballName: ShotInput.cueBallName, time: scratchPlayback.duration + 2), 1)

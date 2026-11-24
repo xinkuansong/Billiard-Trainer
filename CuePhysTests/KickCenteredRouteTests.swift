@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class KickCenteredRouteTests: XCTestCase {
     private func point(_ x: Float, _ z: Float) -> SCNVector3 {

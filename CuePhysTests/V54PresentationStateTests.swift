@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 final class V54PresentationStateTests: XCTestCase {
     func test_planDetailPrimaryActions_coverFourStates() {

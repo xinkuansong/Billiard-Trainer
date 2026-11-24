@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// X1 / K3–K4：前向楔形角弧数值钉子 + enterAiming 确定性中档进场。
 final class X1_CameraAndAngleArcTests: XCTestCase {

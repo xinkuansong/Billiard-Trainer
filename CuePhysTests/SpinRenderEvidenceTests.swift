@@ -1,6 +1,6 @@
 //
 //  SpinRenderEvidenceTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  问题集合 v17 W1 取证：球体自转的渲染可见性与旋向符号实证。
 //
@@ -11,15 +11,15 @@
 //     **真实物理回放**姿态序列，验证竖轴旋向左右相反、低杆段球面倒转。
 //
 //  运行：
-//    xcodebuild test -scheme QiuJi -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-//      -only-testing:QiuJiTests/SpinRenderEvidenceTests
+//    xcodebuild test -scheme CuePhys -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+//      -only-testing:CuePhysTests/SpinRenderEvidenceTests
 //
 
 import XCTest
 import UIKit
 import SceneKit
 import simd
-@testable import QiuJi
+@testable import CuePhys
 
 final class SpinRenderEvidenceTests: XCTestCase {
 

@@ -1,6 +1,6 @@
 {
   "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
-  "bundleIdentifier": "com.xinkuan.qiuji",
+  "bundleIdentifier": "com.youbilliards.cuephys",
   "launchArguments": [
     "-AppleLanguages",
     "(zh-Hans)",

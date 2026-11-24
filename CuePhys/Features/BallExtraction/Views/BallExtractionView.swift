@@ -1,6 +1,6 @@
 //
 //  BallExtractionView.swift
-//  QiuJi
+//  CuePhys
 //
 //  拍照建球形（P15 阶段 1，ADR-P15-01）。布局/交互语言对齐走位编排台：
 //  黑底、顶部提示行、主区（照片或 2D 真台）、底部球库 + 操作。

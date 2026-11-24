@@ -2,7 +2,7 @@ import XCTest
 import SceneKit
 import Metal
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class TableAppearanceTests: XCTestCase {

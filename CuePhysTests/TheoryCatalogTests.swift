@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// 球理索引目录 + vendored contracts 的不变量（问题集合 v30 W0，W1 按 X-v30-2 更新）。
 ///

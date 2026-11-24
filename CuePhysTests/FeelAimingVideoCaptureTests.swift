@@ -2,7 +2,7 @@ import XCTest
 import SceneKit
 import UIKit
 import simd
-@testable import QiuJi
+@testable import CuePhys
 
 /// V014: opt-in production-scene capture. No application defaults are changed.
 @MainActor

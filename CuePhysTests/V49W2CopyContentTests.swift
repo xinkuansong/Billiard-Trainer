@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W2：直线出杆、定杆与五分点四课的文案契约。
 @MainActor

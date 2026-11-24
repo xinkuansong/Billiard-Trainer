@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class V51ResponsiveLayoutTests: XCTestCase {

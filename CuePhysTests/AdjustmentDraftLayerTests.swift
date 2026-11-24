@@ -1,6 +1,6 @@
 //
 //  AdjustmentDraftLayerTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  问题集合 v8 · X6 / K13：微调草稿层钉子单测。
 //
@@ -14,7 +14,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class AdjustmentDraftLayerTests: XCTestCase {

@@ -1,7 +1,7 @@
 import XCTest
 import CryptoKit
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class BankKickSolverOptimizationTests: XCTestCase {
     let y: Float = 0.8

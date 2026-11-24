@@ -1,7 +1,7 @@
 import XCTest
 
 /// v50 W6 系统状态验证。权限必须在调用前由矩阵执行器使用
-/// `simctl privacy <UDID> reset photos-add com.xinkuan.qiuji` 重置，保证弹框真实出现。
+/// `simctl privacy <UDID> reset photos-add com.youbilliards.cuephys` 重置，保证弹框真实出现。
 final class V50SystemStateUITests: XCTestCase {
     private var app: XCUIApplication!
 

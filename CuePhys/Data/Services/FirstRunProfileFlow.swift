@@ -29,7 +29,7 @@ final class FirstRunProfileFlow: ObservableObject {
         if let fixture = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-firstRun.fixture=") }) {
             // A separate progress domain lets UI tests resume the real flow without erasing
             // the simulator's profiles, credentials, game state or existing onboarding marker.
-            let defaults = UserDefaults(suiteName: "com.xinkuan.qiuji.\(fixture)")!
+            let defaults = UserDefaults(suiteName: "com.youbilliards.cuephys.\(fixture)")!
             return FirstRunProfileFlow(defaults: defaults, hasExistingData: false)
         }
         #endif

@@ -1,7 +1,7 @@
 import XCTest
 import CoreGraphics
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// v30 W1 返工 r1：球理页说明图所依赖的几何不变量。
 ///

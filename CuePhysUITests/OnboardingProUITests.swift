@@ -265,14 +265,14 @@ final class OnboardingProUITests: XCTestCase {
             let entry = app.buttons["profile.subscription"]
             reveal(entry, in: app)
             entry.tap()
-            XCTAssertTrue(app.buttons["subscription.product.com.xinkuan.qiuji.premium.lifetime"].waitForExistence(timeout: 15))
+            XCTAssertTrue(app.buttons["subscription.product.com.youbilliards.cuephys.premium.lifetime"].waitForExistence(timeout: 15))
             XCTAssertTrue(app.staticTexts["解锁 CuePhys Pro"].exists)
             capture("brand-purchase-\(appearance)-top")
             verifyBrandFeatures(in: app, scrollID: "subscription.scroll", unlocked: false,
                                 prefix: "brand-purchase-\(appearance)")
             app.terminate()
         }
-        _ = try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.lifetime", options: [.appAccountToken(profileFixturePurchaseToken)])
+        _ = try await session.buyProduct(identifier: "com.youbilliards.cuephys.premium.lifetime", options: [.appAccountToken(profileFixturePurchaseToken)])
         XCUIApplication().terminate() // StoreKitTest may launch the app without our route/identity arguments.
         let app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-v54.forceLight"])
         defer { app.terminate() }
@@ -351,10 +351,10 @@ final class OnboardingProUITests: XCTestCase {
         defer { session.clearTransactions() }
         for appearance in ["-v54.forceLight", "-v54.forceDark"] {
             let pro = XCUIApplication.launchClean(extraArgs: ["-subscription.preview", appearance, "-v50.inMemoryStore"])
-            let lifetime = pro.buttons["subscription.product.com.xinkuan.qiuji.premium.lifetime"]
+            let lifetime = pro.buttons["subscription.product.com.youbilliards.cuephys.premium.lifetime"]
             XCTAssertTrue(lifetime.waitForExistence(timeout: 12))
-            XCTAssertFalse(pro.buttons["subscription.product.com.xinkuan.qiuji.premium.monthly"].exists)
-            XCTAssertFalse(pro.buttons["subscription.product.com.xinkuan.qiuji.premium.yearly"].exists)
+            XCTAssertFalse(pro.buttons["subscription.product.com.youbilliards.cuephys.premium.monthly"].exists)
+            XCTAssertFalse(pro.buttons["subscription.product.com.youbilliards.cuephys.premium.yearly"].exists)
             reveal(lifetime, in: pro)
             lifetime.tap()
             XCTAssertTrue(lifetime.isSelected)
@@ -405,7 +405,7 @@ final class OnboardingProUITests: XCTestCase {
         reveal(entry, in: app)
         entry.tap()
         let purchase = app.buttons["subscription.purchase"]
-        let product = app.buttons["subscription.product.com.xinkuan.qiuji.premium.lifetime"]
+        let product = app.buttons["subscription.product.com.youbilliards.cuephys.premium.lifetime"]
         XCTAssertTrue(product.waitForExistence(timeout: 12))
         XCTAssertTrue(purchase.label.contains("一次性"))
         purchase.tap()
@@ -436,11 +436,11 @@ final class OnboardingProUITests: XCTestCase {
         let subscription = app.buttons["profile.subscription"]
         reveal(subscription, in: app)
         subscription.tap()
-        let selected = app.buttons["subscription.product.com.xinkuan.qiuji.premium.\(product)"]
+        let selected = app.buttons["subscription.product.com.youbilliards.cuephys.premium.\(product)"]
         XCTAssertTrue(selected.waitForExistence(timeout: 12))
         reveal(selected, in: app)
-        XCTAssertFalse(app.buttons["subscription.product.com.xinkuan.qiuji.premium.monthly"].exists)
-        XCTAssertFalse(app.buttons["subscription.product.com.xinkuan.qiuji.premium.yearly"].exists)
+        XCTAssertFalse(app.buttons["subscription.product.com.youbilliards.cuephys.premium.monthly"].exists)
+        XCTAssertFalse(app.buttons["subscription.product.com.youbilliards.cuephys.premium.yearly"].exists)
         selected.tap()
         XCTAssertTrue(selected.isSelected)
         XCTAssertTrue(app.buttons["subscription.purchase"].label.contains("一次性"))
@@ -453,7 +453,7 @@ final class OnboardingProUITests: XCTestCase {
         XCTAssertFalse(app.buttons["subscription.upgradeLifetime"].exists)
         XCTAssertFalse(app.buttons["管理订阅"].exists)
         XCTAssertFalse(app.buttons["subscription.purchase"].exists)
-        XCTAssertEqual(session.allTransactions().filter { $0.productIdentifier == "com.xinkuan.qiuji.premium.\(product)" }.count, 1)
+        XCTAssertEqual(session.allTransactions().filter { $0.productIdentifier == "com.youbilliards.cuephys.premium.\(product)" }.count, 1)
         app.terminate()
         app = XCUIApplication.launchClean(extraArgs: ["-subscription.preview", "-v53.authenticatedProfileFixture", "-v50.inMemoryStore"])
         let restore = app.buttons["subscription.restore"]
@@ -480,7 +480,7 @@ final class OnboardingProUITests: XCTestCase {
             XCTAssertTrue(app.buttons["subscription.close"].waitForExistence(timeout: 10))
             XCTAssertTrue(app.buttons["subscription.restore"].isHittable)
             capture("\(appearance)-pro-large-top")
-            let lifetime = app.buttons["subscription.product.com.xinkuan.qiuji.premium.lifetime"]
+            let lifetime = app.buttons["subscription.product.com.youbilliards.cuephys.premium.lifetime"]
             revealProElement(lifetime, in: app)
             XCTAssertTrue(lifetime.isHittable)
             lifetime.tap()
@@ -537,7 +537,7 @@ final class OnboardingProUITests: XCTestCase {
         let session = try storeSession()
         defer { session.clearTransactions() }
         let routes = ["separation", "cushion", "snake", "solver", "photo", "three", "bank", "diamond"]
-        _ = try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.monthly", options: [.appAccountToken(profileFixturePurchaseToken)])
+        _ = try await session.buyProduct(identifier: "com.youbilliards.cuephys.premium.monthly", options: [.appAccountToken(profileFixturePurchaseToken)])
         XCUIApplication().terminate() // Relaunch with the explicit test route and account fixture.
         for route in routes {
             let app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-pro.route=\(route)"])
@@ -554,7 +554,7 @@ final class OnboardingProUITests: XCTestCase {
         defer { session.clearTransactions(); XCUIDevice.shared.orientation = .portrait }
         for purchased in [false, true] {
             if purchased {
-                try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.monthly", options: [.appAccountToken(profileFixturePurchaseToken)])
+                try await session.buyProduct(identifier: "com.youbilliards.cuephys.premium.monthly", options: [.appAccountToken(profileFixturePurchaseToken)])
                 XCUIApplication().terminate()
             }
             for title in ["翻袋", "颗星解球"] {
@@ -593,7 +593,7 @@ final class OnboardingProUITests: XCTestCase {
         defer { session.clearTransactions(); XCUIDevice.shared.orientation = .portrait }
         for destination in ["drill", "statistics", "tool"] {
             session.clearTransactions()
-            try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.lifetime", options: [.appAccountToken(profileFixturePurchaseToken)])
+            try await session.buyProduct(identifier: "com.youbilliards.cuephys.premium.lifetime", options: [.appAccountToken(profileFixturePurchaseToken)])
             XCUIApplication().terminate() // StoreKitTest may launch the app without our route/identity arguments.
             let transaction = try XCTUnwrap(session.allTransactions().first)
             var args = ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-v54.forceLight"]
@@ -640,7 +640,7 @@ final class OnboardingProUITests: XCTestCase {
                 XCTAssertTrue(close.waitForExistence(timeout: 10))
                 XCTAssertTrue(close.isHittable)
                 XCTAssertTrue(app.buttons["subscription.restore"].isHittable)
-                let plan = app.buttons["subscription.product.com.xinkuan.qiuji.premium.lifetime"]
+                let plan = app.buttons["subscription.product.com.youbilliards.cuephys.premium.lifetime"]
                 XCTAssertTrue(plan.waitForExistence(timeout: 15))
                 revealProElement(plan, in: app)
                 XCTAssertTrue(plan.isHittable)

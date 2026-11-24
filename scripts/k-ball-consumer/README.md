@@ -7,7 +7,7 @@
 
 首版来源：`output/k-ball-one-per-route-20261029/selected.jsonl`，SHA-256
 `9049a0aae78b593d9e28cb4fc9b334dc71193fb4382553e47c7be47936cb64f9`。
-研究全量保留，只有参数包进 `QiuJi/Resources/KBallBank/`。
+研究全量保留，只有参数包进 `CuePhys/Resources/KBallBank/`。
 
 ```sh
 python3 scripts/k-ball-consumer/pack.py output/k-ball-one-per-route-20261029 output/k-ball-parameters-NEW

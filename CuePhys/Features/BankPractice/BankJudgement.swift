@@ -46,7 +46,7 @@ enum BankJudgement {
         let cushions = route.filter { if case .ballCushion(let ball) = $0.kind { return ball == target }; return false }
         let main = cushions.filter { (0..<6).contains($0.cushionIndex ?? -1) }
         let segments = main.compactMap(\.cushionIndex)
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY)
         let intended = geometry.pockets[question.pocket]
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: surfaceY + BallPhysics.radius)
         let invalidJaw = cushions.contains { event in

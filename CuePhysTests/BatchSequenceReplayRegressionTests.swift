@@ -1,6 +1,6 @@
 //
 //  BatchSequenceReplayRegressionTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  批量出片全流程回归（求解器性能优化 B5，方案 §3）：
 //  重放 `content/position_play/sequences/` 下全部 drill 序列（覆盖 62 个 drill 的成品出片内容），
@@ -17,14 +17,14 @@
 import XCTest
 import CryptoKit
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class BatchSequenceReplayRegressionTests: XCTestCase {
 
     /// 仓库根（当前树 / 基线 worktree 各自解析到自己的根，dump 互不覆盖）。
     private var repoRoot: URL {
         URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()   // QiuJiTests/
+            .deletingLastPathComponent()   // CuePhysTests/
             .deletingLastPathComponent()   // repo root
     }
 
@@ -749,7 +749,7 @@ final class ShotAnalysisTests: XCTestCase {
         let expected = 2 - Double(SpinPhysics.rollingFriction * TablePhysics.gravity)/2
         XCTAssertEqual(ShotAnalysis.travelDistance(frames:frames,recorder:recorder),expected,accuracy:0.000001)
         let ball = BallState(position:SCNVector3(0.9,0,0),velocity:.init(),angularVelocity:.init(),state:.rolling,name:"cueBall")
-        recorder.recordPocketEntry(ball:ball,pocketID:"pocket_0",time:0.5,source:.event,geometry:.chineseEightBallQiuJi(surfaceY:BTTablePhysics.surfaceY))
+        recorder.recordPocketEntry(ball:ball,pocketID:"pocket_0",time:0.5,source:.event,geometry:.chineseEightBallCuePhys(surfaceY:BTTablePhysics.surfaceY))
         let half = 1 - Double(SpinPhysics.rollingFriction * TablePhysics.gravity)*0.125
         XCTAssertEqual(ShotAnalysis.travelDistance(frames:frames,recorder:recorder),half,accuracy:0.000001)
     }

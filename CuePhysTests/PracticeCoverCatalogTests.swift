@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v28 W1：route → PracticeCoverVisual 全覆盖，禁止 generic fallback。
 final class PracticeCoverCatalogTests: XCTestCase {

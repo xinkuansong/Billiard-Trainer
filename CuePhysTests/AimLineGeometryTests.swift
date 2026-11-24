@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Q7.1（问题集合 v5）2D 瞄准点训练白线绘制与红点显隐几何金标准。
 ///

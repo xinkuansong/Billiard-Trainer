@@ -2,7 +2,7 @@ import XCTest
 import SceneKit
 import CryptoKit
 import Metal
-@testable import QiuJi
+@testable import CuePhys
 
 final class ModelAssetTrialTests: XCTestCase {
     private let assets: [(name: String, folder: String?, candidateSHA: String, triangles: Int)] = [

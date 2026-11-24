@@ -1,6 +1,6 @@
 //
-//  TableGeometry+QiuJi.swift
-//  QiuJi
+//  TableGeometry+CuePhys.swift
+//  CuePhys
 //
 //  项目13 生产物理桌面工厂。
 //
@@ -26,7 +26,7 @@ extension TableGeometry {
 
     /// 按 CAD 真源构建中式八球生产物理桌面。
     /// - Parameter surfaceY: 台面世界 Y（= `AngleTrainingScene.surfaceY`）。
-    static func chineseEightBallQiuJi(surfaceY: Float) -> TableGeometry {
+    static func chineseEightBallCuePhys(surfaceY: Float) -> TableGeometry {
         let y = surfaceY
 
         // 库边（直库 + 角袋 jaw 直线段/圆弧 + 中袋圆角/喉壁）——CAD 构建器。

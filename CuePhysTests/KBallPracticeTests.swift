@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 final class KBallPracticeTests: XCTestCase {
     /// Opt-in, final-bundle audit. Normal runs exercise the representative contract tests below.

@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// 精讲配图发布链路的 Bundle 侧同位检查（v25 W4 / D-v25-2 / D-v25-10）。
 ///

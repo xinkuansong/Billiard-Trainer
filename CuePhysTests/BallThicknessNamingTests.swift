@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v7 W1/C1：经典球厚度通称四元组（name ↔ θ ↔ overlap ↔ d/R）数值锁。
 final class BallThicknessNamingTests: XCTestCase {

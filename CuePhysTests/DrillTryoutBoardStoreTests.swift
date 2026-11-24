@@ -1,6 +1,6 @@
 //
 //  DrillTryoutBoardStoreTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  试打球形加载器单测（方案 20260709-动作库试打模式 D4：与视频示范同源）。
 //  数据源 = Bundle `DrillBoards/`（`make tryout-sync` 从出片序列同步）。
@@ -8,7 +8,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class DrillTryoutBoardStoreTests: XCTestCase {
 

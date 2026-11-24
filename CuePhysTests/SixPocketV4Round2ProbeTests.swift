@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// v4 round-2 phase-0 probes. Read-only calls into the production engine.
 ///
@@ -19,7 +19,7 @@ final class SixPocketV4Round2ProbeTests: XCTestCase {
     // Travel frame of a ball moving along horizontal unit u: forward = u, up = +Y,
     // rollAxis = ŷ × u. Natural rolling is +v/R about rollAxis (verified in `testLongFreeRun`).
     private let y: Float = 0.8
-    private var geometry: TableGeometry { .chineseEightBallQiuJi(surfaceY: y) }
+    private var geometry: TableGeometry { .chineseEightBallCuePhys(surfaceY: y) }
     private var cueName: String { ShotInput.cueBallName }
     private let radius = BallPhysics.radius
     /// Linear cushion indices 0–5 are the six straight rails; every other segment is a jaw line,

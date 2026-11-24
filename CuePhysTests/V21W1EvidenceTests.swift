@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// 问题集合 v21 W1 数值核验三件事 → `build/v21-evidence/`。
 ///

@@ -1,6 +1,6 @@
 //
 //  ScoringOnlyConsistencyTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  B1 — scoring-only + 引擎早停「不改物理」逐条验证
 //  （docs/research/20260708-反解求解器性能优化方案.md §3 B1 完成标准）。
@@ -16,7 +16,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class ScoringOnlyConsistencyTests: XCTestCase {
 
@@ -177,7 +177,7 @@ final class ScoringOnlyConsistencyTests: XCTestCase {
 extension ScoringOnlyConsistencyTests {
     func test_presentationSpinTail_matchesUnboundedPlanarReference() throws {
         func makeEngine() -> EventDrivenEngine {
-            let engine = EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: sY))
+            let engine = EventDrivenEngine(tableGeometry: .chineseEightBallCuePhys(surfaceY: sY))
             for (index, spin) in [Float(20), -40].enumerated() {
                 engine.setBall(BallState(position: SCNVector3(Float(index) * 0.4, sY + BallPhysics.radius, 0),
                     velocity: SCNVector3Zero, angularVelocity: SCNVector3(0, spin, 0),
@@ -207,7 +207,7 @@ extension ScoringOnlyConsistencyTests {
 
     func test_presentationSpinTail_preservesIncompleteMotionAndEventLimit() {
         for moving in [true, false] {
-            let engine = EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: sY))
+            let engine = EventDrivenEngine(tableGeometry: .chineseEightBallCuePhys(surfaceY: sY))
             engine.setBall(BallState(position: SCNVector3(0, sY + BallPhysics.radius, 0),
                 velocity: moving ? SCNVector3(1, 0, 0) : SCNVector3Zero,
                 angularVelocity: SCNVector3(0, 20, 0),
@@ -271,7 +271,7 @@ extension ScoringOnlyConsistencyTests {
     func test_directCandidateRejection_respectsFirstBallContactBoundary() {
         for model: EventDrivenEngine.SimulationModel in [.planarReference, .spatialPockets] {
             for hasEarlierContact in [false, true] {
-                let engine = EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: sY))
+                let engine = EventDrivenEngine(tableGeometry: .chineseEightBallCuePhys(surfaceY: sY))
                 engine.setBall(BallState(position: SCNVector3(0, sY + BallPhysics.radius, 0),
                     velocity: SCNVector3(1, 0, 0), angularVelocity: SCNVector3(0, 0, -1 / BallPhysics.radius),
                     state: .rolling, name: "cue"))

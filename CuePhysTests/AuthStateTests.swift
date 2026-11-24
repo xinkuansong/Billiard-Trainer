@@ -1,6 +1,6 @@
 import Combine
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class AuthStateTests: XCTestCase {

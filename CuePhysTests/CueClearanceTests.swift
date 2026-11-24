@@ -1,20 +1,20 @@
 //
 //  CueClearanceTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  Geometry / clearance unit tests for cue elevation, collision guard,
 //  follow-through clamp. Evidence drafts: build/cue-clearance-evidence/
 //
 //  Run:
-//    xcodebuild test -scheme QiuJi \
+//    xcodebuild test -scheme CuePhys \
 //      -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-//      -only-testing:QiuJiTests/CueClearanceTests
+//      -only-testing:CuePhysTests/CueClearanceTests
 //
 
 import XCTest
 import SceneKit
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 final class CueClearanceTests: XCTestCase {
 

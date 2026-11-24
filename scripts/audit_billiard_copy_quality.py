@@ -347,10 +347,10 @@ def extract_declared_array(source: str, declaration: str) -> str:
 
 
 def parse_angle_entries(block: str) -> list[tuple[str, str, str]]:
-    project_source = read_text(REPO / "QiuJi/Core/Training/TrainingProject.swift")
+    project_source = read_text(REPO / "CuePhys/Core/Training/TrainingProject.swift")
     title_block = project_source.split("var title: String {", 1)[1].split("var page2D:", 1)[0]
     project_titles = dict(re.findall(r'case \.(\w+): "([^"]+)"', title_block))
-    layout_source = read_text(REPO / "QiuJi/Core/Components/ControlLayoutLibrary.swift")
+    layout_source = read_text(REPO / "CuePhys/Core/Components/ControlLayoutLibrary.swift")
     layout_block = layout_source.split("var layoutTitle: String {", 1)[1].split("\n    }", 1)[0]
     layout_titles = dict(re.findall(r'case \.(\w+): return "([^"]+)"', layout_block))
     pattern = re.compile(

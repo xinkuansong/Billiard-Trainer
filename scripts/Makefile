@@ -3,7 +3,7 @@
 # Run from project root: cd scripts && make help
 #        or from root:   make -f scripts/Makefile help
 
-SCHEME       ?= QiuJi
+SCHEME       ?= CuePhys
 SIM_DEVICE   ?= iPhone 17 Pro
 TEST_DESTINATION ?= platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest
 TEST_CODE_COVERAGE ?= YES
@@ -25,11 +25,11 @@ LOCAL_TEST_LIFECYCLE := python3 "$(PROJECT_ROOT)/scripts/local_test_lifecycle.py
 SIM_LIFECYCLE := python3 "$(PROJECT_ROOT)/scripts/simulator_lifecycle.py"
 SIM_TEST_GUARD = $(if $(filter test test-without-building,$(TEST_ACTION)),$(SIM_LIFECYCLE) run --task make-test --destination "$(TEST_DESTINATION)" --,)
 TEST_SELECTOR := $(if $(strip $(ONLY_TESTING)),-only-testing:$(strip $(ONLY_TESTING)),)
-ARCHIVE_PATH := $(BUILD_DIR)/QiuJi.xcarchive
+ARCHIVE_PATH := $(BUILD_DIR)/CuePhys.xcarchive
 EXPORT_PATH  := $(BUILD_DIR)/export
 SCREENSHOTS  := $(BUILD_DIR)/screenshots
-WORKSPACE    := $(PROJECT_ROOT)/QiuJi.xcworkspace
-XCODEPROJ    := $(PROJECT_ROOT)/QiuJi.xcodeproj
+WORKSPACE    := $(PROJECT_ROOT)/CuePhys.xcworkspace
+XCODEPROJ    := $(PROJECT_ROOT)/CuePhys.xcodeproj
 
 # 优先使用 .xcworkspace（CocoaPods / 微信SDK）；否则用 .xcodeproj
 ifeq ($(wildcard $(WORKSPACE)),)
@@ -38,7 +38,7 @@ else
   PROJECT_FLAG := -workspace $(WORKSPACE)
 endif
 
-# 烘焙 / 出片 runner 门（问题集合 v29 W1，真源 QiuJiTests/BakeRunnerGate.swift）：
+# 烘焙 / 出片 runner 门（问题集合 v29 W1，真源 CuePhysTests/BakeRunnerGate.swift）：
 # 这些 runner 会长跑全量物理并写 git 跟踪的资源，故默认在常规测试里 XCTSkip。
 # 标志文件是确定性生效的一路：实测 `TEST_RUNNER_XXX=1` 传不进宿主 App 内的单测进程
 # （与本仓 PositionPlaySequenceExportRunnerTests 早年的记录一致），环境变量仅在
@@ -118,14 +118,14 @@ build:
 	  -scheme $(SCHEME) \
 	  -configuration Debug \
 	  -derivedDataPath $(DERIVED_DATA) \
-	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
+	  -destination '$(TEST_DESTINATION)' \
 	  build \
 	  | xcpretty || xcodebuild \
 	    $(PROJECT_FLAG) \
 	    -scheme $(SCHEME) \
 	    -configuration Debug \
 	    -derivedDataPath $(DERIVED_DATA) \
-	    -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
+	    -destination '$(TEST_DESTINATION)' \
 	    build
 	@echo "✅ Debug 构建完成"
 
@@ -146,8 +146,8 @@ build-device-profile:
 # 要看免费档：make run PREMIUM=0（传 -resetDebugPremium，清掉持久解锁）。
 # ⛔ 不要删掉这两个启动参数去「只装不注入」——付费墙会空、CTA 会灰。
 # ────────────────────────────────────────────
-APP_NAME  ?= 球迹
-BUNDLE_ID ?= com.xinkuan.qiuji
+APP_NAME  ?= CuePhys
+BUNDLE_ID ?= com.youbilliards.cuephys
 APP_PATH  := $(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(APP_NAME).app
 PREMIUM   ?= 1
 
@@ -247,7 +247,7 @@ position-export:
 	  -derivedDataPath $(DERIVED_DATA) \
 	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
 	  -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
-	  -only-testing:QiuJiTests/PositionPlaySequenceExportRunnerTests \
+	  -only-testing:CuePhysTests/PositionPlaySequenceExportRunnerTests \
 	  $(BAKE_GATE_ENV) \
 	  test; \
 	  status=$$?; rm -f $(BAKE_GATE_FLAG); test $$status -eq 0
@@ -270,7 +270,7 @@ position-export-stills:
 	  -derivedDataPath $(DERIVED_DATA) \
 	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
 	  -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
-	  -only-testing:QiuJiTests/PositionPlaySequenceExportRunnerTests \
+	  -only-testing:CuePhysTests/PositionPlaySequenceExportRunnerTests \
 	  $(BAKE_GATE_ENV) \
 	  test; \
 	  status=$$?; rm -f $(BAKE_GATE_FLAG); test $$status -eq 0
@@ -280,11 +280,11 @@ position-export-stills:
 # ────────────────────────────────────────────
 # 动作库缩略图烘焙（问题集合 v29 W1）
 # 输入：Resources/Drills/**/*.json 的 animation（Bundle 内）
-# 输出：QiuJi/Resources/DrillThumbnails/<drill_id>.png（folder ref，进 App Bundle）
+# 输出：CuePhys/Resources/DrillThumbnails/<drill_id>.png（folder ref，进 App Bundle）
 # 本体 = `-only-testing` 限定 runner；环境变量/标志文件只是 runner 内部的门。
 # 渲染确定性 ⇒ 内容未变时 PNG 字节可能完全相同、git 无 diff，属正常。
 # ────────────────────────────────────────────
-THUMBNAIL_DIR := $(PROJECT_ROOT)/QiuJi/Resources/DrillThumbnails
+THUMBNAIL_DIR := $(PROJECT_ROOT)/CuePhys/Resources/DrillThumbnails
 
 .PHONY: thumbnails
 thumbnails:
@@ -298,7 +298,7 @@ thumbnails:
 	  -derivedDataPath $(DERIVED_DATA) \
 	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
 	  -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
-	  -only-testing:QiuJiTests/DrillThumbnailBakeRunnerTests/test_bakeAllThumbnails \
+	  -only-testing:CuePhysTests/DrillThumbnailBakeRunnerTests/test_bakeAllThumbnails \
 	  $(BAKE_GATE_ENV) \
 	  QIUJI_THUMBNAIL_OUTPUT_DIR="$(THUMBNAIL_DIR)" \
 	  TEST_RUNNER_QIUJI_THUMBNAIL_OUTPUT_DIR="$(THUMBNAIL_DIR)" \
@@ -310,10 +310,10 @@ thumbnails:
 # 试打球形同步（方案 20260709-动作库试打模式 D4）
 # 输入：content/position_play/sequences/drill_c*.json（真相源，批量出片台产出，
 #       与视频示范同源）；seq_* 非 drill 序列不参与。
-# 输出：QiuJi/Resources/DrillBoards/（蓝色文件夹引用，进 App Bundle）
+# 输出：CuePhys/Resources/DrillBoards/（蓝色文件夹引用，进 App Bundle）
 # 序列在批量出片台更新后重跑本命令即可刷新试打球形（含删除失效文件）。
 # ────────────────────────────────────────────
-DRILL_BOARDS_DIR := $(PROJECT_ROOT)/QiuJi/Resources/DrillBoards
+DRILL_BOARDS_DIR := $(PROJECT_ROOT)/CuePhys/Resources/DrillBoards
 # Optional scoped publication, e.g. TRYOUT_DRILL_IDS='drill_c031 drill_c085'.
 # Excluded drills remain protected from rsync --delete.
 TRYOUT_DRILL_IDS ?=
@@ -524,7 +524,7 @@ camera-surface-project:
 
 camera-surface-device: camera-surface-project
 	xcodebuild -project $(CAMERA_EXPERIMENT_DIR)/CameraSurfaceLab.xcodeproj \
-	  -scheme QiuJi -configuration Debug -destination 'generic/platform=iOS' \
+	  -scheme CuePhys -configuration Debug -destination 'generic/platform=iOS' \
 	  -derivedDataPath $(CAMERA_EXPERIMENT_DIR)/DerivedData -allowProvisioningUpdates \
 	  SWIFT_OPTIMIZATION_LEVEL=-O build
 

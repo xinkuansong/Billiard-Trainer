@@ -1,6 +1,6 @@
 //
 //  BatchAuthoringView.swift
-//  QiuJi
+//  CuePhys
 //
 //  批量出片台 · 编排求解二合一（仅模拟器，内容生产工具）。
 //
@@ -49,7 +49,7 @@ final class BatchShotSolver: ObservableObject {
 
     private var draft: SiluTrainerViewModel.Draft?
     private var constraintNodes: [SCNNode] = []
-    private let solveQueue = DispatchQueue(label: "com.qiuji.batch-solve", qos: .userInitiated)
+    private let solveQueue = DispatchQueue(label: "com.youbilliards.cuephys.batch-solve", qos: .userInitiated)
     private var solveGeneration = 0
     func suspend() {
         solveGeneration += 1

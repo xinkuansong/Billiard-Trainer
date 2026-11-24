@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import CryptoKit
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class DailyClothSupportExperimentTests: XCTestCase {

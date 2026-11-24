@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 /// v30 X-1（FL-029）渲染证据：`TutorialSection.content` 放宽为可选后，
 /// 纯 `items` 节在精讲页必须正常显示——

@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import simd
-@testable import QiuJi
+@testable import CuePhys
 
 final class SpatialPracticeTests: XCTestCase {
     @MainActor
@@ -164,7 +164,7 @@ final class SpatialPracticeTests: XCTestCase {
         XCTAssertGreaterThan(surfaces.count,2)
         let solver=try SpatialPracticeGeometry.solver(asset:PocketGeometryAsset.load(),
             material:.tablePhysics(clothRestitution:0.3),ballMaterial:.ballPhysics)
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:BTTablePhysics.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:BTTablePhysics.surfaceY))
         engine.setBall(.init(position:SCNVector3(2,0.4,0),velocity:SCNVector3(0,0,0),
             angularVelocity:SCNVector3Zero,state:.sliding,name:"outside"))
         let result=engine.simulatePrediction(model:.spatialPractice,maxTime:8)
@@ -212,7 +212,7 @@ final class SpatialPracticeTests: XCTestCase {
     }
     func testHighBallClearsObjectAndLowBallContactsIt() throws {
         func contacts(height:Float)->Bool {
-            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:BTTablePhysics.surfaceY))
+            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:BTTablePhysics.surfaceY))
             engine.setBall(.init(position:SCNVector3(-0.3,height,0),velocity:SCNVector3(3,0,0),
                 angularVelocity:SCNVector3Zero,state:.sliding,name:"cue"))
             engine.setBall(.init(position:SCNVector3(0,BTTablePhysics.surfaceY+BallPhysics.radius,0),velocity:SCNVector3Zero,
@@ -263,7 +263,7 @@ final class SpatialPracticeTests: XCTestCase {
         } }
     }
     func testDomainExitIsDistinctFromPocketAndOtherBallsFinish() throws {
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:BTTablePhysics.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:BTTablePhysics.surfaceY))
         engine.setBall(.init(position:SCNVector3(2.99,0.4,0),velocity:SCNVector3(4,0,0),
             angularVelocity:SCNVector3Zero,state:.sliding,name:"escaped"))
         engine.setBall(.init(position:SCNVector3(0,BTTablePhysics.surfaceY+BallPhysics.radius,0),velocity:SCNVector3(0.1,0,0),
@@ -288,7 +288,7 @@ final class SpatialPracticeTests: XCTestCase {
         let result=ShotPredictor.simulateFree(cueBall:SCNVector3Zero,aimDir:SCNVector3(1,0,0),velocity:3,spinX:0,spinY:0,
             surfaceY:BTTablePhysics.surfaceY,balls:[],simulationModel:.spatialPractice,cancellation:token,elevation:1)
         XCTAssertEqual(result.termination,.cancelled);XCTAssertFalse(result.hasFinalTableState)
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:BTTablePhysics.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:BTTablePhysics.surfaceY))
         engine.setBall(.init(position:SCNVector3(0,1,0),velocity:SCNVector3(1,1,0),angularVelocity:SCNVector3Zero,state:.sliding,name:"cue"))
         XCTAssertEqual(engine.simulatePrediction(model:.spatialPractice,maxTime:0.001),.timeLimit)
     }
@@ -635,7 +635,7 @@ final class SpatialPracticeBaselineTests: XCTestCase {
                 if label == "externalGround" || label == "domainExit" {
                     // ShotPredictor intentionally starts the cue on the bed. These are
                     // post-launch engine states, so do not pass height through that API.
-                    let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:BTTablePhysics.surfaceY))
+                    let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:BTTablePhysics.surfaceY))
                     engine.setBall(.init(position:cue,velocity:aim*speed,angularVelocity:SCNVector3Zero,
                         state:.sliding,name:ShotInput.cueBallName))
                     var result=ShotPrediction()

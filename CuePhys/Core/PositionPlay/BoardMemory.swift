@@ -29,7 +29,7 @@ final class BoardMemory: ObservableObject {
     init(page: String, root: URL? = nil) {
         self.page = page
         var directory = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("QiuJi/BoardMemory")
+            .appendingPathComponent("CuePhys/BoardMemory")
         #if DEBUG
         if root == nil, let domain = ProcessInfo.processInfo.environment["BOARD_MEMORY_TEST_DOMAIN"] {
             directory = FileManager.default.temporaryDirectory.appendingPathComponent("BoardMemory-" + domain)

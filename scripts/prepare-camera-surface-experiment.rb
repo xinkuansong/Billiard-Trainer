@@ -7,21 +7,21 @@ out = File.join(root, 'build/camera-surface-experiment')
 FileUtils.mkdir_p(out)
 spec = YAML.load_file(File.join(root, 'project.yml'))
 spec['name'] = 'CameraSurfaceLab'
-spec['settings']['base']['INFOPLIST_FILE'] = File.join(root, 'QiuJi/Resources/Info.plist')
-spec['targets']['QiuJiLiveActivityExtension']['settings']['base']['INFOPLIST_FILE'] = File.join(root, 'QiuJiLiveActivity/Info.plist')
+spec['settings']['base']['INFOPLIST_FILE'] = File.join(root, 'CuePhys/Resources/Info.plist')
+spec['targets']['CuePhysLiveActivityExtension']['settings']['base']['INFOPLIST_FILE'] = File.join(root, 'CuePhysLiveActivity/Info.plist')
 app = spec['targets']['QiuJi']
 app['sources'][0]['excludes'] << 'Resources/Info.plist'
 plist = File.join(out, 'Info.plist')
-app['settings']['base']['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.xinkuan.qiuji.camerasurface'
+app['settings']['base']['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.youbilliards.cuephys.camerasurface'
 app['settings']['base']['CODE_SIGN_ENTITLEMENTS'] = ''
 app['settings']['base']['INFOPLIST_FILE'] = plist
 app['info']['path'] = plist
 app['info']['properties']['CFBundleDisplayName'] = '球迹·曲面实验'
 app['info']['properties']['CameraSurfaceExperiment'] = true
 app['info']['properties'].delete('CFBundleURLTypes')
-spec['targets']['QiuJiLiveActivityExtension']['settings']['base']['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.xinkuan.qiuji.camerasurface.liveactivity'
-spec['targets']['QiuJiTests']['settings']['base']['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.xinkuan.qiuji.camerasurface.tests'
-spec['targets']['QiuJiUITests']['settings']['base']['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.xinkuan.qiuji.camerasurface.uitests'
+spec['targets']['CuePhysLiveActivityExtension']['settings']['base']['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.youbilliards.cuephys.camerasurface.liveactivity'
+spec['targets']['CuePhysTests']['settings']['base']['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.youbilliards.cuephys.camerasurface.tests'
+spec['targets']['CuePhysUITests']['settings']['base']['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.youbilliards.cuephys.camerasurface.uitests'
 spec['configFiles'].transform_values! { |path| File.join(root, path) }
 spec['targets'].each_value do |target|
   ['sources', 'resources'].each do |key|

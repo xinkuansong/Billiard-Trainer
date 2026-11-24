@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// v23 W3：自由瞄准页特写快照构建（层集 / 多球切换 / 擦身打空）。
 ///
@@ -428,7 +428,7 @@ final class AimDragCoordinatorTests: XCTestCase {
 
 final class IdealObjectDirectionTests: XCTestCase {
     func testSixPocketRaysAndRailStops() throws {
-        let table = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let table = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
         for pocket in table.pockets {
             // Corner entry follows the 45-degree throat bisector. A ray from
             // table center has a shallower entry and contacts a jaw first.
@@ -463,7 +463,7 @@ final class IdealObjectDirectionTests: XCTestCase {
         scene.setCameraMode(.topDown2D, animated: false)
         scene.cameraRig?.fitLandscapeTable(viewSize: size)
         scene.cameraRig?.applyTopDown2D()
-        let table = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let table = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
         for pocket in table.pockets {
             let t = pocket.isCorner
                 ? CGPoint(x: CGFloat(pocket.center.x) - (pocket.center.x > 0 ? 0.4 : -0.4),

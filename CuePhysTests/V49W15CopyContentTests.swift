@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W15：翻袋、直接 K 球、吃库 K 球与贴库球的动作对象边界。
 @MainActor

@@ -26,9 +26,9 @@
 
 ### 复查与恢复
 
-1. 在云端用 `systemctl list-timers 'cuephys-backup*'`、`journalctl -u cuephys-backup.service` 检查运行；`/var/lib/cuephys-backup/export/manifest.json` 记录最新归档，`receipts/{full,proof,pulse}` 及 `watchdog.json` 在同一基础目录。mini 的 `managed/verified.json` 有本地校验时间和摘要。
+1. 在云端用 `systemctl list-timers 'cuephys-backup*'`、`journalctl -u cuephys-backup.service` 检查运行；`/var/lib/cuephys-backup/export/manifest.json` 记录最新归档，`export/failures.json` 保留最近 100 次生成失败，`receipts/{full,proof,pulse}` 及 `watchdog.json` 在同一基础目录。mini 的 `managed/verified.json` 有本地校验时间和摘要，`managed/pull-status.json` 与 `managed/attempts.json` 保留最近一次和最近 100 次拉取结果。
 2. 检查 `launchctl print system/com.cuephys.backup.pull`（mini）及 `launchctl print gui/$(id -u)/com.cuephys.backup.monitor`（两台 Mac）；可用 `/usr/bin/python3 managed/bin/mac_worker.py observe --test-alert` 在对应路径发送标明演练的通知。正式任务每次从安装路径读取脚本。
-3. 选一份合适的 full 密文和截止点已知的最新 proof 密文。用私钥在加密临时卷内解包，各自核 `SHA256SUMS`、记录簿标识与序号。选取 full 的 `business.gz` 和 `avatars.tar.gz`，使用最新 proof 的 `ledger.gz` 和 `checkpoints.tar.gz`。业务库与注销库分别还原到隔离实例，头像和检查点分别解到空目录。校验最新证明后运行 `reconcileRestoredAccounts`，验证数据与旧凭据再放行。
+3. 选一份合适的 full 密文和截止点已知的最新 proof 密文。用私钥在加密临时卷内解包，各自核 `SHA256SUMS`、记录簿标识与序号。选取 full 的 `business.gz` 和 `avatars.tar.gz`，使用最新 proof 的 `ledger.gz` 和 `checkpoints.tar.gz`。业务库与注销库分别还原到隔离实例，头像和检查点分别解到空目录。校验最新证明后运行 `reconcileRestoredAccounts`，验证数据与旧凭据再放行。若生成期间业务持续写入，服务会对恢复点变化进行有限重试；超过重试上限时以 `failures.json` 和 manifest 的 `error_detail` 为准，不使用半成品归档。
 4. 一次恢复成功后清除临时明文、测试数据库及临时加密卷。真实归档、私钥和数据库连接配置均留在指定机器的私有目录。项目中仅记录脱敏证据。
 
 2026-11-12：官网上线收尾已形成[邮件/网站日志及历史备份管理流程](/Users/song/projects/23.website/company-site/docs/OPERATIONS-RETENTION.md)。本脚本的30/7/2天与最后有效副本保护不变；历史手工包、云快照及注销事件裁剪仍需独立核对和执行。本轮未删除真实备份。

@@ -169,7 +169,7 @@ class LocalLifecycleTests(unittest.TestCase):
         for f in bin_dir.iterdir(): f.chmod(0o755)
         env = dict(os.environ, PATH=str(bin_dir)+os.pathsep+os.environ['PATH'])
         cmd = ['make','-f',str(SCRIPT.parent/'Makefile'),'test','SIM_TEST_GUARD=',
-               'ONLY_TESTING=QiuJiTests/Fixture',
+               'ONLY_TESTING=CuePhysTests/Fixture',
                'LOCAL_TEST_LIFECYCLE='+sys.executable+' '+str(SCRIPT)+' --root '+str(self.root)]
         p = subprocess.run(cmd, env=env, capture_output=True, text=True)
         self.assertEqual(p.returncode, 0, p.stdout+p.stderr)
@@ -177,7 +177,7 @@ class LocalLifecycleTests(unittest.TestCase):
         self.assertEqual(lifecycle.record(run)['state'], 'reclaimed', p.stdout+p.stderr)
         self.assertFalse((run/'work').exists())
         args = json.loads((run/'evidence/tests.xcresult/fixture.json').read_text())
-        self.assertIn('-only-testing:QiuJiTests/Fixture', args)
+        self.assertIn('-only-testing:CuePhysTests/Fixture', args)
         self.assertTrue((run/'evidence/test-results.log').exists())
 
     def test_concurrent_protection_and_signal_retains_work(self):
@@ -222,12 +222,12 @@ class LocalLifecycleTests(unittest.TestCase):
                                      as_dict=lambda: {'matrix_id': 'A3'})
             artifacts = self.root.parent/'matrix-evidence'
             work = self.root.parent/'matrix-work'
-            config = {'artifact_root': str(artifacts), 'project': 'QiuJi.xcodeproj', 'scheme': 'QiuJi',
-                      'manifest': 'fixture.json', 'suites': {'contract': ['QiuJiTests/Fixture']}}
+            config = {'artifact_root': str(artifacts), 'project': 'CuePhys.xcodeproj', 'scheme': 'QiuJi',
+                      'manifest': 'fixture.json', 'suites': {'contract': ['CuePhysTests/Fixture']}}
             with patch.dict(os.environ, QIUJI_TEST_WORK=str(work)), \
                     patch.object(matrix, 'set_simulator_state', return_value=[]), \
                     patch.object(matrix, 'audit_images', return_value={'status':'passed'}), \
-                    patch.object(matrix, 'selectors_for_suite', return_value=['QiuJiTests/Fixture']), \
+                    patch.object(matrix, 'selectors_for_suite', return_value=['CuePhysTests/Fixture']), \
                     patch.object(matrix, 'run', return_value=SimpleNamespace(returncode=0)) as invoked:
                 result = matrix.run_unit(config, device, 'light', 'standard', 'contract',
                                          resume=False, content_size='large', fingerprint='fixture')

@@ -1,6 +1,6 @@
 import XCTest
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 /// 问题集合 v29 W7：`UserActivePlan.currentWeek/currentDay` 按完成推进（D-v29-3）。
 ///

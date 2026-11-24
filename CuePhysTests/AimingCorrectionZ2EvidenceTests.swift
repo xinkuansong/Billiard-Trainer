@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Z2 数值补稿（问题集合 v12 Z2）：② 节正文新增的两条定性符号——
 /// 「左塞把目标球向右带（SIT）」「切角越大投掷越大（CIT）」——Z1 草稿未覆盖，
@@ -10,7 +10,7 @@ final class AimingCorrectionZ2EvidenceTests: XCTestCase {
 
     private var evidenceDir: URL {
         let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // QiuJiTests
+            .deletingLastPathComponent() // CuePhysTests
             .deletingLastPathComponent() // repo root
         return root.appendingPathComponent("build/z2-evidence", isDirectory: true)
     }

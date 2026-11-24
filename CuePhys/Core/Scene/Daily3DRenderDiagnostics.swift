@@ -6,7 +6,7 @@ import os
 /// Explicit, process-local instrumentation. No preferences, gameplay state or frame policy changes.
 final class Daily3DRenderDiagnostics: @unchecked Sendable {
     static let isEnabled = ProcessInfo.processInfo.arguments.contains("-daily3D.diagnostics")
-    static let metalLabel = "QiuJi.DailyClearance3D.Scene"
+    static let metalLabel = "CuePhys.DailyClearance3D.Scene"
     private static let log = OSLog(subsystem: "com.qiuji.daily3d", category: "render")
 
     enum Stage: Equatable { case idle, aim, orbit, breaking, shot }

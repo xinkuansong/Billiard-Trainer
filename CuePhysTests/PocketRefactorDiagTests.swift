@@ -1,13 +1,13 @@
 //
 //  PocketRefactorDiagTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  ADR-P10-09 袋口重建的临时诊断（复现矩阵失败样本，打印轨迹与事件序列）。
 //
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class PocketRefactorDiagTests: XCTestCase {
 
@@ -29,7 +29,7 @@ final class PocketRefactorDiagTests: XCTestCase {
     /// 直探：左下角袋短边 R105 弧对慢速斜向球的 CCD 是否出事件。
     func test_diag_arcCCD_slowBallIntoShortArc() {
         let sY = surfaceY
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let p = SCNVector3(-1.2441, sY + R, 0.5676)
         let speed: Float = 0.09
         let dir = SCNVector3(-0.64, 0, -0.77)
@@ -135,7 +135,7 @@ final class PocketRefactorDiagTests: XCTestCase {
     /// 裸引擎复现：长弧反弹后的母球（rolling）应在 ~0.05s 撞 RU 短弧。
     func test_diag_bareEngine_shortArcAfterBounce() {
         let sY = surfaceY
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let engine = EventDrivenEngine(tableGeometry: geo)
         var cue = BallState(
             position: SCNVector3(1.1778, sY + R, 0.6069),
@@ -158,7 +158,7 @@ final class PocketRefactorDiagTests: XCTestCase {
     /// 裸引擎复现：同一状态但 sliding + 侧向表面速度（匹配失败轨迹的摩擦特征：vx 恒、vz 衰减）。
     func test_diag_bareEngine_shortArcSliding() {
         let sY = surfaceY
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let engine = EventDrivenEngine(tableGeometry: geo)
         let vel = SCNVector3(1.324, 0, -0.881)
         // 表面速度设为纯 -z（摩擦 → +z，与轨迹 vz 衰减一致）：
@@ -265,7 +265,7 @@ final class PocketRefactorDiagTests: XCTestCase {
 
         // 用记录帧重放：窗口内每帧直接调 CCD，验证探测器在真实状态下能否找到弧碰撞。
         if let rec = pred.recorder, let cueFrames = rec.framesByBallName["cueBall"] {
-            let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+            let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
             for f in cueFrames.sorted(by: { $0.time < $1.time }) {
                 guard f.time >= 0.46 && f.time <= 0.60 else { continue }
                 let st = BallState(
@@ -332,7 +332,7 @@ extension PocketRefactorDiagTests {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let dir = root.appendingPathComponent("output/middle-pocket-alignment-20260910/compare")
         guard FileManager.default.fileExists(atPath: dir.appendingPathComponent("RUN").path) else { throw XCTSkip("Opt-in pocket alignment diagnostic") }
-        let base = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        let base = TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY)
         var rows = [[String: Any]]()
         for center: Float in [0.688, 0.679, 0.67596474] {
             let pockets = base.pockets.map { p in
@@ -366,7 +366,7 @@ extension PocketRefactorDiagTests {
 
 extension PocketRefactorDiagTests {
     func test_middlePocketCalibratedRimAndHangingBalls() {
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY)
         for sign: Float in [-1,1] {
             // Independent measured rim, not read back from the production constant.
             let rim: Float = 0.63296474
@@ -415,7 +415,7 @@ extension PocketRefactorDiagTests {
                 let sy=scene.surfaceY;let radius=BallPhysics.radius
                 let v=SCNVector3(sinf(item.2)*item.3,0,cosf(item.2)*item.3)
                 let start=SCNVector3(item.1,sy+radius,0.56)
-                let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:sy))
+                let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:sy))
                 engine.setBall(BallState(position:start,velocity:v,angularVelocity:SCNVector3(v.z/radius,0,-v.x/radius),state:.rolling,name:"object"))
                 engine.simulate(maxEvents:200,maxTime:5,highFidelityBounds:true)
                 let playback=TrajectoryPlayback(recorder:engine.getTrajectoryRecorder(),surfaceY:sy+radius)

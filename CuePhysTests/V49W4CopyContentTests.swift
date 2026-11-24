@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W4：极薄角度球与中袋切球的文案、球形分层及示范偏差契约。
 @MainActor

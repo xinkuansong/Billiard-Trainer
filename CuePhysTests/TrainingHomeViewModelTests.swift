@@ -1,7 +1,7 @@
 import XCTest
 import SwiftData
 import Combine
-@testable import QiuJi
+@testable import CuePhys
 
 /// v31 W2：计划 dose × drill `perFormation` → 组序列（契约 §6.6）。
 ///

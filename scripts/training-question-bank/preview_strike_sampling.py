@@ -20,7 +20,7 @@ OUT=ROOT/'output/two-ball-strike-sampling-preview-20261024'
 def main():
     source=ROOT/'output/two-ball-second-grid-20261024/preview-data.json'
     original=json.loads(source.read_text())['boards'][2]
-    constants=ROOT/'QiuJi/Core/Physics/BTPhysicsConstants.swift'
+    constants=ROOT/'CuePhys/Core/Physics/BTPhysicsConstants.swift'
     limit=float(re.search(r'static let miscueLimitFraction: Float = ([0-9.]+)',constants.read_text())[1])
     assert limit==.5
     seed_key='strike-grid-v1\0'+original['id']

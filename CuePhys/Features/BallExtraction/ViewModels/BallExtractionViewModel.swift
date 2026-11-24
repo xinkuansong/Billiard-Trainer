@@ -1,6 +1,6 @@
 //
 //  BallExtractionViewModel.swift
-//  QiuJi
+//  CuePhys
 //
 //  拍照建球形（P15 阶段 1 竖切，ADR-P15-01）。
 //

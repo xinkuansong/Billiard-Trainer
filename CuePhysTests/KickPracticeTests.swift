@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 final class KickPracticeTests: XCTestCase {
     private let cue = ShotInput.cueBallName

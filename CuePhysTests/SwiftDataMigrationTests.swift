@@ -1,7 +1,7 @@
 import XCTest
 import SwiftData
 import SQLite3
-@testable import QiuJi
+@testable import CuePhys
 
 /// v29 W3 迁移实证：用 V1 schema 写一个真实旧库（落盘），再用当前容器（带
 /// `QiuJiMigrationPlan`）打开，断言旧数据零丢失且新字段取默认值。
@@ -16,7 +16,7 @@ final class SwiftDataMigrationTests: XCTestCase {
         storeDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("QiuJiMigrationTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: storeDirectory, withIntermediateDirectories: true)
-        storeURL = storeDirectory.appendingPathComponent("QiuJi-V1.store")
+        storeURL = storeDirectory.appendingPathComponent("CuePhys-V1.store")
     }
 
     override func tearDownWithError() throws {

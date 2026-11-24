@@ -1,6 +1,6 @@
 import AVFoundation
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class TrainingMusicTests: XCTestCase {

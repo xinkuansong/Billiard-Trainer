@@ -1,6 +1,6 @@
 //
 //  PlanThreeSectorSolverTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  问题集合 v5 · V7（Q15.1 扇形默认选区 + Q15.2 <3 球终局）：
 //  - 环形扇区 SDF 金标准（内部/外部/弧边界/角边界，含 Python 数值草稿手算对照）；
@@ -15,7 +15,7 @@
 import XCTest
 import SceneKit
 import simd
-@testable import QiuJi
+@testable import CuePhys
 
 final class PlanThreeSectorSolverTests: XCTestCase {
 

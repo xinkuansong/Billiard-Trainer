@@ -12,25 +12,25 @@
 | App Store Connect SKU | `QJ-001` | 旧 SKU | 作为固定后台身份保留，不能按品牌批量替换 | 已读取（App Store Connect App 信息页） |
 | 主 Bundle ID | `com.youbilliards.cuephys` | `com.xinkuan.qiuji` | 新建显式 App ID，注册成功后切换现有 App 记录 | 已登记；App Store Connect 记录尚未切换 |
 | 主产品名 | `CuePhys` | `球迹` | 作为当前构建产物、系统显示名和商店草稿名 | 代码已有部分显示名，构建标识待改 |
-| 主源码目录 | `CuePhys/` | `QiuJi/` | 当前源码、资源、Info.plist 和 entitlements 的路径统一切换，历史 schema 类型名单独保留 | 待执行 |
-| Swift 模块 | `CuePhys` | `QiuJi` | 当前主 target、测试导入和测试宿主统一切换 | 待执行 |
-| Live Activity Bundle ID | `com.youbilliards.cuephys.liveactivity` | `com.xinkuan.qiuji.liveactivity` | 新建扩展标识并更新 entitlements、描述文件 | 待执行 |
-| 单元测试 Bundle ID | `com.youbilliards.cuephys.tests` | `com.xinkuan.qiuji.tests` | 仅测试产物使用新命名 | 待执行 |
-| UI 测试 Bundle ID | `com.youbilliards.cuephys.uitests` | `com.xinkuan.qiuji.uitests` | 仅测试产物使用新命名 | 待执行 |
-| StoreKit 商品 ID | `com.youbilliards.cuephys.premium.lifetime` 等 | `com.xinkuan.qiuji.premium.*` | 新商品先在本地目录和代码中统一，正式后台商品先核商品状态再创建 | 待执行 |
+| 主源码目录 | `CuePhys/` | `QiuJi/` | 当前源码、资源、Info.plist 和 entitlements 的路径统一切换，历史 schema 类型名单独保留 | 已完成 |
+| Swift 模块 | `CuePhys` | `QiuJi` | 当前主 target、测试导入和测试宿主统一切换 | 已完成 |
+| Live Activity Bundle ID | `com.youbilliards.cuephys.liveactivity` | `com.xinkuan.qiuji.liveactivity` | 新建扩展标识并更新 entitlements、描述文件 | 工程已完成，后台能力待核对 |
+| 单元测试 Bundle ID | `com.youbilliards.cuephys.tests` | `com.xinkuan.qiuji.tests` | 仅测试产物使用新命名 | 已完成 |
+| UI 测试 Bundle ID | `com.youbilliards.cuephys.uitests` | `com.xinkuan.qiuji.uitests` | 仅测试产物使用新命名 | 已完成 |
+| StoreKit 商品 ID | `com.youbilliards.cuephys.premium.lifetime` 等 | `com.xinkuan.qiuji.premium.*` | 新商品先在本地目录和代码中统一，正式后台商品先核商品状态再创建 | 本地已完成，正式后台待配置 |
 | Apple 登录受众 | `com.youbilliards.cuephys` | `com.xinkuan.qiuji` | 服务端 `APPLE_BUNDLE_ID` 与新 App ID 一致 | 待 Bundle ID 切换和服务端联调 |
 | Apple 登录密钥 | 组织 Team 下新建 Key ID 与 `.p8` 私钥 | 旧 Team／旧配置 | 只在服务端生成 client secret、交换和撤销 token；私钥不进客户端和仓库 | 待 Bundle ID、HTTPS 和受众冻结 |
 | 微信移动应用凭据 | 企业认证后的 AppID，AppSecret 仅服务端保存 | 当前 `YOUR_WECHAT_APP_ID_HERE` 等占位 | AppID 进客户端授权配置，Secret 只进受控服务端；与 Universal Link／AASA 成套验证 | 待企业认证结果和回调域名 |
 | 后端数据库 | `cuephys` | `qiuji` | 生产迁移采用别名或迁移脚本，禁止直接改默认值后丢数据 | 待生产迁移方案 |
-| 新 Keychain 命名空间 | `CuePhys/Auth/v2` | 既有 QiuJi 键 | 新写入，旧键只读迁移一次 | 待实现 |
+| 新 Keychain 命名空间 | `CuePhys/Auth/v2` | 既有 QiuJi 键 | 新写入，旧键只读迁移一次 | 已完成（旧键兼容读取/清理） |
 | StoreKit 账号令牌命名空间 | `CuePhys/StoreKit/account/v2/` | `CuePhys/StoreKit/account/v1/` | 购买归属兼容读取旧 v1，首发新写 v2 前先确认购买策略 | 待实现 |
-| 日志 subsystem | `com.youbilliards.cuephys` | `com.xinkuan.qiuji` | 当前构建日志切到新 subsystem，历史日志查询保留旧过滤条件 | 待执行 |
-| 模拟器与脚本 Bundle ID | `com.youbilliards.cuephys` | `com.xinkuan.qiuji` | 当前 Makefile、设备清单、安装脚本和 UI 巡游统一切换 | 待执行 |
+| 日志 subsystem | `com.youbilliards.cuephys` | `com.xinkuan.qiuji` | 当前构建日志切到新 subsystem，历史日志查询保留旧过滤条件 | 已完成 |
+| 模拟器与脚本 Bundle ID | `com.youbilliards.cuephys` | `com.xinkuan.qiuji` | 当前 Makefile、设备清单、安装脚本和 UI 巡游统一切换 | 当前门禁脚本已完成，历史脚本保留 |
 | Apple 能力与描述文件 | 新 App ID 下已启用 Sign in with Apple、Associated Domains；Live Activities 和推送按实际 entitlement 另行核对 | 旧 App ID 能力 | 新 App ID 已登记，描述文件和证书在工程改名后重建，旧描述文件暂留回滚 | App ID 已登记，能力已实查 |
-| 工程文件与生成入口 | `CuePhys/`、`CuePhysTests/`、`CuePhysUITests/`、`CuePhysLiveActivity/`、CuePhys scheme 与 target | `QiuJi/`、`QiuJiTests/`、`QiuJiUITests/`、`QiuJiLiveActivity/`、QiuJi scheme 与 target | 当前工程、xcodegen、测试宿主和产物路径统一改名；旧路径只在历史归档保留 | 待 B1/C0 |
+| 工程文件与生成入口 | `CuePhys/`、`CuePhysTests/`、`CuePhysUITests/`、`CuePhysLiveActivity/`、CuePhys scheme 与 target | `QiuJi/`、`QiuJiTests/`、`QiuJiUITests/`、`QiuJiLiveActivity/`、QiuJi scheme 与 target | 当前工程、xcodegen、测试宿主和产物路径统一改名；旧路径只在历史归档保留 | 已完成 |
 | URL scheme 与通知标识 | CuePhys URL scheme、Associated Domains、AASA、`cuephys.training.daily-reminder` 等当前标识 | `qiuji` URL／通知前缀 | 新写入和当前构建使用 CuePhys；旧通知和深链保留兼容迁移窗口 | 已发现旧值，待 B2/E1 |
-| 后端部署与备份 | `cuephys-backend`、新数据库别名、头像目录和备份标签 | `/opt/qiuji-backend`、Mongo `qiuji`、旧头像／备份标签 | 用迁移脚本和别名切换；旧密文可回放，注销记录不可丢失 | 待 D0/D2 |
-| 日志与分析 | `com.youbilliards.cuephys` subsystem、CuePhys 事件前缀 | `com.xinkuan.qiuji`、`com.billiardtrainer` 和旧事件名 | 当前构建和新事件切换，旧查询映射保留 | 待 E1 |
+| 后端部署与备份 | `cuephys-backend`、新数据库别名、头像目录和备份标签 | `/opt/qiuji-backend`、Mongo `qiuji`、旧头像／备份标签 | 用迁移脚本和别名切换；旧密文可回放，注销记录不可丢失 | 本地包元数据已切换；生产目录/数据库/备份迁移待 D0/D2 |
+| 日志与分析 | `com.youbilliards.cuephys` subsystem、CuePhys 事件前缀 | `com.xinkuan.qiuji`、`com.billiardtrainer` 和旧事件名 | 当前编译代码和新事件切换，旧查询映射保留 | 当前代码已完成；历史查询映射仍保留 |
 | App Store Server Notifications | CuePhys 生产／沙盒通知 URL及交易校验标识 | 旧 App 记录通知配置 | 与 StoreKit 商品和服务端交易校验一起切换，不能只改客户端商品 ID | 待 A1/D0 |
 | API 与域名职责 | 建议 `api.cuephys.com` 为 App API；`youbilliards.com` 为官网、法律页和备案展示 | 当前 HTTP IP 占位及混用域名 | DNS、HTTPS、CORS、AASA、法律链接分别核验；若 API 使用中国大陆服务器，单独核验 `cuephys.com` 的备案接入 | 待 A3/D1 |
 | 公开商店与官网素材 | CuePhys 名称、截图、预览、审核备注、支持邮箱、法律页和商标使用说明 | 球迹公开文案及历史素材 | 当前发布资料全部统一，历史证据保留 | 待 E0/E2 |
@@ -66,3 +66,23 @@
 - 旧安装数据和旧购买凭据经过迁移验证后仍能得到预期状态。
 - 生产服务器的 Apple `aud`、API HTTPS、Universal Links 和 StoreKit 商品配置一致。
 
+
+## 本轮执行记录（2026-11-23）
+
+- **分支**：`codex/cuephys-full-rename`，用于把代码侧全量改名与外部 Apple 后台切换隔离审阅。
+- **已完成**：`CuePhys/`、`CuePhysTests/`、`CuePhysUITests/`、`CuePhysLiveActivity/`、`CuePhys.xcodeproj` 与当前 target/scheme 生成入口；主 App、扩展、单测和 UI 测试 Bundle ID 均使用 `com.youbilliards.cuephys…` 命名空间。
+- **已完成**：本地商品、日志 subsystem、当前模拟器/题库校验脚本使用 CuePhys；旧 StoreKit 商品 ID 只保留读取兼容，SwiftData 历史 schema 和历史研究路径不改。 当前台球几何工厂函数与训练提醒写入前缀也已切到 CuePhys，通知点击与清理保留旧前缀兼容。
+- **已完成**：Keychain 新写入使用 CuePhys 命名空间，读取和清理兼容旧 `com.qiuji.app.*` 键，避免升级安装丢失会话；后端 npm 包元数据和当前并发队列标签已切到 CuePhys，生产目录与数据库名保留迁移别名。
+- **验证**：`xcodegen generate`、生产资源校验、题库校验、Debug 模拟器构建及 `build-for-testing` 均通过。
+- **阻塞**：App Store Connect 现有 App `6761309682` 的 Bundle ID 外部切换尚未完成；已用连接的 iPhone 16 Pro 真机构建、安装并启动新包，签发开发 profile `com.youbilliards.cuephys`，但新旧页面会话读取“套装 ID”下拉，唯一选项仍为旧值 `QiuJi App - com.xinkuan.qiuji`。本轮未点击保存、未上传 build、未创建生产 Apple 登录密钥、未创建/启用正式商品。
+- **待下一批**：空闲模拟器租约释放后运行受影响 XCTest/UI 测试；完成 ASC Bundle ID 切换后核对 entitlements、服务端 `APPLE_BUNDLE_ID`、HTTPS 与 Apple 登录密钥，再生成候选包。
+
+### 真机验证补充
+
+- 连接的 iPhone 16 Pro 已完成 `com.youbilliards.cuephys` 安装与启动；定向真机 XCTest `APIClientProfileTests/testReleaseAPIConfigurationOnlyAllowsCompanyHTTPS` 通过（1/1，0 failures）。
+- 该结果收口了本地真机配置门禁，不替代 ASC Bundle ID 切换、生产 Apple 登录联调、微信登录联调或候选包上传。
+
+### ASC 与归档补充
+
+- 用户截图确认 ASC Bundle ID 菜单已出现 `CuePhys - com.youbilliards.cuephys`；选择并保存后才算外部切换完成，旧值和下方实验 Bundle ID 不选。
+- 使用临时校验地址 `https://validation.cuephys.com/api` 完成未签名 Release 归档，`xcodebuild` 成功；归档包 Bundle ID 与显示名分别为 `com.youbilliards.cuephys` 和 `CuePhys`。未上传 build，生产归档等待实际 API HTTPS、法律 URL 和正式凭据。

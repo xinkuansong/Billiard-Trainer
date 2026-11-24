@@ -1,6 +1,6 @@
 import Foundation
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Offline inventory cells, independent of presentation probabilities.
 struct TrainingInventoryCell: Codable, Hashable {
@@ -55,7 +55,7 @@ struct TrainingLayoutFeatures: Codable {
             gap <= Double(SceneTrainingRailGeometry.nearLimit + SceneTrainingRailGeometry.contactRoundoff) ? 1 : 0
     }
     static func nearestRail(_ point: SCNVector3) -> Int {
-        let rails = TableGeometry.chineseEightBallQiuJi(surfaceY: 0).linearCushions.prefix(6)
+        let rails = TableGeometry.chineseEightBallCuePhys(surfaceY: 0).linearCushions.prefix(6)
         return rails.enumerated().min { lhs, rhs in
             func distance(_ rail: LinearCushionSegment) -> Float {
                 let d = rail.end - rail.start
@@ -69,7 +69,7 @@ struct TrainingLayoutFeatures: Codable {
     init(_ board: TrainingBankBoard, sx: Float = 1, sz: Float = 1) {
         func reflected(_ point: TrainingBankPoint) -> SCNVector3 { SCNVector3(point.x*sx, 0, point.z*sz) }
         let cue = reflected(board.cue), target = reflected(board.target), aim = reflected(board.effectiveAim)
-        let pockets = TableGeometry.chineseEightBallQiuJi(surfaceY: 0).pockets
+        let pockets = TableGeometry.chineseEightBallCuePhys(surfaceY: 0).pockets
         let old = pockets[board.pocketIndex].center
         pocketIndex = pockets.indices.min {
             hypot(pockets[$0].center.x-old.x*sx, pockets[$0].center.z-old.z*sz)

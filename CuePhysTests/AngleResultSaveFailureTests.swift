@@ -1,6 +1,6 @@
 //
 //  AngleResultSaveFailureTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  问题集合 v29 W1：「练」分区 4 个答题入口的成绩落库失败路径。
 //  改造前 4 处都是 `try? await repository?.save(result)`——保存失败静默丢题，
@@ -12,7 +12,7 @@
 
 import XCTest
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 private struct AngleSaveFailureStub: AngleTestRepositoryProtocol {
 

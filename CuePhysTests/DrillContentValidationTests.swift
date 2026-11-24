@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// Validates all active Drill JSONs loaded from Bundle for Schema compliance,
 /// coordinate bounds, isPremium/level consistency, and animation integrity.

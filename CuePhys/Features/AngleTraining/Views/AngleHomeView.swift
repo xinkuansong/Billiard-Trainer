@@ -315,7 +315,7 @@ struct AngleHomeView: View {
     private func theoryEntries(for pageIDs: [TheoryPageID]) -> [AngleEntry] {
         pageIDs.compactMap { pageID in
             guard let entry = TheoryCatalog.entries.first(where: { $0.id == pageID }) else {
-                Logger(subsystem: "com.xinkuan.qiuji", category: "PracticeCatalog")
+                Logger(subsystem: "com.youbilliards.cuephys", category: "PracticeCatalog")
                     .error("Missing theory page: \(pageID.rawValue, privacy: .public)")
                 assertionFailure("Missing theory page: \(pageID.rawValue)")
                 return nil

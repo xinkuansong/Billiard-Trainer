@@ -13,7 +13,7 @@ final class V29W7PlanProgressUITests: XCTestCase {
     private let outDir = URL(
         fileURLWithPath: #filePath, isDirectory: false
     )
-        .deletingLastPathComponent()   // QiuJiUITests/
+        .deletingLastPathComponent()   // CuePhysUITests/
         .deletingLastPathComponent()   // <repo root>
         .appendingPathComponent("build/w7-screenshots", isDirectory: true)
 

@@ -1,6 +1,6 @@
 //
 //  DifficultySolverTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  可执行性感知求解（E1–E5，docs/research/20260709-可执行性感知求解方案.md）：
 //  - DifficultyModel 纯函数金标准（加权范数不对称性 / 档位映射 / 力度惩罚 / 评分单调性）。
@@ -12,7 +12,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class DifficultySolverTests: XCTestCase {
 

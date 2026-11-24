@@ -1,10 +1,10 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class TrainingQuestionBankTests: XCTestCase {
     func testMouthOwnershipAgainstEveryProductionCushion() throws {
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
         let samples = geometry.linearCushions.map { ($0.start + $0.end) * 0.5 }
             + geometry.circularCushions.map(\.center)
         for (index, point) in samples.enumerated() {
@@ -102,7 +102,7 @@ final class TrainingQuestionBankTests: XCTestCase {
     }
 
     func testInitiallyFrozenCompressionIsNotABankButLeavingAndReturningIs() {
-        let rail = TableGeometry.chineseEightBallQiuJi(surfaceY: 0).linearCushions[0]
+        let rail = TableGeometry.chineseEightBallCuePhys(surfaceY: 0).linearCushions[0]
         let frozen = (rail.start + rail.end) * 0.5 + rail.normal * BallPhysics.radius
         func prediction(departs: Bool) -> ShotPrediction {
             var shot = ShotPrediction(); shot.termination = .settled

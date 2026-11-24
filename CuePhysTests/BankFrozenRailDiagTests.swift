@@ -1,6 +1,6 @@
 //
 //  BankFrozenRailDiagTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  诊断（临时）：贴库翻袋预反射种子的实际出解率矩阵。
 //  枚举贴库球位 × 母球位 × 袋口，跑 solveBank，落盘统计报告。
@@ -8,7 +8,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class BankFrozenRailDiagTests: XCTestCase {
 

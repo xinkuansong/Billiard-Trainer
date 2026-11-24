@@ -1,7 +1,7 @@
 import SceneKit
 import SwiftUI
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// Compare the actual SwiftUI loupe background against an independently rendered
 /// live table. The old plain-pipeline sampled RGB is no longer the reference.

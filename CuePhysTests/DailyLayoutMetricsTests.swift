@@ -1,6 +1,6 @@
 import XCTest
 import CoreGraphics
-@testable import QiuJi
+@testable import CuePhys
 
 /// Capacity tests protect visible content and interaction slots. They do not
 /// substitute for Menu hit testing, glyph rendering, or system window resizing.

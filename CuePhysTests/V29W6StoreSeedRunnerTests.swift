@@ -1,6 +1,6 @@
 import XCTest
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 /// 问题集合 v29 W6 取证用**播种 runner**：把「三种 kind + 已下架 drill」的数据集
 /// 写成一个真实 SwiftData store 文件，供 shell 拷进模拟器 App 容器后启动截图。
@@ -12,7 +12,7 @@ import SwiftData
 ///
 /// ⛔ 不随常规测试跑（写盘且只服务取证）：未开门即 `XCTSkip`。
 /// 开门：`touch build/.w6-seed-store`，再
-/// `xcodebuild ... -only-testing:QiuJiTests/V29W6StoreSeedRunnerTests test`。
+/// `xcodebuild ... -only-testing:CuePhysTests/V29W6StoreSeedRunnerTests test`。
 @MainActor
 final class V29W6StoreSeedRunnerTests: XCTestCase {
 

@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import simd
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class AngleDynamicAssistTests: XCTestCase {

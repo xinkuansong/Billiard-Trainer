@@ -1,7 +1,7 @@
 import XCTest
 import SwiftData
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class SceneTrainingRulesTests: XCTestCase {
     func testAimGradeBoundariesAndInvalidDirections() {
@@ -144,7 +144,7 @@ final class SceneTrainingRulesTests: XCTestCase {
     }
 
     func testRailFiltersUseSurfaceGapAndFrozenCandidatesAreGenerated() throws {
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
         let rail = geometry.linearCushions[0]
         let mid = (rail.start + rail.end) * 0.5
         let touching = mid + rail.normal * BallPhysics.radius

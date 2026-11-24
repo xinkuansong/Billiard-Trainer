@@ -47,6 +47,15 @@ def read_json(path, default=None):
         return default
 
 
+def append_json_event(path, event, *, limit=100, mode=0o600):
+    """Append a bounded diagnostic event without making the log a write point."""
+    entries = read_json(path, []) or []
+    if not isinstance(entries, list):
+        entries = []
+    entries.append(event)
+    atomic_json(path, entries[-limit:], mode)
+
+
 def checksum(path):
     digest = hashlib.sha256()
     with path.open('rb') as file:

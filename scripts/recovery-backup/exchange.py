@@ -36,7 +36,9 @@ def status():
     manifest = read_json(BASE/'export/manifest.json', {}) or {}
     receipts = {k: read_json(BASE/'receipts'/k, {}) for k in ('full','proof','pulse')}
     history = read_json(BASE/'export/incidents.json', [])
-    return {'manifest': manifest, 'receipts': receipts, 'issues': health(manifest, receipts, time.time()), 'incidents':history}
+    failures = read_json(BASE/'export/failures.json', [])
+    return {'manifest': manifest, 'receipts': receipts, 'issues': health(manifest, receipts, time.time()),
+            'incidents': history, 'failures': failures[-100:] if isinstance(failures, list) else []}
 
 
 def dispatch(role, args):
@@ -87,5 +89,6 @@ if __name__ == '__main__':
             assert sys.argv[1:] in (['pull'], ['observe'])
             dispatch(sys.argv[1], os.environ.get('SSH_ORIGINAL_COMMAND','').split())
     except Exception as error:
-        print('Request failed:', type(error).__name__, file=sys.stderr)
+        detail = str(error).replace('\n', ' ').strip()[:240]
+        print('Request failed:', type(error).__name__, detail, file=sys.stderr)
         sys.exit(1)

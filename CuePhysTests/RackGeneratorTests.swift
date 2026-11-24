@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// P17「球形生成器」Core 验证：`RackLayout`（摆架规则 + 几何 + 确定性）与
 /// `BreakSimulator`（开球产出合法、停稳、确定性的散开板）。

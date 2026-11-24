@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W8：加塞一库变线、高杆加塞与低杆加塞的内容边界。
 @MainActor

@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 /// W1 regression: off-screen share-card render contract (问题集合_v9 §四.5).
 ///

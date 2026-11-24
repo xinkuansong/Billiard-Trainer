@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W3：小角度、长距离瞄准与中大角度球的文案契约。
 @MainActor

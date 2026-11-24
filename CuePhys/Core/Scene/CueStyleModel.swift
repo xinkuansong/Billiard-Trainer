@@ -4,7 +4,7 @@ import CryptoKit
 import os
 
 enum CueStyleModel {
-    private static let logger = Logger(subsystem: "com.xinkuan.qiuji", category: "CueStyleModel")
+    private static let logger = Logger(subsystem: "com.youbilliards.cuephys", category: "CueStyleModel")
     private static let lock = NSLock()
     private static var uvGeometry: SCNGeometry?
     private static var uvIdentity: String?

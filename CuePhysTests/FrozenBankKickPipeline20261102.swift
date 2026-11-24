@@ -1,6 +1,6 @@
 //
 //  FrozenBankKickDifficulty20261102.swift
-//  QiuJi
+//  CuePhys
 //
 //  翻袋/反射解球页「好打优先」排序（W3，docs/research/20260709-翻袋反射页重构方案 §3）。
 //
@@ -13,7 +13,7 @@
 
 import Foundation
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 // MARK: - 页面模式（W6：求解 / 自由，方案 §1.1 状态机）
 

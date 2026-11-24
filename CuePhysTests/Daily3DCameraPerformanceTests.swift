@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 #if DEBUG
 /// Factor study: real daily scene and CameraRig, with no production camera changes.

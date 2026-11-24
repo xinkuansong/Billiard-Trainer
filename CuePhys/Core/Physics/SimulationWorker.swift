@@ -62,7 +62,7 @@ final class SimulationWorker {
     // MARK: - Private State
 
     private let workerQueue = DispatchQueue(
-        label: "com.billiardtrainer.simulation-worker",
+        label: "com.youbilliards.cuephys.simulation-worker",
         qos: .userInitiated
     )
 

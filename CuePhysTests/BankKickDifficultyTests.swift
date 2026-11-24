@@ -1,6 +1,6 @@
 //
 //  BankKickDifficultyTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  W3（20260709 翻袋反射页重构方案 §3/§4.1）：好打优先排序模型 + 解缓存 + 求解管线集成。
 //
@@ -8,7 +8,7 @@
 import XCTest
 import SceneKit
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class BankKickDifficultyTests: XCTestCase {
 

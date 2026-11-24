@@ -7,7 +7,7 @@ import os
 /// Visual-only: physics bodies are stripped, cameras/lights removed.
 /// Extracts ball nodes and cue stick for dynamic control.
 final class TableModelLoader {
-    private static let logger = Logger(subsystem: "com.xinkuan.qiuji", category: "TableModelLoader")
+    private static let logger = Logger(subsystem: "com.youbilliards.cuephys", category: "TableModelLoader")
 
     // MARK: - Types
 

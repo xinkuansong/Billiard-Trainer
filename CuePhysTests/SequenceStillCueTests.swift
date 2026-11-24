@@ -1,6 +1,6 @@
 //
 //  SequenceStillCueTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  精讲静帧须与视频「亮方案」拍同口径：有预告线时摆瞄准位球杆（DR-074）。
 //  用同一序列开关 `showCueStroke` 对拍 s01_still，差必须大到能解释为整支杆，
@@ -10,7 +10,7 @@
 import XCTest
 import UIKit
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class SequenceStillCueTests: XCTestCase {
 

@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import simd
-@testable import QiuJi
+@testable import CuePhys
 
 final class SpatialPracticeRecoveryTests:XCTestCase {
     typealias R=SpatialPracticeRecord

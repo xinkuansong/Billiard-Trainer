@@ -10,8 +10,8 @@ from pathlib import Path
 
 
 REPO = Path(__file__).resolve().parent.parent
-SWIFT_ROOT = REPO / "QiuJi"
-DRILL_ROOT = REPO / "QiuJi" / "Resources" / "Drills"
+SWIFT_ROOT = REPO / "CuePhys"
+DRILL_ROOT = REPO / "CuePhys" / "Resources" / "Drills"
 
 FORBIDDEN_TERMS = {
     "切入角": "切球角",

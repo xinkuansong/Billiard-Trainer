@@ -4,7 +4,7 @@ import hashlib
 import json
 
 ROOT = Path(__file__).resolve().parents[1]
-directory = ROOT / 'QiuJi/Resources/PocketPipe'
+directory = ROOT / 'CuePhys/Resources/PocketPipe'
 metadata = json.loads((directory / 'pipe-grid.json').read_text())
 errors = []
 for name, expected in metadata['geometrySources'].items():

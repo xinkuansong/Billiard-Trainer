@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// Local and production probes have separate selectors and explicit environment guards.
 @MainActor

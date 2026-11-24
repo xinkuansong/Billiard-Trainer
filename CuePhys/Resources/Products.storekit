@@ -25,7 +25,7 @@
           "locale" : "zh_CN"
         }
       ],
-      "productID" : "com.xinkuan.qiuji.premium.lifetime",
+      "productID" : "com.youbilliards.cuephys.premium.lifetime",
       "referenceName" : "终身买断",
       "type" : "NonConsumable"
     }
@@ -71,7 +71,7 @@
               "locale" : "zh_CN"
             }
           ],
-          "productID" : "com.xinkuan.qiuji.premium.monthly",
+          "productID" : "com.youbilliards.cuephys.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "月订阅",
           "subscriptionGroupID" : "B2C3D4E5",
@@ -96,7 +96,7 @@
               "locale" : "zh_CN"
             }
           ],
-          "productID" : "com.xinkuan.qiuji.premium.yearly",
+          "productID" : "com.youbilliards.cuephys.premium.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "年订阅",
           "subscriptionGroupID" : "B2C3D4E5",

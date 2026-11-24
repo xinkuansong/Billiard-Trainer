@@ -1,6 +1,6 @@
 //
 //  PocketNetPresentationTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  W17-B/D (v63, DR-294): scripted net descent for planar pots.
 //  Coordinate contract: SceneKit world, X–Z horizontal, Y up, metres.
@@ -8,14 +8,14 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class PocketNetPresentationTests: XCTestCase {
     typealias V = SIMD3<Double>
     typealias State = LocalPocketSimulation.State
 
     private let surfaceY: Float = 0.8
-    private var geometry: TableGeometry { TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY) }
+    private var geometry: TableGeometry { TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY) }
     private var ballRadius: Double { Double(BallPhysics.radius) }
 
     // MARK: - Profile constants are gated against the bundled pocket meshes

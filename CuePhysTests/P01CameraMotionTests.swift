@@ -2,7 +2,7 @@ import XCTest
 import SceneKit
 import UIKit
 import simd
-@testable import QiuJi
+@testable import CuePhys
 
 final class P01CameraMotionTests: XCTestCase {
     private var layout: P01CameraMotion.Layout {

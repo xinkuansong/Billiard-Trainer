@@ -3,7 +3,7 @@ import UIKit
 import StoreKit
 import StoreKitTest
 import Combine
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class V53ProfilePreferencesTests: XCTestCase {

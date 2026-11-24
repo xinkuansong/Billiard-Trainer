@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W1 样张契约：只锁定本批三课，不继承全库历史数量与空 pocket 债务。
 @MainActor

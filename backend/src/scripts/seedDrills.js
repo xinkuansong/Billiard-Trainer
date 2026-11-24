@@ -1,5 +1,5 @@
 /**
- * Seed Drill JSON files from QiuJi/Resources/Drills/ into MongoDB.
+ * Seed Drill JSON files from CuePhys/Resources/Drills/ into MongoDB.
  * Usage: MONGODB_URI=... node src/scripts/seedDrills.js [path-to-Drills-dir]
  */
 require("dotenv").config();
@@ -9,7 +9,7 @@ const mongoose = require("mongoose");
 const config = require("../config");
 const Drill = require("../models/Drill");
 
-const DRILLS_DIR = process.argv[2] || path.resolve(__dirname, "../../..", "QiuJi/Resources/Drills");
+const DRILLS_DIR = process.argv[2] || path.resolve(__dirname, "../../..", "CuePhys/Resources/Drills");
 
 async function main() {
   await mongoose.connect(config.mongodbUri);

@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class KickPostContactRuleTests: XCTestCase {
     func test_toolAndPracticeRequireCueOrTargetCushionStrictlyAfterContact() {

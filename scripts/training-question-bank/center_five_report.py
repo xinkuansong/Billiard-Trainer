@@ -86,7 +86,7 @@ def main():
     old_dir = ROOT / "output/accuracy-speed-screening-20261021"
     old_manifest = json.loads((old_dir / "source-manifest.json").read_text())
     assert all(manifest["files"][k] == v for k, v in old_manifest["files"].items()
-               if k != "QiuJiTests/TrainingSpeedScreeningTests.swift")
+               if k != "CuePhysTests/TrainingSpeedScreeningTests.swift")
     old = json.loads((old_dir / "results.json").read_text())
     assert old["gallerySHA256"] == data["gallerySHA256"]
     reference = next(p for p in old["phases"] if p["method"] == "reference-uniform-0.1")

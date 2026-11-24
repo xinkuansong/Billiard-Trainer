@@ -4,7 +4,7 @@ import SwiftUI
 import SceneKit
 import Metal
 import MetalKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Deterministic visual experiments, not a phone performance benchmark.
 @MainActor

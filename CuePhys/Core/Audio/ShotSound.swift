@@ -1,6 +1,6 @@
 //
 //  ShotSound.swift
-//  QiuJi
+//  CuePhys
 //
 //  击球回放音效的事件分类与资源命名约定。
 //

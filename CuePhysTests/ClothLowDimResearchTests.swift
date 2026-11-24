@@ -2,7 +2,7 @@ import XCTest
 import SceneKit
 import Metal
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Research capture using the actual iOS scene. A passing test proves capture
 /// validity and restoration, not visual acceptance or a performance improvement.

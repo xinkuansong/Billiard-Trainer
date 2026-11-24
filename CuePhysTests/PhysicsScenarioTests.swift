@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// 真实台球场景断言（D-C1/C2 扩面）——把审计「测试覆盖缺口矩阵」里列出的、此前只在
 /// 诊断里 print 或完全没覆盖的**真实球理现象**钉成机器断言：
@@ -27,7 +27,7 @@ final class PhysicsScenarioTests: XCTestCase {
             let cue = SCNVector3(-0.5, surfaceY + R, 0)
             let target = SCNVector3(0.0, surfaceY + R, 0)   // 正前方正面球
             let strike = CueBallStrike.executeStrike(aimDirection: SCNVector3(1, 0, 0), velocity: 3.0, spinX: 0, spinY: spinY)
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
             engine.setBall(BallState(position: cue, velocity: strike.velocity, angularVelocity: strike.angularVelocity, state: .sliding, name: "cue"))
             engine.setBall(BallState(position: target, velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero, state: .stationary, name: "obj"))
             engine.simulate(maxEvents: 600, maxTime: 20)
@@ -48,7 +48,7 @@ final class PhysicsScenarioTests: XCTestCase {
     func test_scenario_strikeSpeed_rollDistanceMonotonic() {
         func pathLength(velocity: Float) -> Float {
             let strike = CueBallStrike.executeStrike(aimDirection: SCNVector3(1, 0, 0), velocity: velocity, spinX: 0, spinY: 0)
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
             engine.setBall(BallState(position: SCNVector3(-1.15, surfaceY + R, 0.07),
                                      velocity: strike.velocity, angularVelocity: strike.angularVelocity,
                                      state: .sliding, name: "cue"))
@@ -82,7 +82,7 @@ final class PhysicsScenarioTests: XCTestCase {
             let cue = SCNVector3(-0.5, surfaceY + R, 0)
             let target = SCNVector3(0.3, surfaceY + R, 2 * R * sinf(cut))
             let strike = CueBallStrike.executeStrike(aimDirection: SCNVector3(1, 0, 0), velocity: 3.5, spinX: spinX, spinY: 0)
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
             engine.setBall(BallState(position: cue, velocity: strike.velocity, angularVelocity: strike.angularVelocity, state: .sliding, name: "cue"))
             engine.setBall(BallState(position: target, velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero, state: .stationary, name: "obj"))
             engine.simulate(maxEvents: 400, maxTime: 8)
@@ -129,7 +129,7 @@ final class PhysicsScenarioTests: XCTestCase {
     /// 母球以浅角射向角袋方向，应连续吃 ≥2 库且全程不出界、整体减速。
     func test_scenario_multiCushion_staysInBoundsAndDecelerates() {
         let strike = CueBallStrike.executeStrike(aimDirection: SCNVector3(1, 0, 0.55), velocity: 5.5, spinX: 0, spinY: 0)
-        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
         engine.setBall(BallState(position: SCNVector3(-1.0, surfaceY + R, -0.3),
                                  velocity: strike.velocity, angularVelocity: strike.angularVelocity,
                                  state: .sliding, name: "cue"))
@@ -165,7 +165,7 @@ final class PhysicsScenarioTests: XCTestCase {
         let ball1 = SCNVector3(0.0, surfaceY + R, 0)
         let ball2 = SCNVector3(0.0 + 2 * R + 0.002, surfaceY + R, 0)   // 紧贴一库正前方
         let strike = CueBallStrike.executeStrike(aimDirection: SCNVector3(1, 0, 0), velocity: 4.0, spinX: 0, spinY: 0)
-        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
         engine.setBall(BallState(position: cue, velocity: strike.velocity, angularVelocity: strike.angularVelocity, state: .sliding, name: "cue"))
         engine.setBall(BallState(position: ball1, velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero, state: .stationary, name: "b1"))
         engine.setBall(BallState(position: ball2, velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero, state: .stationary, name: "b2"))

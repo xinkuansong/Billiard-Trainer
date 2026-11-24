@@ -1,7 +1,7 @@
 import XCTest
 import SwiftData
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class TrainingViewMergeStateTests: XCTestCase {

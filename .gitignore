@@ -45,7 +45,7 @@ backend/.env
 backend/data/
 
 # Large drill videos (handled via Git LFS / OTA later, not in git history)
-QiuJi/Resources/Videos/
+CuePhys/Resources/Videos/
 
 # Retired engine-rendered demo videos: 11 GB moved out of Resources/ so xcodegen
 # can never sweep them into the bundle again (v25 D-v25-1). Kept on disk, not
@@ -60,14 +60,14 @@ archive/deferred-features/*
 
 # Tutorial figure MASTERS: 4.9 GB of lossless PNG (1343 frames incl. orphans).
 # Masters stay on disk only — never in git, never in the bundle (D-v25-10).
-# What ships and what enters git is QiuJi/Resources/TutorialFigures/ (710 HEIC,
+# What ships and what enters git is CuePhys/Resources/TutorialFigures/ (710 HEIC,
 # 112 MB), published from these masters by `make tutorial-figures` (v25 W4,
 # D-v25-2 / D-v25-14). Two directories because a folder reference packages the
 # whole directory — masters and shipped figures cannot share one.
-QiuJi/Resources/DrillTutorials/*.png
+CuePhys/Resources/DrillTutorials/*.png
 
 # Engine preview frames: 520 MB, excluded from the app bundle (v25 D-v25-7).
-QiuJi/Resources/Previews/
+CuePhys/Resources/Previews/
 
 # Python bytecode from scripts/ tooling
 __pycache__/
@@ -76,9 +76,9 @@ __pycache__/
 /TaiQiuZhuo.usdz
 *.usdz
 # Current production models and the retired cue archive (excluded from the App).
-!QiuJi/Resources/ModelTrial20261010_TaiQiuZhuo.usdz
-!QiuJi/Resources/ModelTrial20261010_CueUV.usdz
-!QiuJi/Resources/LegacyModels/CueUV.usdz
+!CuePhys/Resources/ModelTrial20261010_TaiQiuZhuo.usdz
+!CuePhys/Resources/ModelTrial20261010_CueUV.usdz
+!CuePhys/Resources/LegacyModels/CueUV.usdz
 /drill_005/
 /problem_images/
 /table.png

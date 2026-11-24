@@ -11,11 +11,23 @@ import sys
 import tempfile
 import time
 
-from common import NAME, atomic_json, checksum, prune, read_json, sync_dir
+from common import NAME, append_json_event, atomic_json, checksum, prune, read_json, sync_dir
 
 ROOT = pathlib.Path.home()/'.local/share/cuephys-backups/managed'
 ARCHIVES = ROOT/'archives'
 TARGET = 'cuephysbackup@106.54.3.210'
+MIN_FREE_BYTES = 20 * 1024**3
+MIN_RESERVE_BYTES = 2 * 1024**3
+REMOTE_RETRY_DELAYS = (2, 5)
+ATTEMPTS = ROOT/'attempts.json'
+
+
+def error_detail(error):
+    stderr = getattr(error, 'stderr', b'')
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode('utf-8', 'replace')
+    return {'type': type(error).__name__, 'message': str(error).strip()[-1000:],
+            'stderr': str(stderr).strip()[-1000:]}
 
 
 def remote(*args, output=subprocess.PIPE):
@@ -26,6 +38,29 @@ def remote(*args, output=subprocess.PIPE):
         '-i',ROOT/'transport-key',TARGET,*args
     ], stdout=output, stderr=subprocess.PIPE, timeout=300, check=True)
     return result.stdout
+
+
+def remote_retry(*args):
+    for attempt in range(len(REMOTE_RETRY_DELAYS) + 1):
+        try:
+            return remote(*args)
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            if attempt >= len(REMOTE_RETRY_DELAYS):
+                raise
+            time.sleep(REMOTE_RETRY_DELAYS[attempt])
+
+
+def remote_get_retry(name, file):
+    for attempt in range(len(REMOTE_RETRY_DELAYS) + 1):
+        file.seek(0)
+        file.truncate(0)
+        try:
+            remote('get', name, output=file)
+            return
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            if attempt >= len(REMOTE_RETRY_DELAYS):
+                raise
+            time.sleep(REMOTE_RETRY_DELAYS[attempt])
 
 
 def verify_meta(meta, kind):
@@ -50,12 +85,13 @@ def receive(meta, previous):
             return previous
         if checksum(destination) == meta['sha256']:
             return dict(meta, verified=int(time.time()), mtime=destination.stat().st_mtime_ns)
-    if shutil.disk_usage(ARCHIVES).free < meta['size'] + 2*1024**3:
-        raise OSError('备份空间不足，需预留 2 GiB')
+    required = max(meta['size'] + MIN_RESERVE_BYTES, MIN_FREE_BYTES)
+    if shutil.disk_usage(ARCHIVES).free < required:
+        raise OSError('备份空间不足，需保留至少 20 GiB 可用空间')
     with tempfile.NamedTemporaryFile(dir=ARCHIVES, prefix='.receiving-', delete=False) as file:
         pending = pathlib.Path(file.name)
         try:
-            remote('get',name,output=file)
+            remote_get_retry(name, file)
             file.flush()
             os.fsync(file.fileno())
             if pending.stat().st_size != meta['size'] or checksum(pending) != meta['sha256']:
@@ -71,17 +107,18 @@ def receive_and_ack(kind, meta, saved):
     verify_meta(meta, kind)
     saved[kind] = receive(meta, saved.get(kind))
     atomic_json(ROOT/'verified.json', saved)
-    remote('ack',meta['name'],meta['sha256'])
+    remote_retry('ack',meta['name'],meta['sha256'])
 
 
 def backup():
     for pending in ARCHIVES.glob('.receiving-*'):
         if pending.is_file() and not pending.is_symlink():
             pending.unlink()
-    remote('pulse')
-    manifest = json.loads(remote('status'))['manifest']
+    remote_retry('pulse')
+    manifest = json.loads(remote_retry('status'))['manifest']
     saved = read_json(ROOT/'verified.json', {})
     issues = []
+    backup.last_details = []
     for kind, label in [('proof','注销记录'), ('full','业务库')]:
         try:
             meta = manifest[kind]
@@ -89,12 +126,13 @@ def backup():
                 receive_and_ack(kind, meta, saved)
             except subprocess.CalledProcessError:
                 # The server may publish a newer generation during download or ACK.
-                current = json.loads(remote('status'))['manifest'][kind]
+                current = json.loads(remote_retry('status'))['manifest'][kind]
                 if current['name'] == meta['name']:
                     raise
                 receive_and_ack(kind, current, saved)
         except Exception as error:
             issues.append(label+'传输或确认失败（'+type(error).__name__+'）')
+            backup.last_details.append({'kind': kind, **error_detail(error)})
     if 'full' in saved and 'proof' in saved:
         # Protect the latest verified recovery pair during an extended outage.
         keep = {saved[k]['name'] for k in ('full','proof')}
@@ -138,11 +176,22 @@ def notify(issues, statefile, *, test=False, incidents=()):
 def tick(role, local_pull=False):
     issues = []
     if role == 'pull':
+        started = int(time.time())
         try:
             issues.extend(backup())
         except Exception as error:
             issues.append('Mac mini 无法取得备份（'+type(error).__name__+'）')
-        atomic_json(ROOT/'pull-status.json', {'at':int(time.time()), 'issues':issues})
+            details = [error_detail(error)]
+        else:
+            details = getattr(backup, 'last_details', [])
+        finished = int(time.time())
+        status = {'at': finished, 'started': started, 'duration': finished-started, 'issues': issues}
+        if details:
+            status['details'] = details
+        atomic_json(ROOT/'pull-status.json', status)
+        append_json_event(ATTEMPTS, {'at': finished, 'role': role, 'ok': not issues,
+                                     'duration': finished-started, 'issues': issues,
+                                     'details': details}, limit=100)
         return bool(issues)
     if local_pull:
         state = read_json(ROOT/'pull-status.json', {})
@@ -151,7 +200,7 @@ def tick(role, local_pull=False):
             issues.append('本机备份进程超过 10 分钟未完成检查')
     incidents = []
     try:
-        server = json.loads(remote('status'))
+        server = json.loads(remote_retry('status'))
         issues.extend(server['issues'])
         incidents = server.get('incidents', [])
     except Exception as error:

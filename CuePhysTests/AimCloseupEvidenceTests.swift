@@ -1,7 +1,7 @@
 import SceneKit
 import SwiftUI
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// Visual evidence for the aim-closeup fixes (UR-20260728 / 问题集合 v23 W1):
 /// composites the loupe over the **same** plain-pipeline rotated top-down render

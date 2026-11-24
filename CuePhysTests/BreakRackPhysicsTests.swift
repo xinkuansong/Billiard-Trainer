@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Test-only rack experiments. Production RackLayout and collision rules are unchanged.
 final class RackRandomStrategyExperimentTests: XCTestCase {
@@ -236,7 +236,7 @@ final class BreakRackPhysicsTests: XCTestCase {
         let strike = CueBallStrike.executeStrike(
             aimDirection: SCNVector3(-1, 0, 0), velocity: velocity, spinX: spinX, spinY: spinY)
 
-        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
         engine.setBall(BallState(position: cuePos, velocity: strike.velocity,
                                  angularVelocity: strike.angularVelocity, state: .sliding, name: "cue"))
         for (i, p) in objects.enumerated() {
@@ -462,7 +462,7 @@ final class BreakRackPhysicsTests: XCTestCase {
             let cuePos = SCNVector3(cue.x, cue.y, cue.z + 0.04)   // 略偏，制造非正中开球
             let strike = CueBallStrike.executeStrike(
                 aimDirection: SCNVector3(-1, 0, 0), velocity: v, spinX: 0, spinY: 0)
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
             engine.setBall(BallState(position: cuePos, velocity: strike.velocity,
                                      angularVelocity: strike.angularVelocity, state: .sliding, name: "cue"))
             for (i, p) in objects.enumerated() {
@@ -521,7 +521,7 @@ final class BreakRackPhysicsTests: XCTestCase {
                 let (cue, objects) = buildRack(gap: g)
                 let aim = SCNVector3(-1, 0, 0).rotatedY(deg * .pi / 180)
                 let strike = CueBallStrike.executeStrike(aimDirection: aim, velocity: v, spinX: 0, spinY: 0)
-                let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+                let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
                 engine.setBall(BallState(position: cue, velocity: strike.velocity,
                                          angularVelocity: strike.angularVelocity, state: .sliding, name: "cue"))
                 for (i, p) in objects.enumerated() {

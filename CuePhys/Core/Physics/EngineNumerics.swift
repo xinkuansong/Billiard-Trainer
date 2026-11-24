@@ -1,6 +1,6 @@
 //
 //  EngineNumerics.swift
-//  QiuJi
+//  CuePhys
 //
 //  事件驱动引擎的**纯数值/运动学辅助**（D-A1 第三梯队：从 1700+ 行的 `EventDrivenEngine`
 //  巨型文件中抽出「数值安全网 + 运动学」一块）。这些函数**不持有引擎状态**——只依赖入参与

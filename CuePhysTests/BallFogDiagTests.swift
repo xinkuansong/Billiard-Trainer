@@ -1,15 +1,15 @@
 //
 //  BallFogDiagTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  渲染打磨诊断（球面"发雾"问题）：用真实 AngleTrainingScene 离屏渲染球的特写，
 //  分别覆盖 plain 顶视（2D 页）与 enhanced 透视（3D 瞄准页）两条管线，供改材质
 //  参数（roughness / clearcoat / 母球 diffuseOverride）前后肉眼对比。
 //
 //  运行：
-//    xcodebuild test -scheme QiuJi \
+//    xcodebuild test -scheme CuePhys \
 //      -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-//      -only-testing:QiuJiTests/BallFogDiagTests
+//      -only-testing:CuePhysTests/BallFogDiagTests
 //
 //  输出：build/ball_fog/scene_2d.png、scene_3d.png
 //
@@ -17,7 +17,7 @@
 import XCTest
 import SceneKit
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class BallFogDiagTests: XCTestCase {
 

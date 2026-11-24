@@ -7,7 +7,7 @@
 
 ## 一、Apple Privacy Manifest（iOS 17 强制，审核必须通过）
 
-> 文件路径：`QiuJi/PrivacyInfo.xcprivacy`
+> 文件路径：`CuePhys/PrivacyInfo.xcprivacy`
 > 参考：[Apple Privacy Manifest 文档](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files)
 
 ### 1.1 跟踪声明
@@ -122,5 +122,5 @@
 - [ ] 永久会员 IAP 文案与候选包一致
 - [ ] 微信 SDK 配置完整
 - [ ] 账号注销功能可用
-- [ ] 隐私政策 URL 可访问（H-09）
+- [x] 隐私政策 URL 可访问（H-09）：`https://youbilliards.com/legal/cuephys-privacy/` 已公网返回 200（2026-11-24）；后台填写仍待正式签名包和 ASC 隐私标签复核。
 - [ ] App Store Connect 年龄分级问卷已填写（H-12）

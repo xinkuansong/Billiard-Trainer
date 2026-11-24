@@ -1,6 +1,6 @@
 //
 //  AnalyticShotRollout.swift
-//  QiuJi
+//  CuePhys
 //
 //  第 2 层单球解析 rollout（B3，方案 §2/§3）：碰后母球与目标球各自做
 //  「常加速度段 + 库边反弹 + 落袋 + 状态迁移」的闭式推演——这正是事件驱动引擎

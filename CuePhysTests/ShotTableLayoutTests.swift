@@ -1,6 +1,6 @@
 import XCTest
 import CoreGraphics
-@testable import QiuJi
+@testable import CuePhys
 
 /// 击打页共享布局几何单测（问题集合 v3 §S1）。
 ///

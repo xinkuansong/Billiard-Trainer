@@ -1,6 +1,6 @@
 import XCTest
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 /// 问题集合 v29 W2b：历史详情「编辑数据」。
 ///

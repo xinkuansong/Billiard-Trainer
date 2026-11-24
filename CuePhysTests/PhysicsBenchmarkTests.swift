@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// 2D 物理引擎「体检表」基准套件（go/no-go 探针）。
 ///
@@ -13,7 +13,7 @@ import SceneKit
 /// 设计原则：带容差的「band」断言，不是精确相等；每个测试先 print 一张
 /// 「实测 / 参考 / 是否达标」表（XCTest 捕获 stdout），再断言。
 /// 几何敏感项（E 进袋）同时跑 CAD 版 `chineseEightBall()` 与 USDZ 版
-/// `chineseEightBallQiuJi()` 做对比，凸显双真源差异。
+/// `chineseEightBallCuePhys()` 做对比，凸显双真源差异。
 final class PhysicsBenchmarkTests: XCTestCase {
 
     private let R = BallPhysics.radius
@@ -172,7 +172,7 @@ final class PhysicsBenchmarkTests: XCTestCase {
         let cut: Float = 30 * .pi / 180
         let cue = SCNVector3(-0.6, surfaceY + R, 0)
         let target = SCNVector3(0, surfaceY + R, 2 * R * sinf(cut))
-        let engine = runEngine(geometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY),
+        let engine = runEngine(geometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY),
                                cue: cue, target: target, aimDir: SCNVector3(1, 0, 0),
                                velocity: 2, spinX: 0, spinY: 0)
         guard let ct = firstContactTime(engine) else { return XCTFail("未发生球-球碰撞") }
@@ -192,7 +192,7 @@ final class PhysicsBenchmarkTests: XCTestCase {
         let cue = SCNVector3(-0.5, surfaceY + R, 0)
         let target = SCNVector3(0, surfaceY + R, 2 * R * sinf(cut))
         let v: Float = 2
-        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
         let vel = SCNVector3(v, 0, 0)
         let wRoll = SCNVector3(0, 1, 0).cross(vel) * (1.0 / R)   // 自然滚动角速度
         engine.setBall(BallState(position: cue, velocity: vel, angularVelocity: wRoll, state: .rolling, name: "cue"))
@@ -216,7 +216,7 @@ final class PhysicsBenchmarkTests: XCTestCase {
         // 低杆直球：母球碰后应回拉（最终 x < 接触点 x）。
         let cue = SCNVector3(-0.35, surfaceY + R, 0)
         let target = SCNVector3(0, surfaceY + R, 0)
-        let engine = runEngine(geometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY),
+        let engine = runEngine(geometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY),
                                cue: cue, target: target, aimDir: SCNVector3(1, 0, 0),
                                velocity: 2.5, spinX: 0, spinY: -1)
         let rec = engine.getTrajectoryRecorder()
@@ -227,7 +227,7 @@ final class PhysicsBenchmarkTests: XCTestCase {
 
     func test_D_rollDistance_report() {
         // 中速(3.3 m/s)中心球总滚动路径长度（含吃库）。揭示摩擦标定：路径越长=越滑。
-        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
         let strike = CueBallStrike.executeStrike(aimDirection: SCNVector3(1, 0, 0),
                                                  velocity: StrokePhysics.SpeedLevel.medium.velocity,
                                                  spinX: 0, spinY: 0)
@@ -250,27 +250,27 @@ final class PhysicsBenchmarkTests: XCTestCase {
         XCTAssertTrue(pathLen >= 0.3 && pathLen <= 80, "滚动路径异常 \(pathLen) m")
     }
 
-    // MARK: - E. 进袋（端到端，几何敏感，CAD vs QiuJi 对比）
+    // MARK: - E. 进袋（端到端，几何敏感，CAD vs CuePhys 对比）
 
     /// E-geom（**诊断**，非 go/no-go 闸门）：直接幽灵球瞄准（不经求解器），隔离「几何 + 内核」。
-    /// 朴素瞄准把目标球打向 USDZ 袋心，跑 CAD 与 QiuJi 两套几何对比。
+    /// 朴素瞄准把目标球打向 USDZ 袋心，跑 CAD 与 CuePhys 两套几何对比。
     ///
     /// 发现（探针）：朴素瞄准在两套几何下都会在袋口「rattle」——CAD 的洞心偏标记 ~17mm；
-    /// QiuJi 虽袋心 = 标记，但 jaw 圆弧仍取自 CAD 坐标、与 USDZ 洞心残留 ~17mm 错位，
+    /// CuePhys 虽袋心 = 标记，但 jaw 圆弧仍取自 CAD 坐标、与 USDZ 洞心残留 ~17mm 错位，
     /// 故贴角球被 jaw 弹出而非落袋（13.4mm 捕获窗很窄）。真正可靠进袋靠 **闭环求解器**
     /// （见 `test_E_solver_pottingBattery`，已 5/5）。jaw↔洞心对齐留作 P10 标定。
     ///
-    /// 断言（真不变量，非闸门）：QiuJi 几何**绝不把目标球打进错误的袋**（无假性落袋）。
+    /// 断言（真不变量，非闸门）：CuePhys 几何**绝不把目标球打进错误的袋**（无假性落袋）。
     func test_E_geom_pottingBattery_CADvsQiuJi() {
         let target = SCNVector3(0.2, surfaceY + R, -0.05)
         let pocketIndex = 1                                  // ASC 右上角袋
         let expected = "pocket_\(pocketIndex)"
         let marker = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)[pocketIndex]
         let cad = TableGeometry.chineseEightBall()
-        let qiuji = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        let qiuji = TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY)
 
-        print("\n[E-geom·诊断] 幽灵球直瞄进袋（瞄向 USDZ 袋心）: CAD vs QiuJi（朴素瞄准，非闸门）")
-        print("  切球角°   CAD结果        QiuJi结果   QiuJi到标记mm")
+        print("\n[E-geom·诊断] 幽灵球直瞄进袋（瞄向 USDZ 袋心）: CAD vs CuePhys（朴素瞄准，非闸门）")
+        print("  切球角°   CAD结果        CuePhys结果   CuePhys到标记mm")
         var qjPotted = 0
         for cutDeg in [Float(0), 15, 30, 45, 55] {
             let (cue, aimDir) = makeLayout(target: target, pocketIndex: pocketIndex, cutDeg: cutDeg, cueDist: 0.4)
@@ -285,11 +285,11 @@ final class PhysicsBenchmarkTests: XCTestCase {
             if qjPid == expected { qjPotted += 1 }
             print(String(format: "  %5.0f    %@(%.0fmm偏)   %@   %.0f",
                          cutDeg, cadPid, cadDist, qjPid, qjDist))
-            // 真不变量：QiuJi 若落袋，必须是选定袋（绝不假性落入别的袋）。
+            // 真不变量：CuePhys 若落袋，必须是选定袋（绝不假性落入别的袋）。
             XCTAssertTrue(qjPid == "none" || qjPid == expected,
-                          "QiuJi 切角 \(cutDeg)° 落入错误袋 \(qjPid)")
+                          "CuePhys 切角 \(cutDeg)° 落入错误袋 \(qjPid)")
         }
-        print(String(format: "  → QiuJi 朴素瞄准进袋 %d/5（其余袋口 rattle；可靠进袋见 E-solver）", qjPotted))
+        print(String(format: "  → CuePhys 朴素瞄准进袋 %d/5（其余袋口 rattle；可靠进袋见 E-solver）", qjPotted))
     }
 
     /// E-solver：完整 ShotPredictor 管线（含闭环瞄准求解），断言真实模拟进袋 simObjectPotted。
@@ -315,7 +315,7 @@ final class PhysicsBenchmarkTests: XCTestCase {
     func test_E_falsePositive_noPhantomPot() {
         let target = SCNVector3(0.6, surfaceY + R, 0.3)
         let cue = SCNVector3(0.6, surfaceY + R, -0.2)         // 母球在目标球 -z 侧
-        let engine = runEngine(geometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY),
+        let engine = runEngine(geometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY),
                                cue: cue, target: target, aimDir: SCNVector3(0, 0, 1),   // 把目标球推向 +z 长库中段
                                velocity: 3, spinX: 0, spinY: 0)
         let pid = objectPocketId(engine)

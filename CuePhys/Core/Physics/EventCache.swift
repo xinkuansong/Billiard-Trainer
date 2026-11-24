@@ -1,6 +1,6 @@
 //
 //  EventCache.swift
-//  QiuJi
+//  CuePhys
 //
 //  事件驱动引擎的事件缓存（D-A1 第三梯队：从 `EventDrivenEngine` 巨型文件中抽出独立成块）。
 //  缓存已算出的球-球 / 球-库 / 状态转换事件，避免每次 findNextEvent 重复求解四次方程。

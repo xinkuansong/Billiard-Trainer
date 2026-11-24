@@ -2,7 +2,7 @@ import XCTest
 import SceneKit
 import Metal
 import MetalKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Opt-in evidence capture of the complete production scene, not a material-ball renderer.
 @MainActor

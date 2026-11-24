@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v21 W5 立档：计划 JSON 接入加塞 drill（解码合法 + 引用可 grep）。
 /// v34 W3 重排后更新：加塞主轴 c073–c075 归 `plan_english`（杆法Ⅱ·加塞挤偏），

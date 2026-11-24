@@ -456,13 +456,13 @@
   "isolatedDirections": {},
   "geometryFingerprint": "b5f48d12f01cea73c47139602220d4e572c35ec58484060d9bbe27c1b9096881",
   "geometrySources": {
-    "QiuJi/Core/Physics/TableGeometry.swift": "a237f75e3cfbd83613b951a2a8c2cf4ac2de2321dbbcf35e9bb3f9674626b3b1",
-    "QiuJi/Core/Physics/TableGeometry+QiuJi.swift": "c853037ccf1691d607daca5d68a9cb27d0131f81b713e0b2a07c8a146b8b77f9",
-    "QiuJi/Core/Physics/BTPhysicsConstants.swift": "a5623d3a4f7ccbe66866da98ab187e88efc99ec8b51db1b99b7c73750ca92f26",
-    "QiuJi/Core/Physics/QuarticSolver.swift": "a957699de3bda954b2f2a695dbcd73e85e5e208f5d0cea15a8b15f2428c426b5",
-    "QiuJi/Core/Physics/EngineNumerics.swift": "2f077e047f5763b34b675c3687b2372b72b25c3c6069158d65036990cd28d7a7",
-    "QiuJi/Core/Physics/SCNVector3+Physics.swift": "1009ca223e02f7817fddf7fb1e43acb93ccf74a14bca1c803626e080387c42fd",
-    "QiuJi/Core/Scene/AngleSceneCalculator.swift": "44ffd597d68086ec5131b374628771fdb003e71f11af992f319255e6e4553bc3"
+    "CuePhys/Core/Physics/TableGeometry.swift": "a237f75e3cfbd83613b951a2a8c2cf4ac2de2321dbbcf35e9bb3f9674626b3b1",
+    "CuePhys/Core/Physics/TableGeometry+CuePhys.swift": "b1321b08504d0db59b19b124226283373d2487a0a9acb9cdcffdf57ff329036a",
+    "CuePhys/Core/Physics/BTPhysicsConstants.swift": "5815b68e578ff2c8e3c4de1fd3156f0ce6bc821510c3c5089429b3788ae67cdb",
+    "CuePhys/Core/Physics/QuarticSolver.swift": "a957699de3bda954b2f2a695dbcd73e85e5e208f5d0cea15a8b15f2428c426b5",
+    "CuePhys/Core/Physics/EngineNumerics.swift": "d466720c8e6350d30775052aa6df93f0edc6fec23d5a54ed07c47d1c885f7495",
+    "CuePhys/Core/Physics/SCNVector3+Physics.swift": "dce1b6b8bfa41fd75e5593f87b9ef03455b307087748d985035d53ecd95b9552",
+    "CuePhys/Core/Scene/AngleSceneCalculator.swift": "370132e96c6ceb178f08b9606c68b89eaa2a877000dca2dde558dc36fafe8c40"
   },
   "binarySHA256": "fb0a930afe75462f6f60100dd03ed6c2a6fc6a45a4f4415e7340b295b201173d",
   "binaryBytes": 2839680,

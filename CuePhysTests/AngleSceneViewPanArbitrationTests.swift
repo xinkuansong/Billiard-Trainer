@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Single-finger pan on the SCNView vs. ancestor UIScrollView pans (paging `TabView` in the
 /// training pager, vertical `ScrollView` on detail pages). The 3D camera orbit must own a swipe

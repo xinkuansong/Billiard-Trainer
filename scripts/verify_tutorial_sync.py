@@ -71,12 +71,12 @@ class Paths:
 
     def __init__(self, root: Path) -> None:
         self.root = root
-        self.drills = root / "QiuJi" / "Resources" / "Drills"
-        self.tutorials = root / "QiuJi" / "Resources" / "DrillTutorials"
-        self.plans = root / "QiuJi" / "Resources" / "Plans"
+        self.drills = root / "CuePhys" / "Resources" / "Drills"
+        self.tutorials = root / "CuePhys" / "Resources" / "DrillTutorials"
+        self.plans = root / "CuePhys" / "Resources" / "Plans"
         self.sequences = root / "content" / "position_play" / "sequences"
         self.export = root / "build" / "position_play_export"
-        self.boards = root / "QiuJi" / "Resources" / "DrillBoards"
+        self.boards = root / "CuePhys" / "Resources" / "DrillBoards"
         self.profiles = root / "content" / "drill_profiles"
 
 
@@ -1502,7 +1502,7 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
 
 # ── I10：App 模型可解码性 ────────────────────────────────────────────────
 #
-# 契约 §7 I10。这份 schema 是 `QiuJi/Data/Services/DrillContentService.swift` 的
+# 契约 §7 I10。这份 schema 是 `CuePhys/Data/Services/DrillContentService.swift` 的
 # `Codable` 结构（+ `Core/Physics/ShotIntent.swift`）的 Python 镜像：`True` = 非可选
 # （Swift 里 `let x: T`），`False` = 可选（`let x: T?`）。改 Swift 模型必须同步改这里，
 # 否则本检查会立刻在全库 77 条 drill 上暴露差异。

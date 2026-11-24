@@ -1,6 +1,6 @@
 //
 //  BTPhysicsConstants.swift
-//  QiuJi
+//  CuePhys
 //
 //  物理引擎常量（移植自 01.billiard_app PhysicsConstants.swift 的物理子集）。
 //
@@ -8,7 +8,7 @@
 //  - **内框尺寸 `innerLength` / `innerWidth` 与球半径 `BallPhysics.radius` 以本文件为唯一真源**；
 //    `AngleSceneCalculator.innerLength/innerWidth/ballRadius` 改为引用本文件（消除双写）。
 //  - **袋口洞中心 / jaw 端点 / 落袋半径**（USDZ 实测几何）以 `AngleSceneCalculator` 为唯一真源；
-//    生产物理桌面 `TableGeometry.chineseEightBallQiuJi` 已直接消费它。
+//    生产物理桌面 `TableGeometry.chineseEightBallCuePhys` 已直接消费它。
 //  - 下方 `TablePhysics` 的袋口 CAD 参数（cornerPocketDiameter 等）**不是生产袋口真源**，
 //    仅供 ① 库边 jaw 构建器 `chineseEightBallCushions` 与 ② 对照用 CAD 几何 `chineseEightBall()`；
 //    生产路径的袋口洞一律走 `AngleSceneCalculator`。

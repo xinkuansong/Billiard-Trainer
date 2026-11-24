@@ -10,7 +10,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURES = ROOT / "QiuJiTests" / "Fixtures" / "V54"
+FIXTURES = ROOT / "CuePhysTests" / "Fixtures" / "V54"
 PLANS = ROOT / "QiuJi" / "Resources" / "Plans"
 
 

@@ -65,7 +65,7 @@ def sha(raw):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bank", type=Path, default=ROOT / "QiuJi/Resources/training-grid-bank.json")
+    parser.add_argument("--bank", type=Path, default=ROOT / "CuePhys/Resources/training-grid-bank.json")
     parser.add_argument("--review", type=Path, default=ROOT / "output/two-ball-pocket-filter-20261024/review-r2-30pct/samples.json")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()

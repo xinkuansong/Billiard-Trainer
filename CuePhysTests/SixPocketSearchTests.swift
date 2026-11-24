@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Opt-in research harness. Uses production physics without changing its constants.
 final class SixPocketSearchTests: XCTestCase {
@@ -18,7 +18,7 @@ final class SixPocketSearchTests: XCTestCase {
         if let d=commonDistance { return String(format:"six-pocket-v3-uniform-%.6fm",Double(d)) }
         return hangingLayout ? "six-pocket-v2-hanging" : "six-pocket-v1"
     }
-    private var geometry: TableGeometry { .chineseEightBallQiuJi(surfaceY: y) }
+    private var geometry: TableGeometry { .chineseEightBallCuePhys(surfaceY: y) }
     private var positions: [SCNVector3] {
         pocketIndices.map { i in
             let p = geometry.pockets[i].center
@@ -1347,7 +1347,7 @@ final class SixPocketSearchTests: XCTestCase {
             for cueFirst in [false,true] {
                 for normalize in [false,true] {
                     let height=actualHeight ? actualY:y
-                    let e=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:height))
+                    let e=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:height))
                     var dir=SCNVector3(cosf(q[2]),0,sinf(q[2]))
                     let length=sqrtf(dir.x*dir.x+dir.z*dir.z)
                     if normalize {dir=SCNVector3(dir.x/length,0,dir.z/length)}

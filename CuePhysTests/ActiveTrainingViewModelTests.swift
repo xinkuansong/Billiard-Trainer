@@ -1,7 +1,7 @@
 import XCTest
 import SwiftData
 import UserNotifications
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class ActiveTrainingViewModelTests: XCTestCase {

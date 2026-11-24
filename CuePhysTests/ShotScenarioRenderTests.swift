@@ -1,6 +1,6 @@
 //
 //  ShotScenarioRenderTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  P10 物理可视化诊断（Track B-2）：把「分离角与走位」页的击球求解结果渲染成
 //  **2D 顶视诊断图**（PNG 接触表），用于肉眼核对不同袋口/切角/塞/力度下的真实
@@ -9,9 +9,9 @@
 //  幽灵球、瞄准点、母球/目标球真实轨迹一并画出。
 //
 //  运行：
-//    xcodebuild test -scheme QiuJi \
+//    xcodebuild test -scheme CuePhys \
 //      -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-//      -only-testing:QiuJiTests/ShotScenarioRenderTests
+//      -only-testing:CuePhysTests/ShotScenarioRenderTests
 //
 //  输出目录：build/shot_probe/*.png（每张是一个 cols×rows 的接触表）。
 //
@@ -19,7 +19,7 @@
 import XCTest
 import UIKit
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class ShotScenarioRenderTests: XCTestCase {
 
@@ -311,7 +311,7 @@ final class ShotScenarioRenderTests: XCTestCase {
             ("中台→idx0 cut30 v5.8", SCNVector3(0, sY + R, 0), 0, 30, 5.8),
             ("中台→idx0 cut75 v5.8", SCNVector3(0, sY + R, 0), 0, 75, 5.8),
         ]
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         print("\n===DIAG-LANDSCAPE-FAILING=== (offset -6..+6 /0.5, P=进选定袋 直接进, b=吃库进)")
         for (label, target, pk, cut, v) in cases {
             let pocket = AngleSceneCalculator.pocketPositions(surfaceY: sY)[pk]
@@ -427,7 +427,7 @@ final class ShotScenarioRenderTests: XCTestCase {
         let pocketIndex = 1
         let target = SCNVector3(0.55, sY + R, -0.10)
         let pocket = AngleSceneCalculator.pocketPositions(surfaceY: sY)[pocketIndex]
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let captureWindow = AngleSceneCalculator.pocketDropRadius(index: pocketIndex) - R + 0.003
 
         print("\n===DIAG-CORNER-LANDSCAPE=== (cut15, captureWin=\(String(format: "%.1f", captureWindow*1000))mm)")
@@ -456,7 +456,7 @@ final class ShotScenarioRenderTests: XCTestCase {
         let pocketIndex = 1
         let target = SCNVector3(0.55, sY + R, -0.10)
         let pocket = AngleSceneCalculator.pocketPositions(surfaceY: sY)[pocketIndex]
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         print("\n===DIAG-PREDICT-VS-ENGINE=== (cut15 corner idx1)")
         for v in [Float(2.4), 3.3, 4.4, 5.8] {
             let cue = placeCue(target: target, pocketIndex: pocketIndex, cutDeg: 15)
@@ -492,7 +492,7 @@ final class ShotScenarioRenderTests: XCTestCase {
         let pocketIndex = 1
         let target = SCNVector3(0.55, sY + R, -0.10)
         let pocket = AngleSceneCalculator.pocketPositions(surfaceY: sY)[pocketIndex]
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         print("\n===DIAG-SOLVER-SCORING=== (cut15 corner idx1, short sim 140ev/7s)")
         for v in [Float(3.3)] {
             let cue = placeCue(target: target, pocketIndex: pocketIndex, cutDeg: 15)
@@ -518,7 +518,7 @@ final class ShotScenarioRenderTests: XCTestCase {
         let pocketIndex = 1
         let target = SCNVector3(0.55, sY + R, -0.10)
         let pocket = AngleSceneCalculator.pocketPositions(surfaceY: sY)[pocketIndex]
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let v: Float = 3.3
         let cue = placeCue(target: target, pocketIndex: pocketIndex, cutDeg: 15)
         let pAim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target, pocketIndex: pocketIndex, surfaceY: sY)
@@ -626,7 +626,7 @@ final class ShotScenarioRenderTests: XCTestCase {
         let pocketIndex = 1
         let target = SCNVector3(0.55, sY + R, -0.10)
         let pocket = AngleSceneCalculator.pocketPositions(surfaceY: sY)[pocketIndex]
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let v: Float = 3.3
         let cue = placeCue(target: target, pocketIndex: pocketIndex, cutDeg: 15)
         let pAim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target, pocketIndex: pocketIndex, surfaceY: sY)
@@ -716,7 +716,7 @@ final class ShotScenarioRenderTests: XCTestCase {
         let pocketIndex = 0
         let v: Float = 5.8
         let cue = placeCue(target: target, pocketIndex: pocketIndex, cutDeg: 20)
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
         let pAim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target, pocketIndex: pocketIndex, surfaceY: sY)
         let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: pAim, ballRadius: R)
         let aim = unit(from: cue, to: ghost)
@@ -969,7 +969,7 @@ final class ShotScenarioRenderTests: XCTestCase {
         cg.setFillColor(UIColor(red: 0.10, green: 0.22, blue: 0.16, alpha: 1).cgColor)
         cg.fill(plotRect)
 
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: sY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: sY)
 
         // 落袋孔（半透明深色圆）+ 视觉标记圈（黄）
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: sY)

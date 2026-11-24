@@ -1,6 +1,6 @@
 //
 //  SequencePerspectiveFitTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  3D 静态斜视角取景 fit 几何验证（ADR-P11-15）。
 //
@@ -14,7 +14,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class SequencePerspectiveFitTests: XCTestCase {
 

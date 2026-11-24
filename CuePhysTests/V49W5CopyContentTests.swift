@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W5：近台、薄球与远台三组带塞准度课的边界和示范偏差契约。
 @MainActor

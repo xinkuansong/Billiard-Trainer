@@ -1,6 +1,6 @@
 //
 //  AnalyticRolloutParityTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  B3 — 单球解析 rollout 对拍验证（先于接线求解器，方案 §3 B3「对拍先行」精神同 B2）。
 //
@@ -23,7 +23,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class AnalyticRolloutParityTests: XCTestCase {
 

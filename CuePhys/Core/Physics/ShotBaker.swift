@@ -1,11 +1,11 @@
 //
 //  ShotBaker.swift
-//  QiuJi
+//  CuePhys
 //
 //  离线烘焙门面（P10 物理升级 · 内容管线雏形，ADR-P10-01）。
 //
 //  把「击球意图」(`ShotIntent.Shot`) 喂给物理引擎门面 `ShotPredictor`（其内部使用
-//  USDZ 对齐球桌 `TableGeometry.chineseEightBallQiuJi`），求解出精确轨迹，并把
+//  USDZ 对齐球桌 `TableGeometry.chineseEightBallCuePhys`），求解出精确轨迹，并把
 //  母球 / 目标球折线从场景米制坐标转回归一化坐标，回填到现有 `DrillAnimation`。
 //
 //  渲染层（`BTMiniTable` 等）天然消费 `DrillAnimation`，故烘焙后无需改任何 View。

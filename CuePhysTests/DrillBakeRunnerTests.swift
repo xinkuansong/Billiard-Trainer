@@ -1,6 +1,6 @@
 //
 //  DrillBakeRunnerTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  动作库烘焙跑测（P10 物理升级 · 内容管线雏形，ADR-P10-01）。
 //
@@ -12,13 +12,13 @@
 //     校验报告行（feasible / 真实模拟进选定袋 / 切球角），对接 H-11 人工核查。
 //
 //  运行：
-//    xcodebuild test -scheme QiuJi \
+//    xcodebuild test -scheme CuePhys \
 //      -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-//      -only-testing:QiuJiTests/DrillBakeRunnerTests
+//      -only-testing:CuePhysTests/DrillBakeRunnerTests
 //
 
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 final class DrillBakeRunnerTests: XCTestCase {
 

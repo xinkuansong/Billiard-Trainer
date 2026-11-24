@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// An offline second pass searches a neighbourhood of a real pot, rather than
 /// accepting the first edge-of-pocket solution returned by the fast solver.

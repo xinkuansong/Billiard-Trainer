@@ -27,7 +27,7 @@ struct KickQuestion: Codable, Identifiable {
     var label: String { "\(source.walls.count)库" }
     /// World XZ, metres. Long walls have two independent main rail segments.
     var initialAimPoint: SCNVector3 {
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
         let first = railSegments?.first.flatMap { (0..<6).contains($0) ? $0 : nil }
         // Legacy records lack segment IDs; recover the first segment from their reference ray.
         let reference = AnalyticShotRollout.earliestCushionEvent(
@@ -56,7 +56,7 @@ struct KickQuestion: Codable, Identifiable {
             R: Double(BallPhysics.radius), maxTime: Double(horizon)) else { return false }
         let cushion = AnalyticShotRollout.earliestCushionEvent(
             position: cue, velocity: aim, accel: SCNVector3Zero,
-            geometry: .chineseEightBallQiuJi(surfaceY: 0),
+            geometry: .chineseEightBallCuePhys(surfaceY: 0),
             horizon: contact, reach: contact + BallPhysics.radius)
         return cushion == nil || contact < cushion!.time
     }

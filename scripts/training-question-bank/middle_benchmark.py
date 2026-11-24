@@ -71,7 +71,7 @@ def prepare():
     (OUT/"source-manifest.json").write_text(json.dumps(manifest,indent=2))
     (OUT/"request.json").write_text(json.dumps(dict(sourceFingerprint=manifest["fingerprint"],
         gallerySHA256=sha(OUT/"samples.json"),inventorySHA256=sha(INVENTORY)),indent=2))
-    (OUT/"TrainingSpeedScreeningTests.swift").write_bytes((ROOT/"QiuJiTests/TrainingSpeedScreeningTests.swift").read_bytes())
+    (OUT/"TrainingSpeedScreeningTests.swift").write_bytes((ROOT/"CuePhysTests/TrainingSpeedScreeningTests.swift").read_bytes())
     print(json.dumps(dict(population=total,count=len(samples),
         pockets=dict(collections.Counter(s["pocket"] for s in samples)),
         rails=dict(collections.Counter(s["cell"]["railIndex"] for s in samples)),

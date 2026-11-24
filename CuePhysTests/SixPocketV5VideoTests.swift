@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Renders the verified spec-v5 five-ball solution to an MP4.
 ///
@@ -34,7 +34,7 @@ final class SixPocketV5VideoTests: XCTestCase {
         omittedBall = ball
     }
 
-    private var geometry: TableGeometry { .chineseEightBallQiuJi(surfaceY: y) }
+    private var geometry: TableGeometry { .chineseEightBallCuePhys(surfaceY: y) }
     private var cueName: String { ShotInput.cueBallName }
     private func key(_ ball: Int) -> String { "_\(ball)" }
     private func pocketID(_ ball: Int) -> String {
@@ -162,7 +162,7 @@ final class SixPocketV5VideoTests: XCTestCase {
         XCTAssertFalse(prediction.cuePocketed, "cue ball pocketed in the production replay")
         XCTAssertTrue(prediction.hasFinalTableState)
         XCTAssertEqual(String(describing: prediction.termination),
-                       "Optional(QiuJi.EventDrivenEngine.Termination.settled)")
+                       "Optional(CuePhys.EventDrivenEngine.Termination.settled)")
         let recorder = try XCTUnwrap(prediction.recorder)
         XCTAssertFalse(recorder.isBallPocketed(cueName))
         let entries = recorder.pocketEntries.sorted { $0.time < $1.time }

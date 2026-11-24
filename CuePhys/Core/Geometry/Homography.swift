@@ -1,6 +1,6 @@
 //
 //  Homography.swift
-//  QiuJi
+//  CuePhys
 //
 //  平面单应变换（projective transform）：把「图像里台面平面上的点」映射到
 //  归一化台面系（CanvasPoint x∈[0,1] 左→右、y∈[0,0.5] 上→下，俯视 2:1）。

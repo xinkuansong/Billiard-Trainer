@@ -179,7 +179,7 @@ def validate_bank(bank: dict, geometry: Geometry):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bank", type=Path, default=ROOT / "QiuJi/Resources/training-grid-bank.json")
+    parser.add_argument("--bank", type=Path, default=ROOT / "CuePhys/Resources/training-grid-bank.json")
     parser.add_argument("--output", type=Path, required=True, help="New output directory; never replaces bank")
     parser.add_argument("--limit", type=int, help="Optional prefix for CLI smoke tests")
     args = parser.parse_args()

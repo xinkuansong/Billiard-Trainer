@@ -8,7 +8,7 @@ root = pathlib.Path(__file__).resolve().parents[3]
 out = root / 'output/custom-formation-production-sims-20261019'
 a = '6873B8B5-226A-4C33-BAA6-3516CF26D1F8'
 b = 'FEC0D1E7-0A8E-4CDB-ADE9-D33DC2D4C898'
-selector = 'QiuJiTests/CustomFormationSyncIntegrationTests/testAuthorizedProductionTwoDevicePhase'
+selector = 'CuePhysTests/CustomFormationSyncIntegrationTests/testAuthorizedProductionTwoDevicePhase'
 phases = [('A-create', a, 1), ('B-restore', b, 1), ('B-edit', b, 2),
           ('A-observe-edit-and-edit', a, 3), ('B-observe-edit-and-delete', b, 4),
           ('A-observe-delete', a, 4), ('B-fresh-after-delete', b, 4)]

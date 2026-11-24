@@ -48,7 +48,7 @@ def main():
     (out/'index.html').write_text(template.replace('__PAYLOAD__',json.dumps(data,ensure_ascii=False,separators=(',',':'))))
     verification=dict(counts=counts,conflicts=conflicts,reviewedPrior=len(feedback['records']),
                       previousFeedbackUnchanged=(old/'feedback.json').read_bytes()==raw,
-                      bankUnchanged=hashlib.sha256((ROOT/'QiuJi/Resources/training-grid-bank.json').read_bytes()).hexdigest()==data['sourceSHA256'])
+                      bankUnchanged=hashlib.sha256((ROOT/'CuePhys/Resources/training-grid-bank.json').read_bytes()).hexdigest()==data['sourceSHA256'])
     (out/'verification.json').write_text(json.dumps(verification,ensure_ascii=False,indent=2)+'\n')
     print(json.dumps(verification,ensure_ascii=False))
 

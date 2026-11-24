@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class ThreeBallPracticeTests: XCTestCase {

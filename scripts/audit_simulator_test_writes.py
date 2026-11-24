@@ -23,7 +23,7 @@ WRITE_PATTERNS = {
 }
 ABSOLUTE_PATH = re.compile(r'"(/(?:Users|tmp|private/tmp)/[^"\\]*(?:\\.[^"\\]*)*)"')
 TRACKED_DESTINATION_MARKERS = (
-    "/QiuJi/Resources/",
+    "/CuePhys/Resources/",
     "/docs/",
     "/content/",
     "/tasks/",
@@ -90,7 +90,7 @@ def classify_file(repo: Path, path: Path) -> dict[str, object] | None:
 
     return {
         "file": path.relative_to(repo).as_posix(),
-        "target": "QiuJiUITests" if "QiuJiUITests" in path.parts else "QiuJiTests",
+        "target": "CuePhysUITests" if "CuePhysUITests" in path.parts else "CuePhysTests",
         "write_apis": matched,
         "absolute_paths": absolute_paths,
         "has_explicit_skip_gate": has_gate,
@@ -177,14 +177,14 @@ def main() -> int:
     output.mkdir(parents=True, exist_ok=True)
 
     entries = []
-    for root_name in ("QiuJiTests", "QiuJiUITests"):
+    for root_name in ("CuePhysTests", "CuePhysUITests"):
         for path in sorted((repo / root_name).rglob("*.swift")):
             classified = classify_file(repo, path)
             if classified:
                 entries.append(classified)
 
-    scheme_text = (repo / "QiuJi.xcodeproj/xcshareddata/xcschemes/QiuJi.xcscheme").read_text()
-    scheme_targets = [target for target in ("QiuJiTests", "QiuJiUITests") if target in scheme_text]
+    scheme_text = (repo / "CuePhys.xcodeproj/xcshareddata/xcschemes/QiuJi.xcscheme").read_text()
+    scheme_targets = [target for target in ("CuePhysTests", "CuePhysUITests") if target in scheme_text]
     inventory = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "scheme_targets": scheme_targets,

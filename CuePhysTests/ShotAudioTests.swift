@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import AVFoundation
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class ShotAudioTests: XCTestCase {
@@ -325,7 +325,7 @@ extension ShotAudioTests {
     }
 
     func testGeometryLabelsSeparateStraightJawAndLiner() {
-        let table = TableGeometry.chineseEightBallQiuJi(surfaceY: 0.8)
+        let table = TableGeometry.chineseEightBallCuePhys(surfaceY: 0.8)
         XCTAssertEqual(table.linearCushions.filter { $0.soundSurface == .cushion }.count, 6)
         XCTAssertGreaterThan(table.linearCushions.filter { $0.soundSurface == .jaw }.count, 0)
         XCTAssertGreaterThan(table.linearCushions.filter { $0.soundSurface == .liner }.count, 0)
@@ -340,7 +340,7 @@ extension ShotAudioTests {
     }
 
     func testSlowPocketFallSoundsFollowPresentationAndOccupancy() throws {
-        let table = TableGeometry.chineseEightBallQiuJi(surfaceY: 0.8)
+        let table = TableGeometry.chineseEightBallCuePhys(surfaceY: 0.8)
         for pocket in table.pockets {
             let recorder = TrajectoryRecorder()
             let ball = BallState(position: SCNVector3(pocket.center.x, 0.8+BallPhysics.radius, pocket.center.z),

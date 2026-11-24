@@ -188,7 +188,7 @@ struct SceneTrainingConfiguration: Codable, Equatable {
         }
         do { return try JSONDecoder().decode(Self.self, from: data) }
         catch {
-            Logger(subsystem: "com.xinkuan.qiuji", category: "SceneTraining").error("Settings decode failed for \(route, privacy: .public): \(String(describing: error), privacy: .public)")
+            Logger(subsystem: "com.youbilliards.cuephys", category: "SceneTraining").error("Settings decode failed for \(route, privacy: .public): \(String(describing: error), privacy: .public)")
             return defaults
         }
     }
@@ -199,7 +199,7 @@ struct SceneTrainingConfiguration: Codable, Equatable {
                 ?? "sceneTraining.rules2.mixedDefaults." + route
             UserDefaults.standard.set(data, forKey: key)
         } catch {
-            Logger(subsystem: "com.xinkuan.qiuji", category: "SceneTraining").error("Settings encode failed: \(String(describing: error), privacy: .public)")
+            Logger(subsystem: "com.youbilliards.cuephys", category: "SceneTraining").error("Settings encode failed: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -273,7 +273,7 @@ enum SceneTrainingRailGeometry {
     static let nearLimit: Float = 0.10
 
     static func clearance(_ point: SCNVector3) -> Float {
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
         return geometry.linearCushions.prefix(6).compactMap { rail -> Float? in
             let delta = rail.end - rail.start
             let length2 = delta.x * delta.x + delta.z * delta.z
@@ -379,7 +379,7 @@ struct SceneTrainingGenerator {
         let cueRange = cueBand.metres(cue: true), pocketRange = pocketBand.metres(cue: false)
         let nominal = AngleSceneCalculator.pocketPositions(surfaceY: 0)[pocket]
         let theta = Double(angle) * .pi / 180
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
         let rails = Array(geometry.linearCushions.prefix(6))
         for _ in 0..<600 {
             if Task.isCancelled { return nil }

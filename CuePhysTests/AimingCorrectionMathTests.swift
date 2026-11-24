@@ -1,15 +1,15 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// 瞄准修正真源层单测 + 数值草稿落盘（问题集合 v12 Z1）。
 /// 证据目录：`build/z1-evidence/`（相对仓库根）。
 final class AimingCorrectionMathTests: XCTestCase {
 
     private var evidenceDir: URL {
-        // QiuJiTests → …/13.billiard_trainer-wt-z1/build/z1-evidence
+        // CuePhysTests → …/13.billiard_trainer-wt-z1/build/z1-evidence
         let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // QiuJiTests
+            .deletingLastPathComponent() // CuePhysTests
             .deletingLastPathComponent() // repo root
         return root.appendingPathComponent("build/z1-evidence", isDirectory: true)
     }

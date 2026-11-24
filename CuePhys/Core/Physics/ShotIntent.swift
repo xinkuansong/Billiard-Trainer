@@ -1,12 +1,12 @@
 //
 //  ShotIntent.swift
-//  QiuJi
+//  CuePhys
 //
 //  「击球意图」内容模型（P10 物理升级 · 内容管线雏形，ADR-P10-01）。
 //
 //  动作库内容从「人工手画贝塞尔结果路径」升级为「物理意图」：作者只描述
 //  摆球 / 选袋 / 塞 / 连续力度，由离线烘焙器（`ShotBaker`）喂给物理引擎
-//  （`ShotPredictor` + USDZ 对齐球桌 `chineseEightBallQiuJi`）求解出精确轨迹，
+//  （`ShotPredictor` + USDZ 对齐球桌 `chineseEightBallCuePhys`）求解出精确轨迹，
 //  回填到现有 `DrillAnimation`（渲染层零改动，向后兼容）。
 //
 //  坐标系：沿用 `Resources/Drills/schema.md` 的归一化系（x∈[0,1] 左→右、

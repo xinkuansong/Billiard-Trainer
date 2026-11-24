@@ -11,7 +11,7 @@ make -f scripts/Makefile sim-clean
 make -f scripts/Makefile sim-clean-apply
 
 # 从统一核心设备独占借用，结束归还租约；继续使用相同的 UDID。
-make -f scripts/Makefile sim-test ONLY_TESTING=QiuJiTests/SomeTests
+make -f scripts/Makefile sim-test ONLY_TESTING=CuePhysTests/SomeTests
 # 按本机已安装的 Runtime/设备类型覆盖，不会下载 Runtime。
 make -f scripts/Makefile sim-test SIM_RUNTIME=com.apple.CoreSimulator.SimRuntime.iOS-17-0 SIM_TYPE=com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation
 ```

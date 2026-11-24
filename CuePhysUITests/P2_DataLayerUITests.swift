@@ -347,16 +347,16 @@ final class P2_DataLayerUITests: XCTestCase {
         }
 
         captureState("free", expectedStatus: nil)
-        let monthlyID = "com.xinkuan.qiuji.premium.monthly"
+        let monthlyID = "com.youbilliards.cuephys.premium.monthly"
         _ = try await session.buyProduct(identifier: monthlyID, options: [.appAccountToken(profileFixturePurchaseToken)])
         captureState("monthly", expectedStatus: "有效至")
         try session.expireSubscription(productIdentifier: monthlyID)
         captureState("expired", expectedStatus: nil)
         session.clearTransactions()
-        _ = try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.yearly", options: [.appAccountToken(profileFixturePurchaseToken)])
+        _ = try await session.buyProduct(identifier: "com.youbilliards.cuephys.premium.yearly", options: [.appAccountToken(profileFixturePurchaseToken)])
         captureState("yearly", expectedStatus: "有效至")
         session.clearTransactions()
-        _ = try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.lifetime", options: [.appAccountToken(profileFixturePurchaseToken)])
+        _ = try await session.buyProduct(identifier: "com.youbilliards.cuephys.premium.lifetime", options: [.appAccountToken(profileFixturePurchaseToken)])
         captureState("lifetime", expectedStatus: "永久有效")
     }
 
@@ -369,7 +369,7 @@ final class P2_DataLayerUITests: XCTestCase {
         session.disableDialogs = true
         session.clearTransactions()
         defer { session.clearTransactions() }
-        _ = try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.lifetime", options: [.appAccountToken(profileFixturePurchaseToken)])
+        _ = try await session.buyProduct(identifier: "com.youbilliards.cuephys.premium.lifetime", options: [.appAccountToken(profileFixturePurchaseToken)])
         app = XCUIApplication.launchClean(extraArgs: [
             "-v53.authenticatedProfileFixture", "-v57.longProfileName",
             "-v50.inMemoryStore", "-v51.followSystemAppearance"

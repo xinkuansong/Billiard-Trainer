@@ -1,6 +1,6 @@
 //
 //  Han2005CushionModel.swift
-//  QiuJi
+//  CuePhys
 //
 //  球-库边碰撞 —— Inhwan Han (2005) "Dynamics in Carom and Three Cushion Billiards"
 //  闭式解（O(1)，无积分循环）。忠实移植自 pooltool

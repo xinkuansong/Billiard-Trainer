@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class DrillTutorialKindResolverTests: XCTestCase {

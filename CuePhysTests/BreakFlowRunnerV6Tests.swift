@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import Metal
-@testable import QiuJi
+@testable import CuePhys
 
 /// 问题集合 v5 · V6（G18）+ v8 · X3（K6–K8）验证：
 /// - 随机性只保留球堆间距；去隐藏随机塞；默认力度 6 m/s
@@ -751,7 +751,7 @@ extension BreakFlowRunnerV6Tests {
         for entry in result.recorder.pocketEntries where result.recorder.collectionTailsByBallName[entry.ball.name]?.fadeStart == nil {
             visibleByPocket[entry.pocketID, default: 0] += 1
         }
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0.8)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: 0.8)
         for (pocketID, count) in visibleByPocket {
             let pocket = try XCTUnwrap(geometry.pockets.first { $0.id == pocketID }, pocketID)
             let capacity = PocketNetPresentation.NetPocket(pocket: pocket, surfaceY: 0.8).slots(ballRadius: Double(BallPhysics.radius)).count

@@ -1,7 +1,7 @@
 import XCTest
 import SwiftData
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class AccuracyPracticeRecordTests: XCTestCase {
@@ -171,7 +171,7 @@ final class AccuracyPracticeRecordTests: XCTestCase {
                         for event in shot.events {
                             if let railID = event.cushionIndex, railID < 6,
                                case .ballCushion(let name) = event.kind, name == ShotInput.targetBallName {
-                                let rail = TableGeometry.chineseEightBallQiuJi(surfaceY: 0).linearCushions[railID]
+                                let rail = TableGeometry.chineseEightBallCuePhys(surfaceY: 0).linearCushions[railID]
                                 let frames = shot.recorder?.framesByBallName[name] ?? []
                                 let gap = frames.filter { $0.time <= event.time }.map { ($0.position - rail.start).dot(rail.normal) - BallPhysics.radius }.max() ?? -1
                                 print("FROZEN_RAIL t=\(event.time) rail=\(railID) maxDeparture=\(gap)")

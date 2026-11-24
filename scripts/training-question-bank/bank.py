@@ -12,23 +12,23 @@ OUTPUT = ROOT / "output/accuracy-practice-20261020"
 
 
 def sources():
-    files = set((ROOT / "QiuJi/Core/Physics").glob("*.swift"))
+    files = set((ROOT / "CuePhys/Core/Physics").glob("*.swift"))
     files.update(ROOT / name for name in [
-        "QiuJi/Core/Scene/AngleSceneCalculator.swift",
-        "QiuJi/Features/AngleTraining/SceneTrainingRules.swift",
-        "QiuJi/Core/Training/TrainingQuestionBank.swift",
-        "QiuJi/Core/Scene/CueStick.swift",
-        "QiuJi/Core/Scene/CueStroke.swift",
-        "QiuJi/Core/Geometry/AimWheelGain.swift",
-        "QiuJi/Core/Components/AdaptiveShotDrag.swift",
-        "QiuJiTests/TrainingQuestionBankTests.swift",
-        "QiuJiTests/TrainingBankProductionTests.swift",
-        "QiuJiTests/TrainingBankExpansionTests.swift",
-        "QiuJiTests/TrainingBankCartesianSupport.swift",
-        "QiuJiTests/TrainingBankCartesianTests.swift",
-        "QiuJiTests/TrainingLayoutDiversityTests.swift",
-        "QiuJiTests/SceneTrainingRulesTests.swift",
-        "QiuJiTests/TrainingQuestionBankRefinementTests.swift",
+        "CuePhys/Core/Scene/AngleSceneCalculator.swift",
+        "CuePhys/Features/AngleTraining/SceneTrainingRules.swift",
+        "CuePhys/Core/Training/TrainingQuestionBank.swift",
+        "CuePhys/Core/Scene/CueStick.swift",
+        "CuePhys/Core/Scene/CueStroke.swift",
+        "CuePhys/Core/Geometry/AimWheelGain.swift",
+        "CuePhys/Core/Components/AdaptiveShotDrag.swift",
+        "CuePhysTests/TrainingQuestionBankTests.swift",
+        "CuePhysTests/TrainingBankProductionTests.swift",
+        "CuePhysTests/TrainingBankExpansionTests.swift",
+        "CuePhysTests/TrainingBankCartesianSupport.swift",
+        "CuePhysTests/TrainingBankCartesianTests.swift",
+        "CuePhysTests/TrainingLayoutDiversityTests.swift",
+        "CuePhysTests/SceneTrainingRulesTests.swift",
+        "CuePhysTests/TrainingQuestionBankRefinementTests.swift",
     ])
     values = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}
     return {"fingerprint": hashlib.sha256(json.dumps(values, sort_keys=True).encode()).hexdigest(), "files": values}
@@ -164,7 +164,7 @@ def main():
         if not all(coverage.get(k) == "10 seeds passed" for k in required):
             parser.error("All twelve rail/tip configurations must pass before packaging")
         payload = json.dumps(bank, separators=(",", ":"), ensure_ascii=False).encode()
-        destination = ROOT / "QiuJi/Resources"
+        destination = ROOT / "CuePhys/Resources"
         (destination / "training-question-bank.json").write_bytes(payload)
         manifest = {"schemaVersion": 1, "sourceFingerprint": bank["sourceFingerprint"],
                     "contentSHA256": hashlib.sha256(payload).hexdigest(), "sources": sources()["files"],

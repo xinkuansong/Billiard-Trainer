@@ -1,13 +1,13 @@
 //
 //  HomographyTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  P15 拍照建球形——单应变换坐标契约护栏。
 //
 
 import XCTest
 import CoreGraphics
-@testable import QiuJi
+@testable import CuePhys
 
 final class HomographyTests: XCTestCase {
 

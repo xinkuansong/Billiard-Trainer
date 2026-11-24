@@ -27,7 +27,7 @@ enum PocketToleranceGeometry {
               abs(x) <= AngleSceneCalculator.innerLength / 2 - r + 0.000001,
               abs(z) <= AngleSceneCalculator.innerWidth / 2 - r + 0.000001 else { return .unavailable }
         let target = SCNVector3(x, 0, z)
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
         let capture = geometry.pockets[pocket]
         guard !geometry.pockets.contains(where: { $0.containsCapture(target) }) else { return .unavailable }
         let cached = useTable ? DefensePipeTable.shared?.window(target, pocket: pocket) : nil
@@ -104,7 +104,7 @@ enum PocketToleranceGeometry {
               abs(x) <= AngleSceneCalculator.innerLength / 2 - r + 0.000001,
               abs(z) <= AngleSceneCalculator.innerWidth / 2 - r + 0.000001 else { return nil }
         let target = SCNVector3(x, 0, z)
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
         let capture = geometry.pockets[pocket]
         guard !capture.containsCapture(target) else { return nil }
         // This path is only used after the evaluator declined to certify a

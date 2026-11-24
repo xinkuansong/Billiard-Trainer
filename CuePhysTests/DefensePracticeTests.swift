@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 final class DefensePracticeTests: XCTestCase {
     func testReferenceRoutesRejectObjectObjectContactsInEitherOrder() throws {
@@ -560,7 +560,7 @@ final class DefensePhysicalScoringTests: XCTestCase {
         attachment.name="defense-v7-corpus";attachment.lifetime = .keepAlways;add(attachment)
     }
     func testUnresolvedFallbackIsBoundedAndVariesWithGeometry() throws {
-        let table=TableGeometry.chineseEightBallQiuJi(surfaceY:0),ball=Point(-0.2,0)
+        let table=TableGeometry.chineseEightBallCuePhys(surfaceY:0),ball=Point(-0.2,0)
         var scores=Set<Int>(),comparisons=0
         for x in [-1.1,-0.6,0.0,0.6,1.1] {
             for z in [-0.5,-0.2,0.2,0.5] {
@@ -582,7 +582,7 @@ final class DefensePhysicalScoringTests: XCTestCase {
         var config=DefenseConfiguration();config.mode = .free
         let prepared=try DefenseQuestionPreparer.prepare(config,seed:21)
         var record=DefensePracticeRecord(ownerKey:"test",is3D:false,configuration:config,prepared:prepared)
-        let table=TableGeometry.chineseEightBallQiuJi(surfaceY:0)
+        let table=TableGeometry.chineseEightBallCuePhys(surfaceY:0)
         let estimate=DefenseEffect.optimisticAttackBound(cue:Point(0.4,0.1),ball:Point(-0.2,0),table:table)
         record.attempts=[.init(id:UUID(),questionID:UUID(),submittedAt:Date(),failure:nil,effectScore:estimate.score,trajectoryScore:nil)]
         XCTAssertEqual(record.scoredCount,1);XCTAssertEqual(record.scoreSum,estimate.score)

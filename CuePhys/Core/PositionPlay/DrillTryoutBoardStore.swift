@@ -1,6 +1,6 @@
 //
 //  DrillTryoutBoardStore.swift
-//  QiuJi
+//  CuePhys
 //
 //  动作库试打球形加载器（方案 20260709-动作库试打模式 D4：与视频示范同源）。
 //

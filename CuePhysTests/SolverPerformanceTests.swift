@@ -1,6 +1,6 @@
 //
 //  SolverPerformanceTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  B0 — 反解求解器性能基线（docs/research/20260708-反解求解器性能优化方案.md §3 B0）。
 //
@@ -22,7 +22,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class SolverPerformanceTests: XCTestCase {
 

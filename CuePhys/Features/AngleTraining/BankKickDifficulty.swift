@@ -1,6 +1,6 @@
 //
 //  BankKickDifficulty.swift
-//  QiuJi
+//  CuePhys
 //
 //  翻袋/反射解球页「好打优先」排序（W3，docs/research/20260709-翻袋反射页重构方案 §3）。
 //

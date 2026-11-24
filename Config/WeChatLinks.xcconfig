@@ -1,0 +1,4 @@
+// Shared by the universal iPhone/iPad target; no credentials here.
+// Must match the WeChat console and the website's AASA /cuephys/wechat/* rule.
+WECHAT_LINK_HOST = youbilliards.com
+WECHAT_UNIVERSAL_LINK = https:/$()/youbilliards.com/cuephys/wechat/

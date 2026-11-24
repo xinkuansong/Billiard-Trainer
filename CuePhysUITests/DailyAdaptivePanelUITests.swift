@@ -30,6 +30,25 @@ final class DailyAdaptivePanelUITests: XCTestCase {
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
     }
 
+    /// A valid HUD alone must not hide missing packaged SceneKit models.
+    func testProductionModelNodesInBothCameraModes() throws {
+        let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let accountAlert = system.alerts.matching(NSPredicate(
+            format: "label CONTAINS %@", "Apple 账户验证")).firstMatch
+        if accountAlert.exists, accountAlert.buttons["以后"].exists {
+            accountAlert.buttons["以后"].tap()
+        }
+        let app = try launch(); defer { app.terminate() }
+        for dimension in ["2D", "3D"] {
+            mode(app, dimension)
+            let raw = try XCTUnwrap(element(app, "table.scene").value as? String)
+            let scene = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+            let balls = try XCTUnwrap(scene["balls"] as? [[String: Any]])
+            XCTAssertGreaterThan(balls.count, 1, "The real scene must contain visible ball nodes, not just the HUD")
+            try capture(app, "production-models-" + dimension)
+        }
+    }
+
     /// Refresh the core template from current production UI, not historical Figma screenshots.
     func testC56CoreTemplateCurrentStates() throws {
         let app = try launch(); defer { app.terminate() }
@@ -1187,7 +1206,7 @@ final class DailyAdaptivePanelUITests: XCTestCase {
                        "The app layout must resize too; compositor scaling alone does not qualify")
         try capture(app, "system-resize-settled")
         let systemControl = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-            .buttons["window-controls:com.xinkuan.qiuji"]
+            .buttons["window-controls:com.youbilliards.cuephys"]
         if systemControl.exists {
             XCTAssertFalse(systemControl.frame.intersects(app.buttons["dailyClearance.back"].frame),
                            "System window controls must not cover the app back control")

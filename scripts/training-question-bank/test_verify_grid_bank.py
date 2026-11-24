@@ -19,11 +19,11 @@ class GridGateTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.manifest_path = self.root / 'QiuJi/Resources/training-grid-bank-manifest.json'
+        self.manifest_path = self.root / 'CuePhys/Resources/training-grid-bank-manifest.json'
         manifest = json.loads((gate.ROOT / self.manifest_path.relative_to(self.root)).read_text())
         for name in [*manifest['physicalSourceHashes'],
-                     'QiuJi/Resources/training-grid-bank.json',
-                     'QiuJi/Resources/training-grid-bank-manifest.json']:
+                     'CuePhys/Resources/training-grid-bank.json',
+                     'CuePhys/Resources/training-grid-bank-manifest.json']:
             dest = self.root / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(gate.ROOT / name, dest)
@@ -56,7 +56,7 @@ class GridGateTests(unittest.TestCase):
         self.assertIn('no new physics replay performed', self.verify(strict=True))
 
     def test_bank_corruption_is_rejected(self):
-        p = self.root / 'QiuJi/Resources/training-grid-bank.json'
+        p = self.root / 'CuePhys/Resources/training-grid-bank.json'
         p.write_bytes(p.read_bytes() + b' ')
         with self.assertRaisesRegex(AssertionError, 'Bank bytes changed'):
             self.verify()
@@ -68,13 +68,13 @@ class GridGateTests(unittest.TestCase):
             self.verify()
 
     def test_reviewed_geometry_binding_still_rejects_drift(self):
-        p = self.root / 'QiuJi/Core/Scene/AngleSceneCalculator.swift'
+        p = self.root / 'CuePhys/Core/Scene/AngleSceneCalculator.swift'
         p.write_text(p.read_text() + '\n// drift after reviewed extraction\n')
         with self.assertRaisesRegex(AssertionError, 'Layout geometry changed'):
             self.verify()
 
     def test_ball_table_and_pocket_dimension_changes_are_rejected(self):
-        p = self.root / 'QiuJi/Core/Physics/BTPhysicsConstants.swift'
+        p = self.root / 'CuePhys/Core/Physics/BTPhysicsConstants.swift'
         original = p.read_text()
         for old, new in [('0.05715', '0.06000'), ('2.540', '2.600'), ('0.084', '0.090')]:
             with self.subTest(dimension=old):
@@ -84,7 +84,7 @@ class GridGateTests(unittest.TestCase):
         p.write_text(original)
 
     def test_physics_coefficient_change_does_not_invalidate_layout(self):
-        self.change('QiuJi/Core/Physics/BTPhysicsConstants.swift',
+        self.change('CuePhys/Core/Physics/BTPhysicsConstants.swift',
                     'pocketNoseRestitution: Float = 0.75', 'pocketNoseRestitution: Float = 0.76')
         self.assertIn('integrity and layout geometry verified', self.verify())
 
@@ -107,7 +107,7 @@ class BuildWiringTests(unittest.TestCase):
         self.assertNotIn('TRAINING_BANK_REVALIDATION', body)
         project = json.loads(subprocess.check_output([
             'plutil', '-convert', 'json', '-o', '-',
-            str(gate.ROOT / 'QiuJi.xcodeproj/project.pbxproj')]))
+            str(gate.ROOT / 'CuePhys.xcodeproj/project.pbxproj')]))
         scripts = [x['shellScript'] for x in project['objects'].values()
                    if x.get('name') == 'Verify training question bank']
         self.assertEqual(scripts, [expected])

@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W17：中级 / 高级蛇彩的首杆阶梯与长链路决策。
 @MainActor

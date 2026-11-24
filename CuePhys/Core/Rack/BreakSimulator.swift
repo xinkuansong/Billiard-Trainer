@@ -1,6 +1,6 @@
 //
 //  BreakSimulator.swift
-//  QiuJi
+//  CuePhys
 //
 //  P17「球形生成器」核心：把一副 `Rack` 用真实物理引擎**开球**（livesim），产出散开后的
 //  归一化 `BoardSnapshot` 供编辑器消费 + 回放轨迹供动画（ADR-P17-01）。
@@ -62,7 +62,7 @@ enum BreakSimulator {
             velocity: power, spinX: spinX, spinY: spinY)
 
         let engine = EventDrivenEngine(
-            tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: rack.surfaceY))
+            tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: rack.surfaceY))
         engine.getTrajectoryRecorder().cueStrikeSpeed = power
         engine.setBall(BallState(position: cuePos, velocity: strike.velocity,
                                  angularVelocity: strike.angularVelocity,

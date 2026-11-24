@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// v21 W4：c016/c018/c020/c021 全球形烘焙 + 代表性 animation 回填 + 日志落盘。
 ///
@@ -220,7 +220,7 @@ final class V21W4BakeTests: XCTestCase {
     @MainActor
     func testW4_bakeThumbnailsForR4Drills() async throws {
         try BakeRunnerGate.skipUnlessEnabled("testW4_bakeThumbnailsForR4Drills")
-        let outDir = root.appendingPathComponent("QiuJi/Resources/DrillThumbnails", isDirectory: true)
+        let outDir = root.appendingPathComponent("CuePhys/Resources/DrillThumbnails", isDirectory: true)
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
         var lines: [String] = ["=== v21 W4 thumbnail bake ==="]
         var failed: [String] = []
@@ -247,7 +247,7 @@ final class V21W4BakeTests: XCTestCase {
 
     private func patchAnimation(drillId: String, animation: DrillAnimation) throws {
         let path = root
-            .appendingPathComponent("QiuJi/Resources/Drills/cueAction/\(drillId).json")
+            .appendingPathComponent("CuePhys/Resources/Drills/cueAction/\(drillId).json")
         var rootObj = try JSONSerialization.jsonObject(with: Data(contentsOf: path)) as! [String: Any]
         let enc = JSONEncoder()
         enc.outputFormatting = [.sortedKeys]

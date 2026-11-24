@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// 物理引擎正确性测试——以 pooltool 物理与经典台球定律（90° 法则、滚动条件、
 /// squirt 方向）为基准，回归保护移植后的引擎。
@@ -74,7 +74,7 @@ final class PhysicsEngineTests: XCTestCase {
     }
 
     func test_circularCushionReachBoundMatchesOriginalRoots() {
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
         var compared = 0, hits = 0
         for arc in geometry.circularCushions {
             for angle: Float in [0, 0.7, 1.6, 2.8, 4.2, 5.5] {
@@ -663,7 +663,7 @@ final class PhysicsEngineTests: XCTestCase {
         guard let entry=prediction.recorder?.pocketEntries.first(where:{$0.ball.name==ShotInput.targetBallName}) else {
             return XCTFail("Missing actual capture entry",file:file,line:line)
         }
-        let pocket=TableGeometry.chineseEightBallQiuJi(surfaceY:surfaceY).pockets[pocketIndex]
+        let pocket=TableGeometry.chineseEightBallCuePhys(surfaceY:surfaceY).pockets[pocketIndex]
         XCTAssertEqual(entry.pocketID,pocket.id,file:file,line:line)
         XCTAssertTrue(pocket.containsCapture(entry.ball.position,tolerance:0.000001),file:file,line:line)
         var distance=Float.greatestFiniteMagnitude
@@ -1151,7 +1151,7 @@ extension PhysicsEngineTests {
             let landing = try XCTUnwrap(coarse.contacts.first { $0.time > 0.01 })
             let refinedLanding = try XCTUnwrap(refined.result.contacts.first { $0.time > 0.01 })
             XCTAssertEqual(landing.time, refinedLanding.time, accuracy: 0.00001)
-            let engine = try EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: asset.surfaceY),
+            let engine = try EventDrivenEngine(tableGeometry: .chineseEightBallCuePhys(surfaceY: asset.surfaceY),
                                               startingAt: end.time)
             var landedBall = BallState(position: SCNVector3(Float(end.position.x), Float(end.position.y), Float(end.position.z)),
                 velocity: SCNVector3(Float(end.velocity.x), Float(end.velocity.y), Float(end.velocity.z)),
@@ -1197,7 +1197,7 @@ extension PhysicsEngineTests {
 
     func testMixedEngineInitiallyAirborneBallFollowsGravity() throws {
         let surfaceY = BTTablePhysics.surfaceY
-        let engine = EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: surfaceY))
+        let engine = EventDrivenEngine(tableGeometry: .chineseEightBallCuePhys(surfaceY: surfaceY))
         let initial = BallState(position: SCNVector3(0, surfaceY + R + 0.1, 0),
             velocity: SCNVector3(0.4, 0.5, -0.2), angularVelocity: SCNVector3(2, 3, 4),
             state: .sliding, name: "cue")
@@ -1221,7 +1221,7 @@ extension PhysicsEngineTests {
     func testAirborneMainEngineClearsOrHitsObstacleAccordingToHeight() throws {
         let y = BTTablePhysics.surfaceY + R
         for height: Float in [0.12, 0.01] {
-            let engine = EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: .chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY))
             engine.setBall(BallState(position: SCNVector3(-0.1, y + height, 0),
                 velocity: SCNVector3(2, 0, 0), angularVelocity: SCNVector3Zero, state: .sliding, name: "cue"))
             engine.setBall(BallState(position: SCNVector3(0, y, 0), velocity: SCNVector3Zero,
@@ -1250,7 +1250,7 @@ extension PhysicsEngineTests {
     func testAirborneMainEngineClearsOrHitsRailAccordingToHeight() throws {
         let y = BTTablePhysics.surfaceY + R
         for height: Float in [0.15, 0.01] {
-            let engine = EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: .chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY))
             engine.setBall(BallState(position: SCNVector3(1.1, y + height, 0),
                 velocity: SCNVector3(2, 0, 0), angularVelocity: SCNVector3Zero, state: .sliding, name: "cue"))
             XCTAssertEqual(engine.simulatePrediction(model: .spatialPockets, maxTime: 0.12), .timeLimit)
@@ -1276,7 +1276,7 @@ extension PhysicsEngineTests {
     func testMainElevatedStrikeLandsAndReleasesAirborneOwnership() throws {
         for degrees: Float in [30,60] {
             for side: Float in [-0.3,0.3] {
-                let table = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+                let table = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
                 let engine = EventDrivenEngine(tableGeometry: table)
                 let strike = try CueBallStrike.executeSpatialStrike(aimDirection: SCNVector3(1,0,0),
                     velocity: 2, spinX: side, spinY: 0, elevation: degrees * .pi / 180)
@@ -1293,7 +1293,7 @@ extension PhysicsEngineTests {
     }
 
     func testResumedEngineClockRejectsInvalidTimeAndRetainsDefault() throws {
-        let table = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let table = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
         let original = EventDrivenEngine(tableGeometry: table)
         XCTAssertEqual(original.currentTime, 0)
         XCTAssertNil(original.spatialTime)
@@ -1357,7 +1357,7 @@ extension PhysicsEngineTests {
 
 extension PhysicsEngineTests {
     func testArcCCDOrdinaryLowSpeedLostRootRegression() throws {
-        let arc = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY).circularCushions[5]
+        let arc = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY).circularCushions[5]
         let t = try XCTUnwrap(CollisionDetector.ballCircularCushionTime(
             p: SCNVector3(1.26293742657, 0.82857501507, -0.60620647669),
             v: SCNVector3(0.05920557678, 0, 0.00408543739),
@@ -1368,7 +1368,7 @@ extension PhysicsEngineTests {
     }
 
     func testArcCCDTouchingAndSubMicrosecondAcrossAllArcs() throws {
-        let g = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let g = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
         for arc in g.circularCushions {
             var span = arc.endAngle - arc.startAngle
             if span < 0 { span += 2 * .pi }
@@ -1410,7 +1410,7 @@ extension PhysicsEngineTests {
 
     func testRestingSeparationKeepsFrozenRailAndRecordedFinalState() throws {
         let r = BallPhysics.radius, y = BTTablePhysics.surfaceY + r
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
         for side: Float in [-1, 1] {
             let rail = side * (TablePhysics.innerWidth / 2 - r)
             let e = EventDrivenEngine(tableGeometry: geometry)
@@ -1433,7 +1433,7 @@ extension PhysicsEngineTests {
 
     func testDeepInitialCushionIntersectionCannotPublishSettled() {
         let r = BallPhysics.radius, e = EventDrivenEngine(tableGeometry:
-            .chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY))
+            .chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY))
         e.setBall(BallState(position: SCNVector3(1.1, BTTablePhysics.surfaceY+r, TablePhysics.innerWidth/2-r+0.002),
             velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero, state: .stationary, name: "invalid"))
         if case .failed = e.simulate() {} else { XCTFail("Deep penetration must not be delivered as a normal rest state") }
@@ -1442,7 +1442,7 @@ extension PhysicsEngineTests {
 
 extension PhysicsEngineTests {
     func testJawCCDAndImpulseShareRealContactSideWithoutRecess() throws {
-        let g = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let g = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
         for i in 6..<14 {
             let wall = g.linearCushions[i]
             let n = i % 2 == 0 ? -wall.normal : wall.normal

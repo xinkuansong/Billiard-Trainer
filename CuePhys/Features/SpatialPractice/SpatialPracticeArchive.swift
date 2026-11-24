@@ -49,7 +49,7 @@ final class SpatialPracticeArchive {
         if let value=defaults.string(forKey:key),UUID(uuidString:value) != nil { namespace=value }
         else { let value=UUID().uuidString;namespace=value;defaults.set(value,forKey:key) }
         self.root=(root ?? FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0]
-            .appendingPathComponent("QiuJi/SpatialPractice")).appendingPathComponent(namespace)
+            .appendingPathComponent("CuePhys/SpatialPractice")).appendingPathComponent(namespace)
     }
     private var writerKey:String { root.path+"/"+owner }
     private var ownsWriter:Bool { active && Self.writers[writerKey]==token }

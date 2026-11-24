@@ -29,14 +29,14 @@ FIXTURE_ROOT = REPO_ROOT / "build" / "w9-fixtures"
 
 # 影子库里必须是真副本的目录（用例要改它们）与只能符号链接的目录（4.7G / 8.5G）。
 COPY_DIRS = [
-    Path("QiuJi/Resources/Drills"),
-    Path("QiuJi/Resources/Plans"),
-    Path("QiuJi/Resources/DrillBoards"),
+    Path("CuePhys/Resources/Drills"),
+    Path("CuePhys/Resources/Plans"),
+    Path("CuePhys/Resources/DrillBoards"),
     Path("content/position_play/sequences"),
     Path("content/drill_profiles"),
 ]
 LINK_DIRS = [
-    Path("QiuJi/Resources/DrillTutorials"),
+    Path("CuePhys/Resources/DrillTutorials"),
     Path("build/position_play_export"),
 ]
 
@@ -61,7 +61,7 @@ def edit_json(path: Path, mutate) -> None:
 
 
 def drill_path(root: Path, drill_id: str) -> Path:
-    hits = [p for p in (root / "QiuJi/Resources/Drills").rglob(f"{drill_id}.json")]
+    hits = [p for p in (root / "CuePhys/Resources/Drills").rglob(f"{drill_id}.json")]
     if not hits:
         raise SystemExit(f"fixture 内找不到 {drill_id}.json")
     return hits[0]
@@ -118,17 +118,17 @@ def case_i7_retired_tolerated(root: Path) -> None:
 
 
 def case_i8_orphan_board(root: Path) -> None:
-    board = root / "QiuJi/Resources/DrillBoards/drill_c999__manual01-伪造球形-1杆.json"
+    board = root / "CuePhys/Resources/DrillBoards/drill_c999__manual01-伪造球形-1杆.json"
     board.write_text('{"id":"fake"}\n', encoding="utf-8")
 
 
 def case_i8_hand_edited_board(root: Path) -> None:
-    board = next((root / "QiuJi/Resources/DrillBoards").glob("drill_c001__*.json"))
+    board = next((root / "CuePhys/Resources/DrillBoards").glob("drill_c001__*.json"))
     edit_json(board, lambda data: data.__setitem__("name", "手改产物"))
 
 
 def case_i9_unregistered_drill(root: Path) -> None:
-    index = root / "QiuJi/Resources/Drills/index.json"
+    index = root / "CuePhys/Resources/Drills/index.json"
     edit_json(index, lambda data: data["categories"][0]["drills"].append("drill_c900"))
 
 
@@ -161,7 +161,7 @@ def first_formation(data: dict, mode: str | None = None) -> dict:
 
 
 def plan_path(root: Path, plan_id: str) -> Path:
-    return root / f"QiuJi/Resources/Plans/{plan_id}.json"
+    return root / f"CuePhys/Resources/Plans/{plan_id}.json"
 
 
 def plan_stages(plan: dict) -> list[dict]:

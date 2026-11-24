@@ -40,7 +40,7 @@ def main():
               'auditSHA256':sha(source/'audit.json'),'calibrationSHA256':sha(source/'calibration.json'),
               'coordinates':'Canvas u=(X+L/2)/L, v=(Z+W/2)/L; metres XZ, Y up','files':sources}
     output['manifest.json']=json.dumps(manifest,ensure_ascii=False,indent=2).encode()
-    target=ROOT/'QiuJi/Resources/MultiBallBank'; target.mkdir(exist_ok=True)
+    target=ROOT/'CuePhys/Resources/MultiBallBank'; target.mkdir(exist_ok=True)
     for name,raw in output.items():
         with tempfile.NamedTemporaryFile(dir=target,delete=False) as f: f.write(raw); temp=f.name
         os.replace(temp,target/name)

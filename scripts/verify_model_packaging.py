@@ -4,9 +4,35 @@ import argparse
 import json
 from pathlib import Path
 import re
+import zipfile
 
 CURRENT = ("ModelTrial20261010_TaiQiuZhuo.usdz", "ModelTrial20261010_CueUV.usdz")
 LEGACY = ("TaiQiuZhuo.usdz", "CueUV.usdz")
+
+
+def attribute_problems(attributes: str) -> list[str]:
+    lines = {tuple(line.split()) for line in attributes.splitlines()}
+    return [f".gitattributes missing LFS rule: CuePhys/Resources/{name}"
+            for name in (*CURRENT, "TaiQiuZhuo.usdz")
+            if (f"CuePhys/Resources/{name}", "filter=lfs", "diff=lfs", "merge=lfs", "-text") not in lines]
+
+
+def model_problems(path: Path) -> list[str]:
+    if not path.is_file():
+        return [f"Missing production model: {path}"]
+    try:
+        with path.open("rb") as stream:
+            if stream.read(200).startswith(b"version https://git-lfs.github.com/spec/v1"):
+                return [f"Unresolved Git LFS pointer: {path}; restore the model with git lfs checkout/pull"]
+        with zipfile.ZipFile(path) as archive:
+            if not any(Path(name).suffix in (".usd", ".usda", ".usdc") for name in archive.namelist()):
+                return [f"USDZ contains no USD scene: {path}"]
+            corrupt = archive.testzip()
+            if corrupt:
+                return [f"USDZ CRC failure: {path}: {corrupt}"]
+    except (OSError, ValueError, zipfile.BadZipFile, RuntimeError, NotImplementedError) as error:
+        return [f"Invalid USDZ: {path}: {error}"]
+    return []
 
 
 def config_problems(spec: str, pbx: str) -> list[str]:
@@ -16,7 +42,7 @@ def config_problems(spec: str, pbx: str) -> list[str]:
         if not re.search(r'^\s*-\s*"' + re.escape(exclusion) + r'"\s*$', active, re.M):
             problems.append(f"project.yml missing exclusion: {exclusion}")
     for path in re.findall(r'^\s*-\s*path:\s*(\S+)\s*$', active, re.M):
-        if path == "QiuJi/Resources" or path.startswith("QiuJi/Resources/LegacyModels") or Path(path).name in LEGACY:
+        if path == "CuePhys/Resources" or path.startswith("CuePhys/Resources/LegacyModels") or Path(path).name in LEGACY:
             problems.append(f"project.yml reintroduces retired resources: {path}")
     for name in (*LEGACY, "LegacyModels"):
         if f"/* {name} in Resources */" in pbx:
@@ -30,8 +56,7 @@ def config_problems(spec: str, pbx: str) -> list[str]:
 def bundle_problems(bundle: Path) -> list[str]:
     problems = []
     for name in CURRENT:
-        if not (bundle / name).is_file():
-            problems.append(f"App missing production model: {name}")
+        problems.extend(model_problems(bundle / name))
     for path in bundle.rglob("*"):
         if path.name in LEGACY or path.name == "LegacyModels":
             problems.append(f"App contains retired model: {path.relative_to(bundle)}")
@@ -44,8 +69,11 @@ def main() -> int:
     parser.add_argument("--bundle", type=Path)
     args = parser.parse_args()
     problems = config_problems((args.root / "project.yml").read_text(),
-                               (args.root / "QiuJi.xcodeproj/project.pbxproj").read_text())
-    if (args.root / "QiuJi/Resources/CueStyles/CueUV.usdz").exists():
+                               (args.root / "CuePhys.xcodeproj/project.pbxproj").read_text())
+    problems.extend(attribute_problems((args.root / ".gitattributes").read_text()))
+    for name in CURRENT:
+        problems.extend(model_problems(args.root / "CuePhys/Resources" / name))
+    if (args.root / "CuePhys/Resources/CueStyles/CueUV.usdz").exists():
         problems.append("Retired CueUV.usdz is inside the packaged CueStyles folder")
     if args.bundle:
         problems.extend(bundle_problems(args.bundle))

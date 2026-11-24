@@ -40,9 +40,9 @@ LEGAL_PRIVACY_URL = https:/$()/youbilliards.com/legal/cuephys-privacy/
 
 | 使用状态 | 处理的数据及接收方 | 源码入口 |
 |---|---|---|
-| 游客 | 本机保存训练、已保存球形和游客头像。照片建球形在设备上标注，保存为球形布局。训练同步队列要求已登录且已启用同步。 | [训练上传条件](../../QiuJi/Data/Services/SyncQueueManager.swift)、[头像存储](../../QiuJi/Data/Services/AvatarStore.swift)、[照片输入](../../QiuJi/Features/BallExtraction/Views/BallExtractionView.swift) |
-| 已登录，训练同步关闭 | Apple 登录向 CuePhys 后端提交认证材料。账号资料（含选填生日）和主动保存的头像仍经账号接口处理，用于展示账号资料。训练上传和球形同步受当前账号开关控制。购买或恢复通过 Apple StoreKit 核对权益。 | [账号接口](../src/routes/auth.js)、[资料接口](../src/routes/user.js)、[账号同步](../../QiuJi/Data/Services/AccountDataCoordinator.swift)、[购买与恢复](../../QiuJi/Data/Services/SubscriptionManager.swift) |
-| 已登录，训练同步开启 | CuePhys 后端按账号保存、恢复训练记录、角度成绩、已保存球形，以及工具使用记录（入口、日期、时长）。照片建球形只同步模板。游客数据另按迁移选择处理。 | [工具使用记录](../../QiuJi/Data/Services/ToolUsageTracker.swift)、[训练队列](../../QiuJi/Data/Services/SyncQueueManager.swift)、[球形同步](../../QiuJi/Data/Services/CustomFormationSyncService.swift) |
+| 游客 | 本机保存训练、已保存球形和游客头像。照片建球形在设备上标注，保存为球形布局。训练同步队列要求已登录且已启用同步。 | [训练上传条件](../../CuePhys/Data/Services/SyncQueueManager.swift)、[头像存储](../../CuePhys/Data/Services/AvatarStore.swift)、[照片输入](../../CuePhys/Features/BallExtraction/Views/BallExtractionView.swift) |
+| 已登录，训练同步关闭 | Apple 登录向 CuePhys 后端提交认证材料。账号资料（含选填生日）和主动保存的头像仍经账号接口处理，用于展示账号资料。训练上传和球形同步受当前账号开关控制。购买或恢复通过 Apple StoreKit 核对权益。 | [账号接口](../src/routes/auth.js)、[资料接口](../src/routes/user.js)、[账号同步](../../CuePhys/Data/Services/AccountDataCoordinator.swift)、[购买与恢复](../../CuePhys/Data/Services/SubscriptionManager.swift) |
+| 已登录，训练同步开启 | CuePhys 后端按账号保存、恢复训练记录、角度成绩、已保存球形，以及工具使用记录（入口、日期、时长）。照片建球形只同步模板。游客数据另按迁移选择处理。 | [工具使用记录](../../CuePhys/Data/Services/ToolUsageTracker.swift)、[训练队列](../../CuePhys/Data/Services/SyncQueueManager.swift)、[球形同步](../../CuePhys/Data/Services/CustomFormationSyncService.swift) |
 
 上线前验证公司对外邮箱能收信并回复。微信登录完成接入后按实际 SDK、授权字段与接收方更新两种语言的政策。公开支持网址拟使用 `https://youbilliards.com/support/`；App政策与协议拟使用公司官网 `/legal/cuephys-privacy/` 与 `/legal/cuephys-terms/`，公网可访问性待部署后验收。
 

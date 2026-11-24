@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 /// W1 / B1 root-cause probe (问题集合_v9): compare ImageRenderer with width-only
 /// vs width+height bounds.

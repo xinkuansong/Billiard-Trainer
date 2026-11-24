@@ -1,7 +1,7 @@
 import XCTest
 import SwiftData
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Drives the production contact/settle hooks without waiting for SceneKit's render clock.
 @MainActor
@@ -974,7 +974,7 @@ final class SeparationPracticeTests: XCTestCase {
     }
 
     func testTargetJawFilterDistinguishesCueObjectAndMainRails() throws {
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
         var prediction = ShotPrediction()
         func collision(_ ball: String, _ index: Int?) -> ShotEvent {
             .init(time: 1, kind: .ballCushion(ball: ball), cushionIndex: index)
@@ -998,7 +998,7 @@ final class SeparationPracticeTests: XCTestCase {
     }
 
     func testPhysicalCornerAndMiddlePocketFilletsAreRejected() throws {
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
         XCTAssertEqual(geometry.circularCushions.count, 12) // 8 corner and 4 middle-pocket noses.
         for (index, arc) in geometry.circularCushions.enumerated() {
             var span = arc.endAngle - arc.startAngle

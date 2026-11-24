@@ -48,7 +48,7 @@ enum MiddlePocketRegion {
         return .init(halfWidth: Double(width)/2, ballRadius: Double(radius),
             inset: 0.009263577585997284, slope: 0.29983165331981754)
     }
-    static let production = calibration(table: .chineseEightBallQiuJi(surfaceY: 0),
+    static let production = calibration(table: .chineseEightBallCuePhys(surfaceY: 0),
         length: AngleSceneCalculator.innerLength, width: AngleSceneCalculator.innerWidth,
         radius: AngleSceneCalculator.ballRadius)
 

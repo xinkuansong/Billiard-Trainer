@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W9：自然分离、薄厚变化、力度与前后旋边界。
 @MainActor

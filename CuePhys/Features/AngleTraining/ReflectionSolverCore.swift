@@ -328,7 +328,7 @@ enum EngineCushionTracer {
                        simulationModel: EventDrivenEngine.SimulationModel = .appDefault,
                        maxEvents: Int = 400, maxTime: Float = 30) -> Launch {
         let surfaceY = y - R
-        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+        let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
         let v = SCNVector3(dir.x * speed, 0, dir.z * speed)
         let up = SCNVector3(0, 1, 0)
         let w = up.cross(v) * (1.0 / BallPhysics.radius)   // 自然滚动角速度（无英式塞）

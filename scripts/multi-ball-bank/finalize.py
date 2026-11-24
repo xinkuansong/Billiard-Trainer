@@ -51,10 +51,10 @@ def main():
                     '--task', 'multi-ball-full-consumer-20261026', '--', sys.executable,
                     'scripts/multi-ball-bank/verify_app.py', '{udid}', '--work', str(work),
                     '--out', str(out / 'native'), '--expected-tests', '39', '--tests',
-                    'QiuJiTests/MultiBallPracticeTests -only-testing:QiuJiTests/SnakePracticeTests '
-                    '-only-testing:QiuJiUITests/MultiBallPracticeUITests'])
+                    'CuePhysTests/MultiBallPracticeTests -only-testing:CuePhysTests/SnakePracticeTests '
+                    '-only-testing:CuePhysUITests/MultiBallPracticeUITests'])
         result = json.loads((out / 'native/run.json').read_text())
-        manifest = json.loads((ROOT / 'QiuJi/Resources/MultiBallBank/manifest.json').read_text())
+        manifest = json.loads((ROOT / 'CuePhys/Resources/MultiBallBank/manifest.json').read_text())
         assert result['exitCode'] == 0 and result['sourceUnchanged']
         assert result['device']['state'] == 'Shutdown'
         assert manifest['formalBank'] and manifest['total'] == 50000

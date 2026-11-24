@@ -85,7 +85,7 @@ struct SeparationShot: Codable, Identifiable {
     func prediction() -> ShotPrediction {
         let recorder = TrajectoryRecorder()
         for (name, list) in frames { for frame in list { recorder.recordFrame(ballName: name, frame: frame.value) } }
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY)
         for capture in captures {
             let f = capture.frame
             recorder.recordPocketEntry(ball: .init(position: f.position.value, velocity: f.velocity.value,

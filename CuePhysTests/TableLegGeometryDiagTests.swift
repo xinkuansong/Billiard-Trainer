@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// 一次性诊断：转储球桌模型节点层级的世界 Y 范围 + 材质透明度，定位「桌腿在 3D 下不完整」根因。
 /// 不渲染，仅装载场景后遍历，秒级返回。

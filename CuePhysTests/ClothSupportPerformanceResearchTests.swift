@@ -4,7 +4,7 @@ import Metal
 import UIKit
 import CryptoKit
 import Combine
-@testable import QiuJi
+@testable import CuePhys
 
 /// Explicit research selectors: actual production scene, explicit Metal target and same-target proof.
 /// Simulator command times are raw harness diagnostics, never a performance ranking.

@@ -2,7 +2,7 @@ import SwiftUI
 
 //
 //  DrillTryoutBrief.swift
-//  QiuJi
+//  CuePhys
 //
 //  动作库试打模式进场说明卡（方案 20260709-动作库试打模式 §1.8）。
 //

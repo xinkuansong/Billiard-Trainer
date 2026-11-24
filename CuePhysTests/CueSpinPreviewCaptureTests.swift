@@ -3,7 +3,7 @@ import SceneKit
 import UIKit
 import simd
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 /// Opt-in, isolated V019 visual experiment. Production simulation and ball materials.
 @MainActor

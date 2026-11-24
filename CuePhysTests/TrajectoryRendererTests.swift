@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import AVFoundation
-@testable import QiuJi
+@testable import CuePhys
 
 /// W8 helpers: TrajectoryRenderer options, SceneStroke constants, pulse/spin/palette.
 final class TrajectoryRendererTests: XCTestCase {
@@ -1596,7 +1596,7 @@ extension PocketGeometryInjectionV63Tests {
     func testMixedImmediateEntryKeepsIndependentPlanarContactAtSameTime() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         func make(_ local:Bool)->EventDrivenEngine {
-            let e=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+            let e=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
             e.setBall(.init(position:SCNVector3(0,asset.surfaceY+r,0),velocity:SCNVector3(0.5,0,0),
                 angularVelocity:SCNVector3(0,0,-0.5/r),state:.rolling,name:"a"))
             e.setBall(.init(position:SCNVector3(2*r,asset.surfaceY+r,0),velocity:SCNVector3Zero,
@@ -1642,7 +1642,7 @@ extension PocketGeometryInjectionV63Tests {
         }
         for speed:Float in [2,8,12] {
             func run(_ step:Double) throws -> EventDrivenEngine {
-                let e=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+                let e=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
                 for (name,x):(String,Float) in [("left",-0.04),("right",0.04)] {
                     e.setBall(.init(position:SCNVector3(center.x+x,asset.surfaceY+r+0.02,center.z+0.17),
                         velocity:SCNVector3(0,0,speed),angularVelocity:SCNVector3Zero,state:.sliding,name:name))
@@ -1689,7 +1689,7 @@ extension PocketGeometryInjectionV63Tests {
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
         let startY=asset.surfaceY+r+0.02
         func make()->EventDrivenEngine {
-            let e=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+            let e=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
             e.setBall(.init(position:SCNVector3(center.x+0.02,startY,center.z+0.12),
                 velocity:SCNVector3(0,-0.5,0),angularVelocity:SCNVector3Zero,state:.sliding,name:"air"))
             e.setBall(.init(position:SCNVector3(0.5,asset.surfaceY+r,0),velocity:SCNVector3Zero,
@@ -1725,7 +1725,7 @@ extension PocketGeometryInjectionV63Tests {
     func testMixedMainLoopReentersPocketRegionAfterPlanarCollision() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         for (name,offset,speed):(String,Float,Float) in [("cue",0.12,0.5),("incoming",0.45,-0.5)] {
             engine.setBall(.init(position:SCNVector3(center.x,asset.surfaceY+r,center.z+offset),
                 velocity:SCNVector3(0,0,speed),angularVelocity:SCNVector3(speed/r,0,0),state:.rolling,name:name))
@@ -1753,7 +1753,7 @@ extension PocketGeometryInjectionV63Tests {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
         func make()->EventDrivenEngine {
-            let e=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+            let e=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
             e.setBall(.init(position:SCNVector3(center.x,asset.surfaceY+r+0.02,center.z+0.17),
                 velocity:SCNVector3(0,0,0.5),angularVelocity:SCNVector3Zero,state:.sliding,name:"air"))
             e.setBall(.init(position:SCNVector3(center.x,asset.surfaceY+r,center.z+0.225),
@@ -1796,7 +1796,7 @@ extension PocketGeometryInjectionV63Tests {
             }
         }
         for index in [0,4] {
-            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
             let direction=index == 0 ? SCNVector3(1/sqrtf(2),0,1/sqrtf(2)) : SCNVector3(0,0,1)
             for ball in 0..<2 {
                 var p=centers[index]+direction*(0.36+Float(ball)*0.065);p.y=asset.surfaceY+r
@@ -1824,7 +1824,7 @@ extension PocketGeometryInjectionV63Tests {
     func testMixedMainLoopReturnsSupportedBallToPlanarMotion() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         engine.setBall(.init(position:SCNVector3(center.x,asset.surfaceY+r,center.z+0.12),velocity:SCNVector3(0,0,0.5),
             angularVelocity:SCNVector3(0.5/r,0,0),state:.rolling,name:"cue"))
         engine.setBall(.init(position:SCNVector3(0.5,asset.surfaceY+r,0),velocity:SCNVector3Zero,
@@ -1844,7 +1844,7 @@ extension PocketGeometryInjectionV63Tests {
     func testMixedMainLoopOwnsTwoPocketRegionsAndPreservesDistantRestBall() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let centers=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         for index in [0,4] {
             let direction=index == 0 ? SCNVector3(1/sqrtf(2),0,1/sqrtf(2)) : SCNVector3(0,0,1)
             var position=centers[index]+direction*0.36;position.y=asset.surfaceY+r
@@ -1879,7 +1879,7 @@ extension PocketGeometryInjectionV63Tests {
     func testMixedMainLoopTransfersImpactToPlanarNeighborOutsidePocketRegion() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         engine.setBall(.init(position:SCNVector3(center.x,asset.surfaceY+r+0.02,center.z+0.17),
                              velocity:SCNVector3(0,0,0.5),angularVelocity:SCNVector3Zero,state:.sliding,name:"air"))
         engine.setBall(.init(position:SCNVector3(center.x,asset.surfaceY+r,center.z+0.225),
@@ -1967,7 +1967,7 @@ extension PocketGeometryInjectionV63Tests {
     func testCrossOwnerLowSpeedPredictionMatchesPlanarEvolutionAcceleration() throws {
         typealias V=SIMD3<Double>
         let r=BallPhysics.radius,y:Float=0.8+r
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:0.8))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:0.8))
         let a=BallState(position:SCNVector3(0,y,0),velocity:SCNVector3Zero,angularVelocity:SCNVector3Zero,state:.stationary,name:"local")
         let b=BallState(position:SCNVector3(2*r+1e-8,y,0),velocity:SCNVector3(-0.0005,0,0),
             angularVelocity:SCNVector3Zero,state:.sliding,name:"planar")
@@ -1993,7 +1993,7 @@ extension PocketGeometryInjectionV63Tests {
         let solver=LocalPocketSimulation(surfaces:asset.pockets[4].patches.map{.init(triangle:$0.triangle,restitution:0.3,friction:0.2)},
             radius:r,gravity:V(0,-9.81,0),tolerance:1e-6)
         let prediction=try solver.run(from:start,duration:0.045,maxStep:0.0025)
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         engine.setBall(.init(position:SCNVector3(Float(start.position.x),Float(start.position.y),Float(start.position.z)),
             velocity:SCNVector3Zero,angularVelocity:SCNVector3Zero,state:.sliding,name:"falling"))
         let target=BallState(position:SCNVector3(Float(base.x),Float(base.y),Float(base.z)),velocity:SCNVector3Zero,
@@ -2015,7 +2015,7 @@ extension PocketGeometryInjectionV63Tests {
     }
 
     func testPlanarEventQueryExcludesLocalOwnersWithoutRemovingBalls() throws {
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:0.8))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:0.8))
         let r=BallPhysics.radius,y:Float=0.8+r
         let a=BallState(position:SCNVector3(-0.2,y,0),velocity:SCNVector3(0.5,0,0),
             angularVelocity:SCNVector3(0,0,-0.5/r),state:.rolling,name:"a")
@@ -2037,8 +2037,8 @@ extension PocketGeometryInjectionV63Tests {
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
         let ball=BallState(position:SCNVector3(center.x,asset.surfaceY+r,center.z+0.36),velocity:SCNVector3(0,0,-0.5),
             angularVelocity:SCNVector3(-0.5/r,0,0),state:.rolling,name:"cue")
-        let whole=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
-        let split=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let whole=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
+        let split=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         whole.setBall(ball);split.setBall(ball)
         try whole.simulateWithLocalPockets(maxTime:1.1)
         try split.simulateWithLocalPockets(maxTime:0.6)
@@ -2070,7 +2070,7 @@ extension PocketGeometryInjectionV63Tests {
             let velocity=direction * -0.5
             let initial=BallState(position:position,velocity:velocity,
                 angularVelocity:SCNVector3(velocity.z/r,0,-velocity.x/r),state:.rolling,name:"cue")
-            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
             engine.setBall(initial)
             try engine.simulateWithLocalPockets(maxTime:1.1)
             let final=try XCTUnwrap(engine.getBall("cue")),recorder=engine.getTrajectoryRecorder()
@@ -2091,7 +2091,7 @@ extension PocketGeometryInjectionV63Tests {
     func testMainEngineReturnsFromLocalRegionToPlanarMotion() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         let velocity=SCNVector3(0,0,0.5)
         engine.setBall(.init(position:SCNVector3(center.x,asset.surfaceY+r,center.z+0.12),velocity:velocity,
             angularVelocity:SCNVector3(velocity.z/r,0,0),state:.rolling,name:"cue"))
@@ -3676,7 +3676,7 @@ extension PocketGeometryInjectionV63Tests {
         }.min(by:{$0.time<$1.time}))
         let position=above+V(0,-hit.time,0),velocity = -inward*0.5
         func scn(_ v:V)->SCNVector3 { .init(Float(v.x),Float(v.y),Float(v.z)) }
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         engine.setBall(.init(position:scn(position),velocity:scn(velocity),angularVelocity:scn(V(velocity.z/r,0,-velocity.x/r)),state:.rolling,name:"cue"))
         return engine
     }
@@ -3770,7 +3770,7 @@ extension PocketGeometryV63Tests {
 extension PocketGeometryInjectionV63Tests {
     func testFarTableKeepsPlanarMotionWithoutSpatialStepBudget() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
-        let geometry=TableGeometry.chineseEightBallQiuJi(surfaceY:asset.surfaceY)
+        let geometry=TableGeometry.chineseEightBallCuePhys(surfaceY:asset.surfaceY)
         let initial=BallState(position:SCNVector3(0,asset.surfaceY+r,0),velocity:SCNVector3(0.3,0,0),
                               angularVelocity:SCNVector3(0,0,-0.3/r),state:.rolling,name:"cue")
         let mixed=EventDrivenEngine(tableGeometry:geometry),planar=EventDrivenEngine(tableGeometry:geometry)
@@ -3838,7 +3838,7 @@ extension PocketGeometryInjectionV63Tests {
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
         let position=SCNVector3(0,asset.surfaceY+r,center.z+0.14),velocity=SCNVector3(0.2,0,0)
         let omega=SCNVector3(0,2,-0.2/r)
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         engine.setBall(.init(position:position,velocity:velocity,angularVelocity:omega,state:.rolling,name:"cue"))
         try engine.simulateMixedWithLocalPockets(maxTime:0.1,pairRestitution:0.8,pairFriction:0,
                                                 staticMaterial:.tablePhysics(clothRestitution:0.3))
@@ -3861,7 +3861,7 @@ extension PocketGeometryInjectionV63Tests {
     func testMeasuredCushionTableProfileResponse() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         engine.setBall(.init(position:SCNVector3(0.14,asset.surfaceY+r,center.z+0.12),velocity:SCNVector3(0,0,-1),
                             angularVelocity:SCNVector3(-1/r,0,0),state:.rolling,name:"cue"))
         try engine.simulateMixedWithLocalPockets(maxTime:0.15,pairRestitution:0.8,pairFriction:0,
@@ -3881,7 +3881,7 @@ extension PocketGeometryInjectionV63Tests {
     }
 
     func testSpatialCushionIDsRetainMainRailsAndFiniteArcs() throws {
-        let geometry=TableGeometry.chineseEightBallQiuJi(surfaceY:BTTablePhysics.surfaceY)
+        let geometry=TableGeometry.chineseEightBallCuePhys(surfaceY:BTTablePhysics.surfaceY)
         for i in 0..<6 {
             let rail=geometry.linearCushions[i]
             let p=SIMD3(Double(rail.start.x+rail.end.x)/2,0,Double(rail.start.z+rail.end.z)/2)
@@ -3900,7 +3900,7 @@ extension PocketGeometryInjectionV63Tests {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
         func make()->EventDrivenEngine {
-            let e=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+            let e=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
             e.setBall(.init(position:SCNVector3(0.14,asset.surfaceY+r,center.z+0.12),velocity:SCNVector3(0,0,-1),
                             angularVelocity:SCNVector3(-1/r,0,0),state:.rolling,name:"cue"))
             return e
@@ -3925,7 +3925,7 @@ extension PocketGeometryInjectionV63Tests {
     func testMixedClothLandingDoesNotCountAsCushion() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
-        let e=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let e=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         e.setBall(.init(position:SCNVector3(0,asset.surfaceY+r+0.01,center.z+0.10),velocity:SCNVector3(0,-0.5,0),
                         angularVelocity:SCNVector3Zero,state:.sliding,name:"cue"))
         try e.simulateMixedWithLocalPockets(maxTime:0.05,pairRestitution:0.8,pairFriction:0)
@@ -4005,7 +4005,7 @@ extension PocketGeometryInjectionV63Tests {
     func testMixedStandardMaterialSurvivesContinuationAndRejectsSwitch() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         for (name,x,vx):(String,Float,Float) in [("cue",-0.04,1),("object",0.04,-1)] {
             engine.setBall(.init(position:SCNVector3(x,asset.surfaceY+r+0.04,center.z+0.10),
                                  velocity:SCNVector3(vx,0,0),angularVelocity:SCNVector3Zero,state:.sliding,name:name))
@@ -4036,7 +4036,7 @@ extension PocketGeometryInjectionV63Tests {
     func testLocalPairRuleEventUsesIncomingStateAndCommitsOnce() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         for (name,x,vx):(String,Float,Float) in [("cue",-0.04,1),("object",0.04,-1)] {
             engine.setBall(.init(position:SCNVector3(x,asset.surfaceY+r+0.04,center.z+0.10),
                                  velocity:SCNVector3(vx,0,0),angularVelocity:SCNVector3Zero,state:.sliding,name:name))
@@ -4093,7 +4093,7 @@ extension PocketGeometryInjectionV63Tests {
         let initial=SCNVector3(0,asset.surfaceY+BallPhysics.radius,-0.62423384)
         var positions:[SCNVector3]=[]
         for step in [0.0025,0.00125] {
-            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
             engine.setBall(.init(position:initial,velocity:SCNVector3Zero,angularVelocity:SCNVector3Zero,state:.stationary,name:"cue"))
             let termination=try engine.simulateMixedWithLocalPockets(maxTime:0.25,maxStep:step,
                 pairRestitution:Double(BallPhysics.restitution),pairFriction:0,collectsPocketedBalls:true,
@@ -4125,7 +4125,7 @@ extension PocketGeometryInjectionV63Tests {
             for offset in (useAppDefault ? [0.0002,-0.0002,-0.002] : [0.0002,-0.0002]) {
                 let p=center+inward*((outside+inside)/2+offset)+SIMD3(0,r,0)
                 let initial=SCNVector3(Float(p.x),Float(p.y),Float(p.z))
-                let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+                let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
                 engine.setBall(.init(position:initial,velocity:SCNVector3Zero,angularVelocity:SCNVector3Zero,state:.stationary,name:"cue"))
                 if useAppDefault {
                     let termination=engine.simulatePrediction(model:.spatialPockets,maxTime:1)
@@ -4401,7 +4401,7 @@ extension PocketGeometryInjectionV63Tests {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
         func make()->EventDrivenEngine {
-            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
             for (name,x,vx):(String,Float,Float) in [("cue",-0.04,1),("object",0.04,-1)] {
                 engine.setBall(.init(position:SCNVector3(x,asset.surfaceY+r+0.04,center.z+0.10),
                     velocity:SCNVector3(vx,0,0),angularVelocity:SCNVector3Zero,state:.sliding,name:name))
@@ -4445,7 +4445,7 @@ extension PocketGeometryInjectionV63Tests {
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
         for mode in 0...2 {
             let airborne=mode==1
-            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
             engine.setBall(.init(position:SCNVector3(0,asset.surfaceY+r,0),velocity:SCNVector3Zero,
                 angularVelocity:SCNVector3Zero,state:.stationary,name:"object"))
             let position=mode==0 ? SCNVector3(0.5,asset.surfaceY+r,0) :
@@ -4468,7 +4468,7 @@ extension PocketGeometryInjectionV63Tests {
     func testMixedContactStopPreservesSimultaneousGroup() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         let center=AngleSceneCalculator.pocketPositions(surfaceY:asset.surfaceY)[4]
-        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+        let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
         for (name,x):(String,Float) in [("left",-0.04),("right",0.04)] {
             engine.setBall(.init(position:SCNVector3(center.x+x,asset.surfaceY+r+0.02,center.z+0.17),
                 velocity:SCNVector3(0,0,8),angularVelocity:SCNVector3Zero,state:.sliding,name:name))
@@ -4493,7 +4493,7 @@ extension PocketGeometryInjectionV63Tests {
     func testSimulationTerminationSeparatesRestTimeAndBudget() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         func make(moving:Bool=true)->EventDrivenEngine {
-            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+            let engine=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
             engine.setBall(.init(position:SCNVector3(0,asset.surfaceY+r,0),
                 velocity:SCNVector3(moving ? 0.3:0,0,0),
                 angularVelocity:SCNVector3(0,0,moving ? -0.3/r:0),state:moving ? .rolling:.stationary,name:"cue"))
@@ -4610,7 +4610,7 @@ extension PocketGeometryInjectionV63Tests {
     func testPredictionAdapterSeparatesEventBudgetFromLocalWorkFailure() throws {
         let asset=try PocketGeometryAsset.load(),r=BallPhysics.radius
         func make()->EventDrivenEngine {
-            let e=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:asset.surfaceY))
+            let e=EventDrivenEngine(tableGeometry:.chineseEightBallCuePhys(surfaceY:asset.surfaceY))
             e.setBall(.init(position:SCNVector3(0,asset.surfaceY+r,0),velocity:SCNVector3(0.3,0,0),
                 angularVelocity:SCNVector3(0,0,-0.3/r),state:.rolling,name:"cue"))
             return e
@@ -4833,7 +4833,7 @@ extension TrajectoryRendererTests {
         scene.setupScene(mobileRendering: true)
         scene.setCameraMode(.perspective3D, animated: false)
         scene.hideAllBalls()
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: scene.surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: scene.surfaceY)
         let camera = SCNNode(); camera.camera = SCNCamera()
         camera.camera?.zNear = 0.01; camera.camera?.fieldOfView = 50
         scene.rootNode.addChildNode(camera)

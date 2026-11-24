@@ -626,7 +626,7 @@ final class PocketGeometryAsset {
         }
         materialLock.lock();defer { materialLock.unlock() }
         if let cached=cachedContactSurfaces[material] { return cached }
-        let roles=try surfaceRoles(),geometry=TableGeometry.chineseEightBallQiuJi(surfaceY:surfaceY)
+        let roles=try surfaceRoles(),geometry=TableGeometry.chineseEightBallCuePhys(surfaceY:surfaceY)
         let result=try tablePatches.indices.map { i -> LocalPocketSimulation.Surface in
             let triangle=tablePatches[i].triangle
             guard case .tablePhysics(let clothRestitution)=material else {

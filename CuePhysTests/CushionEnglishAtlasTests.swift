@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// v20 W1：「加塞吃库图谱」spinX 档位 / 挤偏补偿 / 库后切片 / 默认盘面。
 final class CushionEnglishAtlasTests: XCTestCase {

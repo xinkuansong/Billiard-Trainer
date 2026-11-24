@@ -20,7 +20,7 @@
     },
     {
       "action": "wait",
-      "id": "subscription.product.com.xinkuan.qiuji.premium.yearly",
+      "id": "subscription.product.com.youbilliards.cuephys.premium.yearly",
       "kind": "button",
       "timeout": 15
     },
@@ -34,7 +34,7 @@
     },
     {
       "action": "tap",
-      "id": "subscription.product.com.xinkuan.qiuji.premium.monthly",
+      "id": "subscription.product.com.youbilliards.cuephys.premium.monthly",
       "kind": "button"
     },
     {
@@ -44,7 +44,7 @@
     },
     {
       "action": "tap",
-      "id": "subscription.product.com.xinkuan.qiuji.premium.lifetime",
+      "id": "subscription.product.com.youbilliards.cuephys.premium.lifetime",
       "kind": "button"
     },
     {

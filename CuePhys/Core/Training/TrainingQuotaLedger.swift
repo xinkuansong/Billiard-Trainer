@@ -48,7 +48,7 @@ final class TrainingQuotaLedger {
             }
             #endif
             url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-                .appendingPathComponent("QiuJi/TrainingQuota/\(namespace).json")
+                .appendingPathComponent("CuePhys/TrainingQuota/\(namespace).json")
         } else { url = nil }
     }
     private func day(_ date: Date) -> String {

@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Opt-in diagnostic; fixtures and results are isolated from production assets.
 final class AimPointTheoryScanTests: XCTestCase {
@@ -77,7 +77,7 @@ final class AimPointTheoryScanTests: XCTestCase {
     }
     private func trial(_ f: Fixture, _ velocity: Float) -> Trial {
         let start = Date()
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0.8)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: 0.8)
         let engine = EventDrivenEngine(tableGeometry: geometry)
         let strike = CueBallStrike.executeStrike(aimDirection: answer(f), velocity: velocity, spinX: 0, spinY: 0, elevation: 0)
         engine.setBall(BallState(position: point(f.cue), velocity: strike.velocity, angularVelocity: strike.angularVelocity, state: .sliding, name: ShotInput.cueBallName))
@@ -129,7 +129,7 @@ final class AimPointTheoryScanTests: XCTestCase {
             let f = try XCTUnwrap(all.first { $0.angle == angle })
             for speed: Float in [0.5,3.3,8] {
                 for horizon: Float in [15,60] {
-                    let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0.8)
+                    let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: 0.8)
                     let engine = EventDrivenEngine(tableGeometry: geometry)
                     let strike = CueBallStrike.executeStrike(aimDirection: answer(f), velocity: speed, spinX: 0, spinY: 0, elevation: 0)
                     engine.setBall(BallState(position: point(f.cue), velocity: strike.velocity, angularVelocity: strike.angularVelocity, state: .sliding, name: ShotInput.cueBallName))
@@ -235,7 +235,7 @@ final class AimPointTheoryScanTests: XCTestCase {
                     UIColor(red:0.90,green:0.96,blue:0.94,alpha:1).setFill(); context.fill(rect)
                     UIColor.darkGray.setStroke(); context.stroke(rect)
                     let prediction=ShotPredictor.simulateFree(cueBall:point(f.cue),aimDir:answer(f),velocity:speed,spinX:0,spinY:0,surfaceY:0.8,balls:[ObstacleBall(name:"object",position:point(f.object))])
-                    for pocket in TableGeometry.chineseEightBallQiuJi(surfaceY:0.8).pockets {
+                    for pocket in TableGeometry.chineseEightBallCuePhys(surfaceY:0.8).pockets {
                         let c=xy(pocket.center); UIColor.darkGray.setFill()
                         context.cgContext.fillEllipse(in:CGRect(x:c.x-8.4,y:c.y-8.4,width:16.8,height:16.8))
                     }

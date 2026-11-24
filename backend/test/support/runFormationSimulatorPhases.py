@@ -12,7 +12,7 @@ for phase, device in [('A-create',a),('B-restore-edit',b),('A-offline-conflict',
     command = ['python3','scripts/simulator_lifecycle.py','run','--task','formation-sync-'+phase,'--udid',device,'--',
       'make','-f','scripts/Makefile','test','TEST_DESTINATION=platform=iOS Simulator,id={udid}',
       'TEST_ACTION=test-without-building','DERIVED_DATA='+str(root/'build/CustomFormation-20261018'),
-      'TEST_LOG='+str(out/(phase+'.log')),'ONLY_TESTING=QiuJiTests/CustomFormationSyncIntegrationTests/testTwoDeviceSyncPhase','TEST_BUILD_SETTINGS=ARCHS=arm64']
+      'TEST_LOG='+str(out/(phase+'.log')),'ONLY_TESTING=CuePhysTests/CustomFormationSyncIntegrationTests/testTwoDeviceSyncPhase','TEST_BUILD_SETTINGS=ARCHS=arm64']
     with open(out/(phase+'-console.log'),'w') as log:
         subprocess.run(command,cwd=root,env=env,stdout=log,stderr=subprocess.STDOUT,check=True)
     print('PASS '+phase,flush=True)

@@ -1,6 +1,6 @@
 //
 //  PositionPlayUndoSnapshotTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  问题集合 v5 · V3（G17 上一杆完整恢复）：反解页「上一杆」快照往返（snapshot → restore）
 //  逐字段一致性验证。
@@ -14,7 +14,7 @@
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class PositionPlayUndoSnapshotTests: XCTestCase {
@@ -109,7 +109,7 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
     private func seedRail(in scene: AngleTrainingScene) throws -> PocketRailSnapshot {
         let source = try XCTUnwrap(scene.allBallNodes["_8"])
         source.isHidden = true
-        let pocket = TableGeometry.chineseEightBallQiuJi(surfaceY: scene.surfaceY).pockets[0]
+        let pocket = TableGeometry.chineseEightBallCuePhys(surfaceY: scene.surfaceY).pockets[0]
         let net = PocketNetPresentation.NetPocket(pocket: pocket, surfaceY: Double(scene.surfaceY))
         let slots = net.slots(ballRadius: Double(BallPhysics.radius))
         let p = slots[0]

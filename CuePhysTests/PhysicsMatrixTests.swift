@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// 系统化组合矩阵（D-C1/C2 大规模扩面）——以**确定性网格**枚举数百~上千个不同球形/袋口/
 /// 切角/力度/塞组合，逐例断言「生产合约」，失败时打印**精确复现参数**（不是随机批量的"最坏值"，
@@ -151,7 +151,7 @@ final class PhysicsMatrixTests: XCTestCase {
                         for v in [Float(2.4), 3.6, 5.0] {
                             total += 1
                             let strike = CueBallStrike.executeStrike(aimDirection: unit(SCNVector3(ghost.x - cue.x, 0, ghost.z - cue.z)), velocity: v, spinX: 0, spinY: 0)
-                            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: sY))
+                            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: sY))
                             engine.setBall(BallState(position: cue, velocity: strike.velocity, angularVelocity: strike.angularVelocity, state: .sliding, name: "cue"))
                             engine.setBall(BallState(position: target, velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero, state: .stationary, name: "obj"))
                             engine.simulate(maxEvents: 500, maxTime: 12)

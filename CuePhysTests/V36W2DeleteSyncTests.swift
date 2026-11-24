@@ -1,6 +1,6 @@
 import XCTest
 import SwiftData
-@testable import QiuJi
+@testable import CuePhys
 
 /// v36 W2：删除同步（Q2）与队列失败分类（Q4）。
 ///

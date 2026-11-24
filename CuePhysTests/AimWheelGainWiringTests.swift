@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// v23 W2 接线实证：每个接入页的 VM 真的按「母球→首碰球」杠杆臂给出毫米口径增益，
 /// 而不是继续吃 0.15°/pt。只断语义（毫米标定 + 比旧档细），杠杆臂由场景节点独立量出。

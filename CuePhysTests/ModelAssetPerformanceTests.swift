@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import Darwin
-@testable import QiuJi
+@testable import CuePhys
 
 private final class ModelPerfFrames: @unchecked Sendable {
     private let lock = NSLock()

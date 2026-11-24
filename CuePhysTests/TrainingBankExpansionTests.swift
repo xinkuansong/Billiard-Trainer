@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// Explicit resumable offline production. Every saved proof uses raw forward input.
 final class TrainingBankExpansionTests: XCTestCase {
@@ -50,7 +50,7 @@ final class TrainingBankExpansionTests: XCTestCase {
         var speeds: [Float] = []
         let options: [Float] = b.angle >= 71 ? [2.5, 3.5, 1.5, 5, 1] : [1, 1.5, 0.7, 2.5, 3.5]
         for speed in (preferred.map { [$0.velocity] } ?? []) + options where !speeds.contains(speed) { speeds.append(speed) }
-        let pocket = TableGeometry.chineseEightBallQiuJi(surfaceY: 0).pockets[b.pocketIndex].center
+        let pocket = TableGeometry.chineseEightBallCuePhys(surfaceY: 0).pockets[b.pocketIndex].center
         for speed in speeds {
             for aim: SCNVector3? in [nil, pocket] {
                 let input = ShotInput(cueBall: b.cue.vector, targetBall: b.target.vector, pocketIndex: b.pocketIndex,
@@ -74,7 +74,7 @@ final class TrainingBankExpansionTests: XCTestCase {
     }
     /// Compare all rectangle symmetries, including pocket identity, before admitting a new board.
     private func isDistinct(_ b: TrainingBankBoard, from existing: [TrainingBankBoard]) -> Bool {
-        let pockets = TableGeometry.chineseEightBallQiuJi(surfaceY: 0).pockets
+        let pockets = TableGeometry.chineseEightBallCuePhys(surfaceY: 0).pockets
         for (sx, sz): (Float, Float) in [(1,1),(-1,1),(1,-1),(-1,-1)] {
             let destination = pockets[b.pocketIndex].center
             let index = pockets.indices.min { a,c in

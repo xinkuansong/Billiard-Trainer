@@ -73,7 +73,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-SWIFT_REL = Path("QiuJi/Data/Services/BackendSyncService.swift")
+SWIFT_REL = Path("CuePhys/Data/Services/BackendSyncService.swift")
 BACKEND_MODELS_REL = Path("backend/src/models")
 
 # (标签, Swift DTO 结构体名, 后端模型文件名)

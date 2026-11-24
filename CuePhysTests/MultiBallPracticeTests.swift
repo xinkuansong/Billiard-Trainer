@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class MultiBallPracticeTests: XCTestCase {

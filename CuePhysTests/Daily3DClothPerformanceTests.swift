@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import Metal
-@testable import QiuJi
+@testable import CuePhys
 
 /// Rendered equivalence checks; simulator timings are not phone performance evidence.
 @MainActor

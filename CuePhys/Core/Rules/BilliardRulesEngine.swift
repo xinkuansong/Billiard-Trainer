@@ -2,7 +2,7 @@ import Foundation
 
 //
 //  BilliardRulesEngine.swift
-//  QiuJi
+//  CuePhys
 //
 //  自由击球规则引擎（条 15.10）：单机双玩家（一人扮两方）的中式八球与追分完整规则。
 //  规则依据：docs/research/20260707-中八追分规则调研.md（CBSA/WPA 条文 + App 约定）。

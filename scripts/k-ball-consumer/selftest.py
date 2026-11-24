@@ -16,10 +16,10 @@ def run():
     passed = []
     with tempfile.TemporaryDirectory(prefix='k-ball-gate-') as tmp:
         root = Path(tmp)
-        bank = root / 'QiuJi/Resources/KBallBank'
-        shutil.copytree(ROOT / 'QiuJi/Resources/KBallBank', bank)
-        (root/'QiuJi.xcodeproj').mkdir()
-        for name in ('project.yml', 'QiuJi.xcodeproj/project.pbxproj'):
+        bank = root / 'CuePhys/Resources/KBallBank'
+        shutil.copytree(ROOT / 'CuePhys/Resources/KBallBank', bank)
+        (root/'CuePhys.xcodeproj').mkdir()
+        for name in ('project.yml', 'CuePhys.xcodeproj/project.pbxproj'):
             shutil.copyfile(ROOT/name, root/name)
         original_index = (bank/'index.json').read_bytes()
         index = json.loads(original_index)
@@ -57,7 +57,7 @@ def run():
         rejected('incorrect line with updated fingerprint', lambda: write_index(bad),
                  lambda: (bank/'index.json').write_bytes(original_index))
         for name, token in [('project.yml','Resources/KBallBank/**'),
-                            ('QiuJi.xcodeproj/project.pbxproj','KBallBank in Resources')]:
+                            ('CuePhys.xcodeproj/project.pbxproj','KBallBank in Resources')]:
             path = root/name; original = path.read_text()
             rejected('missing packaging '+name, lambda: path.write_text(original.replace(token,'REMOVED')),
                      lambda: path.write_text(original))

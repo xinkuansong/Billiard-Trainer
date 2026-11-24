@@ -1,6 +1,6 @@
 //
 //  BatchBallExtractionView.swift
-//  QiuJi
+//  CuePhys
 //
 //  批量出片台 · 拍照建球形（仅模拟器）。
 //

@@ -1,20 +1,20 @@
 //
 //  PositioningFormationRenderTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  调研用：把从权威教材提取的 positioning 球形（仅摆球布局、不画轨迹）用现有
 //  AngleTrainingScene + USDZ 球桌渲染成 2D 顶视 PNG，供肉眼核对球的布局是否合理。
 //
 //  仅供内容调研，不进运行时。运行：
-//    xcodebuild test -scheme QiuJi \
+//    xcodebuild test -scheme CuePhys \
 //      -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-//      -only-testing:QiuJiTests/PositioningFormationRenderTests
+//      -only-testing:CuePhysTests/PositioningFormationRenderTests
 //
 
 import XCTest
 import SceneKit
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class PositioningFormationRenderTests: XCTestCase {
 

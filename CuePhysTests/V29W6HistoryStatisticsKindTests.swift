@@ -2,7 +2,7 @@ import XCTest
 import SwiftData
 import SwiftUI
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// 问题集合 v29 W6：记录 / 统计页按 `kind` 读取改造。
 ///

@@ -3,9 +3,9 @@
 publish_tutorial_figures.py — 精讲配图发布：PNG 母版 → HEIC 打包目录（v25 W4 / D-v25-2 / D-v25-10）
 
 目录分工（folder reference 是整目录打包，母版与发布图必须分家，否则孤儿帧必然进包）：
-  母版  QiuJi/Resources/DrillTutorials/   全量 PNG（含孤儿帧），gitignore，**不打包**
+  母版  CuePhys/Resources/DrillTutorials/   全量 PNG（含孤儿帧），gitignore，**不打包**
         ← `import-engine-export-to-app.py` 回填目标；C2 回填一致性仍按字节比对这里
-  发布  QiuJi/Resources/TutorialFigures/  仅被精讲引用者，HEIC，**进 git、folder ref 打包**
+  发布  CuePhys/Resources/TutorialFigures/  仅被精讲引用者，HEIC，**进 git、folder ref 打包**
         ← 本脚本产物；Bundle 子目录名 = TutorialFigures（`DrillTutorialImageStore`）
 
 清单 content/tutorial-figures-manifest.json 记录每张产物的源 md5，用途有二：
@@ -37,9 +37,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from verify_tutorial_images import collect_image_refs  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DRILLS_DIR = REPO_ROOT / "QiuJi" / "Resources" / "Drills"
-MASTERS_DIR = REPO_ROOT / "QiuJi" / "Resources" / "DrillTutorials"
-PUBLISH_DIR = REPO_ROOT / "QiuJi" / "Resources" / "TutorialFigures"
+DRILLS_DIR = REPO_ROOT / "CuePhys" / "Resources" / "Drills"
+MASTERS_DIR = REPO_ROOT / "CuePhys" / "Resources" / "DrillTutorials"
+PUBLISH_DIR = REPO_ROOT / "CuePhys" / "Resources" / "TutorialFigures"
 MANIFEST_PATH = REPO_ROOT / "content" / "tutorial-figures-manifest.json"
 
 # q70：v25 W4 拍板值。实测 1440×2720 渲染图 PNG 3.7 MB → q45 64 KB / q60 115 KB /
@@ -172,7 +172,7 @@ def check_packaging_config() -> list[str]:
         stripped = line.strip()
         if stripped.startswith("#"):
             continue  # 注释掉的声明不生效（Videos / Previews 就是这么停用的）
-        m = re.match(r"-\s*path:\s*QiuJi/Resources/(\S+)\s*$", stripped)
+        m = re.match(r"-\s*path:\s*CuePhys/Resources/(\S+)\s*$", stripped)
         if m:
             declared.add(m.group(1))
     if PUBLISH_DIR.name not in declared:
@@ -183,7 +183,7 @@ def check_packaging_config() -> list[str]:
             f"会整目录进包，违反 D-v25-10 且突破 App Store 4 GB 未压缩上限"
         )
 
-    pbxproj = REPO_ROOT / "QiuJi.xcodeproj" / "project.pbxproj"
+    pbxproj = REPO_ROOT / "CuePhys.xcodeproj" / "project.pbxproj"
     if pbxproj.is_file():
         text = pbxproj.read_text(encoding="utf-8")
         if f"{PUBLISH_DIR.name} in Resources" not in text:

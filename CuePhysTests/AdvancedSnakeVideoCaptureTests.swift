@@ -1,7 +1,7 @@
 import XCTest
 import SceneKit
 import UIKit
-@testable import QiuJi
+@testable import CuePhys
 
 @MainActor
 final class AdvancedSnakeVideoCaptureTests: XCTestCase {

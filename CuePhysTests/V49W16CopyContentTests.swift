@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v49 W16：防守、K 球综合、连续清台与规则流程课。
 @MainActor

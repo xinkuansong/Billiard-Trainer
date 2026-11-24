@@ -1,6 +1,6 @@
 //
 //  CueBallStrike.swift
-//  QiuJi
+//  CuePhys
 //
 //  杆-球碰撞模型 — 忠实移植自 pooltool
 //  `physics/resolve/stick_ball/instantaneous_point` (`cue_strike`) + `squirt.py`。

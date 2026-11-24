@@ -1,6 +1,6 @@
 //
 //  BatchDrillStudioCore.swift
-//  QiuJi
+//  CuePhys
 //
 //  批量 Drill 出片工作台（仅模拟器，内容生产工具，ADR-P11-10 同源）。
 //
@@ -69,7 +69,7 @@ enum BatchDrillCatalog {
 
     /// App 资源 `index.json`（drill_cNNN → category 真源）。
     static let indexJSONPath =
-        "/Users/song/projects/13.billiard_trainer/QiuJi/Resources/Drills/index.json"
+        "/Users/song/projects/13.billiard_trainer/CuePhys/Resources/Drills/index.json"
 
     /// 已落库序列目录（与 `BatchSequenceArchive.directory` 同一处）。
     static let sequencesDir =
@@ -213,7 +213,7 @@ enum BatchDrillCatalog {
 
     /// 从已存在的 drill JSON（`Resources/Drills/<category>/<id>.json`）读中文名（best-effort）。
     private static func loadDrillNameMap() -> [String: String] {
-        let drillsRoot = "/Users/song/projects/13.billiard_trainer/QiuJi/Resources/Drills"
+        let drillsRoot = "/Users/song/projects/13.billiard_trainer/CuePhys/Resources/Drills"
         let fm = FileManager.default
         var map: [String: String] = [:]
         guard let enumerator = fm.enumerator(atPath: drillsRoot) else { return map }

@@ -1,5 +1,5 @@
 import XCTest
-@testable import QiuJi
+@testable import CuePhys
 
 /// v30 W4 两篇（清台 5 步决策流程 / 清台速查手册）的内容不变量。
 ///

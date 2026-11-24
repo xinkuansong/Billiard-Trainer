@@ -339,7 +339,7 @@ enum AccuracyShotJudgement {
     private static func isInitialFrozenContact(_ prediction: ShotPrediction, event: ShotEvent, railIndex: Int) -> Bool {
         guard let frames = prediction.recorder?.framesByBallName[ShotInput.targetBallName],
               let first = frames.first, first.time <= 0.00001 else { return false }
-        let rail = TableGeometry.chineseEightBallQiuJi(surfaceY: 0).linearCushions[railIndex]
+        let rail = TableGeometry.chineseEightBallCuePhys(surfaceY: 0).linearCushions[railIndex]
         let delta = rail.end - rail.start
         let length2 = delta.x * delta.x + delta.z * delta.z
         let projection = ((first.position.x - rail.start.x) * delta.x
@@ -353,11 +353,11 @@ enum AccuracyShotJudgement {
             ($0.position - rail.start).dot(rail.normal) - BallPhysics.radius <= 0.0001
         }
     }
-    /// The QiuJi factory adds 26 throat walls to the base factory's 18 lines.
+    /// The CuePhys factory adds 26 throat walls to the base factory's 18 lines.
     /// Base CAD corner order is LD/LU/RD/RU; public pocket order is LD/RD/LU/RU.
     /// Unknown geometry fails closed; regression tests also compare every actual segment to its pocket.
     static func mouthOwner(cushionIndex: Int) -> Int? {
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: 0)
         guard geometry.linearCushions.count == 44, geometry.circularCushions.count == 12 else { return nil }
         let cornerOrder = [0, 2, 1, 3]
         switch cushionIndex {

@@ -210,7 +210,7 @@ struct ResolvedDose: Equatable {
 /// `sequence` 衰减才允许 `rounds < defaultRounds`。
 enum TrainingDoseResolver {
 
-    private static let logger = Logger(subsystem: "com.billiardtrainer", category: "TrainingDose")
+    private static let logger = Logger(subsystem: "com.youbilliards.cuephys", category: "TrainingDose")
 
     /// 多球形 drill 的可选球形；单球形（或无序列）返回空数组 —— 单球形不出选择 UI，
     /// `DrillSet.formationToken/Name` 保持 nil（契约 §4.1）。

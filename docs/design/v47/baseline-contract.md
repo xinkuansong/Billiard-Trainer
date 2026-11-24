@@ -20,7 +20,7 @@
 
 - Xcode：26.2（Build `17C52`）。
 - SDK / Simulator Runtime：主基线 iOS 26.2；兼容下界另跑 iOS 17.0。
-- Scheme：单元与普通 UI 用 `QiuJi`；长巡游可用 `QiuJiUITour`，但必须显式 `-only-testing`。
+- Scheme：单元与普通 UI 用 `QiuJi`；长巡游可用 `CuePhysUITour`，但必须显式 `-only-testing`。
 - DerivedData：`build/DerivedData-v47-baseline`（W0）或 `build/DerivedData-v47-<batch>`（后续），不得复用其他会话目录。
 - 跑 UI 测试前先检查并行 `xcodebuild`；长巡游固定 UI 隔离设备，禁止用设备名模糊匹配。
 
@@ -69,14 +69,14 @@ W0 固定四套场景名：
 
 ```bash
 make -f scripts/Makefile verify-gate
-xcodebuild -project QiuJi.xcodeproj -scheme QiuJi -configuration Debug \
+xcodebuild -project CuePhys.xcodeproj -scheme QiuJi -configuration Debug \
   -derivedDataPath build/DerivedData-v47-baseline \
   -destination 'platform=iOS Simulator,id=9B456D2E-C90E-4324-8E98-51A4CCA930A1' \
   build-for-testing
-xcodebuild -project QiuJi.xcodeproj -scheme QiuJi -configuration Debug \
+xcodebuild -project CuePhys.xcodeproj -scheme QiuJi -configuration Debug \
   -derivedDataPath build/DerivedData-v47-baseline \
   -destination 'platform=iOS Simulator,id=9B456D2E-C90E-4324-8E98-51A4CCA930A1' \
-  -only-testing:QiuJiTests test-without-building
+  -only-testing:CuePhysTests test-without-building
 ```
 
 核心 UI smoke 固定在 UI 隔离设备，至少包含五根页无标题、训练入口、历史/统计、订阅，以及截图写盘/缺图门禁。W0 与 W15a 必须使用同一设备、Runtime、fixture 和命令形状对比。
@@ -89,7 +89,7 @@ xcodebuild -project QiuJi.xcodeproj -scheme QiuJi -configuration Debug \
 |---|---|
 | `verify-gate` | PASS；C1–C4、I5–I13、发布链路与双端对齐均 FAIL 0；v47 截图/路由/写盘门禁 FAIL 0 |
 | `build-for-testing` | PASS；当前 W0 源码 `** TEST BUILD SUCCEEDED **` |
-| 全量 `QiuJiTests` | 基线失败：终端最终汇总 822 tests / 11 skipped / 16 failure events / 705.0s；xcresult 聚合为 1055 total / 10 failed test cases / 12 skipped（测试宿主崩溃后重启导致计数口径不同） |
+| 全量 `CuePhysTests` | 基线失败：终端最终汇总 822 tests / 11 skipped / 16 failure events / 705.0s；xcresult 聚合为 1055 total / 10 failed test cases / 12 skipped（测试宿主崩溃后重启导致计数口径不同） |
 | Bake gate 回归 | PASS；陈旧 flag 边界测试 1/1；普通全量前 `build/.run-bake-runners` 必须不存在 |
 | 五根页无标题 | PASS；`testV47TabRootsHaveNoNavigationTitle` 1/1，39.9s |
 | 66 页巡游 | PASS；`testDesignerPageDump` 1/1、0 failure，1348.019s；`build/v47-screenshots/light` 含 66 个 manifest 必需文件，另有兼容入口 `12b-theory-t03.png` 1 张；xcresult：`build/v47-w0-66-tour-safe.xcresult` |
@@ -108,6 +108,6 @@ xcodebuild -project QiuJi.xcodeproj -scheme QiuJi -configuration Debug \
 9. `V30X1TutorialEmptyContentRenderTests/test_targetDrills_containContentlessItemsSections`：`c003/c024/c033` 不再含预期的 content 缺省节。
 10. `V30X1TutorialEmptyContentRenderTests/test_tutorialPage_rendersContentlessSections_lightAndDark`：`c003` 对应纯 items 节 unwrap 失败。
 
-测试开始时发现 2026-08-26 遗留的 `build/.run-bake-runners`，它曾让常规全量测试改写 15 张跟踪缩略图。W0 已从 Git 精确恢复这些资源、移走陈旧 flag，并让 file gate 仅接受 30 分钟内创建的标记；当前 `QiuJi/Resources/DrillThumbnails` 与 `QiuJi/Resources/Drills` 均无测试污染。
+测试开始时发现 2026-08-26 遗留的 `build/.run-bake-runners`，它曾让常规全量测试改写 15 张跟踪缩略图。W0 已从 Git 精确恢复这些资源、移走陈旧 flag，并让 file gate 仅接受 30 分钟内创建的标记；当前 `CuePhys/Resources/DrillThumbnails` 与 `CuePhys/Resources/Drills` 均无测试污染。
 
 任何既有失败或 warning 必须在此表逐条保留到 W15a；不得写成“无新增失败”而省略基线事实。

@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import QiuJi
+@testable import CuePhys
 
 /// `BTShotHUDBar` 导出路径回归（ADR-P11-13）。
 ///

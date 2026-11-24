@@ -1,6 +1,6 @@
 //
 //  TableGeometryProbeTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  P10 物理标定 · Track B-1：jaw↔洞心对齐（USDZ 单一真源）。
 //
@@ -13,14 +13,14 @@
 //     与各角袋 jaw 尖端，打印「实测 vs 现 CAD vs 现 USDZ」对照表（写 PHYSICS-PROBE.md）。
 //
 //  运行：
-//    xcodebuild test -scheme QiuJi \
+//    xcodebuild test -scheme CuePhys \
 //      -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-//      -only-testing:QiuJiTests/TableGeometryProbeTests
+//      -only-testing:CuePhysTests/TableGeometryProbeTests
 //
 
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class TableGeometryProbeTests: XCTestCase {
 
@@ -628,7 +628,7 @@ extension TableGeometryProbeTests {
     func testMeasuredCaptureLipMatchesExposedCloth() throws {
         let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
         let surface = try TableAssistSurface.load(from: scene)
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: scene.surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: scene.surfaceY)
         for pocket in geometry.pockets {
             XCTAssertGreaterThan(pocket.captureLip.count, 10)
             for i in pocket.captureLip.indices {
@@ -648,7 +648,7 @@ extension TableGeometryProbeTests {
         let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
         let surface = try TableAssistSurface.load(from: scene)
         let sy = scene.surfaceY, r = BallPhysics.radius
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: sy)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: sy)
         for (index, pocket) in geometry.pockets.enumerated() {
             for angle:Float in [-5,0,5] {
             let inward = SCNVector3(index < 4 ? (pocket.center.x > 0 ? -1:1):0, 0,
@@ -712,7 +712,7 @@ extension TableGeometryProbeTests {
 
     func testFrozenBallRecordsRealRailImpactAndSettles() throws {
         let sy:Float=0.8,r=BallPhysics.radius
-        let geo=TableGeometry.chineseEightBallQiuJi(surfaceY:sy)
+        let geo=TableGeometry.chineseEightBallCuePhys(surfaceY:sy)
         for sign:Float in [-1,1] {
             let engine=EventDrivenEngine(tableGeometry:geo)
             let v=SCNVector3(0.3,0,sign*0.024540592)
@@ -735,7 +735,7 @@ extension TableGeometryProbeTests {
 extension TableGeometryProbeTests {
     func testFrozenAimKeepsFullRadiusBeforeCapture() throws {
         let sy: Float = 0.8, r = BallPhysics.radius
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: sy)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: sy)
         for index in 0..<4 {
             let sx: Float = index % 2 == 0 ? -1 : 1
             let sz: Float = index < 2 ? -1 : 1
@@ -841,7 +841,7 @@ extension TableGeometryProbeTests {
     /// specification rather than recalibrating physics to a visual import error.
     func testCalibratedCushionWholeSphereContactEnvelope() throws {
         let asset = try PocketGeometryAsset.load()
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: asset.surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: asset.surfaceY)
         let roles = try PocketSurfaceRoles.classify(asset.tablePatches, surfaceY: asset.surfaceY)
         let triangles = asset.tablePatches.indices.filter { roles[$0] != .clothBed }
             .map { asset.tablePatches[$0].triangle }

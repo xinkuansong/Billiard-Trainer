@@ -1,6 +1,6 @@
 //
 //  ReachabilityVizTests.swift
-//  QiuJiTests
+//  CuePhysTests
 //
 //  走位可视化 → 短视频引流 · Pilot ①「可达轨迹绽放」（方案见
 //  docs/research/20260624-走位可视化-短视频引流方案.md §3.1 Hero / §4 表 ①）。
@@ -22,10 +22,10 @@
 //     velocity∈[0.6,6.5]（≤ BallPhysics.maxVelocity）。
 //
 //  运行：
-//    xcodebuild test -scheme QiuJi \
+//    xcodebuild test -scheme CuePhys \
 //      -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-//      -only-testing:QiuJiTests/ReachabilityVizTests/test_reach_still   （快：仅静帧 PNG，调坐标用）
-//      -only-testing:QiuJiTests/ReachabilityVizTests/test_reach_video   （慢：竖屏 mp4）
+//      -only-testing:CuePhysTests/ReachabilityVizTests/test_reach_still   （快：仅静帧 PNG，调坐标用）
+//      -only-testing:CuePhysTests/ReachabilityVizTests/test_reach_video   （慢：竖屏 mp4）
 //
 //  输出目录：build/reach_viz/{reach_still.png, reach_pilot1.mp4}
 //
@@ -33,7 +33,7 @@
 import XCTest
 import UIKit
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 final class ReachabilityVizTests: XCTestCase {
 

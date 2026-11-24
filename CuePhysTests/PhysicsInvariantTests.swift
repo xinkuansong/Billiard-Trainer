@@ -1,6 +1,6 @@
 import XCTest
 import SceneKit
-@testable import QiuJi
+@testable import CuePhys
 
 /// 物理不变量护栏（D-C1）+ 确定性护栏（D-C3）。
 ///
@@ -45,7 +45,7 @@ final class PhysicsInvariantTests: XCTestCase {
             let (sx, sy) = randomSpinWithinMiscue(&rng)
             let strike = CueBallStrike.executeStrike(aimDirection: aim, velocity: velocity, spinX: sx, spinY: sy)
 
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
             engine.setBall(BallState(position: SCNVector3(cue.x, surfaceY + R, cue.z),
                                      velocity: strike.velocity, angularVelocity: strike.angularVelocity,
                                      state: .sliding, name: "cue"))
@@ -93,7 +93,7 @@ final class PhysicsInvariantTests: XCTestCase {
             let velocity = rng.float(in: 2.0...5.5)
             let strike = CueBallStrike.executeStrike(aimDirection: aim, velocity: velocity, spinX: 0, spinY: 0)
 
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
             let names = ["cue", "o1", "o2"]
             for (i, p) in positions.enumerated() {
                 engine.setBall(BallState(position: SCNVector3(p.x, surfaceY + R, p.z),
@@ -209,7 +209,7 @@ final class PhysicsInvariantTests: XCTestCase {
     /// 裸引擎层确定性：同一初始条件 simulate 两次，记录帧逐帧一致。
     func test_determinism_rawEngineIsRepeatable() {
         func run() -> TrajectoryRecorder {
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
             let strike = CueBallStrike.executeStrike(aimDirection: SCNVector3(1, 0, 0), velocity: 3.3, spinX: 0.3, spinY: 0.5)
             engine.setBall(BallState(position: SCNVector3(-0.5, surfaceY + R, 0.05),
                                      velocity: strike.velocity, angularVelocity: strike.angularVelocity,
@@ -246,7 +246,7 @@ final class PhysicsInvariantTests: XCTestCase {
             let aim = randomUnitXZ(&rng)
             let velocity = rng.float(in: 1.5...5.5)
             let strike = CueBallStrike.executeStrike(aimDirection: aim, velocity: velocity, spinX: 0, spinY: 0)
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
             engine.setBall(BallState(position: SCNVector3(pos.x, surfaceY + R, pos.z),
                                      velocity: strike.velocity, angularVelocity: strike.angularVelocity,
                                      state: .sliding, name: "cue"))
@@ -284,7 +284,7 @@ final class PhysicsInvariantTests: XCTestCase {
                 positions.append(p)
             }
             let strike = CueBallStrike.executeStrike(aimDirection: randomUnitXZ(&rng), velocity: rng.float(in: 2.0...5.8), spinX: 0, spinY: 0)
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
             let names = ["cue", "o1", "o2"]
             for (i, p) in positions.enumerated() {
                 engine.setBall(BallState(position: SCNVector3(p.x, surfaceY + R, p.z),
@@ -362,7 +362,7 @@ final class PhysicsInvariantTests: XCTestCase {
             }
             let cue = positions[0], rest = positions[1]
             let strike = CueBallStrike.executeStrike(aimDirection: randomUnitXZ(&rng), velocity: rng.float(in: 2.0...5.0), spinX: 0, spinY: 0)
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
             engine.setBall(BallState(position: cue, velocity: strike.velocity, angularVelocity: strike.angularVelocity, state: .sliding, name: "cue"))
             engine.setBall(BallState(position: rest, velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero, state: .stationary, name: "rest"))
             engine.simulate(maxEvents: 1500, maxTime: 25)
@@ -394,14 +394,14 @@ final class PhysicsInvariantTests: XCTestCase {
     func test_invariant_centerInHoleRadiusMeansPocketed() {
         var rng = SeededRNG(seed: 0x0C4E_D001)
         let trials = 200
-        let pockets = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY).pockets
+        let pockets = TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY).pockets
         var enteredCount = 0
         for t in 0..<trials {
             let cue = randomBallPos(&rng)
             let strike = CueBallStrike.executeStrike(
                 aimDirection: randomUnitXZ(&rng), velocity: rng.float(in: 1.5...5.0),
                 spinX: 0, spinY: 0)
-            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY))
             engine.setBall(BallState(position: cue, velocity: strike.velocity,
                                      angularVelocity: strike.angularVelocity,
                                      state: .sliding, name: "cue"))
@@ -440,7 +440,7 @@ final class PhysicsInvariantTests: XCTestCase {
     /// A ball that exhausts its energy before the actual cloth lip must stay
     /// supported. Being outside the old CAD circle alone did not prove support.
     func test_invariant_hangingBallStaysAtMouth() {
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY)
         for (pi, pk) in geo.pockets.enumerated() {
             // 从台内沿「孔心 → 台心」反方向逼近，起点距孔圈 6cm，初速刚好走 ~4cm 后停（滚动摩擦）。
             let toCenter = SCNVector3(-pk.center.x, 0, -pk.center.z)
@@ -477,7 +477,7 @@ final class PhysicsInvariantTests: XCTestCase {
     /// 通道轴线：角袋为 45° 对角线（非「台心→孔心」连线，后者偏轴 ~27° 会合法擦 jaw），
     /// 中袋为垂直短边方向。
     func test_invariant_centerlineShotEntersWithoutCushion() {
-        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        let geo = TableGeometry.chineseEightBallCuePhys(surfaceY: surfaceY)
         let invSqrt2 = 1 / sqrtf(2)
         for (pi, pk) in geo.pockets.enumerated() {
             let isCorner = abs(pk.center.x) > 0.5

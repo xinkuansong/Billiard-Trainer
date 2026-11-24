@@ -132,7 +132,7 @@ enum SeparationQuestionGenerator {
     /// Admission policy for generated answers only; never changes a player's shot or score.
     /// Resolve recorded collision IDs against the same production geometry used by ShotPredictor.
     static func hasCueJawContact(_ prediction: ShotPrediction) -> Bool {
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
         return prediction.events.contains { event in
             guard case .ballCushion(let ball) = event.kind, ball == ShotInput.cueBallName else { return false }
             // An unidentified collision cannot certify a jaw-free answer.
@@ -151,7 +151,7 @@ enum SeparationQuestionGenerator {
         guard ShotPredictor.bankPocketContactCount(events: prediction.events) > 0,
               let recorder = prediction.recorder, let frames = recorder.framesByBallName[target],
               let first = recorder.firstBallContacts[target] else { return nil }
-        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let geometry = TableGeometry.chineseEightBallCuePhys(surfaceY: BTTablePhysics.surfaceY)
         var lastRail: Float?
         var firstJaw: Float?
         for event in prediction.events {

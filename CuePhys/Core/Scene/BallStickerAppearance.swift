@@ -6,7 +6,7 @@ import os
 /// Generated albedo on two opposite spherical caps. Corrects the original
 /// folded back UVs once while retaining every position/normal and face.
 enum BallStickerAppearance {
-    private static let logger = Logger(subsystem: "com.xinkuan.qiuji", category: "BallStickerAppearance")
+    private static let logger = Logger(subsystem: "com.youbilliards.cuephys", category: "BallStickerAppearance")
     private static let images = TableAssetImageCache(byteLimit: 36 * 1024 * 1024)
     private static let uvLock = NSLock()
     private static var uvCache: [String: SCNGeometry] = [:]

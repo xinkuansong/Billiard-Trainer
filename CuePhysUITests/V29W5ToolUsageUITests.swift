@@ -20,7 +20,7 @@ final class V29W5ToolUsageUITests: XCTestCase {
         add(att)
         // 由本文件路径反推仓库根，避免硬编码某个 worktree 的绝对路径（W1/FL 教训）。
         let repoRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()   // QiuJiUITests/
+            .deletingLastPathComponent()   // CuePhysUITests/
             .deletingLastPathComponent()   // <repo root>
         let dir = repoRoot
             .appendingPathComponent("build", isDirectory: true)

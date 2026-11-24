@@ -6968,3 +6968,10 @@ FL-271候选时序补充（2026-11-15）：app.screenshot裁切不作全屏视�
 按用户确认的《问题集合 v71》统一自绘选择状态。未选使用 `square`，已选使用 `checkmark.square`，保证方框完整包住对号。改动覆盖 `BTSelectionIndicator`、`BTChoiceMenuItem`、`BTCompactMenuChoiceLabel` 及轨迹档位、风格预览、球形选择三个直接使用对号的原生 Menu 入口。原生 Toggle、Picker、胶囊分段、完成状态和操作按钮图标保留现状。
 
 已应用至 `IconToken.swift`、`BTTogglePillGroup.swift`、`BTGeometricReferenceTool.swift`、`BTOverflowMenu.swift`、`BTSetInputGrid.swift`、`SettingsView.swift`、`OnboardingStyleLab.swift`，并同步 UI 实施规范、球桌统一规范、来源表和讨论记录。Debug generic iOS Simulator build 已通过，`TablePreferencesUITests.testCustomChoicesAndNativeSwitchEvidence` 与 `TableMenuRetentionUITests.testDailyTargetContactPointMenu` 已通过。前后对比图使用用户原始球桌菜单截图和本轮模拟器球桌菜单截图，见 `output/selection-markers-v71/before-after-table.png`。真实设备触感、全量页面逐项人工复看和用户最终视觉认可仍待后续验收，不以本次编译结果替代。
+
+## FL-282 — 改名漏迁 Git LFS 规则，指针被当作模型打包（2026-11-24）
+
+- 事实：CuePhys 路径下生产模型仅134/132字节，真机产物亦为指针；旧门禁只查文件存在。
+- 修复：迁移.gitattributes/.gitignore路径，恢复哈希匹配LFS对象；源和产物门禁拒绝指针、无效ZIP、无USD场景及CRC损坏。
+- 验证：构造性脚本10/10通过，原坏包被拒绝；原生验证状态见[修复记录](launch-20261110/CuePhys模型资源修复-20261124.md)。
+- 已应用至：`.cursor/rules/60-devops-release.mdc` FL-282、`scripts/verify_model_packaging.py` 与对应测试。

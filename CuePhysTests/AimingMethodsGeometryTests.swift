@@ -1,6 +1,6 @@
 import XCTest
 import CoreGraphics
-@testable import QiuJi
+@testable import CuePhys
 
 /// v11 Y1 返工 r1（FL-026）：「瞄准方法」页三定义的几何不变量锁。
 /// 口径 = 问题集合 v11.2 §2.1；数值草稿 `build/y1-evidence/y1r1-geometry-draft-selfrun.txt`。
