@@ -3,7 +3,7 @@
 > **版本**：2.19（2026-09-14：v63 裁定与呈现数据边界）
 > **最后更新**：2026-09-14
 > **地位**：本文件是「内容资产真源归属、标识符命名、数据流向、用户训练数据口径」的**唯一契约来源**。
-> 其余文档（`QiuJi/Resources/Drills/schema.md`、`content/position_play/README.md`、
+> 其余文档（`CuePhys/Resources/Drills/schema.md`、`content/position_play/README.md`、
 > `docs/06-技术架构.md`）在与本文件冲突时**以本文件为准**，并应改为引用本文件而非重复定义。
 >
 > **本文件不是现状快照。** 描述性事实集中在 §8 现存偏差登记，会随收敛而清空；
@@ -34,12 +34,12 @@
 
 | 数据 | 唯一真源 | 派生物（禁止手改） | 生成方式 |
 |---|---|---|---|
-| 球形几何（摆球 + 逐杆意图） | `content/position_play/sequences/*.json` | `QiuJi/Resources/DrillBoards/`、出片产物、缩略图 | 走位编排台**人工录制** |
+| 球形几何（摆球 + 逐杆意图） | `content/position_play/sequences/*.json` | `CuePhys/Resources/DrillBoards/`、出片产物、缩略图 | 走位编排台**人工录制** |
 | 出片产物（视频/静帧/预览帧/封面） | `build/position_play_export/` | `Resources/{Videos,DrillTutorials,Previews}` | `make position-export` → `import-engine-export-to-app.py` |
 | 精讲配图**发布图**（进包的那一份） | `Resources/DrillTutorials/*.png`（母版） | `Resources/TutorialFigures/*.heic` + `content/tutorial-figures-manifest.json` | `make tutorial-figures`（`publish_tutorial_figures.py`，回填后自动跑）|
 | 列表缩略图 | 序列文件（经渲染） | `Resources/DrillThumbnails/*.png` | `DrillThumbnailRenderer` 离线烘焙 |
-| Drill 元信息与精讲文本 | `QiuJi/Resources/Drills/*/*.json` | — | 人工撰写 |
-| 训练计划 | `QiuJi/Resources/Plans/*.json` | — | 人工撰写 |
+| Drill 元信息与精讲文本 | `CuePhys/Resources/Drills/*/*.json` | — | 人工撰写 |
+| 训练计划 | `CuePhys/Resources/Plans/*.json` | — | 人工撰写 |
 | 球桌几何常量 | `.kiro/steering/table-geometry.md` | — | — |
 | 用户训练数据 | 设备 SwiftData | 后端 MongoDB 副本 | App 写入 + `BackendSyncService` 推送 |
 
@@ -105,18 +105,18 @@ content/position_play/sequences/drill_cNNN__<token>-<名称>-<N>杆.json   ← �
    │        │  cover.png / preview/frame_NN.png / initial.png / final.png
    │        │  sNN_still.png / full.mp4 / full.gif / full_3d.mp4
    │        ▼  import-engine-export-to-app.py
-   │     QiuJi/Resources/Videos/<drillId>/
-   │     QiuJi/Resources/DrillTutorials/<drillId>[_<token>]_sNN.png
-   │     QiuJi/Resources/Previews/<assetKey>/
+   │     CuePhys/Resources/Videos/<drillId>/
+   │     CuePhys/Resources/DrillTutorials/<drillId>[_<token>]_sNN.png
+   │     CuePhys/Resources/Previews/<assetKey>/
    │     （并重写 drill JSON 的 videos[]）
    │
    ├─ make tryout-sync（rsync --delete，仅 drill_c*.json）
    │        ▼
-   │     QiuJi/Resources/DrillBoards/                      ← App 试打/场景/静态预览
+   │     CuePhys/Resources/DrillBoards/                      ← App 试打/场景/静态预览
    │
    └─ DrillThumbnailRenderer（离线烘焙，见 §8.3）
             ▼
-         QiuJi/Resources/DrillThumbnails/<drillId>.png     ← App 列表缩略图
+         CuePhys/Resources/DrillThumbnails/<drillId>.png     ← App 列表缩略图
 
 校验：make verify-tutorials（C1 出片新鲜度 / C2 回填一致性 / C3 引用指向 / C4 结构对齐
       + I5 精讲 token / I7 profile / I8 Bundle 子集 / I9 序列覆盖）

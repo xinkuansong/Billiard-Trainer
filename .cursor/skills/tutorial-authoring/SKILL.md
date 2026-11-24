@@ -14,11 +14,11 @@ description: 根据当前录制序列、逐杆图片和用户训练意图编写�
 | 资产 | 职责 |
 |---|---|
 | `content/position_play/sequences/` | 人工录制源序列；当前before/after、方向、shot和analysis |
-| `QiuJi/Resources/DrillBoards/` | App消费的序列副本；核同步关系，非文案编辑目标 |
-| `QiuJi/Resources/Drills/` | 正式动作内容；只有获授权时才写入 |
+| `CuePhys/Resources/DrillBoards/` | App消费的序列副本；核同步关系，非文案编辑目标 |
+| `CuePhys/Resources/Drills/` | 正式动作内容；只有获授权时才写入 |
 | 明确指定的候选路径 | 隔离样稿写回位置；本轮不回填生产 |
-| `QiuJi/Resources/DrillTutorials/` | 配图母版；实际逐张查看 |
-| `QiuJi/Resources/TutorialFigures/` | 发布图片；核对应版本，不在文案任务重出 |
+| `CuePhys/Resources/DrillTutorials/` | 配图母版；实际逐张查看 |
+| `CuePhys/Resources/TutorialFigures/` | 发布图片；核对应版本，不在文案任务重出 |
 | 本任务映射确认的出片/回放目录 | 需要时核动态过程；不存在即报告，不猜历史目录 |
 
 本技能通常处理tutorial；完整动作任务可同时授权description、coachingPoints、standardCriteria。以本轮字段白名单为准，不扩改name、sets、计分、序列、图片、animation或shotIntent。

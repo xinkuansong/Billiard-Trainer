@@ -8,7 +8,7 @@ import-videos-stage1.py — _inbox 录屏按分类归位到 15.tutorial_video St
 规则：
 - drill_NNN  →  drill_cNNN （添加 c 前缀）
 - 文件名保留原始时间戳（shot 标注留待人工后续处理）
-- 分类来自 QiuJi/Resources/Drills/index.json
+- 分类来自 CuePhys/Resources/Drills/index.json
 - 默认幂等：目标文件存在且大小一致则跳过
 - _inbox 文件保留（不删除）
 

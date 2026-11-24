@@ -8,7 +8,7 @@
 import-videos-to-app.py — _inbox 录屏复制并改名进入 QiuJi App Bundle
 
 源：/Users/song/projects/15.tutorial_video/assets/raw/shooterspool-recordings/_inbox/drill_NNN/*.mp4
-目标：QiuJi/Resources/Videos/drill_cNNN/take_MM.mp4
+目标：CuePhys/Resources/Videos/drill_cNNN/take_MM.mp4
        （MM 按时间戳升序，01 起编号）
 
 同时更新：每个 drill_cNNN.json 增加 "videos" 字段（仅当该 drill 有视频时）：

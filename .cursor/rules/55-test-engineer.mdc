@@ -114,7 +114,7 @@ alwaysApply: false
 ### 目录结构
 
 ```
-QiuJiTests/                      # 单元测试 Target
+CuePhysTests/                      # 单元测试 Target
 ├── Data/
 │   ├── Models/                  # SwiftData Model 测试
 │   ├── Repositories/            # Repository CRUD 测试
@@ -124,7 +124,7 @@ QiuJiTests/                      # 单元测试 Target
 │   └── Training/                # TrainingHomeViewModel 等
 └── Mocks/                       # 共享 Mock / Stub
 
-QiuJiUITests/                    # UI 测试 Target
+CuePhysUITests/                    # UI 测试 Target
 ├── Flows/                       # 端到端用户流程
 └── Accessibility/               # 可访问性验证
 ```

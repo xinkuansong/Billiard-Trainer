@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const { createPrivateKey } = require("node:crypto");
 
 const EXPECTED_BUNDLE_ID = "com.youbilliards.cuephys";
 
@@ -8,7 +9,8 @@ function nonEmpty(env, name) {
 }
 
 function validSigningKey(value) {
-  return typeof value === "string" && value.trim() === value && value.length >= 32;
+  return typeof value === "string" && value.trim() === value && Buffer.byteLength(value, "utf8") >= 32 &&
+    !["change-me-to-a-random-string", "change-me-to-another-random-string"].includes(value);
 }
 
 function productionPreflight(env = process.env, filesystem = fs) {
@@ -47,7 +49,19 @@ function productionPreflight(env = process.env, filesystem = fs) {
     blockers.push("Apple .p8 文件权限必须收紧为仅服务账号可读（建议 0600）");
   }
 
-  checks.wechat = nonEmpty(env, "WECHAT_APP_ID") && nonEmpty(env, "WECHAT_APP_SECRET");
+  checks.appleKeyMaterial = false;
+  if (checks.applePrivateKey) {
+    try {
+      const key = createPrivateKey(filesystem.readFileSync(keyPath));
+      checks.appleKeyMaterial = key.asymmetricKeyType === "ec" &&
+        key.asymmetricKeyDetails?.namedCurve === "prime256v1";
+    } catch { /* Report only the field name; never key bytes or filesystem error text. */ }
+  }
+  if (!checks.appleKeyMaterial) blockers.push("Apple .p8 必须是有效的 P-256 私钥");
+
+  checks.wechat = /^wx[0-9a-f]{16}$/i.test(env.WECHAT_APP_ID || "") &&
+    /^[0-9a-f]{32}$/i.test(env.WECHAT_APP_SECRET || "") &&
+    !/^wx0{16}$/i.test(env.WECHAT_APP_ID) && !/^0{32}$/.test(env.WECHAT_APP_SECRET);
   if (!checks.wechat) blockers.push("WECHAT_APP_ID/WECHAT_APP_SECRET 尚未配置");
 
   // Website legal pages are validated separately; the API's legacy document

@@ -10,9 +10,9 @@ enum KeychainService {
         case trustedLocalAccount = "com.youbilliards.cuephys.trusted_local_account"
     }
 
-    // Read-only migration bridge for installs made before the CuePhys rename.
-    // New writes always use the new namespace; old values are never discarded
-    // until the owning flow explicitly clears them.
+    // Compatibility lookup only within the current signed keychain access group.
+    // A changed Bundle ID does not grant access to another app's credentials.
+    // New writes use CuePhys; missing credentials follow normal sign-in.
     private static let legacyPrefix = "com.qiuji.app."
 
     private static func legacyRawValue(for key: Key) -> String {

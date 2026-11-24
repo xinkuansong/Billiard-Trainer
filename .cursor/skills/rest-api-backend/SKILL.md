@@ -50,8 +50,8 @@ final class APIClient {
 // Core/Extensions/AppConfig.swift
 enum AppConfig {
     static var apiBaseURL: URL {
-        let raw = Bundle.main.infoDictionary?["API_BASE_URL"] as? String ?? "https://api.qiuji.app"
-        return URL(string: raw) ?? URL(string: "https://api.qiuji.app")!
+        let raw = Bundle.main.infoDictionary?["API_BASE_URL"] as? String ?? "https://api.cuephys.com"
+        return URL(string: raw) ?? URL(string: "https://api.cuephys.com")!
     }
     static var wechatAppId: String {
         Bundle.main.infoDictionary?["WECHAT_APP_ID"] as? String ?? ""
@@ -234,5 +234,5 @@ func deleteAccount() async throws {
 
 `Config/Debug.xcconfig`：
 ```
-API_BASE_URL = https://dev.api.qiuji.app
+API_BASE_URL = https://api.cuephys.com
 ```

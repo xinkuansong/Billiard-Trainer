@@ -1,4 +1,5 @@
 import XCTest
+import SwiftData
 @testable import CuePhys
 
 final class TrainingQuotaLedgerTests: XCTestCase {
@@ -12,6 +13,45 @@ final class TrainingQuotaLedgerTests: XCTestCase {
     private func ledger(_ namespace: String = "accuracy2D", date: @escaping () -> Date = { Date(timeIntervalSince1970: 1_800_000_000) }) -> TrainingQuotaLedger {
         TrainingQuotaLedger(namespace: namespace, defaults: defaults, now: date,
             calendar: { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(secondsFromGMT: 0)!; return c })
+    }
+    func testCurrentDefaultPathPersistsAcrossInstancesWithoutTouchingOtherNamespaces() throws {
+        let namespace = "rename-test-" + UUID().uuidString
+        let date = Date()
+        let url = try XCTUnwrap(FileManager.default.urls(for: .applicationSupportDirectory,
+            in: .userDomainMask).first).appendingPathComponent("CuePhys/TrainingQuota/\(namespace).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        func store() -> TrainingQuotaLedger {
+            .init(namespace: namespace, defaults: .standard, now: { date }, calendar: { .current })
+        }
+        XCTAssertEqual(try store().used(), 0)
+        let receipt = TrainingConsumptionReceipt(questionID: UUID(), acceptedAt: date, charged: true)
+        try store().accept(receipt)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        try store().accept(receipt)
+        XCTAssertEqual(try store().used(), 1)
+        try Data("invalid archive".utf8).write(to: url, options: .atomic)
+        XCTAssertThrowsError(try store().used())
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "invalid archive")
+    }
+    @MainActor
+    func testCurrentSwiftDataStoreReopensWithoutRecreatingRecords() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("cuephys-current-store-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appendingPathComponent("current.store")
+        let id = UUID()
+        do {
+            let container = try ModelContainerFactory.makeContainer(at: url)
+            let record = TrainingSession()
+            record.id = id
+            record.note = "current-store-reopen"
+            container.mainContext.insert(record)
+            try container.mainContext.save()
+        }
+        let reopened = try ModelContainerFactory.makeContainer(at: url)
+        let records = try reopened.mainContext.fetch(FetchDescriptor<TrainingSession>())
+        XCTAssertEqual(records.map(\.id), [id])
+        XCTAssertEqual(records.first?.note, "current-store-reopen")
     }
     func testLastSlotIsSharedAcrossInstancesAndCancellationReleasesIt() throws {
         let a = ledger(), b = ledger(), q = UUID(), other = UUID()

@@ -341,7 +341,10 @@ final class V53ProfilePreferencesTests: XCTestCase {
         session.clearTransactions()
 
         let products = try await Product.products(for: StoreKitService.allProductIDs)
-        XCTAssertEqual(Set(products.map(\.id)), StoreKitService.allProductIDs)
+        // The current local catalog has three CuePhys products. Legacy IDs are
+        // readable compatibility identifiers, not products in this prelaunch fixture.
+        XCTAssertEqual(Set(products.map(\.id)), Set([StoreKitService.monthlyID,
+            StoreKitService.yearlyID, StoreKitService.lifetimeID]))
         XCTAssertEqual(
             products.first(where: { $0.id == StoreKitService.monthlyID })?.type,
             .autoRenewable

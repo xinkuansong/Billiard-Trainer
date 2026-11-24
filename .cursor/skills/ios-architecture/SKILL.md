@@ -23,7 +23,7 @@ Changelog：2026-09-13 / DR-289 / 起始时钟与六组落台后停稳验证。
 ## 标准项目结构
 
 ```
-QiuJi/
+CuePhys/
 ├── App/
 │   ├── QiuJiApp.swift    # @main
 │   └── AppRouter.swift             # 跨 Tab 路由

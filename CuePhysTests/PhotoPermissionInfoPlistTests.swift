@@ -9,7 +9,7 @@ import XCTest
 final class PhotoPermissionInfoPlistTests: XCTestCase {
 
     private var hostBundle: Bundle {
-        // Unit tests run inside the host app; Bundle.main is 球迹.app.
+        // Unit tests run inside the host app; Bundle.main is CuePhys.app.
         Bundle.main
     }
 
@@ -34,12 +34,13 @@ final class PhotoPermissionInfoPlistTests: XCTestCase {
         XCTAssertEqual(value, "zh-Hans")
     }
 
-    /// v50 W5：当前产品只承诺竖屏。若未来开放横屏，应先补齐独立的横屏/窗口
-    /// 视觉矩阵，再有意识地修改本契约，不能因 iPad 接入而静默扩大支持面。
-    func test_supportedOrientations_arePortraitOnly() {
+    /// TP03/TP30: phone navigation returns to portrait; table pages also support landscape.
+    /// This tests the declared capability; route rotation is covered by UI tests.
+    func test_supportedOrientations_includePortraitAndBothLandscapeDirections() {
         let values = hostBundle.object(
             forInfoDictionaryKey: "UISupportedInterfaceOrientations"
         ) as? [String]
-        XCTAssertEqual(values, ["UIInterfaceOrientationPortrait"])
+        XCTAssertEqual(Set(values ?? []), Set(["UIInterfaceOrientationPortrait",
+            "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"]))
     }
 }

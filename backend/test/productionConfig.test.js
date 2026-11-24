@@ -3,7 +3,7 @@ const { spawnSync } = require("node:child_process");
 const { mkdtempSync, rmSync } = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { randomBytes } = require("node:crypto");
+const { randomBytes, generateKeyPairSync } = require("node:crypto");
 const test = require("node:test");
 const { productionPreflight } = require("../src/config/productionPreflight");
 
@@ -76,9 +76,40 @@ test("production preflight passes only with complete, locked-down credentials", 
     APPLE_KEY_ID: "ABC1234XYZ",
     APPLE_SIGNIN_KEY_PATH: "/run/secrets/AuthKey.p8",
     APPLE_TOKEN_ENCRYPTION_KEY: randomBytes(32).toString("hex"),
-    WECHAT_APP_ID: "wx-fixture",
-    WECHAT_APP_SECRET: "wechat-fixture-secret",
-  }, { statSync: () => ({ isFile: () => true, mode: 0o100600 }) });
+    WECHAT_APP_ID: "wx1234567890abcdef",
+    WECHAT_APP_SECRET: randomBytes(16).toString("hex"),
+  }, { statSync: () => ({ isFile: () => true, mode: 0o100600 }),
+    readFileSync: () => generateKeyPairSync("ec", { namedCurve: "prime256v1" }).privateKey
+      .export({ type: "pkcs8", format: "pem" }) });
   assert.equal(result.ok, true);
   assert.deepEqual(result.blockers, []);
+});
+
+
+test("actual server entry rejects incomplete identity config before DB/network startup", t => {
+  const cwd = mkdtempSync(path.join(os.tmpdir(), "cuephys-preflight-entry-"));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  const result = spawnSync(process.execPath, [require.resolve("../server")], {
+    cwd, encoding: "utf8", timeout: 5000,
+    env: { NODE_ENV: "production", JWT_SECRET: randomBytes(32).toString("hex"),
+      JWT_REFRESH_SECRET: randomBytes(32).toString("hex"), MONGODB_URI: "mongodb://127.0.0.1:1/private-db",
+      APPLE_BUNDLE_ID: "com.qiuji.app", WECHAT_APP_ID: "placeholder", WECHAT_APP_SECRET: "private-secret" },
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /production-preflight-failed/);
+  assert.match(result.stderr, /APPLE_BUNDLE_ID/);
+  assert.doesNotMatch(result.stderr, /private-db|private-secret|ECONNREFUSED/);
+  assert.doesNotMatch(result.stdout, /connected|listening/i);
+});
+
+test("preflight rejects malformed private key and placeholder WeChat values", () => {
+  const result = productionPreflight({ APPLE_SIGNIN_KEY_PATH: "/secret/file.p8",
+    WECHAT_APP_ID: "wx0000000000000000", WECHAT_APP_SECRET: "0".repeat(32) }, {
+    statSync: () => ({ isFile: () => true, mode: 0o100600 }),
+    readFileSync: () => "secret malformed private key",
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.checks.appleKeyMaterial, false);
+  assert.equal(result.checks.wechat, false);
+  assert.doesNotMatch(JSON.stringify(result), /secret malformed|secret\/file/);
 });

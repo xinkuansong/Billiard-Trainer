@@ -3,6 +3,15 @@ require("dotenv").config();
 process.env.NODE_ENV ||= "production";
 const mongoose = require("mongoose");
 const config = require("./src/config");
+// Gate the real service entry, including direct node/systemd launches.
+// Development remains explicit; production never opens a socket on partial identity config.
+if (process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test") {
+  const result = require("./src/config/productionPreflight").productionPreflight(process.env);
+  if (!result.ok) {
+    console.error(JSON.stringify({ event: "production-preflight-failed", ...result }));
+    process.exit(1);
+  }
+}
 const { createApp } = require("./src/app");
 
 const { resumePendingDeletions, reconcileRestoredAccounts } = require("./src/services/accountDeletion");

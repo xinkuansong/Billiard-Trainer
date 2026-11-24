@@ -921,48 +921,45 @@ final class V52DailyClearanceUITests: XCTestCase {
 
     func testRealManualBreakDeliversAndRestoresIn3D() {
         let app = launch(["-dailyClearance.fixture=manual"], game: "nineBall")
-        let camera = app.buttons["freeplay.cameraMode"]
-        XCTAssertTrue(camera.waitForExistence(timeout: 12))
-        camera.tap()
-        XCTAssertEqual(camera.value as? String, "3D")
-        let strike = app.buttons["break.strike"]
-        XCTAssertTrue(strike.waitForExistence(timeout: 8))
-        XCTAssertTrue(strike.isEnabled)
-        snap(app, "v63-daily-manual-ready-3d")
-        XCTAssertFalse(app.buttons["取消"].exists, "An abandoned daily attempt cannot restore the previous board")
-        app.buttons["break.rerack"].tap()
-        XCTAssertTrue(strike.waitForExistence(timeout: 8))
+        defer { app.terminate() }
+        func view3D() {
+            let more = app.buttons["freeplay.moreMenu"]
+            XCTAssertTrue(more.waitForExistence(timeout: 15)); more.tap()
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 5))
+            if mode.value as? String != "3D" { mode.tap() }
+            XCTAssertEqual(mode.value as? String, "3D")
+            app.buttons["关闭菜单"].tap()
+        }
+        func visits(_ count: Int) {
+            let hud = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+            let expected = "\(count)杆"
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate { _, _ in
+                (hud.value as? String ?? "").components(separatedBy: "，").contains(expected)
+            }, evaluatedWith: nil)], timeout: 15), .completed)
+        }
+        view3D()
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertTrue(strike.waitForExistence(timeout: 12)); XCTAssertTrue(strike.isEnabled)
+        visits(0)
+        snap(app, "rename-daily-manual-ready-3d")
         app.terminate()
         app.launchArguments.removeAll {
             $0 == "-dailyClearance.resetState" || $0 == "-dailyClearance.fixture=manual"
         }
         app.launch()
-        XCTAssertTrue(strike.waitForExistence(timeout: 12))
-        XCTAssertFalse(app.buttons["取消"].exists)
-        if camera.value as? String != "3D" { camera.tap() }
-        // This second rerack must deliver without a restart masking stale controller state.
-        app.buttons["break.rerack"].tap()
-        XCTAssertTrue(strike.waitForExistence(timeout: 8))
-        strike.tap()
-        let confirm = app.buttons["break.confirm"]
-        XCTAssertTrue(confirm.waitForExistence(timeout: 90))
-        XCTAssertFalse(app.buttons["取消"].exists)
-        snap(app, "v63-daily-manual-settled-3d")
-        confirm.tap()
-        let hud = app.descendants(matching: .any)["dailyClearance.hud"]
-        XCTAssertTrue(hud.waitForExistence(timeout: 12))
-        XCTAssertTrue(hud.label.contains("0 杆"))
-        XCTAssertFalse(confirm.exists)
-        XCTAssertTrue(app.buttons["击球"].exists)
-        snap(app, "v63-daily-manual-delivered-3d")
-        app.terminate()
-        app.launchArguments.removeAll {
-            $0 == "-dailyClearance.resetState" || $0 == "-dailyClearance.fixture=manual"
-        }
-        app.launch()
-        XCTAssertTrue(hud.waitForExistence(timeout: 12))
-        XCTAssertTrue(hud.label.contains("0 杆"))
-        XCTAssertFalse(app.buttons["break.strike"].exists)
+        XCTAssertTrue(strike.waitForExistence(timeout: 15))
+        visits(0); view3D()
+        XCTAssertTrue(strike.isEnabled); strike.tap()
+        // Current daily contract: opening delivery is automatic and counts as a visit.
+        waitForDailyBreakDelivery(app)
+        visits(1)
+        XCTAssertFalse(app.buttons["break.confirm"].exists)
+        snap(app, "rename-daily-manual-delivered-3d")
+        app.terminate(); app.launch()
+        XCTAssertTrue(strike.waitForExistence(timeout: 15))
+        visits(1)
+        snap(app, "rename-daily-progress-restored-3d")
     }
 
     func testCompletedAndFailedResultsRemainUsableIn3D() {
@@ -1788,7 +1785,7 @@ extension V52DailyClearanceUITests {
         XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: playback)], timeout: 60), .completed)
         playback.tap()
         ready()
-        XCTAssertTrue((hud.value as? String ?? "").contains("1 杆"))
+        XCTAssertTrue((hud.value as? String ?? "").components(separatedBy: "，").contains("1杆"))
         ready()
         strike.tap()
         app.buttons["break.entry"].tap()
@@ -1797,10 +1794,10 @@ extension V52DailyClearanceUITests {
         rerack.tap()
         ready()
         // Wait beyond the old physical playback; it must not increment the new attempt.
-        let stable = expectation(for: NSPredicate { _, _ in (hud.value as? String ?? "").contains("1 杆") }, evaluatedWith: hud)
+        let stable = expectation(for: NSPredicate { _, _ in (hud.value as? String ?? "").components(separatedBy: "，").contains("1杆") }, evaluatedWith: hud)
         stable.isInverted = true
         wait(for: [stable], timeout: 8)
-        XCTAssertTrue((hud.value as? String ?? "").contains("0 杆"))
+        XCTAssertTrue((hud.value as? String ?? "").components(separatedBy: "，").contains("0杆"))
         snap(app, "rules-rerack-during-stroke")
     }
 

@@ -154,7 +154,14 @@ final class TrainingViewMergeUITests: XCTestCase {
         defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
         func node(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
         func ready(_ e: XCUIElement, _ seconds: TimeInterval = 30) {
-            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true AND hittable == true"), object: e)], timeout: seconds), .completed, e.debugDescription)
+            let result = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true AND hittable == true"), object: e)], timeout: seconds)
+            if result != .completed {
+                let screen = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                screen.name = prefix + "-missing-control"; screen.lifetime = .keepAlways; add(screen)
+                let hierarchy = XCTAttachment(string: app.debugDescription)
+                hierarchy.name = prefix + "-hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+            }
+            XCTAssertEqual(result, .completed, e.debugDescription)
         }
         func state() throws -> NSDictionary {
             let text = try XCTUnwrap(node(probe).value as? String)

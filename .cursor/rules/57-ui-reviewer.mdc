@@ -46,9 +46,9 @@ alwaysApply: false
 每次审查前读取：
 
 1. `.cursor/skills/swiftui-design-system/SKILL.md` — 色彩 / 字体 / 间距 / 圆角 / 组件 / Canvas / Dark Mode
-2. `QiuJi/Core/DesignSystem/Colors.swift` — 22 个语义色 Token
-3. `QiuJi/Core/DesignSystem/Typography.swift` — 13 个字体 Token
-4. `QiuJi/Core/DesignSystem/Spacing.swift` — Spacing + BTRadius
+2. `CuePhys/Core/DesignSystem/Colors.swift` — 22 个语义色 Token
+3. `CuePhys/Core/DesignSystem/Typography.swift` — 13 个字体 Token
+4. `CuePhys/Core/DesignSystem/Spacing.swift` — Spacing + BTRadius
 5. `docs/05-信息架构与交互设计.md` — 信息架构与交互设计稿
 
 ### 7 维度检查清单

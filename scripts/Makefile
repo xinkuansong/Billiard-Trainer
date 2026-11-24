@@ -426,6 +426,7 @@ archive:
 	  -archivePath $(ARCHIVE_PATH) \
 	  -destination 'generic/platform=iOS' \
 	  archive
+	@python3 "$(PROJECT_ROOT)/scripts/verify_release_identity.py" --app "$(ARCHIVE_PATH)/Products/Applications/CuePhys.app"
 	@echo "✅ Archive 完成: $(ARCHIVE_PATH)"
 	@$(MAKE) dsym
 

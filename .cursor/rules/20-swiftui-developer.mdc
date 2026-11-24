@@ -118,7 +118,7 @@ alwaysApply: false
 
 ## 必读规范
 
-在开始编写任何视图代码前，确认 `QiuJi/Core/DesignSystem/` 中的 Token 已定义，并**只使用 Token 中的颜色与字体**，不硬编码 hex 值或字体大小数字。
+在开始编写任何视图代码前，确认 `CuePhys/Core/DesignSystem/` 中的 Token 已定义，并**只使用 Token 中的颜色与字体**，不硬编码 hex 值或字体大小数字。
 
 ## Design Token 使用
 
