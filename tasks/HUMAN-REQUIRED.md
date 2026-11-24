@@ -31,7 +31,7 @@
 - **做什么**：
   1. 登录 [App Store Connect](https://appstoreconnect.apple.com)
   2. 点击「我的 App」→「+」→「新建 App」
-  3. 填写：名称（现行 CuePhys；已有 App 记录的后台名称待更新）、Bundle ID（与 Xcode 一致）、SKU（自定义唯一字符串）
+  3. 填写：名称（现行 CuePhys；与当前 App 记录及候选包核对）、Bundle ID（与 Xcode 一致）、SKU（自定义唯一字符串）
   4. 选择平台：iOS
 - **在哪里**：[https://appstoreconnect.apple.com/apps](https://appstoreconnect.apple.com/apps)
 - **预计时长**：30 分钟
@@ -73,10 +73,10 @@
 - **在哪里**：[https://open.weixin.qq.com](https://open.weixin.qq.com)
 - **预计时长**：提交 15 分钟，等待 1–3 个工作日
 - **影响任务**：T-P1-08（微信登录集成需要 AppID）
-- **完成后**：将 AppID 填入 `Config/Debug.xcconfig` 的 `WECHAT_APP_ID` 字段
+- **完成后**：将获批 AppID 写入本机受控配置并核对 Debug/Release 的解析值及 URL Scheme；AppSecret 仅进入服务端受控环境，不提交仓库、不打进 App。
 - **备注**：首发采用微信与 Apple 两种账号登录方式，见[首发台账第 20 项](LAUNCH-READINESS-20261109.md)。
 
-- **当前填写值**：iPhone/iPad 的 Universal Links 均为 `https://youbilliards.com/cuephys/wechat/`，Bundle ID 为 `com.youbilliards.cuephys`。源站与签名配置已验；Apple CDN/真机回跳仍待闭环，见[验证](launch-20261110/微信UniversalLinks产品路径调整-20261124.md)。
+- **当前填写值**：iPhone/iPad 的 Universal Links 均为 `https://youbilliards.com/cuephys/wechat/`，Bundle ID 为 `com.youbilliards.cuephys`。2026-11-24 源站与 Apple CDN 均返回当前 Team+Bundle 和 /cuephys/wechat/*；真机回跳仍待闭环，见[验证](launch-20261110/微信UniversalLinks产品路径调整-20261124.md)。
 
 ---
 
@@ -115,10 +115,11 @@
 
 ### H-09 — 隐私政策页面创建
 
-- **状态**：⏳ 待完成（P8 / v53 W6-W7 阻塞）
+- **状态**：✅ 当前 CuePhys 法律页已公开；2026-11-24 两页 HTTPS 200 且含当前品牌。旧域名故障段落保留为历史，不再阻塞当前 URL。App 三处实际打开与发布资料最终对应仍须随候选验收。
+- **当前链接**：`https://youbilliards.com/legal/cuephys-privacy/`、`https://youbilliards.com/legal/cuephys-terms/`；实测见 `output/cuephys-rename-remediation/public-endpoints.json`。
 - **2026-09-03 二次实测**：`https://qiuji.app/privacy` 与 `https://qiuji.app/terms` 的 TLS 证书主机名校验均失败；仅为诊断而跳过证书校验后，两条路径又被现有 Varnish 配置统一 301 到 `https://www.qiuji.app/`，而 `www` 根路径及对应法律路径均由 Cloudflare 返回 521。当前不是单一证书问题，须同时修正裸域/`www` DNS 与源站路由、证书和法律页部署。App 已删除 `example.com` 和空操作，暂以“尚未发布”诚实提示，未伪装完成。
 - **2026-09-03 本地准备**：✅ `backend/public/privacy/`、`backend/public/terms/` 已提供中英双语模板；后端默认返回 503，只有运营主体、联系邮箱、生效日期、实际基础设施/数据地域/备份期限全部配置且 `LEGAL_DOCUMENTS_PUBLISHED=true` 时才返回页面。App 登录、关于、订阅三处已从同一组可选 HTTPS 配置取链接。模板须在公开前由运营主体和专业法律人员按实际业务复核。
-- **做什么**：创建可公开访问的用户协议与隐私政策网页（隐私政策必须包含中英双语，说明数据收集/使用/删除政策），并为 `qiuji.app` 配置主机名匹配、有效的 HTTPS 证书。
+- **后续验收**：以当前 CuePhys 法律页和实际功能核对最终内容及 App 链接；无需恢复旧 `qiuji.app` 域名。
 - **⚠️ 内容必须包含（D-v29-4 裁定，2026-08-06）**：「使用数据/产品交互」类信息——练习工具（自由走位/自由击球/打一走二想三/动作库试打）的使用日期与停留时长会上传后端用于产品优化（契约 §5.3）
 - **推荐方式**：GitHub Pages（免费）或任何静态托管
 - **参考内容**：数据收集范围见 `tasks/compliance-checklist.md`
@@ -131,6 +132,7 @@
 ### H-26 — v53 账号资料、头像、通知与订阅真实环境验收
 
 - **状态**：⏳ 待完成（代码与自动化已完成；不阻塞继续开发，阻塞 v53 全量验收与发布声明）
+- **2026-11-24 CuePhys 整改**：当前身份的模拟器 StoreKit 46/46、隔离 iOS→HTTP→MongoDB 同步18/18及账号绑定/注销/真实备份恢复演练通过。两台实体 iPhone 均 unavailable；真实 Apple/微信、沙盒购买和真机系统交互仍待验。证据与待办见 [整改执行记录](launch-20261110/cuephys-rename/EXECUTION.md)。
 - **2026-09-03 二次设备检查**：`xcrun xctrace list devices` 仍只发现一台物理 `iPhone (26.6.1)`，状态为 **Offline**；当前无法继续取得真机 Apple、相册和到点通知证据。
 - **2026-09-03 模拟器恢复**：磁盘清理后，独立 iPhone 17 Pro Max / iPhone 16e（iOS 26.2）已完成 Profile/Settings 17/17、真实系统相册权限允许/拒绝 2/2、通知权限允许/拒绝 2/2；本地 StoreKit Configuration 月/年/终身购买、失效与恢复 3/3，v53 unit 46/46，标准 Debug build 通过。这些证据缩小了 H-26，但不替代下列真实账号/设备/服务验收。
 - **2026-09-03 生产头像服务部署**：✅ 真机 404 根因为服务器仍运行 2026-08-12 旧版，缺 `/user/avatar` 与新资料字段。已备份旧版，定向部署 v53 资料/头像服务，配置 `/var/lib/qiuji/avatars`，PM2 online，外部健康检查 200；合成账号的资料五字段和头像 PUT/GET/DELETE 真实往返全部通过，探针用户/文件遗留均为 0。尚未完成头像备份恢复演练和用户手机退出重登。
@@ -308,7 +310,8 @@
 
 ### H-13 — 微信 SDK Universal Links 域名部署
 
-- **状态**：⏳ 待完成（P2 前，与 H-05 配合）
+- **状态**：✅ 域名部署及 Apple CDN 已核验（2026-11-24）；真实微信授权回跳仍归 H-05/H-26，未记完成。
+- **证据**：源站及 Apple CDN 的 AASA 均 HTTP 200，当前 appID 为 `KWH2GRNSKG.com.youbilliards.cuephys`，路径 `/cuephys/wechat/*`；见 `output/cuephys-rename-remediation/public-endpoints.json`。
 - **做什么**：
   1. 准备一个可 HTTPS 访问的域名
   2. 在域名根目录部署 `apple-app-site-association` 文件（微信 iOS 回调要求）
