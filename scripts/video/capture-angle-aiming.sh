@@ -17,4 +17,4 @@ TEST_RUNNER_ANGLE_CAPTURE_DIR="$capture_output" make -f scripts/Makefile test \
   BUILD_DIR="$capture_output/build" TEST_LOG="$capture_output/$capture_mode-build.log" \
   TEST_DESTINATION="platform=iOS Simulator,id=$capture_device" TEST_CODE_COVERAGE=NO \
   TEST_BUILD_SETTINGS='CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO' \
-  ONLY_TESTING="QiuJiTests/AngleAimingVideoCaptureTests/$capture_test"
+  ONLY_TESTING="CuePhysTests/AngleAimingVideoCaptureTests/${capture_test}()"

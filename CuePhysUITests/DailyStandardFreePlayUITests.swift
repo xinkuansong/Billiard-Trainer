@@ -500,9 +500,12 @@ final class TablePreferencesUITests: XCTestCase {
         let image = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: image)
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
-        let root = ProcessInfo.processInfo.environment["TABLE_PREFERENCES_OUTPUT"].map { URL(fileURLWithPath: $0) }
-            ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-                .appendingPathComponent("output/profile-settings-20261017/implementation/ui")
+        // xcresult owns evidence by default. A simulator runner cannot assume
+        // its source checkout is writable or overwrite a historical review.
+        let environment = ProcessInfo.processInfo.environment
+        guard let path = environment["TABLE_PREFERENCES_OUTPUT"] ?? environment["TEST_RUNNER_TABLE_PREFERENCES_OUTPUT"],
+              !path.isEmpty else { return }
+        let root = URL(fileURLWithPath: path)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         try image.pngRepresentation.write(to: root.appendingPathComponent(name + ".png"))
     }

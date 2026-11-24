@@ -13,7 +13,7 @@ Write and maintain automated tests (XCTest / XCUITest for iOS, Jest for backend)
 
 ### Setup
 
-- Test target: `QiuJiTests` (unit), `QiuJiUITests` (UI).
+- Test target: `CuePhysTests` (unit), `CuePhysUITests` (UI).
 - If targets don't exist yet, create them via Xcode project configuration.
 - SwiftData tests use `ModelConfiguration(isStoredInMemoryOnly: true)`.
 - Network tests use `URLProtocol` mocks or protocol-based stubs — **never** hit real endpoints.
@@ -51,7 +51,7 @@ Write and maintain automated tests (XCTest / XCUITest for iOS, Jest for backend)
 
 ## Mocks
 
-- Shared mocks live in `QiuJiTests/Mocks/` (iOS) or `backend/__tests__/helpers/` (backend).
+- Shared mocks live in `CuePhysTests/Mocks/` (iOS) or `backend/__tests__/helpers/` (backend).
 - Protocol-based: `Mock<ProtocolName>`.
 - Don't duplicate mock definitions across test files.
 

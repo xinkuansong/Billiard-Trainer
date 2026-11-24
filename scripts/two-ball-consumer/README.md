@@ -7,7 +7,7 @@ python3 scripts/two-ball-consumer/pack_parameters.py FULL_BANK NEW_PARAMETER_BAN
 python3 scripts/two-ball-consumer/audit_parameters.py FULL_BANK NEW_PARAMETER_BANK AUDIT_REPORT
 ```
 
-独立审计通过后整目录替换 `QiuJi/Resources/TwoBallBank`；旧包备份到App包外。当前31.45MB、166443题/677488推荐、policy `comfort85-parameters-v1`。参数及引用顺序精确保留，生成失败路线不交付；无离线轨迹的runtime RMS字段为nil。方案、回退和实测证据见 `tasks/TWO-BALL-PARAMETER-CONSUMER-20261026.md`。
+独立审计通过后整目录替换 `CuePhys/Resources/TwoBallBank`；旧包备份到App包外。当前31.45MB、166443题/677488推荐、policy `comfort85-parameters-v1`。参数及引用顺序精确保留，生成失败路线不交付；无离线轨迹的runtime RMS字段为nil。方案、回退和实测证据见 `tasks/TWO-BALL-PARAMETER-CONSUMER-20261026.md`。
 
 以下为上游完整消费包重建方法与历史说明。
 
@@ -20,7 +20,7 @@ python3 scripts/two-ball-consumer/pack_comfort85.py output/two-ball-comfort-refi
 python3 scripts/two-ball-consumer/audit_comfort85.py output/two-ball-comfort-refine-full-20261025 NEW_STAGING_PATH REPORT_PATH
 ```
 
-必须独立审计通过再整体替换QiuJi/Resources/TwoBallBank，并保留旧包。当前166443题/677488推荐；源final/refinement只读。版本、公式及验证见tasks/TWO-BALL-CONSUMER85-EXECUTION-20261026.md。旧pack.py仅保留历史25°消费流程，不作为当前重建入口。
+必须独立审计通过再整体替换CuePhys/Resources/TwoBallBank，并保留旧包。当前166443题/677488推荐；源final/refinement只读。版本、公式及验证见tasks/TWO-BALL-CONSUMER85-EXECUTION-20261026.md。旧pack.py仅保留历史25°消费流程，不作为当前重建入口。
 
 ---
 
@@ -32,7 +32,7 @@ python3 scripts/two-ball-consumer/audit_comfort85.py output/two-ball-comfort-ref
 python3 scripts/two-ball-consumer/pack.py --help
 ```
 
-目前资源来自 `output/two-ball-refine-full-20261025/final/`，入口读取同目录上级的 `summary.json`、`manifest.json`、`parts-index.json`。必须 `state=complete` 且 `auditPassed=true`。输出 `QiuJi/Resources/TwoBallBank/`，通过 Xcode folder reference 保留层级；全量 1,357 片，gzip 共 282,423,343 字节，不在手机启动时整库解压。
+目前资源来自 `output/two-ball-refine-full-20261025/final/`，入口读取同目录上级的 `summary.json`、`manifest.json`、`parts-index.json`。必须 `state=complete` 且 `auditPassed=true`。输出 `CuePhys/Resources/TwoBallBank/`，通过 Xcode folder reference 保留层级；全量 1,357 片，gzip 共 282,423,343 字节，不在手机启动时整库解压。
 
 打包逐片核 SHA/大小、行ID/行内comboIndex关联、坐标时间单位、推荐数量/空值/有限数与生成角度，并用独立公式对拍全部推荐难度。报告见 `output/two-ball-practice-20261025/b1/audit.json`。
 

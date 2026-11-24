@@ -1229,6 +1229,7 @@ final class PalettePlacementUITests: XCTestCase {
     private var app: XCUIApplication!
     private var phase = "before"
     private var page = ""
+    private let evidenceRun = UUID().uuidString
     override func setUpWithError() throws { continueAfterFailure = false }
     override func tearDownWithError() throws { app?.terminate() }
     private func item(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
@@ -1236,13 +1237,16 @@ final class PalettePlacementUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: e)], timeout: 60), .completed)
     }
     private var folder: URL {
-        let device = UIDevice.current.userInterfaceIdiom == .pad ? "pad" : (min(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height) < 390 ? "compact" : "phone")
-        return URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("output/palette-drag-20261014/\(phase == "after" ? "after-real" : phase)/\(device)")
+        FileManager.default.temporaryDirectory.appendingPathComponent("CuePhys-PalettePlacement/" + evidenceRun)
     }
     private func snap(_ name: String) throws {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let ax = app.debugDescription; usleep(300_000)
         let shot = XCUIScreen.main.screenshot()
+        let image = XCTAttachment(screenshot: shot)
+        image.name = page + "-" + name; image.lifetime = .keepAlways; add(image)
+        let hierarchy = XCTAttachment(string: ax)
+        hierarchy.name = page + "-" + name + "-hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
         try shot.pngRepresentation.write(to: folder.appendingPathComponent(page + "-" + name + ".png"))
         try ax.write(to: folder.appendingPathComponent(page + "-" + name + ".txt"), atomically: true, encoding: .utf8)
     }
@@ -1262,6 +1266,16 @@ final class PalettePlacementUITests: XCTestCase {
         } else { args += ["-dailyInteraction.sharedPage=" + route] }
         app = XCUIApplication.launchClean(extraArgs: args)
         XCTAssertTrue(item("table.scene").waitForExistence(timeout: 45))
+        if ["composer", "shot"].contains(route) {
+            // This projection test computes a drop inside a 2D table. Explicitly
+            // select that view instead of inheriting a previous 3D review state.
+            let more = app.buttons["freeplay.moreMenu"]; ready(more); more.tap()
+            let mode = app.buttons["freeplay.cameraMode"]; ready(mode)
+            if mode.value as? String != "2D" { mode.tap() }
+            XCTAssertEqual(mode.value as? String, "2D")
+            let close = app.buttons["关闭菜单"].firstMatch; ready(close)
+            close.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+        }
         let more = app.buttons[page + ".more"]
         if more.exists && !["composer", "shotSimulation", "batchAuthor"].contains(page) {
             more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap(); let mode = app.buttons[page + ".cameraMode"]; ready(mode)
@@ -1287,7 +1301,10 @@ final class PalettePlacementUITests: XCTestCase {
         try snap(suffix + "-end")
         let result = try probe()
         let event: [String: Any] = ["start": started, "end": finished, "key": key, "probe": result, "tableFrame": [table.frame.minX, table.frame.minY, table.frame.width, table.frame.height]]
-        try JSONSerialization.data(withJSONObject: event, options: [.prettyPrinted, .sortedKeys]).write(to: folder.appendingPathComponent(page + "-" + suffix + ".json"))
+        let eventData = try JSONSerialization.data(withJSONObject: event, options: [.prettyPrinted, .sortedKeys])
+        try eventData.write(to: folder.appendingPathComponent(page + "-" + suffix + ".json"))
+        let detail = XCTAttachment(data: eventData, uniformTypeIdentifier: "public.json")
+        detail.name = page + "-" + suffix + "-geometry"; detail.lifetime = .keepAlways; add(detail)
         if phase == "after" {
             XCTAssertTrue(["在桌上", "本轮可击打"].contains(palette.value as? String ?? ""))
             let preview = try XCTUnwrap(result["palettePlacement"] as? [String: Any])

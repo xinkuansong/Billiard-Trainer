@@ -1838,9 +1838,7 @@ final class ScreenshotTourUITests: XCTestCase {
     /// 学区六文档页 + 角度预测巡游（v14 B3：原理/球感接壳 + 六页取证帧）。
     /// 依赖 `/tmp/qiuji-uitest/shot_dir` 或 `UI_POLISH_SHOT_DIR`，避免写入 docs/ui-polish 基线。
     func testAngleLearningPages() {
-        sleep(3)
-        app.switchTab(.angle)
-        sleep(2)
+        continueAfterFailure = false
 
         let pages: [(String, String, String)] = [
             ("基础", "瞄准原理", "a09-aiming-principle"),
@@ -1854,6 +1852,12 @@ final class ScreenshotTourUITests: XCTestCase {
             ("准度", "角度预测", "a12-geometric-quiz"),
         ]
         for (tab, label, name) in pages {
+            // Each consumer gets the same empty fixture and a real root entry.
+            // A previous full-screen table must not leave a hidden home tab in AX.
+            app.terminate()
+            XCUIDevice.shared.orientation = .portrait
+            app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-v51.followSystemAppearance"])
+            app.switchTab(.angle)
             switchAngleHomeTab(tab)
             var opened = tapIfExists(label, timeout: 4)
             if !opened {
@@ -1866,7 +1870,7 @@ final class ScreenshotTourUITests: XCTestCase {
                 usleep(400_000)
                 opened = tapIfExists(label, timeout: 3)
             }
-            guard opened else { continue }
+            guard opened else { XCTFail("Required learning entry unavailable: \(label)"); return }
             sleep(3)
             snap(name)
             // v14 B3：六学页顶区别名帧（明/暗各跑一轮即可归档）。
@@ -1881,15 +1885,13 @@ final class ScreenshotTourUITests: XCTestCase {
                 sleep(2)
                 snap("\(name)-default")
                 snap("v14-b3-atlas-top")
-                popBack()
-                sleep(1)
+                app.terminate()
                 continue
             }
             if name == "a17-cushion-english-atlas" {
                 sleep(2)
                 snap("\(name)-default")
-                popBack()
-                sleep(1)
+                app.terminate()
                 continue
             }
             // 角度预测：开参考线拍一帧（核 90° 参考线 + 标签不裁切）。
@@ -1948,8 +1950,7 @@ final class ScreenshotTourUITests: XCTestCase {
                 sleep(1)
                 snap("\(name)-scrolled5")
             }
-            popBack()
-            sleep(1)
+            app.terminate()
         }
     }
 

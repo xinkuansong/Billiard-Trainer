@@ -19,9 +19,9 @@ description: Billiard Trainer UI reviewer. Use when the user provides app screen
    - 关注点（若有特定问题想确认）
 3. **读取权威参考**：
    - `.cursor/skills/swiftui-design-system/SKILL.md` — 完整设计系统
-   - `QiuJi/Core/DesignSystem/Colors.swift` — 22 个语义色 Token（含 Light/Dark hex 值）
-   - `QiuJi/Core/DesignSystem/Typography.swift` — 13 个字体 Token
-   - `QiuJi/Core/DesignSystem/Spacing.swift` — 间距与圆角 Token
+   - `CuePhys/Core/DesignSystem/Colors.swift` — 22 个语义色 Token（含 Light/Dark hex 值）
+   - `CuePhys/Core/DesignSystem/Typography.swift` — 13 个字体 Token
+   - `CuePhys/Core/DesignSystem/Spacing.swift` — 间距与圆角 Token
    - `docs/05-信息架构与交互设计.md` — 产品信息架构与交互设计稿
 4. **逐维度审查**：按以下 7 个维度依次检查。
 5. **输出审查报告**。

@@ -1788,7 +1788,12 @@ extension V52DailyClearanceUITests {
         XCTAssertTrue((hud.value as? String ?? "").components(separatedBy: "，").contains("1杆"))
         ready()
         strike.tap()
-        app.buttons["break.entry"].tap()
+        // During the animated HUD update this runtime exposes the enabled
+        // action by its user-facing label while omitting its identifier.
+        let breakEntry = app.buttons.matching(NSPredicate(format:
+            "identifier == %@ OR label == %@", "break.entry", "开球")).firstMatch
+        XCTAssertTrue(breakEntry.exists && breakEntry.isEnabled)
+        breakEntry.tap()
         let rerack = app.buttons["dailyClearance.rerackAfterBreak"]
         XCTAssertTrue(rerack.waitForExistence(timeout: 5))
         rerack.tap()

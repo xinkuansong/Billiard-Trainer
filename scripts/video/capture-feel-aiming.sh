@@ -19,4 +19,4 @@ TEST_RUNNER_FEEL_AIM_DIR="$capture_output" make -f scripts/Makefile test \
   TEST_DESTINATION="platform=iOS Simulator,id=$capture_device" TEST_CODE_COVERAGE=NO \
   TEST_ACTION="${FEEL_TEST_ACTION:-test}" \
   TEST_BUILD_SETTINGS='CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO' \
-  ONLY_TESTING="QiuJiTests/FeelAimingVideoCaptureTests/$capture_test"
+  ONLY_TESTING="CuePhysTests/FeelAimingVideoCaptureTests/${capture_test}()"

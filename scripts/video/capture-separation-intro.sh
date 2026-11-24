@@ -18,7 +18,7 @@ TEST_RUNNER_SEPARATION_INTRO_DIR="$capture_output" make -f scripts/Makefile test
   BUILD_DIR="$capture_build" TEST_LOG="$capture_output/$capture_mode-build.log" \
   TEST_DESTINATION="platform=iOS Simulator,id=$capture_device" TEST_CODE_COVERAGE=NO \
   TEST_BUILD_SETTINGS='CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO' \
-  ONLY_TESTING="QiuJiTests/SeparationIntroVideoCaptureTests/$capture_test"
+  ONLY_TESTING="CuePhysTests/SeparationIntroVideoCaptureTests/${capture_test}()"
 if [[ "$capture_mode" == simulation ]]; then
   # Keep the original validated angle sampling, then accelerate only presentation.
   ffmpeg -hide_banner -loglevel error -y -i "$capture_output/simulation-source-silent.mp4" \

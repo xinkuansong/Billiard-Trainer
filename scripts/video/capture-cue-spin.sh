@@ -16,4 +16,4 @@ TEST_RUNNER_CUE_SPIN_DIR="$capture_output" TEST_RUNNER_CUE_SPIN_VIDEO="$capture_
 make -f scripts/Makefile test BUILD_DIR="$capture_build" TEST_LOG="$capture_output/build.log" \
   TEST_DESTINATION="platform=iOS Simulator,id=$capture_device" TEST_CODE_COVERAGE=NO \
   TEST_BUILD_SETTINGS='CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO' \
-  ONLY_TESTING=QiuJiTests/CueSpinPreviewCaptureTests/testCapture
+  ONLY_TESTING="CuePhysTests/CueSpinPreviewCaptureTests/testCapture()"

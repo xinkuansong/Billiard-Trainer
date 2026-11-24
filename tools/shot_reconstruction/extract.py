@@ -24,7 +24,7 @@ from dataclasses import dataclass, field, asdict
 import cv2
 import numpy as np
 
-# 引擎常量（QiuJi/Core/Scene/AngleSceneCalculator.swift）
+# 引擎常量（CuePhys/Core/Scene/AngleSceneCalculator.swift）
 BALL_DIAMETER_M = 0.05715
 INNER_LENGTH_M = 2.54
 # 球直径占归一化 x 的比例（用于按台桌像素宽推算球的像素大小）
@@ -422,7 +422,7 @@ def process(frames_dir: str, drill: str, out_dir: str) -> None:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--frames", default="QiuJi/Resources/Previews/drill_c005")
+    ap.add_argument("--frames", default="CuePhys/Resources/Previews/drill_c005")
     ap.add_argument("--drill", default="drill_c005")
     ap.add_argument("--out", default="build/shot_reconstruction/drill_c005")
     args = ap.parse_args()

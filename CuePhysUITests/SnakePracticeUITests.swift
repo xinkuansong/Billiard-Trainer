@@ -477,7 +477,7 @@ final class LegalBallMovementUITests: XCTestCase {
         case "silu": args += ["-deeplink.silu"]
         case "planthree": args += ["-deeplink.planThree", "-planThree.twoBall"]
         case "tryout": prefix = "freeplay"; args += ["-deeplink.tryout=drill_c042"]
-        case "formation": prefix = "freeplay"; args += ["-deeplink.customFormation", "-customFormation.owner=drag-audit-\(UUID())"]
+        case "formation", "formationEditor": prefix = "freeplay"; args += ["-deeplink.customFormation", "-customFormation.owner=drag-audit-\(UUID())"]
         default:
             if ["composer", "shot"].contains(page) { prefix = "freeplay" }
             args += ["-dailyInteraction.sharedPage=" + page]
@@ -490,13 +490,15 @@ final class LegalBallMovementUITests: XCTestCase {
             let card = app.buttons["分离角与走位"]
             ready(card); card.tap()
         }
-        if page == "formation" {
+        if page == "formation" || page == "formationEditor" {
             ready(app.buttons["formation.new"]); app.buttons["formation.new"].tap()
             ready(app.buttons["paletteBall__1"]); app.buttons["paletteBall__1"].tap()
-            ready(app.buttons["formation.edit.save"]); app.buttons["formation.edit.save"].tap()
-            let save = app.alerts["保存模板"].buttons.matching(identifier: "formation.save.confirm").firstMatch
-            ready(save); save.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            ready(app.buttons["formation.start"]); app.buttons["formation.start"].tap()
+            if page == "formation" {
+                ready(app.buttons["formation.edit.save"]); app.buttons["formation.edit.save"].tap()
+                let save = app.alerts["保存模板"].buttons.matching(identifier: "formation.save.confirm").firstMatch
+                ready(save); save.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                ready(app.buttons["formation.start"]); app.buttons["formation.start"].tap()
+            }
         }
         if page == "snake" { ready(app.buttons["snake.start"]); app.buttons["snake.start"].tap() }
         if page == "multiball" {
@@ -819,15 +821,24 @@ final class LegalBallMovementUITests: XCTestCase {
     func testTemporaryNearHitMatchesOrdinary() throws { try check("freeplay", cueOnly: true, nearHit: true) }
     func testFormationPractice() throws { try check("formation") }
     func testFormationArrange() throws {
-        try check("formation", prepare: {
-            self.openMenu()
-            let arrange = self.app.buttons["formation.arrange"]
-            for _ in 0..<5 {
-                if arrange.exists && arrange.isHittable { break }
-                self.app.scrollViews["dailyClearance.menuScroll"].swipeUp()
-            }
-            self.ready(arrange); arrange.tap(); self.closeMenu()
-        })
+        // The current editor is a dedicated 2D surface; 3D/temporary views are
+        // exercised by testFormationPractice after saving the same template.
+        try launch("formationEditor")
+        // Editors start with object-ball instances; practice adds the cue ball.
+        let target = try XCTUnwrap(try probe().balls.first { $0.key != "cueBall" })
+        try drag(target.key, label: "editor-target")
+        let arranged = try probe()
+        try capture("editor-arranged")
+        openMenu()
+        XCTAssertFalse(app.buttons["freeplay.cameraMode"].exists)
+        closeMenu()
+        ready(app.buttons["formation.edit.save"]); app.buttons["formation.edit.save"].tap()
+        let save = app.alerts["保存模板"].buttons.matching(identifier: "formation.save.confirm").firstMatch
+        ready(save); save.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        ready(app.buttons["formation.start"]); app.buttons["formation.start"].tap()
+        XCTAssertTrue(table.waitForExistence(timeout: 30))
+        try assertRetained(arranged, probe())
+        try capture("editor-saved-practice")
     }
     private func checkBreak(_ page: String) throws {
         try check(page, cueOnly: true, kitchen: true, prepare: {
