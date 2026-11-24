@@ -8,6 +8,28 @@ import zipfile
 
 CURRENT = ("ModelTrial20261010_TaiQiuZhuo.usdz", "ModelTrial20261010_CueUV.usdz")
 LEGACY = ("TaiQiuZhuo.usdz", "CueUV.usdz")
+ROOM_MODELS = tuple(f"Room_{style}_{part}.usdz"
+                    for style in ("eastern", "tournament", "walnut")
+                    for part in ("floor", "perimeter"))
+ROOM_TEXTURES = tuple(f"{style}_{part}.png"
+                      for style in ("eastern", "tournament", "walnut")
+                      for part in ("floor", "perimeter")) + tuple(
+                          f"Carpet_{style}.png" for style in ("eastern", "tournament", "walnut"))
+
+
+def room_problems(directory: Path) -> list[str]:
+    problems = []
+    for name in ROOM_MODELS:
+        problems.extend(model_problems(directory / name))
+    for name in ROOM_TEXTURES:
+        path = directory / name
+        try:
+            with path.open("rb") as stream:
+                if stream.read(8) != b"\x89PNG\r\n\x1a\n":
+                    problems.append(f"Invalid room texture: {path}")
+        except OSError as error:
+            problems.append(f"Missing room texture: {path}: {error}")
+    return problems
 
 
 def attribute_problems(attributes: str) -> list[str]:
@@ -54,7 +76,7 @@ def config_problems(spec: str, pbx: str) -> list[str]:
 
 
 def bundle_problems(bundle: Path) -> list[str]:
-    problems = []
+    problems = room_problems(bundle)
     for name in CURRENT:
         problems.extend(model_problems(bundle / name))
     for path in bundle.rglob("*"):
@@ -73,6 +95,7 @@ def main() -> int:
     problems.extend(attribute_problems((args.root / ".gitattributes").read_text()))
     for name in CURRENT:
         problems.extend(model_problems(args.root / "CuePhys/Resources" / name))
+    problems.extend(room_problems(args.root / "CuePhys/Resources/TrainingRoom"))
     if (args.root / "CuePhys/Resources/CueStyles/CueUV.usdz").exists():
         problems.append("Retired CueUV.usdz is inside the packaged CueStyles folder")
     if args.bundle:

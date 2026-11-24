@@ -3,10 +3,17 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from verify_model_packaging import CURRENT, attribute_problems, bundle_problems, config_problems, model_problems
+from verify_model_packaging import CURRENT, ROOM_MODELS, ROOM_TEXTURES, attribute_problems, bundle_problems, config_problems, model_problems, room_problems
 
 
 class ModelPackagingTests(unittest.TestCase):
+    def make_room(self, folder):
+        for name in ROOM_MODELS:
+            with zipfile.ZipFile(folder / name, "w") as archive:
+                archive.writestr("model.usda", '#usda 1.0\ndef Xform "Room" {}\n')
+        for name in ROOM_TEXTURES:
+            (folder / name).write_bytes(b"\x89PNG\r\n\x1a\n")
+
     def setUp(self):
         root = Path(__file__).resolve().parents[1]
         self.spec = (root / "project.yml").read_text()
@@ -36,6 +43,7 @@ class ModelPackagingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             bundle = Path(folder)
             self.assertTrue(bundle_problems(bundle))
+            self.make_room(bundle)
             for name in CURRENT:
                 with zipfile.ZipFile(bundle / name, "w") as archive:
                     archive.writestr("model.usda", '#usda 1.0\ndef Xform "Table" {}\n')
@@ -51,6 +59,7 @@ class ModelPackagingTests(unittest.TestCase):
     def test_lfs_pointer_in_source_or_bundle_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder:
             bundle = Path(folder)
+            self.make_room(bundle)
             for name in CURRENT:
                 (bundle / name).write_text("version https://git-lfs.github.com/spec/v1\noid sha256:" + "0" * 64 + "\nsize 100\n")
             problems = bundle_problems(bundle)
@@ -66,6 +75,25 @@ class ModelPackagingTests(unittest.TestCase):
             with zipfile.ZipFile(path, "w") as archive:
                 archive.writestr("image.png", b"fixture")
             self.assertIn("no USD scene", model_problems(path)[0])
+
+    def test_missing_room_texture_blocks_bundle(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.make_room(root)
+            self.assertEqual(room_problems(root), [])
+            (root / ROOM_TEXTURES[0]).unlink()
+            self.assertIn("Missing room texture", room_problems(root)[0])
+
+    def test_room_pointer_or_non_image_texture_blocks_bundle(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.make_room(root)
+            (root / ROOM_MODELS[0]).write_text("version https://git-lfs.github.com/spec/v1\n")
+            (root / ROOM_TEXTURES[0]).write_text("not an image")
+            problems = room_problems(root)
+            self.assertEqual(len(problems), 2)
+            self.assertTrue(any("Unresolved Git LFS" in p for p in problems))
+            self.assertTrue(any("Invalid room texture" in p for p in problems))
 
     def test_corrupt_scene_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder:
