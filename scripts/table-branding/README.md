@@ -28,4 +28,4 @@
 
 字标袋口索引参与既有点选识别；原袋口高亮材质与物理几何保持。`AngleTrainingScene` 在普通 2D 隐藏字标，并从临时俯视副场景排除字标节点。设置页沿用真实共用场景预览。
 
-`QiuJiTests/TableBrandingTests` 验证五桌款、六袋口坐标对应、重复换肤、高亮清除及两种俯视路径，并产生原生 SceneKit 渲染附件。实际设置页/训练页另用 `TableStyleUITests` 验证。验收结果及限制见 `tasks/TABLE-BRANDING-20261116.md`；自动渲染不等于真机性能或用户视觉验收。
+`CuePhysTests/TableBrandingTests` 验证五桌款、六袋口坐标对应、重复换肤、高亮清除及两种俯视路径，并产生原生 SceneKit 渲染附件。实际设置页/训练页另用 `TableStyleUITests` 验证。验收结果及限制见 `tasks/TABLE-BRANDING-20261116.md`；自动渲染不等于真机性能或用户视觉验收。

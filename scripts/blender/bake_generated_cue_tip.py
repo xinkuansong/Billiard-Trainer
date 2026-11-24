@@ -1,7 +1,7 @@
 """Bake generated side/crown atlas onto the existing PiTou UVs; never modify geometry."""
 import bpy,bmesh,math,sys
 from pathlib import Path
-root=Path.cwd();out=root/'output/cue-grain-20260923/r18-app';assets=root/'QiuJi/Resources/CueStyles'
+root=Path.cwd();out=root/'output/cue-grain-20260923/r18-app';assets=root/'CuePhys/Resources/CueStyles'
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.wm.usd_import(filepath=str(assets/'CueUV.usdz'))
 o=next(o for o in bpy.data.objects if o.type=='MESH')

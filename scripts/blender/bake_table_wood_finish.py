@@ -7,7 +7,7 @@ parser.add_argument('--leaf',default='blender-r1')
 args=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 OUT=ROOT/'output/table-materials-v64/W2'/args.leaf
 OUT.mkdir(parents=True,exist_ok=False)
-SOURCE=ROOT/'QiuJi/Resources/TaiQiuZhuo.usdz'
+SOURCE=ROOT/'CuePhys/Resources/TaiQiuZhuo.usdz'
 sha=hashlib.sha256(SOURCE.read_bytes()).hexdigest()
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.wm.usd_import(filepath=str(SOURCE),import_textures_mode='IMPORT_PACK')

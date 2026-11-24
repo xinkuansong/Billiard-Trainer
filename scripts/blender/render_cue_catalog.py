@@ -3,7 +3,7 @@ import bpy,sys,pathlib
 sys.path.insert(0,str(pathlib.Path(__file__).parent))
 from cue_finish_patterns import DESIGNS
 from mathutils import Vector
-root=pathlib.Path.cwd();assets=root/'QiuJi/Resources/CueStyles'
+root=pathlib.Path.cwd();assets=root/'CuePhys/Resources/CueStyles'
 details='--theme-details' in sys.argv
 bpy.ops.wm.read_factory_settings(use_empty=True)
 s=bpy.context.scene;s.render.engine='CYCLES';s.cycles.samples=8

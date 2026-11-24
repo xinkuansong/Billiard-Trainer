@@ -6,7 +6,7 @@ import numpy as np
 p=argparse.ArgumentParser();p.add_argument('--candidate',required=True)
 a=p.parse_args(sys.argv[sys.argv.index('--')+1:])
 candidate=pathlib.Path(a.candidate).resolve()
-baseline=pathlib.Path(__file__).resolve().parents[2]/'QiuJi/Resources/TrainingRoom'
+baseline=pathlib.Path(__file__).resolve().parents[2]/'CuePhys/Resources/TrainingRoom'
 def signature(path):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.wm.usd_import(filepath=str(path),import_textures_mode='IMPORT_PACK')

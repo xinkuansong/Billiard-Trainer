@@ -11,10 +11,10 @@ import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 OUT = ROOT / 'output/table-styles-20260913'
-DEST = ROOT / 'QiuJi/Resources/TableStyles'
+DEST = ROOT / 'CuePhys/Resources/TableStyles'
 OUT.mkdir(parents=True, exist_ok=True)
 DEST.mkdir(parents=True, exist_ok=True)
-SOURCE = ROOT / 'QiuJi/Resources/TaiQiuZhuo.usdz'
+SOURCE = ROOT / 'CuePhys/Resources/TaiQiuZhuo.usdz'
 before = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.wm.usd_import(filepath=str(SOURCE), import_textures_mode='IMPORT_PACK')

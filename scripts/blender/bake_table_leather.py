@@ -22,7 +22,7 @@ parser.add_argument('--rounded', action=argparse.BooleanOptionalAction, default=
 args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 OUT = ROOT / 'output/table-materials-v64/W1' / args.leaf
 OUT.mkdir(parents=True, exist_ok=False)
-SOURCE = ROOT / 'QiuJi/Resources/TaiQiuZhuo.usdz'
+SOURCE = ROOT / 'CuePhys/Resources/TaiQiuZhuo.usdz'
 source_hash = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.mesh.primitive_plane_add(size=.151)

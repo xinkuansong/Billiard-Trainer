@@ -236,7 +236,7 @@ class CleanupTests(unittest.TestCase):
         uploaded = incoming / 'bad.tar'; uploaded.write_bytes(b'not an archive')
         unrelated = incoming / 'other.tar'; unrelated.write_bytes(b'active upload')
         argv = [str(SCRIPT), '_ingest', '--root', str(self.root), '--archive', str(uploaded),
-                '--task', 'bad', '--job-id', 'bad', '--test', 'QiuJiTests/ExampleTests',
+                '--task', 'bad', '--job-id', 'bad', '--test', 'CuePhysTests/ExampleTests',
                 '--runtime', 'com.apple.CoreSimulator.SimRuntime.iOS-26-2',
                 '--device', 'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro']
         with patch('sys.argv', argv):

@@ -3,7 +3,7 @@ import bpy, pathlib, json, hashlib
 root=pathlib.Path.cwd()
 out=root/'output/ball-stickers-20260913'
 manifest=json.loads((out/'manifest.json').read_text())
-assert hashlib.sha256((root/'QiuJi/Resources/TaiQiuZhuo.usdz').read_bytes()).hexdigest()==manifest['sourceSHA256']
+assert hashlib.sha256((root/'CuePhys/Resources/TaiQiuZhuo.usdz').read_bytes()).hexdigest()==manifest['sourceSHA256']
 bpy.ops.wm.open_mainfile(filepath=str(out/'BallStickerLibrary.blend'))
 bpy.data.orphans_purge(do_recursive=True)
 for style in manifest['styles']:
@@ -19,7 +19,7 @@ for style in manifest['styles']:
         assert list(image.size)==[1024,512]
         assert image.packed_file is not None
         assert image.colorspace_settings.name=='sRGB'
-        external=bpy.data.images.load(str(root/f'QiuJi/Resources/BallStickers/BallSticker_{style}_{number}.png'),check_existing=False)
+        external=bpy.data.images.load(str(root/f'CuePhys/Resources/BallStickers/BallSticker_{style}_{number}.png'),check_existing=False)
         assert list(external.size)==[1024,512]
         assert tuple(external.pixels[:4])==tuple(image.pixels[:4])
         bpy.data.images.remove(external)

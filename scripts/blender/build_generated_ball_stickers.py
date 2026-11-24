@@ -100,7 +100,7 @@ bpy.ops.wm.open_mainfile(filepath=str(ROOT/'output/ball-stickers-20260913/BallSt
 scene=bpy.context.scene
 scene.render.engine='CYCLES';scene.cycles.samples=1
 scene.render.bake.margin=8;scene.render.bake.use_clear=True
-source=ROOT/'QiuJi/Resources/TaiQiuZhuo.usdz'
+source=ROOT/'CuePhys/Resources/TaiQiuZhuo.usdz'
 sha=hashlib.sha256(source.read_bytes()).hexdigest()
 original_geometry={o.name:([tuple(v.co) for v in o.data.vertices],[tuple(v.uv) for v in o.data.uv_layers.active.data]) for o in bpy.data.objects if o.type=='MESH'}
 # Repair only UVs. Seam is placed at -X, away from both ±Z number caps.

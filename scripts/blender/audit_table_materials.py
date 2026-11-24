@@ -8,7 +8,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'output/table-materials-v64/W0/blender'
 OUT.mkdir(parents=True, exist_ok=True)
-SOURCE = ROOT / 'QiuJi/Resources/TaiQiuZhuo.usdz'
+SOURCE = ROOT / 'CuePhys/Resources/TaiQiuZhuo.usdz'
 before = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
 bpy.ops.wm.read_factory_settings(use_empty=True)
 options = bpy.ops.wm.usd_import.get_rna_type().properties['import_textures_mode'].enum_items.keys()

@@ -17,7 +17,7 @@ ROOT = pathlib.Path.cwd()
 OUT = ROOT / 'output/ball-stickers-20260913'
 sys.path.insert(0, str(OUT / 'python'))
 from PIL import Image, ImageDraw, ImageFont
-ASSETS = ROOT / 'QiuJi/Resources/BallStickers'
+ASSETS = ROOT / 'CuePhys/Resources/BallStickers'
 ASSETS.mkdir(parents=True, exist_ok=True)
 FONT = pathlib.Path('/System/Library/Fonts/Supplemental')
 STYLES = {
@@ -75,7 +75,7 @@ def texture(style, number):
     return path
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
-source = ROOT / 'QiuJi/Resources/TaiQiuZhuo.usdz'
+source = ROOT / 'CuePhys/Resources/TaiQiuZhuo.usdz'
 sha = hashlib.sha256(source.read_bytes()).hexdigest()
 bpy.ops.wm.usd_import(filepath=str(source), import_textures_mode='IMPORT_PACK')
 stage=Usd.Stage.Open(str(source))

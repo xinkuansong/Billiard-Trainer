@@ -142,7 +142,7 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 }
 ```
 
-**作者 SOP（仅限获授权的数据新建或迁移）**：① 写 `shotIntent`（摆球+选袋+连续 velocity+塞），不写轨迹；② 把 drill id 加入 `QiuJiTests/DrillBakeRunnerTests` 试点列表跑测，控制台在 `===BAKE …===` 标记间打印烘焙后的 `animation` JSON + 可达校验行；③ 把烘焙 `animation`（`source:"baked"`）拷回 JSON；④ 确认 `feasible=✅`（`sim 进选定袋=⚠️` 属 P10 jaw 标定遗留、不阻断）。坐标系与上文归一化系一致；烘焙用 USDZ 对齐球桌 `chineseEightBallQiuJi`。详见 `Resources/Drills/schema.md` § ShotIntent。
+**作者 SOP（仅限获授权的数据新建或迁移）**：① 写 `shotIntent`（摆球+选袋+连续 velocity+塞），不写轨迹；② 把 drill id 加入 `CuePhysTests/DrillBakeRunnerTests` 试点列表跑测，控制台在 `===BAKE …===` 标记间打印烘焙后的 `animation` JSON + 可达校验行；③ 把烘焙 `animation`（`source:"baked"`）拷回 JSON；④ 确认 `feasible=✅`（`sim 进选定袋=⚠️` 属 P10 jaw 标定遗留、不阻断）。坐标系与上文归一化系一致；烘焙用 USDZ 对齐球桌 `chineseEightBallQiuJi`。详见 `Resources/Drills/schema.md` § ShotIntent。
 
 ## 8大类分类表
 

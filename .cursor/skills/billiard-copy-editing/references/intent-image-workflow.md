@@ -45,12 +45,12 @@ python3 .cursor/skills/billiard-copy-editing/scripts/collect_drill_copy_context.
 
 该命令只寻找材料，不完成阅读。主控把下面的路径全部解析为实际绝对路径，传给作者和审稿者：
 
-1. 当前`QiuJi/Resources/Drills/<category>/<id>.json`完整内容、当前候选及原文备份。区分事实源与候选写回路径，不能把worktree旧副本当最新生产输入。
+1. 当前`CuePhys/Resources/Drills/<category>/<id>.json`完整内容、当前候选及原文备份。区分事实源与候选写回路径，不能把worktree旧副本当最新生产输入。
 2. `docs/research/20260819-动作库球形训练意图.md`中该动作**所有球形的用户原文**和完善列。二者分开；后者不能覆盖前者。读`.cursor/skills/formation-training-intent/SKILL.md`以理解两列职责，不因此获得改表授权。
 3. `docs/research/20260818-v40-概念所有权表.md`中该动作、相关引入课和相邻课条目；相关相邻课当前内容与意图。历史“轻改即可”等建议不能覆盖本轮重写要求。
 4. 全部关联源序列：完整before/after、shot、recordedDirection和analysis；核drill/token/step/image映射。开局以首杆before核对，不能盲信initial占位值。Bundle副本路径按数据契约查，用于核消费关系，不代替编辑真源。
 5. 全部开局图与逐杆图实际打开；确认PNG母版与发布图来源。需要判断动态路线时查相应视频/事件及回放证据。哈希证明版本一致，不证明已经看懂图。
-6. `tasks/TUTORIAL-FIGURES-REFRESH-20261015.md`、`tasks/SHOT-ANALYSIS-20261015.md`的定义、最终验证及对应事实清单/图片映射；核当前哈希，旧“通过”不能证明后来修改仍有效。瞄准角字段定义必要时查`QiuJi/Core/PositionPlay/ShotAnalysis.swift`。
+6. `tasks/TUTORIAL-FIGURES-REFRESH-20261015.md`、`tasks/SHOT-ANALYSIS-20261015.md`的定义、最终验证及对应事实清单/图片映射；核当前哈希，旧“通过”不能证明后来修改仍有效。瞄准角字段定义必要时查`CuePhys/Core/PositionPlay/ShotAnalysis.swift`。
 7. `.cursor/skills/voice-billiard-terms/glossary.md`相关词条；本轮`output/drill-copy-rewrite-20261015/research/教练用语与走位讲解调研.md`，涉及发力、物理或路线时再读同目录对应专题。调研是依据，不能把未看视频、标题或未经校对字幕当已证事实。
 8. 涉及方位/角度/距离/袋口/路线：完整读`.cursor/skills/geometry-spatial-reasoning/SKILL.md`与`.kiro/steering/table-geometry.md`；瞄准因果再读`.cursor/rules/45-aiming-principles.mdc`和`docs/research/20260804-瞄准理论总纲.md`对应章节。理论只加载相关条目；跨项目理论路径须验证存在，不按记忆补内容。
 9. 本动作历次用户反馈、上轮被否定的句子、尚未解决的疑点。反馈不是只修某个词，要检查同类错误是否出现在其他杆。

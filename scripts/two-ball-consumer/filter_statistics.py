@@ -43,10 +43,10 @@ def gap(point, geometry):
     return min(values)
 
 def run(dest):
-    bank = ROOT/'QiuJi/Resources/TwoBallBank'
+    bank = ROOT/'CuePhys/Resources/TwoBallBank'
     raw = (bank/'index.json').read_bytes()
     index = json.loads(raw)
-    gridraw = (ROOT/'QiuJi/Resources/training-grid-bank.json').read_bytes()
+    gridraw = (ROOT/'CuePhys/Resources/training-grid-bank.json').read_bytes()
     grid = json.loads(gridraw)
     lookup = {t['inventoryTargetIndex']: t for t in grid['targets']}
     entries = {e['id']: (e['shard'], e['line']) for e in index['layouts']}

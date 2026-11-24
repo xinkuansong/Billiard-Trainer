@@ -5,7 +5,7 @@
 ```sh
 python3 scripts/simulator_fleet.py validate
 python3 scripts/simulator_fleet.py resolve --role standard-pad
-make -f scripts/Makefile sim-test SIM_TASK=my-test ONLY_TESTING=QiuJiTests/SomeTests
+make -f scripts/Makefile sim-test SIM_TASK=my-test ONLY_TESTING=CuePhysTests/SomeTests
 python3 scripts/simulator_fleet.py run --role standard-pad --task my-test -- command '{udid}'
 ```
 

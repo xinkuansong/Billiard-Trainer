@@ -10,7 +10,7 @@ ROOT=Path.cwd()
 SOURCE=ROOT/'output/cue-grain-20260923/r15/inkDragon.blend'
 OUT=ROOT/'output/cue-grain-20260923/r19-app'
 BASE=ROOT/'output/cue-grain-20260923/integration/backup'
-ASSETS=ROOT/'QiuJi/Resources/CueStyles'
+ASSETS=ROOT/'CuePhys/Resources/CueStyles'
 STYLES=['inkDragon','porcelain','landscape','blackGold','heritage']
 OUT.mkdir(parents=True,exist_ok=True)
 (OUT/'backup').mkdir(exist_ok=True)

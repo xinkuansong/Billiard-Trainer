@@ -8,11 +8,11 @@ import numpy as np
 ROOT=Path(__file__).resolve().parents[2]
 SRC=Path(__file__).resolve().parent
 parser=argparse.ArgumentParser()
-parser.add_argument('--output',type=Path,default=ROOT/'QiuJi/Resources/TableBranding')
+parser.add_argument('--output',type=Path,default=ROOT/'CuePhys/Resources/TableBranding')
 args=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 OUT=args.output;OUT.mkdir(parents=True,exist_ok=True)
 manifest=json.loads((SRC/'layout.json').read_text())
-source=ROOT/'QiuJi/Resources/ModelTrial20261010_TaiQiuZhuo.usdz'
+source=ROOT/'CuePhys/Resources/ModelTrial20261010_TaiQiuZhuo.usdz'
 assert hashlib.sha256(source.read_bytes()).hexdigest()==manifest['source_sha256'],'Source mesh changed; revalidate decal layout before rebuilding'
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.wm.usd_import(filepath=str(source),import_textures_mode='IMPORT_PACK')

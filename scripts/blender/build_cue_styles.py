@@ -9,9 +9,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from cue_finish_patterns import DESIGNS, patterns
 from cue_theme_art import apply_theme
 from mathutils import Vector
-ROOT=pathlib.Path.cwd();OUT=ROOT/'output/cue-stickers';ASSETS=ROOT/'QiuJi/Resources/CueStyles'
+ROOT=pathlib.Path.cwd();OUT=ROOT/'output/cue-stickers';ASSETS=ROOT/'CuePhys/Resources/CueStyles'
 bpy.ops.wm.read_factory_settings(use_empty=True)
-source=ROOT/'QiuJi/Resources/TaiQiuZhuo.usdz';source_sha=hashlib.sha256(source.read_bytes()).hexdigest()
+source=ROOT/'CuePhys/Resources/TaiQiuZhuo.usdz';source_sha=hashlib.sha256(source.read_bytes()).hexdigest()
 bpy.ops.wm.usd_import(filepath=str(source),import_textures_mode='IMPORT_PACK')
 o=bpy.data.objects['Plane_025']
 for other in list(bpy.data.objects):

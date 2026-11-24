@@ -1,6 +1,6 @@
 """Check exact shaft preservation and original-art provenance after Blender bake."""
 import bpy, pathlib, hashlib, json, numpy as np
-root=pathlib.Path.cwd();out=root/'output/cue-stickers';assets=root/'QiuJi/Resources/CueStyles';before=out/'theme-integration/before'
+root=pathlib.Path.cwd();out=root/'output/cue-stickers';assets=root/'CuePhys/Resources/CueStyles';before=out/'theme-integration/before'
 manifest=json.loads((out/'manifest.json').read_text());results=[]
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def pixels(p):
@@ -17,6 +17,6 @@ for item in manifest['styles']:
  assert sha(root/item['artwork'])==item['artworkSHA256']
  results.append(dict(style=item['style'],shaftPixelsIdentical=True,roughnessIdentical=True,artworkInputVerified=True))
 assert sha(before/'CueUV.usdz')==sha(assets/'CueUV.usdz')
-assert sha(root/'QiuJi/Resources/TaiQiuZhuo.usdz')==manifest['sourceSHA256']
+assert sha(root/'CuePhys/Resources/TaiQiuZhuo.usdz')==manifest['sourceSHA256']
 (out/'theme-integration/verification.json').write_text(json.dumps(dict(styles=results,sharedUVByteIdentical=True,sourceByteIdentical=True),indent=2))
 print('THEME_INTEGRATION_VERIFIED',len(results))

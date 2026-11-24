@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Immutable QiuJi snapshots and a single-worker SSH simulator queue (stdlib only)."""
+"""Immutable CuePhys snapshots and a single-worker SSH simulator queue (stdlib only)."""
 from __future__ import annotations
 
 import argparse
@@ -22,13 +22,13 @@ import uuid
 
 DEFAULT_ROOT = '/Users/song/simulator-work/queue'
 DEFAULT_HOST = 'song@fengchuibuchuifengdeMac-mini.local'
-ROOTS = ['QiuJi', 'QiuJiLiveActivity', 'QiuJiTests', 'QiuJiUITests', 'QiuJi.xcodeproj',
-         'Packages', 'Config', 'scripts', 'project.yml', 'AGENTS.md', '.agents', '.cursor/rules', '.kiro/steering']
-EXCLUDED = ['QiuJi/Resources/DrillTutorials', 'QiuJi/Resources/Previews', 'QiuJi/Resources/Videos']
-DEFAULT_TESTS = ['QiuJiTests/DrillContentServiceTests',
-                 'QiuJiUITests/P2_DataLayerUITests/testS01_ColdLaunchNoCrash',
-                 'QiuJiUITests/P2_DataLayerUITests/testS02_AllFiveTabsSwitchable',
-                 'QiuJiUITests/P2_DataLayerUITests/testS04_DrillLibraryShowsDrills']
+ROOTS = ['CuePhys', 'CuePhysLiveActivity', 'CuePhysTests', 'CuePhysUITests', 'CuePhys.xcodeproj',
+         'Packages', 'Config', 'scripts', 'project.yml', '.gitattributes', '.gitignore', 'AGENTS.md', '.agents', '.cursor/rules', '.kiro/steering']
+EXCLUDED = ['CuePhys/Resources/DrillTutorials', 'CuePhys/Resources/Previews', 'CuePhys/Resources/Videos']
+DEFAULT_TESTS = ['CuePhysTests/DrillContentServiceTests',
+                 'CuePhysUITests/P2_DataLayerUITests/testS01_ColdLaunchNoCrash',
+                 'CuePhysUITests/P2_DataLayerUITests/testS02_AllFiveTabsSwitchable',
+                 'CuePhysUITests/P2_DataLayerUITests/testS04_DrillLibraryShowsDrills']
 TERMINAL = {'succeeded', 'failed', 'cancelled', 'interrupted'}
 
 
@@ -85,7 +85,7 @@ def selected(value, roots=ROOTS):
         return False
     if any(x in p.parts for x in ['.git', '.build', '.swiftpm', 'xcuserdata', '__pycache__', '.DS_Store', 'node_modules']):
         return False
-    return not (p.name.startswith(('Secrets', '.env')) or p.suffix in ['.p12', '.key', '.pem', '.mobileprovision', '.cer'])
+    return not (p.name.startswith(('Secrets', '.env')) or p.suffix in ['.p8', '.p12', '.key', '.pem', '.mobileprovision', '.cer'])
 
 
 def tree_files(root):
@@ -150,6 +150,52 @@ def working_files(repo, roots):
     return result
 
 
+def validate_build_roots(source, roots):
+    # Explicit custom root sets are useful for isolated tools; the default must
+    # contain every required build root instead of silently dropping the app.
+    if roots != ROOTS:
+        return
+    required = ['CuePhys', 'CuePhysLiveActivity', 'CuePhysTests',
+                'CuePhysUITests', 'CuePhys.xcodeproj', 'Packages', 'Config',
+                'scripts', 'project.yml', '.gitattributes']
+    missing = [r for r in required if not (source / r).exists()]
+    if missing:
+        raise ValueError('Missing required build roots: ' + ', '.join(missing))
+
+
+def hydrate_lfs(repo, source, dirty):
+    """Hydrate immutable Git pointers from verified local objects, never HEAD files."""
+    pointers = []
+    for p in source.rglob('*'):
+        if not p.is_file() or p.stat().st_size > 1024:
+            continue
+        data = p.read_bytes()
+        if not data.startswith(b'version https://git-lfs.github.com/spec/v1'):
+            continue
+        match = re.fullmatch(rb'version https://git-lfs.github.com/spec/v1\n'
+                             rb'oid sha256:([0-9a-f]{64})\nsize ([0-9]+)\n?', data)
+        if not match:
+            raise ValueError('Malformed LFS pointer: ' + str(p.relative_to(source)))
+        if dirty:
+            raise ValueError('Unhydrated LFS pointer in working tree: ' + str(p.relative_to(source)))
+        pointers.append((p, match[1].decode(), int(match[2])))
+    if not pointers:
+        return
+    env = subprocess.check_output(['git', '-C', str(repo), 'lfs', 'env'], text=True)
+    media = next((line.split('=', 1)[1] for line in env.splitlines()
+                  if line.startswith('LocalMediaDir=')), None)
+    if not media:
+        raise ValueError('Cannot locate Git LFS object store')
+    for p, oid, size in pointers:
+        obj = Path(media) / oid[:2] / oid[2:4] / oid
+        if not obj.is_file() or obj.stat().st_size != size or digest(obj) != oid:
+            raise ValueError('Missing/corrupt LFS object for ' + str(p.relative_to(source)) +
+                             '; fetch the selected revision with git lfs fetch, then retry')
+        shutil.copyfile(obj, p)
+        if p.stat().st_size != size or digest(p) != oid:
+            raise ValueError('LFS object changed while copying: ' + str(p.relative_to(source)))
+
+
 def snapshot(repo, out, ref='HEAD', dirty=False, quiescent=False, roots=ROOTS, after_copy=None):
     repo, out = Path(repo).resolve(), Path(out).resolve()
     if out.exists():
@@ -188,6 +234,8 @@ def snapshot(repo, out, ref='HEAD', dirty=False, quiescent=False, roots=ROOTS, a
                 subprocess.run(['git', '-C', str(repo), 'archive', commit, '--', *included], stdout=stream, check=True)
             unpack(archive, src)
             archive.unlink()
+    validate_build_roots(src, roots)
+    hydrate_lfs(repo, src, dirty)
     body = {'schema': 1, 'origin': {'commit': commit, 'mode': 'quiescent-working-tree' if dirty else 'git-commit'}, 'files': tree_files(src)}
     if not body['files']:
         raise ValueError('Empty snapshot')
@@ -241,8 +289,8 @@ def enqueue(root, bundle, task, tests, runtime, device, job_id=None):
     root = checked_root(root)
     task = valid_id(task)
     job_id = valid_id(job_id or (task + '-' + uuid.uuid4().hex[:12]))
-    if not tests or any(not re.fullmatch(r'(QiuJiTests|QiuJiUITests)/[A-Za-z0-9_/]+', t) for t in tests):
-        raise ValueError('Explicit QiuJi test selectors required')
+    if not tests or any(not re.fullmatch(r'(CuePhysTests|CuePhysUITests)/[A-Za-z0-9_/]+', t) for t in tests):
+        raise ValueError('Explicit CuePhys test selectors required')
     for value, prefix in [(runtime, 'com.apple.CoreSimulator.SimRuntime.iOS-'), (device, 'com.apple.CoreSimulator.SimDeviceType.')]:
         if not value.startswith(prefix) or not re.fullmatch(r'[A-Za-z0-9_.-]+', value):
             raise ValueError('Invalid runtime or device type')

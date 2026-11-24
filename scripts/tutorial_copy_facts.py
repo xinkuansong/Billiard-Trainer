@@ -52,7 +52,7 @@ def collect(root, path):
             proof=json.loads(proofpath.read_text()); stripped=json.loads(seqpath.read_text())
             for step in stripped['steps']:step.pop('analysis',None)
             if stripped!=proof['sequence']:raise ValueError(f'Stale render input: {seqpath}')
-            png=root/'QiuJi/Resources/DrillTutorials'/(key+'.png');heic=root/'QiuJi/Resources/TutorialFigures'/(key+'.heic')
+            png=root/'CuePhys/Resources/DrillTutorials'/(key+'.png');heic=root/'CuePhys/Resources/TutorialFigures'/(key+'.heic')
             native=frame+'_still.png' if frame.startswith('s') else frame+'.png'
             if not heic.is_file() or sha(png)!=proof['framesSHA256'][native]:raise ValueError(f'Image missing/stale: {key}')
             form['images'].append({'key':key,'png':str(png),'heic':str(heic),'sha256':sha(png),'sectionIndex':si,'sequence':str(seqpath.relative_to(root)),'frame':frame})
@@ -97,10 +97,10 @@ def validate_candidate(original, candidate, facts):
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1]);ap.add_argument('--output',type=Path,required=True);args=ap.parse_args();root=args.root.resolve();out=args.output;out.mkdir(parents=True,exist_ok=True)
-    index=json.loads((root/'QiuJi/Resources/Drills/index.json').read_text());report=[]
+    index=json.loads((root/'CuePhys/Resources/Drills/index.json').read_text());report=[]
     for c in index['categories']:
         for id in c['drills']:
-            path=next((root/'QiuJi/Resources/Drills').glob('*/'+id+'.json'));facts=collect(root,path);dest=out/id;dest.mkdir(exist_ok=True)
+            path=next((root/'CuePhys/Resources/Drills').glob('*/'+id+'.json'));facts=collect(root,path);dest=out/id;dest.mkdir(exist_ok=True)
             (dest/'facts.json').write_text(json.dumps(facts,ensure_ascii=False,indent=2)+'\n')
             for p in (root/'content/position_play/sequences').glob(id+'__*.json'):(dest/(token(p)+'.md')).write_text(digest(p))
             report.append({'id':id,'shots':sum(len(f['shots']) for f in facts['formations']),'images':sum(len(f['images']) for f in facts['formations']),'oldParameterMismatches':len(facts['oldParameterMismatches']),'issues':facts['issues']})

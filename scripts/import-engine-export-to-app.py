@@ -8,13 +8,13 @@ import-engine-export-to-app.py — 引擎出片产物回填进 App Bundle（本�
   - cover.png / preview/（可选）
 
 目标：
-  - QiuJi/Resources/Videos/<drillId>/…          （替换旧 take_*.mp4）
-  - QiuJi/Resources/DrillTutorials/<drillId>_… （静帧 PNG **母版**，不进包）
-  - QiuJi/Resources/Previews/<assetKey>/…      （卡片预览帧，可选）
+  - CuePhys/Resources/Videos/<drillId>/…          （替换旧 take_*.mp4）
+  - CuePhys/Resources/DrillTutorials/<drillId>_… （静帧 PNG **母版**，不进包）
+  - CuePhys/Resources/Previews/<assetKey>/…      （卡片预览帧，可选）
   - 各 drill JSON 的 videos[] 重写为引擎片引用（默认不做，见 --skip-json）
 
 回填完自动跑一次 `publish_tutorial_figures.py`（v25 W4）：被精讲引用的母版压成 HEIC
-落 QiuJi/Resources/TutorialFigures/，那里才是进包的目录。⛔ 光回填不发布 = 新图在
+落 CuePhys/Resources/TutorialFigures/，那里才是进包的目录。⛔ 光回填不发布 = 新图在
 App 里看不到；`--skip-publish` 只在明确不想动发布产物时用。
 
 命名：
@@ -50,11 +50,11 @@ MANUAL01_TOKEN = "manual01"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXPORT_ROOT = REPO_ROOT / "build" / "position_play_export"
-DRILLS_DIR = REPO_ROOT / "QiuJi" / "Resources" / "Drills"
+DRILLS_DIR = REPO_ROOT / "CuePhys" / "Resources" / "Drills"
 INDEX_JSON = DRILLS_DIR / "index.json"
-VIDEOS_ROOT = REPO_ROOT / "QiuJi" / "Resources" / "Videos"
-TUTORIALS_ROOT = REPO_ROOT / "QiuJi" / "Resources" / "DrillTutorials"
-PREVIEWS_ROOT = REPO_ROOT / "QiuJi" / "Resources" / "Previews"
+VIDEOS_ROOT = REPO_ROOT / "CuePhys" / "Resources" / "Videos"
+TUTORIALS_ROOT = REPO_ROOT / "CuePhys" / "Resources" / "DrillTutorials"
+PREVIEWS_ROOT = REPO_ROOT / "CuePhys" / "Resources" / "Previews"
 
 DRILL_DIR_RE = re.compile(r"^(drill_c\d{3})(?:__(.+))?$")
 # export dir = full basename of sequence file without .json

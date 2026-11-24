@@ -13,7 +13,7 @@ parser.add_argument('--output', required=True)
 parser.add_argument('--rig-json', help='Rig values evaluated from the current Swift source, with its SHA-256')
 args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
 out = pathlib.Path(args.output).resolve(); out.mkdir(parents=True, exist_ok=True)
-source = pathlib.Path(__file__).resolve().parents[2] / 'QiuJi/Core/Scene/MobileReferenceLighting.swift'
+source = pathlib.Path(__file__).resolve().parents[2] / 'CuePhys/Core/Scene/MobileReferenceLighting.swift'
 text = source.read_text()
 if args.rig_json:
     evaluated = json.loads(pathlib.Path(args.rig_json).read_text())

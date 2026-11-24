@@ -144,7 +144,7 @@ floor=bpy.context.object;floor.name='baked_floor';floor.scale=(args.room_length/
 if args.panel_calibration:
  import hashlib,pathlib
  calibration=json.loads(pathlib.Path(args.panel_calibration).read_text())
- source=pathlib.Path(__file__).resolve().parents[2]/'QiuJi/Core/Scene/MobileReferenceLighting.swift'
+ source=pathlib.Path(__file__).resolve().parents[2]/'CuePhys/Core/Scene/MobileReferenceLighting.swift'
  if hashlib.sha256(source.read_bytes()).hexdigest()!=calibration['source_sha256']:
   raise ValueError('Reference shader changed; rerun panel calibration before baking')
  rig=calibration['rig']

@@ -3,7 +3,7 @@ import pathlib,json
 import numpy as np
 from pxr import Usd,UsdGeom
 root=pathlib.Path.cwd()
-stage=Usd.Stage.Open(str(root/'QiuJi/Resources/TaiQiuZhuo.usdz'))
+stage=Usd.Stage.Open(str(root/'CuePhys/Resources/TaiQiuZhuo.usdz'))
 frames={}
 for p in stage.Traverse():
     name=p.GetParent().GetName()
@@ -23,7 +23,7 @@ for p in stage.Traverse():
     assert np.dot(front,fit[2]-center)>0
     frames[name]={'front':front.tolist(),'up':up.tolist()}
 (root/'output/ball-stickers-20260913/uv-frames.json').write_text(json.dumps(frames,indent=2))
-fixture=root/'QiuJiTests/Fixtures/BallStickerUVFrames.json'
+fixture=root/'CuePhysTests/Fixtures/BallStickerUVFrames.json'
 fixture.parent.mkdir(parents=True,exist_ok=True)
 fixture.write_text(json.dumps(frames,indent=2)+'\n')
 print('UV_FRAMES',len(frames))

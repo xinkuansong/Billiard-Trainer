@@ -33,7 +33,7 @@ def drain(root):
 
 
 def admit(root, bundle, name):
-    q.enqueue(root, bundle, name, ['QiuJiTests/ExampleTests'], RUNTIME, DEVICE, name)
+    q.enqueue(root, bundle, name, ['CuePhysTests/ExampleTests'], RUNTIME, DEVICE, name)
 
 
 class QueueTests(unittest.TestCase):
@@ -46,8 +46,13 @@ class QueueTests(unittest.TestCase):
         self.git('init', '-q')
         self.git('config', 'user.name', 'Queue Test')
         self.git('config', 'user.email', 'queue@example.invalid')
-        (self.repo / 'QiuJi').mkdir()
-        (self.repo / 'QiuJi/value.swift').write_text('version A\n')
+        for root in ['CuePhys', 'CuePhysLiveActivity', 'CuePhysTests', 'CuePhysUITests',
+                     'CuePhys.xcodeproj', 'Packages', 'Config', 'scripts']:
+            (self.repo / root).mkdir()
+            (self.repo / root / 'fixture').write_text('fixture')
+        (self.repo / 'project.yml').write_text('fixture')
+        (self.repo / '.gitattributes').write_text('')
+        (self.repo / 'CuePhys/value.swift').write_text('version A\n')
         self.git('add', '.')
         self.git('commit', '-qm', 'A')
 
@@ -70,17 +75,45 @@ class QueueTests(unittest.TestCase):
         return p
 
     def enqueue(self, snap, task='task', **kw):
-        return q.enqueue(self.queue, snap, task, ['QiuJiTests/ExampleTests'], RUNTIME, DEVICE, **kw)
+        return q.enqueue(self.queue, snap, task, ['CuePhysTests/ExampleTests'], RUNTIME, DEVICE, **kw)
+
+    def test_missing_app_root_is_rejected(self):
+        import shutil
+        shutil.rmtree(self.repo / 'CuePhys')
+        with self.assertRaisesRegex(ValueError, 'Missing required build roots'):
+            self.snap(dirty=True, quiescent=True)
+
+    def test_committed_lfs_is_hydrated_from_object_not_checkout(self):
+        import hashlib
+        data = b'real model bytes'
+        oid = hashlib.sha256(data).hexdigest()
+        obj = self.repo / '.git/lfs/objects' / oid[:2] / oid[2:4] / oid
+        obj.parent.mkdir(parents=True); obj.write_bytes(data)
+        pointer = f'version https://git-lfs.github.com/spec/v1\noid sha256:{oid}\nsize {len(data)}\n'
+        model = self.repo / 'CuePhys/model.usdz'
+        model.write_text(pointer)
+        self.git('add', '.'); self.git('commit', '-qm', 'LFS fixture')
+        model.write_bytes(b'uncommitted different model')
+        bundle = self.snap()
+        self.assertEqual((bundle / 'source/CuePhys/model.usdz').read_bytes(), data)
+        self.assertIn('.gitattributes', q.verify(bundle)['files'])
+        obj.write_bytes(b'corrupt')
+        with self.assertRaisesRegex(ValueError, 'Missing/corrupt LFS'):
+            self.snap(name='bad')
+        self.assertFalse((self.base / 'bad').exists())
+        model.write_text(pointer)
+        with self.assertRaisesRegex(ValueError, 'Unhydrated LFS'):
+            self.snap(name='dirty', dirty=True, quiescent=True)
 
     def test_git_snapshot_ignores_concurrent_checkout_edits(self):
-        (self.repo / 'QiuJi/value.swift').write_text('uncommitted B')
+        (self.repo / 'CuePhys/value.swift').write_text('uncommitted B')
         p = self.snap()
-        self.assertEqual((p / 'source/QiuJi/value.swift').read_text(), 'version A\n')
-        (self.repo / 'QiuJi/value.swift').write_text('still later C')
+        self.assertEqual((p / 'source/CuePhys/value.swift').read_text(), 'version A\n')
+        (self.repo / 'CuePhys/value.swift').write_text('still later C')
         q.verify(p)
 
     def test_git_unicode_and_newline_names_are_not_git_quoted(self):
-        name = 'QiuJi/中文 空格\n换行.swift'
+        name = 'CuePhys/中文 空格\n换行.swift'
         (self.repo / name).write_text('content')
         self.git('add', '.'); self.git('commit', '-qm', 'Unicode name')
         p = self.snap()
@@ -90,25 +123,25 @@ class QueueTests(unittest.TestCase):
     def test_dirty_requires_quiescence_and_captures_untracked(self):
         with self.assertRaisesRegex(ValueError, 'quiescent'):
             self.snap(dirty=True)
-        (self.repo / 'QiuJi/new.swift').write_text('new')
+        (self.repo / 'CuePhys/new.swift').write_text('new')
         p = self.snap(dirty=True, quiescent=True)
-        self.assertIn('QiuJi/new.swift', q.verify(p)['files'])
+        self.assertIn('CuePhys/new.swift', q.verify(p)['files'])
 
     def test_capture_rejects_mutation_and_addition(self):
         def mutation():
-            (self.repo / 'QiuJi/late.swift').write_text('late write')
+            (self.repo / 'CuePhys/late.swift').write_text('late write')
         with self.assertRaisesRegex(ValueError, 'drift'):
             self.snap(dirty=True, quiescent=True, after_copy=mutation)
         self.assertFalse((self.base / 'snap').exists())
 
     def test_secret_and_nonbuild_resources_are_excluded(self):
-        (self.repo / 'Config').mkdir()
+        (self.repo / 'Config').mkdir(exist_ok=True)
         (self.repo / 'Config/Secrets.xcconfig').write_text('secret')
-        (self.repo / 'QiuJi/Resources/Previews').mkdir(parents=True)
-        (self.repo / 'QiuJi/Resources/Previews/large.png').write_bytes(b'large')
+        (self.repo / 'CuePhys/Resources/Previews').mkdir(parents=True)
+        (self.repo / 'CuePhys/Resources/Previews/large.png').write_bytes(b'large')
         p = self.snap(dirty=True, quiescent=True)
         self.assertNotIn('Config/Secrets.xcconfig', q.verify(p)['files'])
-        self.assertNotIn('QiuJi/Resources/Previews/large.png', q.verify(p)['files'])
+        self.assertNotIn('CuePhys/Resources/Previews/large.png', q.verify(p)['files'])
 
     def test_local_package_sources_and_artifacts_survive_snapshot_without_caches(self):
         files = {
@@ -133,7 +166,7 @@ class QueueTests(unittest.TestCase):
 
     def test_changed_snapshot_is_rejected(self):
         p = self.snap()
-        f = p / 'source/QiuJi/value.swift'; f.chmod(0o644); f.write_text('changed')
+        f = p / 'source/CuePhys/value.swift'; f.chmod(0o644); f.write_text('changed')
         with self.assertRaisesRegex(ValueError, 'content mismatch'):
             self.enqueue(p)
 
@@ -246,7 +279,7 @@ class QueueTests(unittest.TestCase):
         paths = []
         for j in [a, b]:
             dst = self.queue / 'jobs' / j['job_id'] / 'source'; shutil.copytree(source, dst)
-            paths.append(dst / 'QiuJi/value.swift')
+            paths.append(dst / 'CuePhys/value.swift')
         self.assertNotEqual(paths[0].stat().st_ino, paths[1].stat().st_ino)
         paths[0].chmod(0o644); paths[0].write_text('A changed')
         self.assertEqual(paths[1].read_text(), 'version A\n')
@@ -255,15 +288,15 @@ class QueueTests(unittest.TestCase):
     def test_zero_tests_or_missing_selector_cannot_pass(self):
         ev = self.base / 'evidence'; ev.mkdir()
         good = {'result': 'Passed', 'failedTests': 0, 'skippedTests': 0, 'totalTestCount': 1}
-        details = {'testNodes': [{'nodeType': 'Unit test bundle', 'name': 'QiuJiTests', 'children': [
+        details = {'testNodes': [{'nodeType': 'Unit test bundle', 'name': 'CuePhysTests', 'children': [
             {'nodeType': 'Test Case', 'nodeIdentifier': 'ExampleTests/testA()', 'result': 'Passed'}]}]}
         with patch.object(q.subprocess, 'check_output', side_effect=[json.dumps(good).encode(), json.dumps(details).encode()]):
-            q.test_summary(ev, ['QiuJiTests/ExampleTests/testA'])
+            q.test_summary(ev, ['CuePhysTests/ExampleTests/testA'])
         with patch.object(q.subprocess, 'check_output', side_effect=[json.dumps(good).encode(), json.dumps(details).encode()]):
-            with self.assertRaises(RuntimeError): q.test_summary(ev, ['QiuJiTests/ExampleTests/testB'])
+            with self.assertRaises(RuntimeError): q.test_summary(ev, ['CuePhysTests/ExampleTests/testB'])
         good['totalTestCount'] = 0
         with patch.object(q.subprocess, 'check_output', side_effect=[json.dumps(good).encode(), b'{"testNodes":[]}']):
-            with self.assertRaises(RuntimeError): q.test_summary(ev, ['QiuJiTests/ExampleTests'])
+            with self.assertRaises(RuntimeError): q.test_summary(ev, ['CuePhysTests/ExampleTests'])
 
 
 if __name__ == '__main__':

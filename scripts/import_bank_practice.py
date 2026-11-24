@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "output/bank-variants-20261101/formations.jsonl.gz"
 SOURCE_SHA = "ad3131c02a77615dc827134461991337463626477a5d1d41c8b3c14e55c75eb9"
 REVISION = "variants-20261101"
-DESTINATION = ROOT / "QiuJi/Resources/bank-practice-bank.json"
+DESTINATION = ROOT / "CuePhys/Resources/bank-practice-bank.json"
 EXPECTED_COUNTS = {"1-middle": 2634, "2-middle": 1373, "3-middle": 987,
                    "1-corner": 9164, "2-corner": 4846, "3-corner": 2565}
 # Production linear cushion order: +Z halves, -Z halves, -X, +X.
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     if args.verify:
         if DESTINATION.read_bytes() != payload:
             raise SystemExit('Application bank differs from the audited full-bank conversion')
-        consumer = (ROOT / 'QiuJi/Features/BankPractice/BankQuestionPreparer.swift').read_text()
+        consumer = (ROOT / 'CuePhys/Features/BankPractice/BankQuestionPreparer.swift').read_text()
         if f'static let fingerprint = "{report["sha256"]}"' not in consumer:
             raise SystemExit('Application consumer fingerprint differs from resource')
     else:
