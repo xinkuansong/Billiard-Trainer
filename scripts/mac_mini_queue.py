@@ -285,17 +285,20 @@ def valid_id(value):
     return value
 
 
-def enqueue(root, bundle, task, tests, runtime, device, job_id=None):
+def enqueue(root, bundle, task, tests, runtime, device, job_id=None, udid=None):
     root = checked_root(root)
     task = valid_id(task)
     job_id = valid_id(job_id or (task + '-' + uuid.uuid4().hex[:12]))
-    if not tests or any(not re.fullmatch(r'(CuePhysTests|CuePhysUITests)/[A-Za-z0-9_/]+', t) for t in tests):
+    if not tests or any(not re.fullmatch(r'(CuePhysTests|CuePhysUITests)/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+(?:\(\))?)?', t) for t in tests):
         raise ValueError('Explicit CuePhys test selectors required')
     for value, prefix in [(runtime, 'com.apple.CoreSimulator.SimRuntime.iOS-'), (device, 'com.apple.CoreSimulator.SimDeviceType.')]:
         if not value.startswith(prefix) or not re.fullmatch(r'[A-Za-z0-9_.-]+', value):
             raise ValueError('Invalid runtime or device type')
     m = verify(bundle)
     spec = {'task': task, 'snapshot_id': m['snapshot_id'], 'tests': tests, 'runtime': runtime, 'device': device}
+    if udid is not None:
+        udid = str(uuid.UUID(udid)).upper()
+        spec['udid'] = udid
     with lock(root / 'queue.lock'):
         path = root / 'jobs' / job_id
         if (path / 'job.json').exists():
@@ -446,7 +449,7 @@ def run_logged(evidence, name, argv, cwd):
 def make_args(path, action, destination, result_path, selectors):
     return ['make', '-f', 'scripts/Makefile', 'test', 'BUILD_DIR=' + str(path / 'build'),
             'TEST_ACTION=' + action, 'TEST_DESTINATION=' + destination, 'TEST_CODE_COVERAGE=NO',
-            'TEST_SELECTOR=' + ' '.join('-only-testing:' + t for t in selectors),
+            'TEST_SELECTOR=' + ' '.join(shlex.quote('-only-testing:' + t) for t in selectors),
             'TEST_BUILD_SETTINGS=CODE_SIGNING_ALLOWED=NO ARCHS=arm64 -jobs 4 -resultBundlePath ' + str(result_path)]
 
 
@@ -465,7 +468,7 @@ def test_summary(evidence, selectors):
             visit(child, target)
     for node in details['testNodes']:
         visit(node)
-    matches = lambda case, selection: case == selection or case.startswith(selection + '/')
+    matches = lambda case, selection: case == selection.removesuffix('()') or case.startswith(selection + '/')
     if (summary.get('result') != 'Passed' or summary.get('failedTests') != 0 or summary.get('skippedTests') != 0
             or not cases or summary.get('totalTestCount') != len(cases) or any(r != 'Passed' for _, r in cases)
             or any(not any(matches(c, s) for c, _ in cases) for s in selectors)
@@ -484,11 +487,14 @@ def device_run(root, job_id, uid):
     write_json(ev / 'device-result.json', result)
     try:
         live = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', '--json']))
-        state = next(d['state'] for ds in live['devices'].values() for d in ds if d['udid'] == uid)
+        runtime, device = next((rt, d) for rt, ds in live['devices'].items() for d in ds if d['udid'] == uid)
+        if runtime != job['spec']['runtime'] or device['deviceTypeIdentifier'] != job['spec']['device']:
+            raise ValueError('Borrowed simulator does not match the frozen runtime/device type')
+        state = device['state']
         if state != 'Booted':
             run_logged(ev, 'boot', ['xcrun', 'simctl', 'boot', uid], src)
         run_logged(ev, 'bootstatus', ['xcrun', 'simctl', 'bootstatus', uid, '-b'], src)
-        app = p / 'build/DerivedData/Build/Products/Debug-iphonesimulator/球迹.app'
+        app = p / 'build/DerivedData/Build/Products/Debug-iphonesimulator/CuePhys.app'
         import plistlib
         info = plistlib.loads((app / 'Info.plist').read_bytes())
         bundle = info['CFBundleIdentifier']
@@ -519,15 +525,17 @@ def execute(root, job_id):
         write_json(ev / 'snapshot-manifest.json', m)
         run_logged(ev, 'environment', ['xcodebuild', '-version'], p / 'source')
         run_logged(ev, 'build', make_args(p, 'build-for-testing', 'generic/platform=iOS Simulator', ev / 'build.xcresult', job['spec']['tests']), p / 'source')
+        device_args = ['--udid', job['spec']['udid']] if job['spec'].get('udid') else [
+            '--type', job['spec']['device'], '--runtime', job['spec']['runtime'], '--temporary']
         run_logged(ev, 'lifecycle', ['python3', 'scripts/simulator_lifecycle.py', 'run', '--task', job_id,
-                   '--type', job['spec']['device'], '--runtime', job['spec']['runtime'], '--temporary', '--evidence', str(ev / 'device-result.json'),
+                   *device_args, '--evidence', str(ev / 'device-result.json'),
                    '--', sys.executable, str(Path(__file__).resolve()), '_device', '--root', str(root), '--job', job_id, '--udid', '{udid}'], p / 'source')
         device = read_json(ev / 'device-result.json')
         if device['state'] != 'succeeded':
             raise RuntimeError('Device workflow did not succeed')
         reg = read_json(Path.home() / 'Library/Application Support/QiuJi/simulator-lifecycle/registry.json')['devices'][device['udid']]
         write_json(ev / 'lease-after.json', reg)
-        if reg.get('lease') or reg.get('status') != 'deleted':
+        if reg.get('lease') or (not job['spec'].get('udid') and reg.get('status') != 'deleted'):
             raise RuntimeError('Simulator lease not cleanly released')
         if tree_files(p / 'source') != m['files']:
             raise RuntimeError('Execution changed the source snapshot')
@@ -598,6 +606,8 @@ def submit(args):
         subprocess.run(['scp', *ssh_options(args), str(tarpath), args.host + ':' + dest], check=True)
     cmd = ['python3', engine, '_ingest', '--root', args.root, '--archive', dest, '--task', args.task,
            '--job-id', jid, '--runtime', args.runtime, '--device', args.device]
+    if getattr(args, 'udid', None):
+        cmd += ['--udid', args.udid]
     for test in args.test or DEFAULT_TESTS:
         cmd += ['--test', test]
     print(remote(args, cmd).strip())
@@ -888,6 +898,7 @@ def main():
             p.add_argument('--test', action='append')
             p.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-26-2')
             p.add_argument('--device', default='com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro')
+            p.add_argument('--udid', help='Explicitly borrow an existing remote simulator; never delete it')
         if name in ['fetch', 'remote-cancel', 'remote-protect', 'remote-release']:
             p.add_argument('--job', required=True)
         if name == 'remote-status':
@@ -932,6 +943,7 @@ def main():
             p.add_argument('--test', action='append', required=True)
             p.add_argument('--runtime', required=True)
             p.add_argument('--device', required=True)
+            p.add_argument('--udid')
     a = parser.parse_args()
     if a.command == 'snapshot':
         m = snapshot(a.repo, a.out, a.ref, a.include_dirty, a.quiescent)
@@ -974,7 +986,7 @@ def main():
         stage = Path(tempfile.mkdtemp(prefix='unpack-', dir=root / 'incoming'))
         try:
             unpack(archive, stage)
-            print(json.dumps(enqueue(root, stage, a.task, a.test, a.runtime, a.device, a.job_id)))
+            print(json.dumps(enqueue(root, stage, a.task, a.test, a.runtime, a.device, a.job_id, a.udid)))
         except Exception as exc:
             write_json(root / 'ingest-failures' / (str(time.time_ns()) + '.json'),
                        {'job_id': a.job_id, 'archive': str(archive), 'error': str(exc), 'at': time.time()})

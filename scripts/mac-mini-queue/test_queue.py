@@ -77,6 +77,18 @@ class QueueTests(unittest.TestCase):
     def enqueue(self, snap, task='task', **kw):
         return q.enqueue(self.queue, snap, task, ['CuePhysTests/ExampleTests'], RUNTIME, DEVICE, **kw)
 
+    def test_current_method_selector_and_explicit_borrow_are_frozen(self):
+        uid = '9B456D2E-C90E-4324-8E98-51A4CCA930A1'
+        bundle = self.snap()
+        job = q.enqueue(self.queue, bundle, 'borrow', ['CuePhysTests/ExampleTests/testA()'],
+                        RUNTIME, DEVICE, udid=uid)
+        self.assertEqual(job['spec']['udid'], uid)
+        args = q.make_args(self.queue / 'jobs' / job['job_id'], 'test-without-building',
+                           'platform=iOS Simulator,id=' + uid, self.base / 'result', job['spec']['tests'])
+        self.assertIn("TEST_SELECTOR='-only-testing:CuePhysTests/ExampleTests/testA()'", args)
+        with self.assertRaisesRegex(ValueError, 'Explicit CuePhys'):
+            q.enqueue(self.queue, bundle, 'bad', ['QiuJiTests/ExampleTests'], RUNTIME, DEVICE)
+
     def test_missing_app_root_is_rejected(self):
         import shutil
         shutil.rmtree(self.repo / 'CuePhys')

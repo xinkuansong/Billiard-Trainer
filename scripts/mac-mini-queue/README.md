@@ -109,3 +109,9 @@ python3 -m unittest discover -s scripts/mac-mini-queue -v
 ```
 
 真实双任务验证记录见 `tasks/MAC-MINI-QUEUE-20261018.md`，涵盖不同快照、并发启动者、排队时间边界、各自真实构建/测试、独立临时设备及证据回传。UI截图仍应人工或由当前任务实际打开检查，工具不把 PNG 文件存在当作视觉验收。
+
+### CuePhys 快照与借用现有设备
+
+当前快照必须包含 CuePhys 主 App、扩展、两个测试 target、工程、Packages、Config、scripts、project.yml 和 `.gitattributes`。提交模式从已校验 SHA-256/size 的本地 Git LFS 对象实体化资源；工作区模式遇到指针直接失败，不以另一版本文件替代。缺必需根或损坏对象不生成可发布快照。
+
+远端已有空闲设备时，在 `submit` 指定 `--udid <远端设备 UUID>`，并保持 `--runtime`/`--device` 与该设备一致。它仍经过全机租约校验，任务结束释放租约并保留设备；不得清理其他任务现场以腾出临时设备容量。省略时沿用有上限的临时设备模式。方法选择器支持 `CuePhysTests/Suite/testMethod()`；命令会安全引用括号，验收必须匹配实际执行数。
