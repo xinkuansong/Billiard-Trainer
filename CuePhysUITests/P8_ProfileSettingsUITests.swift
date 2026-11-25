@@ -6,6 +6,20 @@ import XCTest
 final class RealServiceDeviceUITests: XCTestCase {
     private let recordMarker = "CuePhys验收-20261125-REAL01"
 
+    func testMonthlyOverviewIncludesRecordedActivity() throws {
+        try requireRealDeviceConsent()
+        let app = XCUIApplication(); app.launch(); app.switchTab(.profile)
+        XCTAssertTrue(app.buttons["profile.accountHeader"].waitForExistence(timeout: 45))
+        for key in ["trainingDays", "duration", "longestStreak"] {
+            let value = app.descendants(matching: .any)["profile.monthlyOverview.\(key)"].firstMatch
+            XCTAssertTrue(value.waitForExistence(timeout: 20))
+            print("MONTHLY_OVERVIEW \(key) label=\(value.label) value=\(value.value ?? "nil")")
+            XCTAssertNotNil(value.label.range(of: "[1-9][0-9]*", options: .regularExpression), "Existing recorded activity must be counted")
+        }
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "monthly-overview-real-account-private"; screenshot.lifetime = .keepAlways; add(screenshot)
+    }
+
     func testRestoreAppleSessionWithUserAuthorization() throws {
         try requireRealDeviceConsent()
         let app = XCUIApplication(); app.launch(); app.switchTab(.profile)

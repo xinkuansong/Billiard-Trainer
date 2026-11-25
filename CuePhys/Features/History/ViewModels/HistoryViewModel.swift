@@ -645,11 +645,22 @@ final class HistoryViewModel: ObservableObject {
         }
     }
 
-    /// 把 `kind="cognitive"` 的真会话与归属它的成绩装配成展示行，按结束时间倒序。
-    ///
-    /// ⛔ 不做任何时间间隔推断：归属完全来自 `AngleTestResult.sessionId`（W5 落库 +
-    /// 一次性回填）。仍无归属的成绩不在此显示——它们由 `CognitiveSessionBackfill`
-    /// 在启动时补建会话，条数记在 `unassignedCognitiveResultCount` 里。
+    /// Share history's payload identity/version and submitted-attempt checks with
+    /// the profile overview. A persisted, unanswered practice draft is not activity.
+    static func hasRecordedActivity(_ session: TrainingSession) -> Bool {
+        switch session.kind {
+        case TrainingSessionKind.simulatedAccuracy: !assembleAccuracySessions(sessions: [session]).records.isEmpty
+        case TrainingSessionKind.separationPractice: !assembleSeparationSessions(sessions: [session]).records.isEmpty
+        case TrainingSessionKind.twoBallPractice: !assembleTwoBallSessions(sessions: [session]).records.isEmpty
+        case TrainingSessionKind.threeBallPractice: !assembleThreeBallSessions(sessions: [session]).records.isEmpty
+        case TrainingSessionKind.kBallPractice: !assembleKBallSessions(sessions: [session]).records.isEmpty
+        case TrainingSessionKind.kickPractice: !assembleKickSessions(sessions: [session]).records.isEmpty
+        case TrainingSessionKind.bankPractice: !assembleBankSessions(sessions: [session]).records.isEmpty
+        case TrainingSessionKind.defensePractice: !assembleDefenseSessions(sessions: [session]).records.isEmpty
+        default: true
+        }
+    }
+
     static func assembleThreeBallSessions(sessions: [TrainingSession]) -> (records: [ThreeBallPracticeRecord], unreadableCount: Int) {
         var records: [ThreeBallPracticeRecord] = []
         var unreadable = 0
@@ -778,6 +789,11 @@ final class HistoryViewModel: ObservableObject {
         return (records.sorted { $0.startedAt > $1.startedAt }, unreadable)
     }
 
+    /// 把 `kind="cognitive"` 的真会话与归属它的成绩装配成展示行，按结束时间倒序。
+    ///
+    /// ⛔ 不做任何时间间隔推断：归属完全来自 `AngleTestResult.sessionId`（W5 落库 +
+    /// 一次性回填）。仍无归属的成绩不在此显示——它们由 `CognitiveSessionBackfill`
+    /// 在启动时补建会话，条数记在 `unassignedCognitiveResultCount` 里。
     static func assembleCognitiveSessions(
         sessions: [TrainingSession],
         results: [AngleTestResult]

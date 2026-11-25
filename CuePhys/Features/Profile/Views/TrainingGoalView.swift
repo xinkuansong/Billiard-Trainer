@@ -1,10 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// 周目标 / 月达成率的计数口径（契约 §5.3）。
-///
-/// ⛔ `kind="tool"` 不计：工具使用只记活跃度，把它算成「训练了一天」会虚高目标完成度。
-/// 计入的是 `drill` + `cognitive`。
+/// Weekly goals count drill + cognitive; the profile overview includes all
+/// recorded activity, using the history page's practice/draft boundary.
 enum TrainingGoalMetrics {
 
     struct MonthlyOverview: Equatable {
@@ -35,7 +33,9 @@ enum TrainingGoalMetrics {
         return Set(days).count
     }
 
-    /// 当前自然月概览。训练量口径与统计页一致：`drill + cognitive`，排除 `tool`。
+    /// Current calendar month's activity across training, simulation and tools.
+    /// Weekly goals and accuracy statistics keep their independent definitions.
+    @MainActor
     static func monthlyOverview(_ sessions: [TrainingSession],
                                 at date: Date,
                                 calendar: Calendar) -> MonthlyOverview {
@@ -43,8 +43,9 @@ enum TrainingGoalMetrics {
             return MonthlyOverview(trainingDays: 0, durationMinutes: 0, longestStreak: 0)
         }
 
-        let counted = goalCounting(sessions).filter {
+        let counted = sessions.filter {
             $0.reportingDate >= month.start && $0.reportingDate < month.end
+                && HistoryViewModel.hasRecordedActivity($0)
         }
         let trainedDays = Set(counted.map { calendar.startOfDay(for: $0.reportingDate) })
         let durationMinutes = counted.reduce(0) { $0 + $1.totalDurationMinutes }

@@ -1,3 +1,7 @@
+## DR-469 · 本月概览纳入所有已记录活动（2026-11-25）
+
+按用户新决定，本月概览从 drill/cognitive 扩大到当前账号、本自然月全部已记录活动，复用历史页的模拟载荷校验和已提交尝试条件；天数去重、时长累计、最长连续天数不跨月。未答草稿及不可读模拟记录排除，周目标／准确率不变。无数据迁移。已应用至内容数据合同 §5.3、docs/05、讨论记录与 UI 实施规范；实现及真机证据见 [记录](launch-20261110/cuephys-rename/MONTHLY-OVERVIEW-20261125.md)。
+
 ## v72 · 第一人称推进与后退跨球桌页面（2026-11-22）
 
 按用户授权实施《问题集合 v72》。P01CameraMotion 与 TwoViewCamera 增加同语义的第一人称沿杆 dolly，保持当前 FOV，边界复用布局、桌房几何、球杆净空和 `twoViewTableSightlinesClear`。CameraRig 与 AngleSceneView 统一派发，第一人称不进入第三人称临时观察回退，快照、模式记忆、新杆和上下文清除规则已接入。共用宿主矩阵覆盖 `BTTeachingTablePage`、FreePlay、角度训练、瞄准点、球体提取、Drill 及批量编辑入口，页面禁用合同保留。

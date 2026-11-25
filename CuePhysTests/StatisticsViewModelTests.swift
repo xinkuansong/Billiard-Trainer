@@ -373,7 +373,7 @@ final class StatisticsViewModelTests: XCTestCase {
 
     // MARK: - Profile Monthly Overview
 
-    func test_monthlyOverview_usesCalendarMonthAndTrainingKinds() throws {
+    func test_monthlyOverview_includesToolsWithoutChangingGoalsOrAccuracy() throws {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
 
@@ -405,10 +405,14 @@ final class StatisticsViewModelTests: XCTestCase {
             calendar: cal
         )
 
-        XCTAssertEqual(overview.trainingDays, 5, "同一天多条记录只能算一个训练日")
-        XCTAssertEqual(overview.durationMinutes, 125, "只累计本自然月 drill + cognitive")
-        XCTAssertEqual(overview.formattedDuration, "2h5m")
-        XCTAssertEqual(overview.longestStreak, 3, "9 月 4–6 日为最长连续打卡")
+        XCTAssertEqual(overview.trainingDays, 6, "工具活跃日也计入；同日多条只算一天")
+        XCTAssertEqual(overview.durationMinutes, 224, "本自然月全部记录的时长")
+        XCTAssertEqual(overview.formattedDuration, "3h44m")
+        XCTAssertEqual(overview.longestStreak, 6, "工具使用连接9月1–6日的连续活跃")
+        XCTAssertEqual(TrainingGoalMetrics.goalCounting(sessions).filter {
+            cal.isDate($0.date, equalTo: date(20), toGranularity: .month)
+        }.reduce(0) { $0 + $1.totalDurationMinutes }, 125)
+        XCTAssertFalse(TrainingSessionKind.countsTowardAccuracy(TrainingSessionKind.tool))
     }
 
     func test_monthlyOverview_longestStreakDoesNotCrossMonthBoundary() throws {
@@ -433,6 +437,44 @@ final class StatisticsViewModelTests: XCTestCase {
 
         XCTAssertEqual(overview.trainingDays, 2)
         XCTAssertEqual(overview.longestStreak, 2, "自然月边界外的连续日期不能并入本月最长连续")
+    }
+
+    func test_monthlyOverview_countsSubmittedSimulationButNotDraftOrInvalidPayload() throws {
+        let owner = "monthly-overview-test"
+        let now = Date()
+        let config = SceneTrainingConfiguration()
+        let bank = try TrainingBankStore.load()
+        let batch = try bank.draw(config, seed: 20261125, count: TrainingProject.ordinaryRoundCount)
+        var record = try AccuracyPracticeRecord(ownerKey: owner, is3D: false,
+            configuration: config, bankFingerprint: bank.sourceFingerprint,
+            questions: batch.boards.map {
+                AccuracyPracticeQuestion(board: $0, tip: .center)
+            }, now: now)
+        let session = TrainingSession(kind: TrainingSessionKind.simulatedAccuracy, ownerKey: owner)
+        session.id = record.id; session.date = now; session.totalDurationMinutes = 12
+        session.sourcePayloadSnapshot = try JSONEncoder().encode(record)
+        XCTAssertEqual(TrainingGoalMetrics.monthlyOverview([session], at: now, calendar: .current).trainingDays, 0)
+
+        _ = try record.freezeAttempt(now: now)
+        session.sourcePayloadSnapshot = try JSONEncoder().encode(record)
+        XCTAssertEqual(TrainingGoalMetrics.monthlyOverview([session], at: now, calendar: .current),
+                       .init(trainingDays: 1, durationMinutes: 12, longestStreak: 1))
+        XCTAssertTrue(TrainingGoalMetrics.goalCounting([session]).isEmpty)
+        XCTAssertFalse(TrainingSessionKind.countsTowardAccuracy(session.kind))
+
+        session.ownerKey = "different-owner"
+        XCTAssertEqual(TrainingGoalMetrics.monthlyOverview([session], at: now, calendar: .current).trainingDays, 0)
+        let practiceKinds = [TrainingSessionKind.simulatedAccuracy, TrainingSessionKind.separationPractice,
+            TrainingSessionKind.twoBallPractice, TrainingSessionKind.threeBallPractice,
+            TrainingSessionKind.kBallPractice, TrainingSessionKind.kickPractice,
+            TrainingSessionKind.bankPractice, TrainingSessionKind.defensePractice]
+        for kind in practiceKinds {
+            let invalid = TrainingSession(kind: kind, ownerKey: owner)
+            invalid.date = now; invalid.totalDurationMinutes = 999
+            invalid.sourcePayloadSnapshot = Data("broken".utf8)
+            XCTAssertEqual(TrainingGoalMetrics.monthlyOverview([invalid], at: now, calendar: .current),
+                           .init(trainingDays: 0, durationMinutes: 0, longestStreak: 0), kind)
+        }
     }
 
     func test_renderProfileMonthlyOverviewCard_afterEvidence() throws {
