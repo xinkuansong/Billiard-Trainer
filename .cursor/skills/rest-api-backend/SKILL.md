@@ -137,6 +137,8 @@ func refreshTokenIfNeeded() async throws {
 
 ## 用户数据同步
 
+2026-11-25 / FL-286：恢复必须调用`BackendSyncService.fetchSessionsAfter`/`fetchAngleTestsAfter`的完整分页循环。`page=1`返回`items`和`nextCursor`（每页200条）；服务端限定上界和updatedAt/_id顺序。普通列表最多500条，不可用于全量恢复。任一页失败不得返回部分成功或推进水位；不得以一条上传通过代替全量数量核对。
+
 ```swift
 // BackendSyncService.swift
 func syncSession(_ session: TrainingSession) async throws {
@@ -147,11 +149,8 @@ func syncSession(_ session: TrainingSession) async throws {
 }
 
 // 增量拉取（登录后或前台恢复）
-func fetchUserSessionsAfter(_ date: Date) async throws -> [TrainingSessionDTO] {
-    let iso = ISO8601DateFormatter().string(from: date)
-    return try await APIClient.shared.request(
-        .get("/training-sessions?after=\(iso)")
-    )
+func fetchUserSessionsAfter(_ date: Date, accountID: String) async throws -> [SyncedRecord<TrainingSessionDTO>] {
+    try await BackendSyncService.shared.fetchSessionsAfter(date, accountID: accountID)
 }
 
 // 匿名用户登录后批量迁移

@@ -88,13 +88,16 @@ final class APIClient: Sendable {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let tokenStore: any APITokenStore
+    private let notificationCenter: NotificationCenter
 
     init(baseURL: URL? = AppConfig.apiBaseURL,
          session: URLSession = .shared,
-         tokenStore: any APITokenStore = KeychainAPITokenStore()) {
+         tokenStore: any APITokenStore = KeychainAPITokenStore(),
+         notificationCenter: NotificationCenter = .default) {
         self.baseURL = baseURL
         self.session = session
         self.tokenStore = tokenStore
+        self.notificationCenter = notificationCenter
 
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .iso8601
@@ -156,7 +159,7 @@ final class APIClient: Sendable {
             guard try await refreshToken() else {
                 let invalidated = await MainActor.run {
                     guard tokenStore.load(.refreshToken) == requestRefreshToken else { return false }
-                    NotificationCenter.default.post(name: .authSessionInvalidated, object: nil)
+                    notificationCenter.post(name: .authSessionInvalidated, object: nil)
                     return true
                 }
                 guard invalidated else { throw CancellationError() }

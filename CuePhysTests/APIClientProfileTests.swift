@@ -14,12 +14,14 @@ final class APIClientProfileTests: XCTestCase {
         private static var stubs: [Stub] = []
         private static var observedRequest: URLRequest?
         private static var observedBody: Data?
+        private static var observedRequests: [URLRequest] = []
 
         static func configure(_ newStub: Stub) {
             lock.lock()
             stubs = [newStub]
             observedRequest = nil
             observedBody = nil
+            observedRequests = []
             lock.unlock()
         }
 
@@ -28,6 +30,7 @@ final class APIClientProfileTests: XCTestCase {
             stubs = newStubs
             observedRequest = nil
             observedBody = nil
+            observedRequests = []
             lock.unlock()
         }
 
@@ -35,6 +38,10 @@ final class APIClientProfileTests: XCTestCase {
             lock.lock()
             defer { lock.unlock() }
             return observedRequest
+        }
+
+        static func requestsSnapshot() -> [URLRequest] {
+            lock.lock(); defer { lock.unlock() }; return observedRequests
         }
 
         static func bodySnapshot() -> Data? {
@@ -51,6 +58,7 @@ final class APIClientProfileTests: XCTestCase {
             Self.lock.lock()
             let current = Self.stubs.isEmpty ? nil : Self.stubs.removeFirst()
             Self.observedRequest = request
+            Self.observedRequests.append(request)
             Self.observedBody = body
             Self.lock.unlock()
 
@@ -89,23 +97,94 @@ final class APIClientProfileTests: XCTestCase {
 
     private var client: APIClient!
     private var tokenStore: TestTokenStore!
+    private var notificationCenter: NotificationCenter!
 
     override func setUp() {
         super.setUp()
         tokenStore = TestTokenStore()
+        notificationCenter = NotificationCenter()
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubURLProtocol.self]
         client = APIClient(
             baseURL: URL(string: "https://unit.test")!,
             session: URLSession(configuration: configuration),
-            tokenStore: tokenStore
+            tokenStore: tokenStore,
+            notificationCenter: notificationCenter
         )
     }
 
     override func tearDown() {
         client = nil
         tokenStore = nil
+        notificationCenter = nil
         super.tearDown()
+    }
+
+    private func syncPage(_ range: Range<Int>, next: String?) throws -> Data {
+        let items = range.map { index -> [String: Any] in
+            ["clientId": String(format: "00000000-0000-4000-8000-%012d", index),
+             "date": "2026-01-01T00:00:00Z", "updatedAt": "2026-01-02T00:00:00.123Z",
+             "actualAngle": 30, "userAngle": 29, "pocketType": "corner"]
+        }
+        return try JSONSerialization.data(withJSONObject: ["items": items, "nextCursor": next as Any? ?? NSNull()])
+    }
+
+    func testBothSyncTypesFetchAllPagesBeyondFiveHundred() async throws {
+        tokenStore.save(accountToken("a"), for: .accessToken)
+        let service = BackendSyncService(api: client!)
+        for angles in [false, true] {
+            StubURLProtocol.configure([
+                .init(statusCode: 200, headers: [:], data: try syncPage(0..<200, next: "cursor-1")),
+                .init(statusCode: 200, headers: [:], data: try syncPage(200..<400, next: "cursor-2")),
+                .init(statusCode: 200, headers: [:], data: try syncPage(400..<601, next: nil)),
+            ])
+            let ids: [String]
+            if angles { ids = try await service.fetchAngleTestsAfter(nil, accountID: "a").map(\.payload.clientId) }
+            else { ids = try await service.fetchSessionsAfter(nil, accountID: "a").map(\.payload.clientId) }
+            XCTAssertEqual(ids.count, 601); XCTAssertEqual(Set(ids).count, 601)
+            let requests = StubURLProtocol.requestsSnapshot()
+            XCTAssertEqual(requests.count, 3)
+            XCTAssertTrue(requests.allSatisfy { $0.url?.path == (angles ? "/angle-tests" : "/training-sessions") })
+            let queries = requests.map { URLComponents(url: $0.url!, resolvingAgainstBaseURL: false)!.queryItems! }
+            XCTAssertTrue(queries.allSatisfy { $0.contains(URLQueryItem(name: "page", value: "1")) })
+            XCTAssertTrue(queries[1].contains(URLQueryItem(name: "cursor", value: "cursor-1")))
+            XCTAssertTrue(queries[2].contains(URLQueryItem(name: "cursor", value: "cursor-2")))
+        }
+    }
+
+    func testLaterSyncPageFailureDoesNotReturnPartialSuccess() async throws {
+        tokenStore.save(accountToken("a"), for: .accessToken)
+        StubURLProtocol.configure([
+            .init(statusCode: 200, headers: [:], data: try syncPage(0..<200, next: "next")),
+            .init(statusCode: 503, headers: [:], data: Data(#"{"message":"page unavailable"}"#.utf8)),
+        ])
+        do { _ = try await BackendSyncService(api: client!).fetchSessionsAfter(nil, accountID: "a"); XCTFail("Partial pages must not reach the restore watermark") }
+        catch AppError.serverError(let status, _) { XCTAssertEqual(status, 503) }
+        catch { XCTFail("Unexpected error: \(error)") }
+    }
+
+    func testSyncCursorLoopIsRejected() async throws {
+        tokenStore.save(accountToken("a"), for: .accessToken)
+        StubURLProtocol.configure([
+            .init(statusCode: 200, headers: [:], data: try syncPage(0..<1, next: "same")),
+            .init(statusCode: 200, headers: [:], data: try syncPage(1..<2, next: "same")),
+        ])
+        do { _ = try await BackendSyncService(api: client!).fetchSessionsAfter(nil, accountID: "a"); XCTFail("A repeating cursor must not loop forever") }
+        catch let error as URLError { XCTAssertEqual(error.code, .badServerResponse) }
+        catch { XCTFail("Unexpected error: \(error)") }
+        XCTAssertEqual(StubURLProtocol.requestsSnapshot().count, 2)
+    }
+
+    func testSyncAccountSwitchBetweenPagesCancelsTraversal() async throws {
+        let store = tokenStore!
+        tokenStore.save(accountToken("a"), for: .accessToken)
+        let switchedToken = accountToken("b")
+        StubURLProtocol.configure(.init(statusCode: 200, headers: [:], data: try syncPage(0..<1, next: "next"),
+            beforeResponse: { store.save(switchedToken, for: .accessToken) }))
+        do { _ = try await BackendSyncService(api: client!).fetchSessionsAfter(nil, accountID: "a"); XCTFail("A different account must not consume another page") }
+        catch is CancellationError { }
+        catch { XCTFail("Unexpected error: \(error)") }
+        XCTAssertEqual(StubURLProtocol.requestsSnapshot().count, 1)
     }
 
     func testReleaseAPIConfigurationOnlyAllowsCompanyHTTPS() {
@@ -123,7 +202,7 @@ final class APIClientProfileTests: XCTestCase {
     func testMisconfiguredAPIRejectsSyncLoginAndRefreshWithoutSendingRequests() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubURLProtocol.self]
-        let unavailable = APIClient(baseURL: nil, session: URLSession(configuration: configuration), tokenStore: tokenStore)
+        let unavailable = APIClient(baseURL: nil, session: URLSession(configuration: configuration), tokenStore: tokenStore, notificationCenter: notificationCenter)
         for endpoint in [Endpoint(.get, "/user/profile"), Endpoint(.post, "/auth/refresh"),
                          Endpoint(.post, "/auth/login-wechat"), Endpoint(.post, "/auth/bind-apple")] {
             StubURLProtocol.configure([])
@@ -333,6 +412,20 @@ final class APIClientProfileTests: XCTestCase {
     }
 
     func test401WithoutRefreshTokenBecomesAuthRequired() async {
+        // Hosted tests must not invalidate the real app's Keychain session.
+        let localInvalidation = expectation(description: "Mock session invalidated")
+        let globalInvalidation = expectation(description: "Real session untouched")
+        globalInvalidation.isInverted = true
+        let localObserver = notificationCenter.addObserver(forName: .authSessionInvalidated, object: nil, queue: nil) { _ in
+            localInvalidation.fulfill()
+        }
+        let globalObserver = NotificationCenter.default.addObserver(forName: .authSessionInvalidated, object: nil, queue: nil) { _ in
+            globalInvalidation.fulfill()
+        }
+        defer {
+            notificationCenter.removeObserver(localObserver)
+            NotificationCenter.default.removeObserver(globalObserver)
+        }
         StubURLProtocol.configure(.init(
             statusCode: 401,
             headers: ["Content-Type": "application/json"],
@@ -347,6 +440,7 @@ final class APIClientProfileTests: XCTestCase {
         } catch {
             XCTFail("错误类型不正确：\(error)")
         }
+        await fulfillment(of: [localInvalidation, globalInvalidation], timeout: 0.5)
     }
 
     func testExpiredAccessTokenRefreshesAndRetriesOriginalRequest() async throws {

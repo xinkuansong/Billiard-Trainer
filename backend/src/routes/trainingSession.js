@@ -4,6 +4,7 @@ const TrainingSession = require("../models/TrainingSession");
 
 const { withActiveAccount } = require("../services/accountWrite");
 const { recordFields, syncFields, saveSyncRecord } = require("../services/syncRecord");
+const { readSyncPage } = require("../services/syncPage");
 
 const router = express.Router();
 router.use(auth);
@@ -11,6 +12,7 @@ router.use(auth);
 // GET /training-sessions?after=ISO8601
 router.get("/", async (req, res, next) => {
   try {
+    if (req.query.page === "1") return res.json(await readSyncPage(TrainingSession, req.userId, req.query));
     const filter = { userId: req.userId };
     if (req.query.after) {
       filter.updatedAt = { $gt: new Date(req.query.after) };

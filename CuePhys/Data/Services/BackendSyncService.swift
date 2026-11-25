@@ -351,7 +351,34 @@ actor BackendSyncService {
     /// 边界记录可能被重复返回，而合并按 clientId 幂等，重复不产生重复实体；
     /// 反方向（向上取整）才会漏数据，故这里的取整方向是安全的那一侧。
     func fetchSessionsAfter(_ date: Date?, accountID: String) async throws -> [SyncedRecord<TrainingSessionDTO>] {
-        try await api.request(Endpoint(.get, "/training-sessions", query: Self.afterQuery(date), expectedAccountID: accountID))
+        try await fetchAllPages(path: "/training-sessions", after: date, accountID: accountID)
+    }
+
+    private struct SyncPage<Payload: Decodable>: Decodable {
+        let items: [SyncedRecord<Payload>]
+        let nextCursor: String?
+    }
+
+    /// Return only a complete traversal. A failed later page must not advance
+    /// SyncRestoreService's watermark or report a partial restore as complete.
+    private func fetchAllPages<Payload: Decodable>(path: String, after: Date?, accountID: String) async throws -> [SyncedRecord<Payload>] {
+        var records: [SyncedRecord<Payload>] = []
+        var cursor: String?
+        var seen = Set<String>()
+        repeat {
+            try Task.checkCancellation()
+            var query = [URLQueryItem(name: "page", value: "1")]
+            if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+            else { query += Self.afterQuery(after) }
+            let page: SyncPage<Payload> = try await api.request(
+                Endpoint(.get, path, query: query, expectedAccountID: accountID))
+            records.append(contentsOf: page.items)
+            cursor = page.nextCursor
+            if let cursor, cursor.isEmpty || !seen.insert(cursor).inserted {
+                throw URLError(.badServerResponse)
+            }
+        } while cursor != nil
+        return records
     }
 
     private static func afterQuery(_ date: Date?) -> [URLQueryItem] {
@@ -375,7 +402,7 @@ actor BackendSyncService {
 
     /// 与 `fetchSessionsAfter` 同形状：后端 `GET /angle-tests?after=` 路由已备好。
     func fetchAngleTestsAfter(_ date: Date?, accountID: String) async throws -> [SyncedRecord<AngleTestDTO>] {
-        try await api.request(Endpoint(.get, "/angle-tests", query: Self.afterQuery(date), expectedAccountID: accountID))
+        try await fetchAllPages(path: "/angle-tests", after: date, accountID: accountID)
     }
 
     // MARK: - User

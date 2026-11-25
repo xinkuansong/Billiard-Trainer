@@ -275,3 +275,9 @@ ProfileView 路由签名仅因同步/游客合并说明加入自定义球形而�
 2026-11-19 · SpatialPracticeRecoveryTests.swift 在临时目录下创建 UUID 隔离的归档和写入障碍，写损坏样本来验证恢复，使用独立 defaults suite。测试结束清理专用目录及偏好域；输出不进入资源包。
 
 2026-11-20 · 动作库试打截图改由 XCTest 附件随结果包保存，已移除固定输出目录的直接文件写入。
+
+## 2026-11-25 真实服务真机验收
+
+`P8_ProfileSettingsUITests.swift`新增RealServiceDeviceUITests，必须显式设置`TEST_RUNNER_CUEPHYS_REAL_SERVICE_VALIDATION=1`并逐方法选择；不得整类批跑。Apple本人授权前向XCTest Runner沙盒Documents写`apple-authorization.png`，同名复跑会覆盖，原轮证据须先复制到本机独立private目录；其他截图及AX进入本轮xcresult。截图含个人材料，本机目录0700，不提交Git或公开上传，保留失败轮，不自动删除证据。
+
+此类测试正常启动真实App，无内存/重置夹具，会改变当前账号登录态、云同步选项、系统通知权限和提醒时间；只有本人完成Apple/年龄授权。标记训练记录仅创建/删除`CuePhys验收-20261125-REAL01`，执行前核不存在；同步会正常上传已有队列并下载真实账号记录，游客拒绝合并。通过后恢复云同步关闭、提醒19:00/关闭及原通知权限；保留原数据，不回写备份覆盖正常同步。原Library备份、原内容摘要及最终ID集合对照见REAL-SERVICES-20261125。宿主API测试另隔离通知中心，防止模拟401影响真实凭据。真实账号注销和正式付款不在此类自动化中执行。

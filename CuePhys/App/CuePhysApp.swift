@@ -83,7 +83,9 @@ struct CuePhysApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                     Task { await TrainingReminderScheduler.shared.reconcile() }
                 }
-                .onReceive(TrainingReminderNavigation.shared.$pending) { pending in
+                // @Published emits in willSet. Consume on the next main-loop turn so
+                // consume's pending guard observes the committed notification state.
+                .onReceive(TrainingReminderNavigation.shared.$pending.receive(on: RunLoop.main)) { pending in
                     if pending { TrainingReminderNavigation.shared.consume(router: appRouter) }
                 }
                 .onAppear {

@@ -2626,3 +2626,26 @@ v67最终补验（2026-11-18）：r15小屏主流程1/1通过，菜单前后模�
 - 修复：普通 Debug 路由与模拟器工具分界；拆出 Batch 专项；训练/每日/系统用现有离线身份夹具；在真实弹框出现时处理权限，通过真实控件延长休息；每日用可见按钮中心触摸并检查菜单、返回、方向和原入口位置。未修改生产球桌布局或扩大点击区域。
 - 证据：现存原始失败和诊断保留，training同名旧证据缺口已披露；最终逐方法证据见[真机报告](launch-20261110/cuephys-rename/PHYSICAL-20261125.md)。未复现的 Composer/K-ball/快照/长巡游失败只记录复验，不编造唯一原因；移除未消费探针的结果不等于证明所有AX失败同因。
 - 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-283及UI实施规范Changelog；真实Apple授权与离线UI证据分列。
+
+## FL-285 — 通知状态发布早于写入，点击未进入训练页（2026-11-25）
+
+- 真机事实：17:19提醒送达，点击回到App仍显示训练目标页，原跳转断言失败。
+- 根因：`@Published`在willSet发送，onReceive同步调用consume重新读取旧pending=false；通知打开App不等于导航已消费。
+- 修复：通知订阅通过主RunLoop调度后消费；保持目标训练首页及当前训练VM语义，不加入经验延时。
+- 验证：独立Combine实验复现原链路漏消费；真机修复后送达、点击进训练首页、关闭取消和恢复原设置1/1通过（551.879秒），原失败和恢复记录见[真实服务验收](launch-20261110/cuephys-rename/REAL-SERVICES-20261125.md)。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-285及UI实施规范Changelog。
+
+## FL-286 — 同步列表500条截断被误报为全量完成（2026-11-25）
+
+- 真机事实：云端1281条训练记录，本机只恢复501条；原客户端对两个GET仅请求一次，服务端limit(500)，却推进最大updatedAt并显示完成。
+- 修复：同端点page=1有界分页信封，updatedAt/_id稳定游标、账号/类型绑定和服务端时间上界；客户端逐页获取，全成功才交给恢复层，断页/循环/换账号均失败。无旧Bundle迁移或Schema变更。
+- 验证：隔离真实Mongo+HTTP两类各1201条、7页、同时间戳/隔离/增量/无效游标通过；原生APIClient25/25、后端45/45通过。生产三文件备份后部署、哈希匹配且health200；真机1/1通过，云端1281条全部恢复，另保留原本地未出杆草稿1条和游客3条；逐个ID及原内容摘要核对通过。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-286、`.cursor/skills/rest-api-backend/SKILL.md` 同步说明、内容数据契约§2.5、ADR-P2-20261125及UI实施规范Changelog。
+
+## FL-287 — 宿主单元测试的失效通知清除真实会话（2026-11-25）
+
+- 事实：本人Apple重登通过后，APIClientProfileTests模拟401返回authRequired；随后真实账号页消失，分页UI在登录前置失败，未执行同步。
+- 根因：测试已隔离URLSession和TokenStore，却沿用NotificationCenter.default。模拟401通知被宿主App接收，调用真实invalidateSession；测试凭据隔离不等于副作用隔离。
+- 修复：APIClient注入NotificationCenter，生产默认保持default；测试使用独立中心，断言本地失效通知到达且全局通知为零。训练库未因此删除；用户本人已重新授权恢复真实会话，正常冷启动1/1通过。
+- 验证：修复后APIClientProfileTests真机25/25、0跳过通过；原失败结果保留，不能算分页实现失败或Apple授权失败。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-287及UI实施规范Changelog；实际账号恢复与分页结果见[真实服务验收](launch-20261110/cuephys-rename/REAL-SERVICES-20261125.md)。

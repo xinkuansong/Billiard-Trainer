@@ -3,6 +3,7 @@ const auth = require("../middleware/auth");
 const AngleTest = require("../models/AngleTest");
 
 const { saveSyncRecord } = require("../services/syncRecord");
+const { readSyncPage } = require("../services/syncPage");
 
 const router = express.Router();
 router.use(auth);
@@ -10,6 +11,7 @@ router.use(auth);
 // GET /angle-tests?after=ISO8601
 router.get("/", async (req, res, next) => {
   try {
+    if (req.query.page === "1") return res.json(await readSyncPage(AngleTest, req.userId, req.query));
     const filter = { userId: req.userId };
     if (req.query.after) {
       filter.updatedAt = { $gt: new Date(req.query.after) };

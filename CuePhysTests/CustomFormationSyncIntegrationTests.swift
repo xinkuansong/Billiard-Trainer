@@ -30,7 +30,7 @@ final class CustomFormationSyncIntegrationTests: XCTestCase {
             XCTFail("Production fixture does not match the allowlisted probe contract"); return
         }
         let phase = try XCTUnwrap(setting("FORMATION_PRODUCTION_PHASE"))
-        let client = APIClient(baseURL: try XCTUnwrap(URL(string: f.baseURL)), tokenStore: IntegrationToken(token: f.token))
+        let client = APIClient(baseURL: try XCTUnwrap(URL(string: f.baseURL)), tokenStore: IntegrationToken(token: f.token), notificationCenter: NotificationCenter())
         struct Profile: Decodable { let id: String; let displayName: String? }
         let profile: Profile = try await client.request(Endpoint(.get, "/user/profile", expectedAccountID: f.userID))
         guard profile.id == f.userID, profile.displayName == f.probeName else {
@@ -160,7 +160,7 @@ final class CustomFormationSyncIntegrationTests: XCTestCase {
         struct Fixture: Decodable { let baseURL: String; let userID: String; let token: String; let templateID: UUID }
         let f = try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
         XCTAssertTrue(f.baseURL.hasPrefix("http://127.0.0.1:"))
-        let service = CustomFormationSyncService(backend: FormationRESTBackend(client: APIClient(baseURL: try XCTUnwrap(URL(string: f.baseURL)), tokenStore: IntegrationToken(token: f.token))))
+        let service = CustomFormationSyncService(backend: FormationRESTBackend(client: APIClient(baseURL: try XCTUnwrap(URL(string: f.baseURL)), tokenStore: IntegrationToken(token: f.token), notificationCenter: NotificationCenter())))
         let repo = CustomFormationRepository(ownerKey: "integration:\(f.userID)")
         func sync() async throws { let result = await service.sync(userID: f.userID, repository: repo, shouldContinue: { true }); XCTAssertFalse(result.failed, "Phase \(phase) failed"); }
         switch phase {

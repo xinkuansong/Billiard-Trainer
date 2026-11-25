@@ -114,6 +114,7 @@ CuePhysUITests/MultiBallPracticeUITests.swift
 CuePhysUITests/OnboardingProUITests.swift
 CuePhysUITests/P2_DataLayerUITests.swift
 CuePhysUITests/P5_AngleTrainingUITests.swift
+CuePhysUITests/P8_ProfileSettingsUITests.swift
 CuePhysUITests/PocketLeatherFlowUITests.swift
 CuePhysUITests/PocketLeatherUITests.swift
 CuePhysUITests/RenderQualityV62UITests.swift

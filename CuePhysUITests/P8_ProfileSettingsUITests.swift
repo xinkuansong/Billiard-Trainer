@@ -1,5 +1,422 @@
 import XCTest
 
+/// Explicitly opted-in, individually selected checks against a real device/account.
+/// No launch fixtures or account deletion. Mutation flows restore settings and only
+/// delete the explicitly named verification record after server-side verification.
+final class RealServiceDeviceUITests: XCTestCase {
+    private let recordMarker = "CuePhys验收-20261125-REAL01"
+
+    func testRestoreAppleSessionWithUserAuthorization() throws {
+        try requireRealDeviceConsent()
+        let app = XCUIApplication(); app.launch(); app.switchTab(.profile)
+        let account = app.buttons["profile.accountHeader"]
+        if !account.waitForExistence(timeout: 10) {
+            let login = app.buttons["profile.login"]
+            for _ in 0..<6 where !login.isHittable { app.swipeDown() }
+            XCTAssertTrue(login.waitForExistence(timeout: 15)); login.tap()
+            let apple = app.buttons["通过 Apple 登录"]
+            XCTAssertTrue(apple.waitForExistence(timeout: 15)); apple.tap()
+            print("REAL_SERVICE appleAuthorizationNeedsUser=true")
+            XCTAssertTrue(account.waitForExistence(timeout: 300))
+        }
+        let syncChoice = app.alerts["开启训练数据云同步？"]
+        if syncChoice.exists { syncChoice.buttons["仅保存在本机"].tap() }
+        app.terminate(); app.launch(); app.switchTab(.profile)
+        XCTAssertTrue(account.waitForExistence(timeout: 45))
+        print("REAL_SERVICE restoredAppleSession=true")
+    }
+
+    func testAppleReauthenticationWithUserAuthorization() throws {
+        try requireRealDeviceConsent()
+        let app = XCUIApplication(); app.launch(); app.switchTab(.profile)
+        let account = app.buttons["profile.accountHeader"]
+        XCTAssertTrue(account.waitForExistence(timeout: 45))
+        let originalAccountLabel = account.label
+        let logout = app.buttons["退出登录"]
+        for _ in 0..<6 where !logout.isHittable { app.swipeUp() }
+        XCTAssertTrue(logout.isHittable); logout.tap()
+        let login = app.buttons["profile.login"]
+        for _ in 0..<6 where !login.isHittable { app.swipeDown() }
+        XCTAssertTrue(login.waitForExistence(timeout: 30)); login.tap()
+        let apple = app.buttons["通过 Apple 登录"]
+        XCTAssertTrue(apple.waitForExistence(timeout: 10)); apple.tap()
+        // Age confirmation and Apple biometric/password authorization belong to the user.
+        let needsAgeConfirmation = app.buttons["已满 14 周岁"].waitForExistence(timeout: 3)
+        print("REAL_SERVICE appleStep=" + (needsAgeConfirmation ? "age-confirmation" : "apple-authorization"))
+        try app.screenshot().pngRepresentation.write(to: URL.documentsDirectory.appendingPathComponent("apple-authorization.png"))
+        print("REAL_SERVICE appleAuthorizationNeedsUser=true")
+        XCTAssertTrue(account.waitForExistence(timeout: 300), "Waiting for the user's real Apple authorization")
+        XCTAssertEqual(account.label, originalAccountLabel)
+        let syncChoice = app.alerts["开启训练数据云同步？"]
+        if syncChoice.exists { syncChoice.buttons["仅保存在本机"].tap() }
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "jwt audience invalid")).firstMatch.exists)
+        app.terminate(); app.launch(); app.switchTab(.profile)
+        XCTAssertTrue(account.waitForExistence(timeout: 45))
+        XCTAssertEqual(account.label, originalAccountLabel)
+        print("REAL_SERVICE appleReauthenticationAndColdRestore=true")
+    }
+
+    func testInspectSystemNotificationSettings() throws {
+        try requireRealDeviceConsent()
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settings.launch()
+        let search = settings.searchFields.firstMatch
+        if !search.exists { settings.swipeDown() }
+        if !search.exists, settings.buttons["搜索"].exists { settings.buttons["搜索"].tap() }
+        XCTAssertTrue(search.waitForExistence(timeout: 15)); search.tap()
+        if search.buttons["清除文本"].exists { search.buttons["清除文本"].tap() }
+        search.typeText("CuePhys")
+        let entry = settings.buttons["OpenInstalledAppsSettingsDeepLinks.InstalledAppsSettingsDeepLinks.com.youbilliards.cuephys"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 15)); entry.tap()
+        let notifications = settings.staticTexts["通知"]
+        XCTAssertTrue(notifications.waitForExistence(timeout: 15)); notifications.tap()
+        print("REAL_SERVICE systemSettings=" + settings.debugDescription)
+        let snapshot = XCTAttachment(screenshot: settings.screenshot())
+        snapshot.name = "system-notification-settings-private"; snapshot.lifetime = .keepAlways; add(snapshot)
+    }
+
+    func testNotificationDeniedAndReenabled() throws {
+        try requireRealDeviceConsent()
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        let app = XCUIApplication()
+        settings.activate()
+        let allowed = settings.switches["ALLOW_NOTIFICATIONS_ID"]
+        XCTAssertTrue(allowed.waitForExistence(timeout: 15), "Open CuePhys notification settings before selecting this test")
+        XCTAssertEqual(allowed.value as? String, "1")
+        let originalSound = settings.switches["SOUNDS_ID"].value as? String
+        let originalMac = settings.switches["ALLOW_REMOTE_NOTIFICATIONS_ID"].value as? String
+        let originalDestinations = ["锁屏", "通知中心", "横幅"].map { settings.buttons[$0].isSelected }
+        addTeardownBlock {
+            settings.activate()
+            if !allowed.exists, settings.staticTexts["通知"].exists { settings.staticTexts["通知"].tap() }
+            XCTAssertTrue(allowed.waitForExistence(timeout: 15))
+            if allowed.value as? String != "1" { allowed.switches.firstMatch.tap() }
+            XCTAssertEqual(allowed.value as? String, "1")
+            app.activate()
+            print("REAL_SERVICE notificationPermissionRestored=allowed")
+        }
+        allowed.switches.firstMatch.tap()
+        XCTAssertEqual(allowed.value as? String, "0")
+        openReminder(app)
+        let permission = app.staticTexts["trainingReminder.authorization"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "label == %@", "系统通知权限未开启"), object: permission)], timeout: 15), .completed)
+        setReminderEnabled(true, app: app)
+        app.navigationBars.buttons["保存"].tap()
+        let error = app.alerts["提醒设置"]
+        XCTAssertTrue(error.waitForExistence(timeout: 15))
+        XCTAssertTrue(error.staticTexts["请在系统设置中允许 CuePhys 发送通知，然后返回保存。"].exists)
+        let denied = XCTAttachment(screenshot: app.screenshot())
+        denied.name = "real-notification-denied-private"; denied.lifetime = .keepAlways; add(denied)
+        error.buttons["知道了"].tap()
+        XCTAssertEqual(app.switches["trainingReminder.enabled"].value as? String, "0")
+        app.buttons["前往系统设置"].tap()
+        XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 15))
+        // Foreground can precede completion of the app-settings deep link; the
+        // previous notification pane may still be present in the first snapshot.
+        XCTAssertTrue(settings.navigationBars["CuePhys"].waitForExistence(timeout: 15))
+        let notificationEntry = settings.buttons["NOTIFICATIONS"]
+        XCTAssertTrue(notificationEntry.waitForExistence(timeout: 15)); notificationEntry.tap()
+        XCTAssertTrue(allowed.waitForExistence(timeout: 15))
+        allowed.switches.firstMatch.tap()
+        XCTAssertEqual(allowed.value as? String, "1")
+        XCTAssertEqual(settings.switches["SOUNDS_ID"].value as? String, originalSound)
+        XCTAssertEqual(settings.switches["ALLOW_REMOTE_NOTIFICATIONS_ID"].value as? String, originalMac)
+        XCTAssertEqual(["锁屏", "通知中心", "横幅"].map { settings.buttons[$0].isSelected }, originalDestinations)
+        app.activate()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "label == %@", "系统通知权限已开启"), object: permission)], timeout: 15), .completed)
+        XCTAssertEqual(app.switches["trainingReminder.enabled"].value as? String, "0")
+        print("REAL_SERVICE deniedSaveAndSettingsRecovery=true")
+    }
+
+    private func openAccountSettings(_ app: XCUIApplication) {
+        app.terminate(); app.launch(); app.switchTab(.profile)
+        XCTAssertTrue(app.buttons["profile.accountHeader"].waitForExistence(timeout: 45))
+        let settings = app.staticTexts["设置"]
+        for _ in 0..<5 where !settings.isHittable { app.swipeUp() }
+        XCTAssertTrue(settings.isHittable); settings.tap()
+        let toggle = app.switches["settings.cloudSync"]
+        for _ in 0..<8 where !toggle.isHittable { app.swipeUp() }
+        XCTAssertTrue(toggle.isHittable)
+    }
+
+    private func setCloudSync(_ enabled: Bool, app: XCUIApplication) {
+        let toggle = app.switches["settings.cloudSync"]
+        let expected = enabled ? "1" : "0"
+        if toggle.value as? String != expected {
+            let control = toggle.switches.firstMatch
+            if control.exists { control.tap() } else { toggle.tap() }
+        }
+        let migration = app.alerts["合并本机游客记录？"]
+        if enabled, migration.waitForExistence(timeout: 5) { migration.buttons["不合并"].tap() }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "value == %@", expected), object: toggle)], timeout: 10), .completed)
+    }
+
+    private func syncAccountAndWait(_ app: XCUIApplication) {
+        setCloudSync(true, app: app)
+        let status = app.staticTexts["settings.syncStatus"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "exists == true AND label BEGINSWITH %@", "同步完成"), object: status)], timeout: 180), .completed)
+        XCTAssertFalse(app.alerts["同步失败"].exists)
+        print("REAL_SERVICE actualCloudSyncCompleted=true")
+        print("REAL_SERVICE restoreSummary=" + status.label)
+    }
+
+    func testFullAccountRestoreAfterPaginationFix() throws {
+        try requireRealDeviceConsent()
+        let app = XCUIApplication(); openAccountSettings(app)
+        XCTAssertEqual(app.switches["settings.cloudSync"].value as? String, "0")
+        addTeardownBlock {
+            self.openAccountSettings(app); self.setCloudSync(false, app: app)
+            print("REAL_SERVICE cloudSyncRestored=off")
+        }
+        syncAccountAndWait(app)
+    }
+
+    func testCreateMarkedManualTraining() throws {
+        try requireRealDeviceConsent()
+        let app = XCUIApplication(); app.launch(); app.switchTab(.profile)
+        XCTAssertTrue(app.buttons["profile.accountHeader"].waitForExistence(timeout: 45))
+        app.switchTab(.training)
+        let menu = app.buttons["trainingHome.moreMenu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 15)); menu.tap()
+        app.buttons["补记训练"].tap()
+        let minutes = app.textFields["manualTraining.minutes"]
+        XCTAssertTrue(minutes.waitForExistence(timeout: 10)); minutes.tap(); minutes.typeText("1")
+        app.buttons["manualTraining.dismissKeyboard"].tap()
+        let content = app.textViews["manualTraining.content"].exists
+            ? app.textViews["manualTraining.content"] : app.textFields["manualTraining.content"]
+        content.tap(); content.typeText(recordMarker)
+        app.buttons["manualTraining.dismissKeyboard"].tap()
+        let note = app.textViews["manualTraining.note"].exists
+            ? app.textViews["manualTraining.note"] : app.textFields["manualTraining.note"]
+        note.tap(); note.typeText("真机同步验收，验证后删除本条记录。")
+        app.buttons["manualTraining.dismissKeyboard"].tap()
+        app.buttons["manualTraining.save"].tap()
+        XCTAssertTrue(menu.waitForExistence(timeout: 15))
+        app.terminate(); app.launch(); app.switchTab(.training)
+        menu.tap(); app.buttons["训练心得"].tap()
+        XCTAssertTrue(app.staticTexts[recordMarker].waitForExistence(timeout: 15), "Saved record must survive a normal relaunch")
+        print("REAL_SERVICE markedManualRecordPersisted=true")
+    }
+
+    func testUploadMarkedTrainingThroughRealAccount() throws {
+        try requireRealDeviceConsent()
+        let app = XCUIApplication(); openAccountSettings(app)
+        XCTAssertEqual(app.switches["settings.cloudSync"].value as? String, "0")
+        addTeardownBlock {
+            self.openAccountSettings(app)
+            self.setCloudSync(false, app: app)
+            print("REAL_SERVICE cloudSyncRestored=off")
+        }
+        syncAccountAndWait(app)
+    }
+
+    func testDeleteOnlyMarkedTrainingAndSync() throws {
+        try requireRealDeviceConsent()
+        let app = XCUIApplication(); app.launch(); app.switchTab(.training)
+        let menu = app.buttons["trainingHome.moreMenu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 15)); menu.tap(); app.buttons["训练心得"].tap()
+        let marked = app.staticTexts[recordMarker]
+        XCTAssertTrue(marked.waitForExistence(timeout: 15)); marked.tap()
+        XCTAssertTrue(app.buttons["trainingNotes.record"].waitForExistence(timeout: 10))
+        app.buttons["trainingNotes.record"].tap()
+        XCTAssertTrue(app.staticTexts[recordMarker].waitForExistence(timeout: 10), "Only the explicitly marked test record may be deleted")
+        app.buttons["删除记录"].tap(); app.buttons["删除"].tap()
+        XCTAssertTrue(app.navigationBars["训练心得"].waitForExistence(timeout: 15))
+        XCTAssertFalse(marked.exists)
+        openAccountSettings(app)
+        addTeardownBlock {
+            self.openAccountSettings(app); self.setCloudSync(false, app: app)
+            print("REAL_SERVICE cloudSyncRestored=off")
+        }
+        syncAccountAndWait(app)
+        print("REAL_SERVICE markedRecordDeletedLocally=true")
+    }
+
+    private func requireRealDeviceConsent() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Requires the authorized physical device")
+        #else
+        let env = ProcessInfo.processInfo.environment
+        guard env["CUEPHYS_REAL_SERVICE_VALIDATION"] == "1"
+            || env["TEST_RUNNER_CUEPHYS_REAL_SERVICE_VALIDATION"] == "1" else {
+            throw XCTSkip("Explicit real-account validation opt-in is required")
+        }
+        #endif
+        continueAfterFailure = false
+    }
+
+    private func openReminder(_ app: XCUIApplication) {
+        app.terminate()
+        app.launch()
+        app.switchTab(.profile)
+        let goal = app.staticTexts["训练目标"]
+        for _ in 0..<5 where !goal.isHittable { app.swipeUp() }
+        XCTAssertTrue(goal.isHittable)
+        goal.tap()
+        let entry = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "训练提醒")).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 10))
+        entry.tap()
+        XCTAssertTrue(app.switches["trainingReminder.enabled"].waitForExistence(timeout: 10))
+    }
+
+    private func setReminderEnabled(_ enabled: Bool, app: XCUIApplication) {
+        let row = app.switches["trainingReminder.enabled"]
+        let expected = enabled ? "1" : "0"
+        if row.value as? String != expected { row.switches.firstMatch.tap() }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "value == %@", expected), object: row)], timeout: 10), .completed)
+    }
+
+    private func setReminderTime(hour: Int, minute: Int, app: XCUIApplication) {
+        let picker = app.datePickers.firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        picker.tap()
+        XCTAssertTrue(app.pickerWheels.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(app.pickerWheels.count, 2)
+        app.pickerWheels.element(boundBy: 0).adjust(toPickerWheelValue: String(format: "%02d", hour))
+        app.pickerWheels.element(boundBy: 1).adjust(toPickerWheelValue: String(format: "%02d", minute))
+        XCTAssertEqual(app.pickerWheels.element(boundBy: 0).value as? String, "\(hour)点")
+        XCTAssertEqual(app.pickerWheels.element(boundBy: 1).value as? String, String(format: "%02d分钟", minute))
+        app.buttons["PopoverDismissRegion"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.65)).tap()
+        XCTAssertTrue(app.pickerWheels.firstMatch.waitForNonExistence(timeout: 10))
+    }
+
+    private func saveReminder(_ app: XCUIApplication) {
+        app.navigationBars.buttons["保存"].tap()
+        XCTAssertTrue(app.navigationBars["训练目标"].waitForExistence(timeout: 15))
+    }
+
+    func testReminderDeliveryTapAndCancellation() throws {
+        try requireRealDeviceConsent()
+        let app = XCUIApplication()
+        openReminder(app)
+        XCTAssertEqual(app.switches["trainingReminder.enabled"].value as? String, "0", "Verified device baseline must still be disabled")
+        // Restore the observed 19:00/off baseline even if the delivery assertion fails.
+        addTeardownBlock {
+            self.openReminder(app)
+            self.setReminderEnabled(true, app: app)
+            self.setReminderTime(hour: 19, minute: 0, app: app)
+            self.saveReminder(app)
+            self.openReminder(app)
+            self.setReminderEnabled(false, app: app)
+            self.saveReminder(app)
+            self.openReminder(app)
+            XCTAssertEqual(app.switches["trainingReminder.enabled"].value as? String, "0")
+            app.terminate(); app.launch()
+            print("REAL_SERVICE reminderRestored=19:00/off")
+        }
+        setReminderEnabled(true, app: app)
+        let calendar = Calendar.current
+        let target = calendar.date(bySetting: .second, value: 0, of: Date().addingTimeInterval(180))!
+        setReminderTime(hour: calendar.component(.hour, from: target), minute: calendar.component(.minute, from: target), app: app)
+        saveReminder(app)
+        XCUIDevice.shared.press(.home)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let title = springboard.staticTexts["今天练一会儿球吧"].firstMatch
+        print("REAL_SERVICE waitingForNotification=" + target.ISO8601Format())
+        XCTAssertTrue(title.waitForExistence(timeout: max(30, target.timeIntervalSinceNow + 45)), "Actual scheduled notification must be delivered")
+        let notification = XCTAttachment(screenshot: springboard.screenshot())
+        notification.name = "real-reminder-delivered-private"; notification.lifetime = .keepAlways; add(notification)
+        title.tap()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
+        XCTAssertTrue(app.buttons["trainingHome.dailyClearance"].waitForExistence(timeout: 20), "Notification must return to the training home")
+        print("REAL_SERVICE notificationDeliveredAndRouted=true")
+
+        openReminder(app)
+        let cancelledTarget = calendar.date(bySetting: .second, value: 0, of: Date().addingTimeInterval(180))!
+        setReminderTime(hour: calendar.component(.hour, from: cancelledTarget), minute: calendar.component(.minute, from: cancelledTarget), app: app)
+        saveReminder(app)
+        openReminder(app)
+        setReminderEnabled(false, app: app)
+        saveReminder(app)
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(title.waitForNonExistence(timeout: 10))
+        let cancelled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true"), object: title)
+        cancelled.isInverted = true
+        XCTAssertEqual(XCTWaiter.wait(for: [cancelled], timeout: max(30, cancelledTarget.timeIntervalSinceNow + 30)), .completed)
+        print("REAL_SERVICE cancelledReminderDidNotDeliver=true")
+    }
+
+    func testReminderPermissionAndTimeControls() throws {
+        try requireRealDeviceConsent()
+        let app = XCUIApplication()
+        app.launch()
+        defer { app.terminate(); app.launch() }
+        app.switchTab(.profile)
+        XCTAssertTrue(app.buttons["profile.accountHeader"].waitForExistence(timeout: 45))
+        let goal = app.staticTexts["训练目标"]
+        for _ in 0..<5 where !goal.isHittable { app.swipeUp() }
+        XCTAssertTrue(goal.isHittable)
+        goal.tap()
+        let reminder = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "训练提醒")).firstMatch
+        XCTAssertTrue(reminder.waitForExistence(timeout: 10))
+        reminder.tap()
+        let permission = app.staticTexts["trainingReminder.authorization"]
+        XCTAssertTrue(permission.waitForExistence(timeout: 10))
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "label == %@", "系统通知权限已开启"), object: permission)], timeout: 15), .completed)
+        let enabled = app.switches["trainingReminder.enabled"]
+        XCTAssertTrue(enabled.waitForExistence(timeout: 10))
+        print("REAL_SERVICE reminderOriginallyEnabled=\(enabled.value as? String ?? "unknown")")
+        if enabled.value as? String == "0" {
+            // On the physical phone the identified element spans the whole row;
+            // its child is the actual UISwitch, while tapping the row is inert.
+            let control = enabled.switches.firstMatch
+            XCTAssertTrue(control.exists)
+            control.tap()
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "value == %@", "1"), object: enabled)], timeout: 10), .completed)
+        let picker = app.datePickers.firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        picker.tap()
+        let snapshot = XCTAttachment(screenshot: app.screenshot())
+        snapshot.name = "real-reminder-controls-private"
+        snapshot.lifetime = .keepAlways
+        add(snapshot)
+        print("REAL_SERVICE reminderControls=" + app.debugDescription)
+    }
+
+    func testExistingAccountSurvivesNormalColdLaunch() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Requires the authorized physical device and existing account")
+        #else
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["CUEPHYS_REAL_SERVICE_VALIDATION"] == "1"
+            || environment["TEST_RUNNER_CUEPHYS_REAL_SERVICE_VALIDATION"] == "1" else {
+            throw XCTSkip("Explicit real-account validation opt-in is required")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = []
+        app.launchEnvironment = [:]
+        app.launch()
+        app.switchTab(.profile)
+        let account = app.buttons["profile.accountHeader"]
+        XCTAssertTrue(account.waitForExistence(timeout: 45), "Existing real account should restore")
+        XCTAssertFalse(app.buttons["profile.login"].exists)
+        let settings = app.staticTexts["设置"]
+        for _ in 0..<5 where !settings.isHittable { app.swipeUp() }
+        XCTAssertTrue(settings.isHittable)
+        settings.tap()
+        let sync = app.switches["settings.cloudSync"]
+        XCTAssertTrue(sync.waitForExistence(timeout: 30), "Online account settings require authenticated state")
+        for _ in 0..<8 where !sync.isHittable { app.swipeUp() }
+        XCTAssertTrue(sync.isHittable)
+        XCTAssertTrue(["0", "1"].contains(sync.value as? String ?? ""))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "real-account-settings-private"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        print("REAL_SERVICE existingAccount=true cloudSync=\(sync.value as? String ?? "unknown")")
+        #endif
+    }
+}
+
 final class P8_ProfileSettingsUITests: XCTestCase {
 
     var app: XCUIApplication!

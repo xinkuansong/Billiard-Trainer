@@ -55,7 +55,7 @@ final class TrainingSyncPrivacyIntegrationTests: XCTestCase {
 
         // Real REST clients. Change the synthetic credential only on a login transition.
         func connect(_ actor: Actor?) -> AccountDataCoordinator {
-            let api = APIClient(baseURL: f.url, tokenStore: TokenStore(token: actor?.token))
+            let api = APIClient(baseURL: f.url, tokenStore: TokenStore(token: actor?.token), notificationCenter: NotificationCenter())
             let service = BackendSyncService(api: api)
             queue.backend = LiveSyncBackend(service: service)
             restore.backend = LiveSyncRestoreBackend(service: service)
