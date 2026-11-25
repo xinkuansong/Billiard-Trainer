@@ -1364,10 +1364,16 @@ final class PalettePlacementUITests: XCTestCase {
 
     func testComposerHostIntegration() throws {
         phase = "after"
-        for route in ["composer", "batch"] {
-            launch(route); page += "-integration"; try drag()
-        }
+        launch("composer"); page += "-integration"; try drag()
     }
+
+    #if targetEnvironment(simulator)
+    // BatchAuthoringView is a simulator-only content production tool.
+    func testBatchHostIntegration() throws {
+        phase = "after"
+        launch("batch"); page += "-integration"; try drag()
+    }
+    #endif
 
     func testTableDragAndPersistentHint() throws {
         phase = "after"

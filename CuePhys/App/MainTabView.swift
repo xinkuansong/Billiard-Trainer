@@ -3,7 +3,7 @@ import SwiftUI
 struct MainTabView: View {
     let ownerKey: String
     @EnvironmentObject private var router: AppRouter
-    #if DEBUG && targetEnvironment(simulator)
+    #if DEBUG
     var liveReviewLaunchRequest: LiveReviewLaunchRequest? = nil
     #endif
 
@@ -95,7 +95,7 @@ struct MainTabView: View {
             set: { if !$0 { router.trainingAccessError = nil } }
         )) { Button("好", role: .cancel) {} } message: { Text(router.trainingAccessError ?? "") }
         .onChange(of: router.selectedTab) { _, _ in warmTableAssetsForSelectedTab() }
-        #if DEBUG && targetEnvironment(simulator)
+        #if DEBUG
         .task {
             if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-pro.route=") }) {
                 let routes: [String: AngleRoute] = [
@@ -112,9 +112,11 @@ struct MainTabView: View {
                     router.anglePath.append(route)
                 }
             }
+            #if targetEnvironment(simulator)
             if let request = liveReviewLaunchRequest {
                 router.applyLiveReviewLaunchOnce(request)
             }
+            #endif
         }
         #endif
     }
