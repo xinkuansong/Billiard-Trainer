@@ -496,8 +496,8 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
 
     func testEndingTrainingDismissesSystemRestActivity() throws {
         app = XCUIApplication.launchClean(extraArgs: [
-            "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance",
-            "-v54.todayState=single", "-v57.restDuration=180",
+            "-forcePremium", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-v51.followSystemAppearance",
+            "-v54.todayState=single",
         ])
         let start = app.buttons["trainingHome.startTraining"].firstMatch
         XCTAssertTrue(start.waitForExistence(timeout: 15))
@@ -505,11 +505,24 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
         let rest = app.buttons["activeTraining.rest"].firstMatch
         XCTAssertTrue(rest.waitForExistence(timeout: 15))
         rest.tap()
+        // The first rest requests notifications before the in-app overlay can be
+        // minimized. Resolve the real system prompt before sending another tap.
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let notificationPermission = springboard.alerts.containing(
+            .staticText, identifier: "“CuePhys”想给你发送通知"
+        ).firstMatch
+        if notificationPermission.waitForExistence(timeout: 3) {
+            notificationPermission.buttons["允许"].tap()
+            XCTAssertTrue(notificationPermission.waitForNonExistence(timeout: 5))
+        }
+        // Extend through the real control; -v57.restDuration only applies to the direct host.
+        let extend = app.buttons["+30S"].firstMatch
+        XCTAssertTrue(extend.waitForExistence(timeout: 5))
+        for _ in 0..<4 { extend.tap() }
         let minimize = app.buttons["最小化组间休息"].firstMatch
         XCTAssertTrue(minimize.waitForExistence(timeout: 8))
         minimize.tap()
 
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         func openNotifications() {
             XCUIDevice.shared.press(.home)
             XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10))

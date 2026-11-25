@@ -131,6 +131,8 @@
 
 ### H-26 — v53 账号资料、头像、通知与订阅真实环境验收
 
+- **2026-11-25 真机补验**：iPhone16Pro/iOS27.2.1 已连接；当前签名 Keychain CRUD 1/1、真实通知允许、后台休息Live Activity及结束训练后卡片清除通过。公司Apple私钥和新audience已部署，生产负例统一401；首次Apple用户授权/绑定/注销、通知拒绝/到点/点击及真实支付仍待验，不将局部结果记为H-26全量完成。[真机记录](launch-20261110/cuephys-rename/PHYSICAL-20261125.md)
+
 - **状态**：⏳ 待完成（代码与自动化已完成；不阻塞继续开发，阻塞 v53 全量验收与发布声明）
 - **2026-11-24 CuePhys 整改**：当前身份的模拟器 StoreKit 46/46、隔离 iOS→HTTP→MongoDB 同步18/18及账号绑定/注销/真实备份恢复演练通过。两台实体 iPhone 均 unavailable；真实 Apple/微信、沙盒购买和真机系统交互仍待验。证据与待办见 [整改执行记录](launch-20261110/cuephys-rename/EXECUTION.md)。
 - **2026-09-03 二次设备检查**：`xcrun xctrace list devices` 仍只发现一台物理 `iPhone (26.6.1)`，状态为 **Offline**；当前无法继续取得真机 Apple、相册和到点通知证据。

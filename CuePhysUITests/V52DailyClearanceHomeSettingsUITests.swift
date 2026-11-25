@@ -21,7 +21,7 @@ final class V52DailyClearanceHomeSettingsUITests: XCTestCase {
         defer { XCUIDevice.shared.orientation = .portrait }
         for theme in ["Light", "Dark"] {
             XCUIDevice.shared.orientation = .portrait
-            let app = launch(["-v50.inMemoryStore", "-v54.force\(theme)",
+            let app = launch(["-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-v54.force\(theme)",
                               "-dailyClearance.resetHomeState", "-dailyLayout.probe", "-forcePremium"])
             defer { app.terminate() }
             let entry = app.buttons["trainingHome.dailyClearance"]
@@ -39,7 +39,16 @@ final class V52DailyClearanceHomeSettingsUITests: XCTestCase {
                 let window = app.windows.firstMatch.frame
                 XCTAssertGreaterThan(stage.frame.width, window.width * 0.6, "Renderer must use the full landscape stage")
                 XCTAssertGreaterThan(stage.frame.height, window.height * 0.65)
-                XCTAssertTrue(app.buttons["freeplay.moreMenu"].isHittable)
+                let more = app.buttons["freeplay.moreMenu"]
+                XCTAssertTrue(more.isEnabled)
+                XCTAssertTrue(window.contains(more.frame))
+                more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                let menu = app.scrollViews["dailyClearance.menuScroll"]
+                XCTAssertTrue(menu.waitForExistence(timeout: 5))
+                let close = app.buttons["关闭菜单"].firstMatch
+                XCTAssertTrue(close.waitForExistence(timeout: 5))
+                close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                XCTAssertTrue(menu.waitForNonExistence(timeout: 5))
                 snap(app, "entry-\(theme)-\(visit)-landscape")
                 let probe = app.descendants(matching: .any)["dailyLayout.entryProbe"].firstMatch
                 if let value = probe.value as? String {
@@ -49,7 +58,9 @@ final class V52DailyClearanceHomeSettingsUITests: XCTestCase {
                     add(attachment)
                 }
                 // The last visit returns immediately after geometry settles.
-                app.buttons["dailyClearance.back"].tap()
+                // iOS device AX can report no activation point after automatic rotation.
+                // Prove operability with the visible center and the original return assertions.
+                app.buttons["dailyClearance.back"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
                 let restored = NSPredicate { _, _ in
                     app.frame.height > app.frame.width && entry.isHittable
                         && abs(entry.frame.minY - homeFrame.minY) < 1
@@ -126,7 +137,7 @@ final class V52DailyClearanceHomeSettingsUITests: XCTestCase {
         XCTAssertTrue(back.waitForExistence(timeout: 20))
         let ready = NSPredicate { _, _ in
             let frame = app.windows.firstMatch.frame
-            return frame.width > frame.height && back.isHittable
+            return frame.width > frame.height && back.isEnabled
                 && !back.frame.isEmpty && frame.contains(back.frame)
         }
         expectation(for: ready, evaluatedWith: app)

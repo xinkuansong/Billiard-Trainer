@@ -1,6 +1,6 @@
 # 改名回归范围与证据
 
-2026-11-24，本地入口与设备矩阵已完成。发布状态以 [EXECUTION](EXECUTION.md) 为准。证据位于 `output/cuephys-rename-remediation/`；旧失败与新结果分别保存，不覆盖为绿色。
+2026-11-24，本地入口与设备矩阵已完成。2026-11-25追加的实体设备结果以[真机报告](PHYSICAL-20261125.md)为准；本页以下模拟器历史结果保持原口径。发布状态以 [EXECUTION](EXECUTION.md) 为准。模拟器证据位于 `output/cuephys-rename-remediation/`。
 
 ## 入口分组
 
@@ -33,7 +33,7 @@ B00 的 91 个引用文件包含加载器、组件、ViewModel 和调试代码�
 - Mac mini：iPhone 17 Pro，iOS 26.2，Xcode 26.2，干净提交快照67/67；含当前 StoreKit 目录和购买/恢复/归属/撤销。
 - iPad 11英寸：标准核心设备，横→竖→横及真实渲染实例/场景状态，2/2 通过。
 - 最低系统：工程 iOS 17；核心 iPhone SE / iOS17 模型/当前存储/权限/冷启动/每日入口共22/22通过。另一个 iOS26.3 SE 正被物理研究任务占用，未接管。
-- 两台实体 iPhone 当前 unavailable。真机 Keychain、安全签名效果、触感/真实声音、通知/Live Activity和真实授权/支付不计模拟器通过。
+- 2026-11-24当时两台实体iPhone unavailable；2026-11-25 iPhone16Pro已恢复有线连接，Keychain和休息Live Activity取得真机证据，见独立报告。触感/听觉人工认可和真实授权/支付不计模拟器通过。
 
 ## 球桌规范判定
 

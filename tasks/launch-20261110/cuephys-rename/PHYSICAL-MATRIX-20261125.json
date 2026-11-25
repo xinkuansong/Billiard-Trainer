@@ -1,0 +1,512 @@
+{
+  "scope": "52 unique physical test methods; latest evidence across original and focused reruns, not one fresh 52-test run",
+  "device": "iPhone 16 Pro / iOS 27.2.1",
+  "summary": {
+    "foundation": {
+      "total": 10,
+      "passed": 10
+    },
+    "system": {
+      "total": 1,
+      "passed": 1
+    },
+    "navigation": {
+      "total": 5,
+      "passed": 5
+    },
+    "daily": {
+      "total": 3,
+      "passed": 3
+    },
+    "training": {
+      "total": 7,
+      "passed": 7
+    },
+    "consumers": {
+      "total": 14,
+      "passed": 14
+    },
+    "specialized": {
+      "total": 6,
+      "passed": 6
+    },
+    "other": {
+      "total": 5,
+      "passed": 5
+    },
+    "keychain": {
+      "total": 1,
+      "passed": 1
+    }
+  },
+  "methods": [
+    {
+      "method": "CuePhysTests/ModelAssetTrialTests/testBundleContainsOnlyProductionModels",
+      "group": "foundation",
+      "status": "passed",
+      "seconds": 0.123,
+      "log": "foundation.log",
+      "result": "foundation.xcresult",
+      "log_sha256": "7b5ba7caff22e1e8c520592477dd9ac58389b4a0b3a4c4d04c31c07b2863a399"
+    },
+    {
+      "method": "CuePhysTests/ModelAssetTrialTests/testCandidateImportsWithExpectedGeometry",
+      "group": "foundation",
+      "status": "passed",
+      "seconds": 1.0,
+      "log": "foundation.log",
+      "result": "foundation.xcresult",
+      "log_sha256": "7b5ba7caff22e1e8c520592477dd9ac58389b4a0b3a4c4d04c31c07b2863a399"
+    },
+    {
+      "method": "CuePhysTests/ModelAssetTrialTests/testEveryProductionBallHas2880TrianglesAndRenders",
+      "group": "foundation",
+      "status": "passed",
+      "seconds": 3.672,
+      "log": "foundation.log",
+      "result": "foundation.xcresult",
+      "log_sha256": "7b5ba7caff22e1e8c520592477dd9ac58389b4a0b3a4c4d04c31c07b2863a399"
+    },
+    {
+      "method": "CuePhysTests/ModelAssetTrialTests/testMissingProductionModelDoesNotFallBackToLegacyFile",
+      "group": "foundation",
+      "status": "passed",
+      "seconds": 0.002,
+      "log": "foundation.log",
+      "result": "foundation.xcresult",
+      "log_sha256": "7b5ba7caff22e1e8c520592477dd9ac58389b4a0b3a4c4d04c31c07b2863a399"
+    },
+    {
+      "method": "CuePhysTests/ModelAssetTrialTests/testRetiredPreferenceCannotSelectAnUnpackagedModel",
+      "group": "foundation",
+      "status": "passed",
+      "seconds": 0.062,
+      "log": "foundation.log",
+      "result": "foundation.xcresult",
+      "log_sha256": "7b5ba7caff22e1e8c520592477dd9ac58389b4a0b3a4c4d04c31c07b2863a399"
+    },
+    {
+      "method": "CuePhysTests/ShotAudioTests/testBundledSamplesProduceMixerAudioAndMuteStopsNewSounds",
+      "group": "foundation",
+      "status": "passed",
+      "seconds": 8.768,
+      "log": "foundation.log",
+      "result": "foundation.xcresult",
+      "log_sha256": "7b5ba7caff22e1e8c520592477dd9ac58389b4a0b3a4c4d04c31c07b2863a399"
+    },
+    {
+      "method": "CuePhysTests/ShotAudioTests/testInstalledShotSamplesDecodeWithoutPreviewAndMissingPreviewFallsBack",
+      "group": "foundation",
+      "status": "passed",
+      "seconds": 0.005,
+      "log": "foundation.log",
+      "result": "foundation.xcresult",
+      "log_sha256": "7b5ba7caff22e1e8c520592477dd9ac58389b4a0b3a4c4d04c31c07b2863a399"
+    },
+    {
+      "method": "CuePhysTests/TableAppearanceTests/testPackagedPreviewsAndTexturesDecode",
+      "group": "foundation",
+      "status": "passed",
+      "seconds": 0.016,
+      "log": "foundation.log",
+      "result": "foundation.xcresult",
+      "log_sha256": "7b5ba7caff22e1e8c520592477dd9ac58389b4a0b3a4c4d04c31c07b2863a399"
+    },
+    {
+      "method": "CuePhysTests/TrainingQuotaLedgerTests/testCurrentDefaultPathPersistsAcrossInstancesWithoutTouchingOtherNamespaces",
+      "group": "foundation",
+      "status": "passed",
+      "seconds": 0.008,
+      "log": "foundation.log",
+      "result": "foundation.xcresult",
+      "log_sha256": "7b5ba7caff22e1e8c520592477dd9ac58389b4a0b3a4c4d04c31c07b2863a399"
+    },
+    {
+      "method": "CuePhysTests/TrainingQuotaLedgerTests/testCurrentSwiftDataStoreReopensWithoutRecreatingRecords",
+      "group": "foundation",
+      "status": "passed",
+      "seconds": 0.027,
+      "log": "foundation.log",
+      "result": "foundation.xcresult",
+      "log_sha256": "7b5ba7caff22e1e8c520592477dd9ac58389b4a0b3a4c4d04c31c07b2863a399"
+    },
+    {
+      "method": "CuePhysUITests/V51ResponsiveLayoutUITests/testEndingTrainingDismissesSystemRestActivity",
+      "group": "system",
+      "status": "passed",
+      "seconds": 52.698,
+      "log": "permission-flow-160001.log",
+      "result": "permission-flow-160001.xcresult",
+      "log_sha256": "234bcfa65ba8149fd9e7b21654b713889347037da2a7b887f56870a514414d4a"
+    },
+    {
+      "method": "CuePhysUITests/P2_DataLayerUITests/testB02_DrillDetailLoadsData",
+      "group": "navigation",
+      "status": "passed",
+      "seconds": 17.455,
+      "log": "remaining-failures-153353.log",
+      "result": "remaining-failures-153353.xcresult",
+      "log_sha256": "5d705ae1609cc90d88039b648b6c6ac15f5af93256b62e58541b1ca74f6b89bc"
+    },
+    {
+      "method": "CuePhysUITests/P2_DataLayerUITests/testDataPersistsAfterRelaunch",
+      "group": "navigation",
+      "status": "passed",
+      "seconds": 20.745,
+      "log": "navigation.log",
+      "result": "navigation.xcresult",
+      "log_sha256": "9aedf3513f4d4029e64fa4e478ffda3fc4f1f24d88c90c27ee5e5dd88cafe03e"
+    },
+    {
+      "method": "CuePhysUITests/P2_DataLayerUITests/testGuestProPromotionInBothAppearances",
+      "group": "navigation",
+      "status": "passed",
+      "seconds": 29.835,
+      "log": "navigation.log",
+      "result": "navigation.xcresult",
+      "log_sha256": "9aedf3513f4d4029e64fa4e478ffda3fc4f1f24d88c90c27ee5e5dd88cafe03e"
+    },
+    {
+      "method": "CuePhysUITests/P2_DataLayerUITests/testS01_ColdLaunchNoCrash",
+      "group": "navigation",
+      "status": "passed",
+      "seconds": 5.636,
+      "log": "navigation.log",
+      "result": "navigation.xcresult",
+      "log_sha256": "9aedf3513f4d4029e64fa4e478ffda3fc4f1f24d88c90c27ee5e5dd88cafe03e"
+    },
+    {
+      "method": "CuePhysUITests/P2_DataLayerUITests/testS02_AllFiveTabsSwitchable",
+      "group": "navigation",
+      "status": "passed",
+      "seconds": 19.46,
+      "log": "navigation.log",
+      "result": "navigation.xcresult",
+      "log_sha256": "9aedf3513f4d4029e64fa4e478ffda3fc4f1f24d88c90c27ee5e5dd88cafe03e"
+    },
+    {
+      "method": "CuePhysUITests/V52DailyClearanceHomeSettingsUITests/testEntryRotationLightAndDarkWithRealRack",
+      "group": "daily",
+      "status": "passed",
+      "seconds": 96.651,
+      "log": "daily-actions-160807.log",
+      "result": "daily-actions-160807.xcresult",
+      "log_sha256": "3ab8eed1078300c3a12dcf959af0e0f9307eec8e785f3196ee8d8645d987f8a7"
+    },
+    {
+      "method": "CuePhysUITests/V52DailyClearanceUITests/testRealManualBreakDeliversAndRestoresIn3D",
+      "group": "daily",
+      "status": "passed",
+      "seconds": 50.643,
+      "log": "daily.log",
+      "result": "daily.xcresult",
+      "log_sha256": "dadac3c3cfc887e30d5c2568886b42839afad0904cbf7e0bbd50d7e00fac394f"
+    },
+    {
+      "method": "CuePhysUITests/V52DailyClearanceUITests/testReplayAndRerackDuringStrokeAreTransactional",
+      "group": "daily",
+      "status": "passed",
+      "seconds": 39.718,
+      "log": "daily.log",
+      "result": "daily.xcresult",
+      "log_sha256": "dadac3c3cfc887e30d5c2568886b42839afad0904cbf7e0bbd50d7e00fac394f"
+    },
+    {
+      "method": "CuePhysUITests/TrainingViewMergeUITests/testAccuracySwitchKeepsQuestionInputsSceneAndQuota",
+      "group": "training",
+      "status": "passed",
+      "seconds": 31.837,
+      "log": "training-banner-ready-162618.log",
+      "result": "training-banner-ready-162618.xcresult",
+      "log_sha256": "29e04eabfc53c1ad22f238ff18789875b2242ebeee073b966825fd43bbd6c342"
+    },
+    {
+      "method": "CuePhysUITests/TrainingViewMergeUITests/testAimPointSwitch",
+      "group": "training",
+      "status": "passed",
+      "seconds": 26.207,
+      "log": "training-banner-ready-162618.log",
+      "result": "training-banner-ready-162618.xcresult",
+      "log_sha256": "29e04eabfc53c1ad22f238ff18789875b2242ebeee073b966825fd43bbd6c342"
+    },
+    {
+      "method": "CuePhysUITests/TrainingViewMergeUITests/testAngleSwitch",
+      "group": "training",
+      "status": "passed",
+      "seconds": 25.931,
+      "log": "training-banner-ready-162618.log",
+      "result": "training-banner-ready-162618.xcresult",
+      "log_sha256": "29e04eabfc53c1ad22f238ff18789875b2242ebeee073b966825fd43bbd6c342"
+    },
+    {
+      "method": "CuePhysUITests/TrainingViewMergeUITests/testMultiBallSwitchPreservesRackAndMeasurement",
+      "group": "training",
+      "status": "passed",
+      "seconds": 33.988,
+      "log": "training-banner-ready-162618.log",
+      "result": "training-banner-ready-162618.xcresult",
+      "log_sha256": "29e04eabfc53c1ad22f238ff18789875b2242ebeee073b966825fd43bbd6c342"
+    },
+    {
+      "method": "CuePhysUITests/TrainingViewMergeUITests/testSeparationSwitchPreservesMeasurement",
+      "group": "training",
+      "status": "passed",
+      "seconds": 30.718,
+      "log": "training-banner-ready-162618.log",
+      "result": "training-banner-ready-162618.xcresult",
+      "log_sha256": "29e04eabfc53c1ad22f238ff18789875b2242ebeee073b966825fd43bbd6c342"
+    },
+    {
+      "method": "CuePhysUITests/TrainingViewMergeUITests/testThreeBallSwitchPreservesMeasurement",
+      "group": "training",
+      "status": "passed",
+      "seconds": 31.251,
+      "log": "training-banner-ready-162618.log",
+      "result": "training-banner-ready-162618.xcresult",
+      "log_sha256": "29e04eabfc53c1ad22f238ff18789875b2242ebeee073b966825fd43bbd6c342"
+    },
+    {
+      "method": "CuePhysUITests/TrainingViewMergeUITests/testTwoBallSwitchPreservesMeasurement",
+      "group": "training",
+      "status": "passed",
+      "seconds": 30.609,
+      "log": "training-banner-ready-162618.log",
+      "result": "training-banner-ready-162618.xcresult",
+      "log_sha256": "29e04eabfc53c1ad22f238ff18789875b2242ebeee073b966825fd43bbd6c342"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testAngleDiagram",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 66.659,
+      "log": "consumers.log",
+      "result": "consumers.xcresult",
+      "log_sha256": "00cff994a1f8193be0f791f39bc597e0b512ca5238ae45caa84a48e82d7c1be3"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testBank",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 59.065,
+      "log": "consumers.log",
+      "result": "consumers.xcresult",
+      "log_sha256": "00cff994a1f8193be0f791f39bc597e0b512ca5238ae45caa84a48e82d7c1be3"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testComposer",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 67.426,
+      "log": "final-affected-161008.log",
+      "result": "final-affected-161008.xcresult",
+      "log_sha256": "e3c573d147380d75b615f8829775640ebb159965cf18cfd783dcf5121eb21bec"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testCushionDiagram",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 64.418,
+      "log": "final-affected-161008.log",
+      "result": "final-affected-161008.xcresult",
+      "log_sha256": "e3c573d147380d75b615f8829775640ebb159965cf18cfd783dcf5121eb21bec"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testDiamond",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 90.688,
+      "log": "final-affected-161008.log",
+      "result": "final-affected-161008.xcresult",
+      "log_sha256": "e3c573d147380d75b615f8829775640ebb159965cf18cfd783dcf5121eb21bec"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testFormationArrange",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 27.743,
+      "log": "consumers.log",
+      "result": "consumers.xcresult",
+      "log_sha256": "00cff994a1f8193be0f791f39bc597e0b512ca5238ae45caa84a48e82d7c1be3"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testFormationPractice",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 68.796,
+      "log": "consumers.log",
+      "result": "consumers.xcresult",
+      "log_sha256": "00cff994a1f8193be0f791f39bc597e0b512ca5238ae45caa84a48e82d7c1be3"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testFreePlay",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 47.414,
+      "log": "consumers.log",
+      "result": "consumers.xcresult",
+      "log_sha256": "00cff994a1f8193be0f791f39bc597e0b512ca5238ae45caa84a48e82d7c1be3"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testPlanThree",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 59.16,
+      "log": "consumers.log",
+      "result": "consumers.xcresult",
+      "log_sha256": "00cff994a1f8193be0f791f39bc597e0b512ca5238ae45caa84a48e82d7c1be3"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testSeparationDiagram",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 64.774,
+      "log": "final-affected-161008.log",
+      "result": "final-affected-161008.xcresult",
+      "log_sha256": "e3c573d147380d75b615f8829775640ebb159965cf18cfd783dcf5121eb21bec"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testSilu",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 64.854,
+      "log": "consumers.log",
+      "result": "consumers.xcresult",
+      "log_sha256": "00cff994a1f8193be0f791f39bc597e0b512ca5238ae45caa84a48e82d7c1be3"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testSimulation",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 62.554,
+      "log": "consumers.log",
+      "result": "consumers.xcresult",
+      "log_sha256": "00cff994a1f8193be0f791f39bc597e0b512ca5238ae45caa84a48e82d7c1be3"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testSnakeOpening",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 51.572,
+      "log": "consumers.log",
+      "result": "consumers.xcresult",
+      "log_sha256": "00cff994a1f8193be0f791f39bc597e0b512ca5238ae45caa84a48e82d7c1be3"
+    },
+    {
+      "method": "CuePhysUITests/LegalBallMovementUITests/testTryoutFree",
+      "group": "consumers",
+      "status": "passed",
+      "seconds": 69.803,
+      "log": "consumers.log",
+      "result": "consumers.xcresult",
+      "log_sha256": "00cff994a1f8193be0f791f39bc597e0b512ca5238ae45caa84a48e82d7c1be3"
+    },
+    {
+      "method": "CuePhysUITests/BankPracticeUITests/testRoutesShownDuringAnimatedStrokeIn2DAnd3D",
+      "group": "specialized",
+      "status": "passed",
+      "seconds": 61.378,
+      "log": "specialized.log",
+      "result": "specialized.xcresult",
+      "log_sha256": "f553d0d841afea36fb76a97df6252f67836dbdc299c26bf7b2ef4a74ff3b10a3"
+    },
+    {
+      "method": "CuePhysUITests/BankSolverTrajectoryUITests/testStrikeAndReplayTrajectoriesIn2DAnd3D",
+      "group": "specialized",
+      "status": "passed",
+      "seconds": 58.574,
+      "log": "specialized.log",
+      "result": "specialized.xcresult",
+      "log_sha256": "f553d0d841afea36fb76a97df6252f67836dbdc299c26bf7b2ef4a74ff3b10a3"
+    },
+    {
+      "method": "CuePhysUITests/DefensePracticeUITests/testAnimatedShotAndReplayPreserveAnswer",
+      "group": "specialized",
+      "status": "passed",
+      "seconds": 49.038,
+      "log": "b1-confirm-152559.log",
+      "result": "b1-confirm-152559.xcresult",
+      "log_sha256": "67a90e2a1992eb63464b32e5f3a7d0e3ee94ee56fdd480fa04beeba8ecc4ad3e"
+    },
+    {
+      "method": "CuePhysUITests/KBallPracticeUITests/testSharedViewAndAnimatedStroke",
+      "group": "specialized",
+      "status": "passed",
+      "seconds": 52.668,
+      "log": "entry-composer-kball-153102.log",
+      "result": "entry-composer-kball-153102.xcresult",
+      "log_sha256": "37c6338415ae296bf85a3738ea86cdf49a6adaed83265cda579dbb9da7d6e30f"
+    },
+    {
+      "method": "CuePhysUITests/KickPracticeUITests/testViewSwitchAnimationBackgroundAndMeasurement",
+      "group": "specialized",
+      "status": "passed",
+      "seconds": 51.63,
+      "log": "specialized.log",
+      "result": "specialized.xcresult",
+      "log_sha256": "f553d0d841afea36fb76a97df6252f67836dbdc299c26bf7b2ef4a74ff3b10a3"
+    },
+    {
+      "method": "CuePhysUITests/SpatialPracticeUITests/testAdvancedEntryControlsStrikeRetryReplayAndReturn",
+      "group": "specialized",
+      "status": "passed",
+      "seconds": 121.419,
+      "log": "specialized.log",
+      "result": "specialized.xcresult",
+      "log_sha256": "f553d0d841afea36fb76a97df6252f67836dbdc299c26bf7b2ef4a74ff3b10a3"
+    },
+    {
+      "method": "CuePhysUITests/PalettePlacementUITests/testComposerHostIntegration",
+      "group": "other",
+      "status": "passed",
+      "seconds": 24.151,
+      "log": "entry-composer-kball-153102.log",
+      "result": "entry-composer-kball-153102.xcresult",
+      "log_sha256": "37c6338415ae296bf85a3738ea86cdf49a6adaed83265cda579dbb9da7d6e30f"
+    },
+    {
+      "method": "CuePhysUITests/PalettePlacementUITests/testProjectionAndExtraction",
+      "group": "other",
+      "status": "passed",
+      "seconds": 65.814,
+      "log": "other.log",
+      "result": "other.xcresult",
+      "log_sha256": "66a2a6afa7326b137fd34a133e39e2d38bdd737dad9eb740ce4e159fb6c29107"
+    },
+    {
+      "method": "CuePhysUITests/PocketToleranceUITests/testProductionEntrySelectionDragAndBothViews",
+      "group": "other",
+      "status": "passed",
+      "seconds": 67.877,
+      "log": "other.log",
+      "result": "other.xcresult",
+      "log_sha256": "66a2a6afa7326b137fd34a133e39e2d38bdd737dad9eb740ce4e159fb6c29107"
+    },
+    {
+      "method": "CuePhysUITests/ScreenshotTourUITests/testAngleLearningPages",
+      "group": "other",
+      "status": "passed",
+      "seconds": 270.138,
+      "log": "other.log",
+      "result": "other.xcresult",
+      "log_sha256": "66a2a6afa7326b137fd34a133e39e2d38bdd737dad9eb740ce4e159fb6c29107"
+    },
+    {
+      "method": "CuePhysUITests/TablePreferencesUITests/testSharedTeachingPagesAndPreviewRememberIndependentViews",
+      "group": "other",
+      "status": "passed",
+      "seconds": 268.577,
+      "log": "final-affected-161008.log",
+      "result": "final-affected-161008.xcresult",
+      "log_sha256": "e3c573d147380d75b615f8829775640ebb159965cf18cfd783dcf5121eb21bec"
+    },
+    {
+      "method": "CuePhysTests/SignedKeychainAccessTests/testCurrentSignedGroupCanWriteUpdateReadAndDeleteIsolatedItem",
+      "group": "keychain",
+      "status": "passed",
+      "seconds": 0.009,
+      "log": "keychain.log",
+      "result": "keychain.xcresult",
+      "log_sha256": "b9243e85135fc88b322edbc09d5f27e0ac73d333091a1cb38831e735bcf3aa0f"
+    }
+  ]
+}

@@ -6975,3 +6975,9 @@ FL-271候选时序补充（2026-11-15）：app.screenshot裁切不作全屏视�
 - 修复：迁移.gitattributes/.gitignore路径，恢复哈希匹配LFS对象；源和产物门禁拒绝指针、无效ZIP、无USD场景及CRC损坏。
 - 验证：构造性脚本10/10通过，原坏包被拒绝；原生验证状态见[修复记录](launch-20261110/CuePhys模型资源修复-20261124.md)。
 - 已应用至：`.cursor/rules/60-devops-release.mdc` FL-282、`scripts/verify_model_packaging.py` 与对应测试。
+
+## FL-283 — 真机入口和回归前置修正（2026-11-25）
+
+普通Debug路由与模拟器专用工具分开；使用现有离线身份隔离同步；权限弹框在受影响操作前处理；横屏AX异常用实际触摸及后置状态验证。生产布局、相机和原业务断言保持。未消费的额外投影探针从训练切换用例移除，必要探针保留。原始失败与最新逐方法结果见[真机报告](launch-20261110/cuephys-rename/PHYSICAL-20261125.md)，真实Apple授权/支付不由这些测试替代。
+
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-283、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-11-25）。

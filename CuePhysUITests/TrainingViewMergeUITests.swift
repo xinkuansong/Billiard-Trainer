@@ -147,8 +147,8 @@ final class TrainingViewMergeUITests: XCTestCase {
     private func switchProject(route: String, prefix: String, probe: String, more: String = "more", measurement: Bool = false) throws {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-freeLayout.ephemeral", "-appearanceMode", "system",
-            "-trainingMerge.probe", "-3dDrag.probe", "-separation.probe", "-twoBall.probe", "-threeBall.probe",
+        let app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-freeLayout.ephemeral", "-appearanceMode", "system",
+            "-trainingMerge.probe", "-separation.probe", "-twoBall.probe", "-threeBall.probe",
             "-separation.fixedSeed", "-twoBall.fixedSeed", "-threeBall.fixedSeed", "-multiBall.fixedSeed", "-pro.route=" + route])
         app.maximizeTrainingTestWindow()
         defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
@@ -174,6 +174,11 @@ final class TrainingViewMergeUITests: XCTestCase {
             for _ in 0..<8 where !choice.isHittable { app.swipeUp() }
             ready(choice); choice.tap()
         }
+        // A system banner can cover the navigation-bar start button even while
+        // the app reports it as hittable. Wait for the actual obstruction to leave.
+        let banner = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            .descendants(matching: .any).matching(identifier: "NotificationShortLookView").firstMatch
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 15), "System banner still covers the training entry")
         ready(app.buttons[prefix + ".start"]); app.buttons[prefix + ".start"].tap()
         // Generation and rotation finish before the table's AX activation points exist.
         XCTAssertTrue(app.buttons[prefix + ".start"].waitForNonExistence(timeout: 180))

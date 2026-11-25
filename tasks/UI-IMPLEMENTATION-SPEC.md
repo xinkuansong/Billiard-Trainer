@@ -1,3 +1,4 @@
+<!-- Changelog 2026-11-25 FL-283：真机Debug路由、离线身份与系统弹框前置修正；每日横屏以真实触摸及返回后置状态验收AX异常，生产布局/API不变。见cuephys-rename/PHYSICAL-20261125。 -->
 <!-- Changelog 2026-11-24 FL-282：CuePhys改名漏迁LFS路径致模型指针进包；修复资源与打包门禁，页面布局/API不变。原生验证见tasks/launch-20261110/CuePhys模型资源修复-20261124.md。 -->
 <!-- Changelog 2026-11-22 v72：第一人称双指捏合沿当前实际杆轴推进／后退，保持当前fieldOfView；P01与TwoView共用推进状态、几何／清障边界、快照和模式恢复，AngleSceneView与CameraRig统一派发。页面原有firstPersonAvailable、观察只读、播放和编辑态门禁保持。实现与验收见tasks/camera-v72/RESULTS.md；真机与用户认可仍单独记录。 -->
 <!-- Changelog 2026-11-17 FL-276：v66自由页规范复审打回；v66.4记录最新开球/抬杆滚轮布局、空间预览/自动回收与性能返工方案，待确认。只改文档，无正式组件API变更；共享接线验收纪律回填table-page-adaptation技能v1.7。 -->
