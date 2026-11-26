@@ -673,9 +673,6 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, DailyLayoutMetrics.Panels.top).padding(.trailing, side + windowControls.right)
             }
-            if usesPhone2DEntry && portrait {
-                Color.black.ignoresSafeArea().allowsHitTesting(false)
-            }
         }
         .frame(width: size.width, height: size.height)
         .controlLayoutHost(page: preferencePage, mode: is3D ? .threeD : .twoD, size: size,

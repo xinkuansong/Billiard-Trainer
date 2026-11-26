@@ -491,11 +491,10 @@ struct AngleSceneView: UIViewRepresentable {
             let standardScale = CameraRig.landscapeOrthographicScale(viewSize: stage.size,
                 halfLength: rotated ? rig.tableOuterHalfWidth : rig.tableOuterHalfLength,
                 halfWidth: rotated ? rig.tableOuterHalfLength : rig.tableOuterHalfWidth)
-            // The temporary diagram is composited above the live perspective
-            // scene. An opaque matte prevents translucent assists, such as the
-            // aiming pipe, from revealing the live 3D table through the overlay.
-            overlay.backgroundColor = .black
-            overlay.isOpaque = true
+            // TP16: the temporary table is a cutout over the unchanged 3D room.
+            // Preserve transparent pixels outside the rendered table silhouette.
+            overlay.backgroundColor = .clear
+            overlay.isOpaque = false
             overlay.isUserInteractionEnabled = false
             overlay.isPlaying = false
             overlay.rendersContinuously = false
@@ -796,11 +795,9 @@ struct AngleSceneView: UIViewRepresentable {
             }
             let imageView = temporaryTopDownImageView ?? UIImageView()
             imageView.frame = view.bounds
-            // Keep transparent pixels contained by the temporary 2D matte. If
-            // this image view stays transparent, the live 3D scene appears
-            // beneath semi-transparent pipe fills and reads as a ghost trail.
-            imageView.backgroundColor = .black
-            imageView.isOpaque = true
+            // Match the live overlay's cutout composition, including table corners.
+            imageView.backgroundColor = .clear
+            imageView.isOpaque = false
             imageView.contentMode = .scaleToFill
             imageView.isUserInteractionEnabled = false
             imageView.isAccessibilityElement = true

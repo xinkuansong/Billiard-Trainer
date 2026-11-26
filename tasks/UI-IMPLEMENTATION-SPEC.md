@@ -2,6 +2,7 @@
 <!-- Changelog 2026-11-25 FL-287：模拟鉴权失效通知使用独立中心，生产默认不变；宿主真机25/25通过，用户登录恢复独立核验。 -->
 <!-- Changelog 2026-11-25 FL-286：全量同步逐页成功后才显示完成，500条截断已修复，云端1281条逐个ID真机核对通过；未改页面布局。 -->
 <!-- Changelog 2026-11-25 FL-285：通知pending经主RunLoop提交后消费；真机旧链路点击停留原页已复现；修复后送达/点击/取消1/1通过，恢复原设置。 -->
+<!-- Changelog 2026-11-25 FL-284：撤销五处手机2D竖屏进场黑罩，恢复临时俯视实时/快照叠层透明背景；保留TP30固定地毯和TP16抠桌合同，无组件API变化。验证见table-page-adaptation/TABLE-BACKGROUND-REGRESSION-20261125.md。 -->
 <!-- Changelog 2026-11-25 FL-283：真机Debug路由、离线身份与系统弹框前置修正；每日横屏以真实触摸及返回后置状态验收AX异常，生产布局/API不变。见cuephys-rename/PHYSICAL-20261125。 -->
 <!-- Changelog 2026-11-24 FL-282：CuePhys改名漏迁LFS路径致模型指针进包；修复资源与打包门禁，页面布局/API不变。原生验证见tasks/launch-20261110/CuePhys模型资源修复-20261124.md。 -->
 <!-- Changelog 2026-11-22 v72：第一人称双指捏合沿当前实际杆轴推进／后退，保持当前fieldOfView；P01与TwoView共用推进状态、几何／清障边界、快照和模式恢复，AngleSceneView与CameraRig统一派发。页面原有firstPersonAvailable、观察只读、播放和编辑态门禁保持。实现与验收见tasks/camera-v72/RESULTS.md；真机与用户认可仍单独记录。 -->

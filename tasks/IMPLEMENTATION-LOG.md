@@ -2,6 +2,12 @@
 
 按用户新决定，本月概览从 drill/cognitive 扩大到当前账号、本自然月全部已记录活动，复用历史页的模拟载荷校验和已提交尝试条件；天数去重、时长累计、最长连续天数不跨月。未答草稿及不可读模拟记录排除，周目标／准确率不变。无数据迁移。已应用至内容数据合同 §5.3、docs/05、讨论记录与 UI 实施规范；实现及真机证据见 [记录](launch-20261110/cuephys-rename/MONTHLY-OVERVIEW-20261125.md)。
 
+## FL-284 · 地毯进场与临时俯视背景回退（2026-11-25）
+
+用户发现 11-23 提交新增的五处手机竖屏 2D 黑罩与临时俯视两路径不透明黑底破坏已确认显示。仅撤销这些背景改动；保留首帧握手、相机、轨迹和业务交互。iOS26.3.1/17.0 共6项定向UI、原生前后截图/录屏及门禁通过；真机与全量回归未验，见 `table-page-adaptation/TABLE-BACKGROUND-REGRESSION-20261125.md`。
+
+- **已应用至**：`.cursor/rules/20-swiftui-developer.mdc` § FL-284（2026-11-25）；现行合同回填球桌规范 TP16，沿用 TP30；UI 实施规范记录本轮恢复，无组件 API 变化。
+
 ## v72 · 第一人称推进与后退跨球桌页面（2026-11-22）
 
 按用户授权实施《问题集合 v72》。P01CameraMotion 与 TwoViewCamera 增加同语义的第一人称沿杆 dolly，保持当前 FOV，边界复用布局、桌房几何、球杆净空和 `twoViewTableSightlinesClear`。CameraRig 与 AngleSceneView 统一派发，第一人称不进入第三人称临时观察回退，快照、模式记忆、新杆和上下文清除规则已接入。共用宿主矩阵覆盖 `BTTeachingTablePage`、FreePlay、角度训练、瞄准点、球体提取、Drill 及批量编辑入口，页面禁用合同保留。

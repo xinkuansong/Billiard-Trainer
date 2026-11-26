@@ -275,9 +275,6 @@ struct SceneAimingView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, DailyLayoutMetrics.Panels.top).padding(.trailing, side + windowControls.right)
             }
-            if usesPhone2DEntry && portrait {
-                Color.black.ignoresSafeArea().allowsHitTesting(false)
-            }
         }
         .frame(width: size.width, height: size.height)
         .background {
