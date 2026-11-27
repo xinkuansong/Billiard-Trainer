@@ -17,7 +17,7 @@ import SwiftUI
 @MainActor
 final class CushionEnglishAtlasViewModel: TeachingTableHost {
 
-    let scene = AngleTrainingScene()
+    let scene = AngleTrainingScene(trajectoryWidths: .interactiveTable)
     private var pocketMarkers: [SCNNode] = []
     private var trajectoryNodes: [SCNNode] = []
 
@@ -544,12 +544,12 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
             let color = CushionEnglishAtlasGeometry.trackColor(at: index)
             if track.beforeFirstCushion.count >= 2 {
                 scene.addDashedPolyline(track.beforeFirstCushion, color: color,
-                    radius: TrajectoryStyle.lineHint, placement: .table, into: &trajectoryNodes)
+                    radius: scene.trajectoryWidths.mainRadius, placement: .table, into: &trajectoryNodes)
             }
             let path = track.afterFirstCushion(limit: cushionSelection.selected)
             if path.count >= 2 {
                 scene.addDashedPolyline(path, color: color,
-                    radius: TrajectoryStyle.lineMain, placement: .table, into: &trajectoryNodes)
+                    radius: scene.trajectoryWidths.mainRadius, placement: .table, into: &trajectoryNodes)
             }
         }
     }

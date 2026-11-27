@@ -127,6 +127,10 @@ struct HistoryCalendarView: View {
     private var historyContent: some View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
+                if vm.unreadableSpatialCount > 0 {
+                    Text("有 \(vm.unreadableSpatialCount) 条扎杆／跳球记录暂时无法读取，原记录已保留。")
+                        .font(.btFootnote).foregroundStyle(.btTextSecondary)
+                }
                 if vm.unreadableThreeBallCount > 0 {
                     Text("有 \(vm.unreadableThreeBallCount) 条三球走位记录暂时无法读取，原记录已保留。")
                         .font(.btFootnote).foregroundStyle(.btTextSecondary)
@@ -385,6 +389,19 @@ struct HistoryCalendarView: View {
                 Spacer()
             }.padding(Spacing.lg).background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
                 .accessibilityIdentifier("history.defense")
+        case .spatial(let record):
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "scope").foregroundStyle(.btPrimary)
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(record.displayName + " · 模拟练习").font(.btHeadline)
+                    Text(record.historyDetail).font(.btFootnote).foregroundStyle(.btTextSecondary)
+                    Text("时长 \(Int(record.activeSeconds / 60)) 分钟")
+                        .font(.btFootnote).foregroundStyle(.btTextSecondary)
+                }
+                Spacer()
+            }.padding(Spacing.lg).background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("history." + record.mode.kind)
         case .bank(let record):
             HStack(spacing: Spacing.md) {
                 Image(systemName: "scope").foregroundStyle(.btPrimary)

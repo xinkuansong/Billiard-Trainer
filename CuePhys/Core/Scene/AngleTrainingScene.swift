@@ -13,10 +13,20 @@ enum TableRenderRecipe: String {
 /// SceneKit scene for angle training: loads the USDZ table model,
 /// manages camera (2D/3D), lighting, USDZ ball nodes, and cue stick.
 final class AngleTrainingScene: SCNScene, ObservableObject {
+    /// Opt in at the owning interactive page, before creating any geometry.
+    /// Default scenes used by figures, thumbnails and exporters retain their original widths.
+    private(set) var trajectoryWidths: TrajectoryStyle.Widths = .legacyIllustration
+
+    convenience init(trajectoryWidths: TrajectoryStyle.Widths) {
+        self.init()
+        self.trajectoryWidths = trajectoryWidths
+    }
+
     let frameReceipt = TableFrameReceipt()
     #if DEBUG
     // Installed by the spatial host before a renderer is created; nil elsewhere.
     var interactionTimingProbe: TableInteractionTimingProbe?
+    var inputPresentationTimingProbe: TableInteractionTimingProbe?
     #endif
     /// Nil for authoring/export scenes, which retain their explicit configuration.
     var tablePreferencePage: TablePreferencePage?
@@ -2212,12 +2222,13 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// 这里按整数周期索引遍历 on 段再与折线段求交（FL-024 教训：浮点相位累积推进会因
     /// Float 精度下 step 下溢为 0 导致主线程死循环；整数索引循环有界，必然终止）。
     func addDashedPolyline(_ pts: [SCNVector3], color: UIColor,
-                           radius: Float = TrajectoryStyle.lineMain,
+                           radius: Float? = nil,
                            dash: Float = TrajectoryStyle.mainDash,
                            gap: Float = TrajectoryStyle.mainGap,
                            placement: AssistLinePlacement = .spatial,
                            into nodes: inout [SCNNode]) {
         guard pts.count >= 2, dash > 1e-4, gap > 1e-4 else { return }
+        let radius = radius ?? trajectoryWidths.mainRadius
         let period = dash + gap
         var arc: Float = 0
         func lerp(_ a: SCNVector3, _ b: SCNVector3, _ t: Float) -> SCNVector3 {
@@ -2261,28 +2272,30 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// `detail == .minimal` 时只画实线瞄准段（三档标注最简档）。
     func addCueTrajectory(_ pts: [SCNVector3], contact: SCNVector3?,
                           detail: TrajectoryDetail = .full,
+                          presentation: TrajectoryStyle.Presentation = .current,
                           into nodes: inout [SCNNode]) {
         guard pts.count >= 2 else { return }
         let split = cueSplitIndex(pts, contact: contact)
         // 实线瞄准段。
         for i in 0..<split {
             nodes.append(addLine(from: pts[i], to: pts[i + 1],
-                                 color: TrajectoryStyle.aimColor,
-                                 radius: TrajectoryStyle.aimRadius, placement: .table))
+                                 color: presentation.color(TrajectoryStyle.aimColor),
+                                 radius: trajectoryWidths.mainRadius, placement: .table))
         }
         // 虚线轨迹段。
         if detail != .minimal, split < pts.count - 1 {
-            addDashedPolyline(Array(pts[split...]), color: TrajectoryStyle.aimColor,
-                              radius: TrajectoryStyle.aimRadius, placement: .table, into: &nodes)
+            addDashedPolyline(Array(pts[split...]), color: presentation.color(TrajectoryStyle.aimColor),
+                              radius: trajectoryWidths.mainRadius, placement: .table, into: &nodes)
         }
     }
 
     /// 被带动球轨迹（含目标球）：本球色**虚线**（黑 8 亮灰变体，条 12.2/12.4）。
     func addObjectTrajectory(_ pts: [SCNVector3], ballKey: String,
+                             presentation: TrajectoryStyle.Presentation = .current,
                              into nodes: inout [SCNNode]) {
         closeupObjectPaths[ballKey] = pts
-        addDashedPolyline(pts, color: TrajectoryStyle.potColor(for: ballKey),
-                          radius: TrajectoryStyle.potRadius, placement: .table, into: &nodes)
+        addDashedPolyline(pts, color: presentation.color(TrajectoryStyle.potColor(for: ballKey)),
+                          radius: trajectoryWidths.mainRadius, placement: .table, into: &nodes)
     }
 
     /// 母球折线的实/虚分界索引：优先取距 `contact` 最近的采样点；
@@ -2363,7 +2376,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         let a = SCNVector3(center.x - ux * half, y, center.z - uz * half)
         let b = SCNVector3(center.x + ux * half, y, center.z + uz * half)
         nodes.append(addDashedLine(from: a, to: b, color: AngleTrainingScene.separationLineColor,
-                                   radius: TrajectoryStyle.lineHint,
+                                   radius: trajectoryWidths.hintRadius,
                                    dash: TrajectoryStyle.hintDash,
                                    gap: TrajectoryStyle.hintGap, placement: .table))
         return true
@@ -2683,7 +2696,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         // 进球线：颜色运行时随目标球本色；线语言 v2（条 12.2）改为**虚线**——
         // 条纹纹理（白段 + 透明 gap）沿投影线的弧长重复；更新时裁剪到真实台呢。
         // 初始化几何只保存材质，首次显示前由 updateLineNode 替换。
-        let plCyl = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineMain), height: 1)
+        let plCyl = SCNCylinder(radius: CGFloat(trajectoryWidths.mainRadius), height: 1)
         let plMat = SCNMaterial()
         plMat.diffuse.contents = Self.dashStripeTexture
         plMat.diffuse.wrapT = .repeat
@@ -2697,7 +2710,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         rootNode.addChildNode(pl)
         pocketLineNode = pl
 
-        let slCyl = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineMain), height: 1)
+        let slCyl = SCNCylinder(radius: CGFloat(trajectoryWidths.mainRadius), height: 1)
         let slMat = SCNMaterial()
         slMat.diffuse.contents = usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.aimLine : UIColor.white
         slMat.lightingModel = .constant
@@ -2818,7 +2831,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             freeAimPreviewNode = makeTableSegment(
                 from: SCNVector3(Float(line.start.x), y, Float(line.start.y)),
                 to: SCNVector3(Float(line.end.x), y, Float(line.end.y)),
-                color: .white, radius: TrajectoryStyle.aimRadius, reusing: freeAimPreviewNode)
+                color: .white, radius: trajectoryWidths.mainRadius, reusing: freeAimPreviewNode)
             freeAimPreviewNode?.name = "freeAimPreview"
             freeAimPreviewGeometryLine = line
         }
@@ -3015,7 +3028,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         guard let node else { return }
         let material = node.geometry?.firstMaterial
         let replacement = makeTableSegment(from: start, to: end, color: .white,
-                                           radius: TrajectoryStyle.lineMain, layer: .aiming)
+                                           radius: trajectoryWidths.mainRadius, layer: .aiming)
         // Keep the material even when clipping removes the entire ribbon, so
         // subsequent valid positions retain the stripe texture and ball color.
         let geometry = replacement.geometry ?? SCNGeometry()
@@ -3055,7 +3068,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             let end = SCNVector3(ghost.x + next * perpX, ghost.y, ghost.z + next * perpZ)
             node.addChildNode(makeTableSegment(from: start, to: end,
                                               color: TrajectoryStyle.separationColor,
-                                              radius: TrajectoryStyle.lineHint, layer: .reference))
+                                              radius: trajectoryWidths.hintRadius, layer: .reference))
             cursor = next + gap
         }
     }

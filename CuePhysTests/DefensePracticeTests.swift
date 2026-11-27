@@ -360,6 +360,11 @@ final class DefensePracticeTests: XCTestCase {
                 XCTAssertTrue(routes("defense.reference").isEmpty)
                 vm.retry()
                 XCTAssertFalse(routes("defense.actual").isEmpty, "Free retry retains the previous actual route")
+                assertRecordedRouteColor(vm.scene,names:["defense.actual"],historical:true)
+                vm.replayLastShot()
+                assertRecordedRouteColor(vm.scene,names:["defense.actual"],historical:false)
+                vm.stopPlayback()
+                assertRecordedRouteColor(vm.scene,names:["defense.actual"],historical:true)
                 XCTAssertTrue(vm.scene.rootNode.childNodes.contains { $0.name == "defense.aim" })
             }
         }

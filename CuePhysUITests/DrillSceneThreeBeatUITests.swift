@@ -9,13 +9,11 @@ import XCTest
 /// 截图落盘 `build/drill-scene-three-beat/`。
 final class DrillSceneThreeBeatUITests: XCTestCase {
 
-    private var outDir: URL {
-        #if targetEnvironment(simulator)
-        return URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/drill-scene-three-beat")
-        #else
-        return FileManager.default.temporaryDirectory.appendingPathComponent("v63-drill-three-beat")
-        #endif
-    }
+    private let outDir: URL = {
+        // Attachments are archived in xcresult; local files stay inside this
+        // runner's sandbox so remote/parallel tasks cannot overwrite one another.
+        return FileManager.default.temporaryDirectory.appendingPathComponent("drill-three-beat-" + UUID().uuidString)
+    }()
 
     var app: XCUIApplication!
 

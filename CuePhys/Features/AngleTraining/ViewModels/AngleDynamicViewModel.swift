@@ -8,7 +8,7 @@ final class AngleDynamicViewModel: TeachingTableHost, BoardMemoryHosting {
 
     // MARK: - Scene
 
-    let scene = AngleTrainingScene()
+    let scene = AngleTrainingScene(trajectoryWidths: .interactiveTable)
     private var pocketMarkers: [SCNNode] = []
     private let assistOverlay = AngleDynamicAssistOverlay()
     private let displayDefaults: UserDefaults

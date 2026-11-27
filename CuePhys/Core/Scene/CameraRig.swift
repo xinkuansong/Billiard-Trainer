@@ -34,7 +34,9 @@ final class CameraRig: ObservableObject {
         p01Camera = P01CameraMotion(shot: p01Shot(cue: cue, strike: cuePose?.strike ?? cue, aim: aim),
                                     layout: p01Layout, context: twoViewViewingContext,
                                     anchoredTransitions: p01AnchoredTransitions,
-                                    firstPersonSetback: p01AnchoredTransitions ? CueClearance.tipOffset + CueStroke.addressPull + CueClearance.shaftLength : nil)
+                                    firstPersonSetback: p01AnchoredTransitions ? CueClearance.tipOffset + CueStroke.addressPull + CueClearance.shaftLength : nil,
+                                    generalTiming: p01AnchoredTransitions ? .selectionMatchedV1 : nil,
+                                    followsCueElevation: p01AnchoredTransitions)
         if let camera = p01Camera {
             p01Recording = .init(geometryID: "table-geometry-v67-room8x6", initial: camera.snapshot(),
                                  layout: camera.layout, inputs: [])
@@ -50,6 +52,7 @@ final class CameraRig: ObservableObject {
     private func p01Input(_ input: P01CameraMotion.Input) {
         guard usesP01Camera, p01Camera != nil else { return }
         prepareP01Recording()
+        traceV74("before-" + input.kind.rawValue)
         switch input.kind {
         case .aim, .shot:
             if let shot = input.shot { p01Camera?.updateShot(shot, manuallyAimed: input.kind == .aim, clear: twoViewTableSightlinesClear) }
@@ -58,6 +61,7 @@ final class CameraRig: ObservableObject {
         }
         var recorded=input; recorded.clearanceLift=p01Camera?.state.firstPersonClearanceLift
         p01Recording?.inputs.append(recorded)
+        traceV74("after-" + input.kind.rawValue)
         applyP01Pose()
     }
     @discardableResult
@@ -68,6 +72,7 @@ final class CameraRig: ObservableObject {
         prepareP01Recording()
         guard !temporaryTopDownActive, p01Camera?.select(view, animated: animated, shot: shot, turnPace: turnPace, resetThirdPerson: resetThirdPerson,
             clear: twoViewTableSightlinesClear) == true else { return false }
+        traceV74("selected-" + view.rawValue)
         pendingP01View = nil
         teachingRollingObservation = .idle
         p01Recording?.inputs.append(.init(time: p01Time, kind: .view, animated: animated,
@@ -278,7 +283,7 @@ final class CameraRig: ObservableObject {
     func enterMergedGlobal(aim: SCNVector3?, cue: SCNVector3? = nil) -> Bool {
         if usesP01Camera {
             if let cue, let aim { prepareP01(cue: cue, aim: aim) }
-            return selectP01(.overview, animated: true)
+            return selectP01(.overview, animated: !UIAccessibility.isReduceMotionEnabled)
         }
         guard usesMergedCamera, !temporaryTopDownActive else { return false }
         if usesSurfaceCamera {
@@ -860,7 +865,19 @@ final class CameraRig: ObservableObject {
     var observationPocket: (index: Int, position: SCNVector3)?
     private var cuePose: (strike: SCNVector3, aim: SCNVector3, elevation: Float, addressButtOffset: Float?)?
 
+    private func traceV74(_ event: String) {
+        #if DEBUG
+        guard Self.capturesV74Timing,
+              let snapshot = p01Camera?.snapshot(),
+              let data = try? JSONEncoder().encode(snapshot),
+              let object = try? JSONSerialization.jsonObject(with: data) else { return }
+        v74TimingTrace.append(["event": event, "snapshot": object])
+        if v74TimingTrace.count > 512 { v74TimingTrace.removeFirst(v74TimingTrace.count - 512) }
+        #endif
+    }
     #if DEBUG
+    private static let capturesV74Timing = ProcessInfo.processInfo.arguments.contains("-v74.cameraTiming")
+    private var v74TimingTrace: [[String: Any]] = []
     /// Read-only measurements for the v67 baseline; never selects a camera policy.
     var v67BaselineInputs: [String: Any] {
         var result: [String: Any] = [
@@ -873,6 +890,7 @@ final class CameraRig: ObservableObject {
         ]
         if let snapshot = p01Camera?.snapshot(), let data = try? JSONEncoder().encode(snapshot),
            let object = try? JSONSerialization.jsonObject(with: data) { result["p01"] = object }
+        if !v74TimingTrace.isEmpty { result["v74Timing"] = v74TimingTrace }
         if let cuePose {
             result["strike"] = [cuePose.strike.x, cuePose.strike.y, cuePose.strike.z]
             result["aim"] = [cuePose.aim.x, cuePose.aim.y, cuePose.aim.z]
@@ -1273,6 +1291,7 @@ final class CameraRig: ObservableObject {
         p01Revision &+= 1
         syncP01Selection()
         applyP01Pose()
+        traceV74("target")
         return preservesVisiblePose ? .preserved : .aligned
     }
 
@@ -1371,6 +1390,9 @@ final class CameraRig: ObservableObject {
             maximumEyeY: tableSurfaceY + 1.8, clear: clear)
     }
 
+    /// P01 ordinary entries use the recorded speed policy: duration <= 0 means
+    /// synchronous placement, duration > 0 allows animation (not a fixed deadline).
+    /// Dedicated break timing is owned by watchP01Break; legacy keeps this duration.
     @discardableResult
     func enterPlayerView(_ view: PlayerView, cue: SCNVector3, aim: SCNVector3,
                          duration: Float = 0.95, focus: SCNVector3? = nil, surfaceTravel: Float = 0.5,
@@ -2253,7 +2275,7 @@ final class CameraRig: ObservableObject {
     /// Observation is a camera intent; it has no access to selected balls or shot parameters.
     func observe(at point: SCNVector3) {
         if usesP01Camera {
-            p01Input(.init(time:p01Time,kind:.focus,point:.init(point.x,point.y,point.z)))
+            p01Input(.init(time:p01Time,kind:.focus,animated:!UIAccessibility.isReduceMotionEnabled,point:.init(point.x,point.y,point.z)))
             syncP01Selection(); return
         }
         guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { return }

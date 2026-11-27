@@ -59,7 +59,7 @@ final class OwnerTransferService {
         defer { context.autosaveEnabled = autosaveEnabled }
 
         let sourceSessions = try sessions(sourceOwner)
-        let separationPayloads = sourceSessions.filter { $0.kind == TrainingSessionKind.defensePractice || $0.kind == TrainingSessionKind.bankPractice || $0.kind == TrainingSessionKind.kickPractice || $0.kind == TrainingSessionKind.separationPractice || $0.kind == TrainingSessionKind.twoBallPractice || $0.kind == TrainingSessionKind.threeBallPractice }
+        let separationPayloads = sourceSessions.filter { $0.kind == TrainingSessionKind.defensePractice || $0.kind == TrainingSessionKind.bankPractice || $0.kind == TrainingSessionKind.kickPractice || $0.kind == TrainingSessionKind.separationPractice || $0.kind == TrainingSessionKind.twoBallPractice || $0.kind == TrainingSessionKind.threeBallPractice || $0.kind == TrainingSessionKind.massePractice || $0.kind == TrainingSessionKind.jumpPractice }
             .map { ($0, $0.sourcePayloadSnapshot) }
         let sourceAngles = try angleTests(sourceOwner)
         let sourceFavorites = try favorites(sourceOwner)
@@ -83,6 +83,15 @@ final class OwnerTransferService {
                 if destinationSessionIDs.contains(session.id) {
                     context.delete(session)
                 } else {
+                    if session.kind == TrainingSessionKind.massePractice || session.kind == TrainingSessionKind.jumpPractice {
+                        guard let payload = session.sourcePayloadSnapshot else { throw LocalSpatialQuizRepository.Failure.invalidRecord }
+                        var record = try SpatialQuizRecord.decodePayload(payload)
+                        guard record.ownerKey == sourceOwner, record.id == session.id, record.mode.kind == session.kind else {
+                            throw LocalSpatialQuizRepository.Failure.invalidRecord
+                        }
+                        record.ownerKey = destinationOwner
+                        session.sourcePayloadSnapshot = try record.encodedPayload()
+                    }
                     if session.kind == TrainingSessionKind.separationPractice,
                        let payload = session.sourcePayloadSnapshot {
                         var record = try SeparationPracticeRecord.decodePayload(payload)

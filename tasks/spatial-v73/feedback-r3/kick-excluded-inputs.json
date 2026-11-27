@@ -1,0 +1,134 @@
+[
+  {
+    "cue": {
+      "x": -0.8501660432558638,
+      "z": -0.21747462431394812
+    },
+    "distance": 1.2436969431082165,
+    "id": "spatial-v1-jump-target-1677-m044-d6",
+    "mode": "jump",
+    "obstacle": {
+      "x": 0.01943552881720334,
+      "z": -0.17604603354085901
+    },
+    "q": 1,
+    "reference": {
+      "elevation": 50,
+      "speed": 5,
+      "spinX": 0,
+      "spinY": 0.25,
+      "yaw": 0.017453288281778095
+    },
+    "referencePocket": 3,
+    "runIdentity": "331c6e24b7c4056cc24b7ec176759ade6e15fdd24cc723fecd14d0a399f25e51",
+    "s": 0.7,
+    "side": 0,
+    "sourceID": "one-08109-jump-c02",
+    "sourceLayoutID": "target-1677-m044-d6",
+    "sourcePacketSHA256": "017c1dfb18730adb232b47bcd5465bb021733eb28bb222aba40d2da10b951768",
+    "target": {
+      "x": 0.392121916848518,
+      "z": -0.15829092320953508
+    },
+    "targetNumber": 5
+  },
+  {
+    "cue": {
+      "x": 0.9985749531464417,
+      "z": -0.2719354819038694
+    },
+    "distance": 1.0821880496626346,
+    "id": "spatial-v1-jump-target-2654-m142-d5",
+    "mode": "jump",
+    "obstacle": {
+      "x": 0.7203106475050643,
+      "z": -0.10406022212117363
+    },
+    "q": 0.75,
+    "reference": {
+      "elevation": 40,
+      "speed": 5,
+      "spinX": 0,
+      "spinY": 0.25,
+      "yaw": 2.6878070386117114
+    },
+    "referencePocket": 5,
+    "runIdentity": "331c6e24b7c4056cc24b7ec176759ade6e15fdd24cc723fecd14d0a399f25e51",
+    "s": 0.3,
+    "side": -1,
+    "sourceID": "one-09470-jump-c00",
+    "sourceLayoutID": "target-2654-m142-d5",
+    "sourcePacketSHA256": "db86c0f22b812ca6cd859bfbad3315a46b460c270ce2452d615bde52231604e2",
+    "target": {
+      "x": 0.047876371697633376,
+      "z": 0.2450782336432525
+    },
+    "targetNumber": 3
+  },
+  {
+    "cue": {
+      "x": 0.7949913854297641,
+      "z": -0.4845694963413085
+    },
+    "distance": 1.2141336039980746,
+    "id": "spatial-v1-jump-target-2669-m162-d6",
+    "mode": "jump",
+    "obstacle": {
+      "x": 0.10382226252758207,
+      "z": 0.011924505433115129
+    },
+    "q": 0.25,
+    "reference": {
+      "elevation": 60,
+      "speed": 5,
+      "spinX": 0,
+      "spinY": 0.1,
+      "yaw": 2.5132741168972066
+    },
+    "referencePocket": 5,
+    "runIdentity": "331c6e24b7c4056cc24b7ec176759ade6e15fdd24cc723fecd14d0a399f25e51",
+    "s": 0.7,
+    "side": 1,
+    "sourceID": "one-09600-jump-c04",
+    "sourceLayoutID": "target-2669-m162-d6",
+    "sourcePacketSHA256": "e7504f31762ea39a595c78431b13c2be7fd41cf44a75932b44e86fcae075b4bd",
+    "target": {
+      "x": -0.1534987242788253,
+      "z": 0.2733796577200582
+    },
+    "targetNumber": 11
+  },
+  {
+    "cue": {
+      "x": -1.1494009483080456,
+      "z": -0.19991198893282597
+    },
+    "distance": 1.0937744698088412,
+    "id": "spatial-v1-jump-target-2670-m044-d5",
+    "mode": "jump",
+    "obstacle": {
+      "x": -0.6577132664607828,
+      "z": 0.03952249317254597
+    },
+    "q": 1,
+    "reference": {
+      "elevation": 50,
+      "speed": 5,
+      "spinX": 0,
+      "spinY": 0.25,
+      "yaw": 0.4188790221606271
+    },
+    "referencePocket": 5,
+    "runIdentity": "331c6e24b7c4056cc24b7ec176759ade6e15fdd24cc723fecd14d0a399f25e51",
+    "s": 0.5,
+    "side": 0,
+    "sourceID": "one-09605-jump-c02",
+    "sourceLayoutID": "target-2670-m044-d5",
+    "sourcePacketSHA256": "ec2b792a374c919cec9990139315247152d605cc2b72b8e632ec591ffbed1881",
+    "target": {
+      "x": -0.16602558461351993,
+      "z": 0.2789569752779179
+    },
+    "targetNumber": 10
+  }
+]

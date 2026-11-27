@@ -1034,6 +1034,49 @@ final class P01CameraIntegrationTests: XCTestCase {
         XCTAssertFalse(rig.isTransitioning); XCTAssertFalse(rig.hasPendingDamping)
     }
     @MainActor
+    func testV74RealHostsMatchSelectionClockAndKeepRepeatedArrival() throws {
+        let practice=PositionPlayViewModel()
+        practice.setAutomaticRecommendation(false)
+        practice.setupScene();practice.enablePlayerCameraControls(policy:.p01Replayable)
+        let practiceRig=try XCTUnwrap(practice.scene.cameraRig)
+        practiceRig.viewportSize = .init(width:874,height:402)
+        XCTAssertTrue(ShotPlayCamera.setMode(.perspective3D,on:practice))
+        let teaching=AngleDynamicViewModel();teaching.setupScene()
+        let teachingRig=try XCTUnwrap(teaching.scene.cameraRig)
+        teachingRig.viewportSize = .init(width:874,height:402);teaching.setCameraMode(.perspective3D)
+        defer { practice.cancelInteractiveTrajectoryPreview();teaching.suspendTeachingActivity() }
+        let hosts: [(CameraRig,(Bool)->Bool,()->Void,()->Void)] = [
+            (practiceRig,{ practice.requestPlayerView(.thirdPerson,animated:$0,resetThirdPerson:true) },
+             { practice.beginCameraObservation() },{ practice.endCameraObservation() }),
+            (teachingRig,{ teaching.requestPlayerView(.thirdPerson,animated:$0,resetThirdPerson:true) },
+             { teaching.beginCameraObservation() },{ teaching.endCameraObservation() })]
+        for (rig,request,begin,end) in hosts {
+            XCTAssertTrue(request(false))
+            let initial=try XCTUnwrap(rig.p01Snapshot)
+            XCTAssertEqual(initial.state.generalTiming,.selectionMatchedV1)
+            begin();rig.handleHorizontalSwipe(delta:150 * .pi / 180 / P01CameraMotion.panRadiansPerPoint);end()
+            let held=try XCTUnwrap(rig.p01Snapshot)
+            XCTAssertTrue(request(true))
+            let requested=try XCTUnwrap(rig.p01Snapshot)
+            let move=try XCTUnwrap(requested.motion)
+            XCTAssertEqual(move.origin,held.pose)
+            XCTAssertEqual(move.rampSeconds,0.16)
+            XCTAssertNotNil(move.channelTimes)
+            var selection=try XCTUnwrap(P01CameraMotion(recording:.init(geometryID:"host-v74",initial:held,
+                layout:try XCTUnwrap(held.layout),inputs:[])))
+            XCTAssertTrue(selection.select(.thirdPerson,shot:requested.shot,turnPace:.selection120,resetThirdPerson:true))
+            XCTAssertEqual(move.duration,try XCTUnwrap(selection.snapshot().motion).duration,accuracy:0.0001)
+            rig.update(deltaTime:0.2)
+            XCTAssertTrue(request(true))
+            XCTAssertEqual(rig.p01Snapshot?.motion?.start,move.start)
+            XCTAssertEqual(rig.p01Snapshot?.motion?.duration,move.duration)
+            settle(rig)
+            XCTAssertEqual(rig.p01Snapshot?.shot.aim,initial.shot.aim)
+            XCTAssertTrue(request(true));XCTAssertFalse(rig.isTransitioning)
+        }
+    }
+
+    @MainActor
     func testAuthoredTeachingPagesUseP01WithTheirOwnObservationReferences() throws {
         func check<T: TeachingTableHost>(_ page: T, file: StaticString = #filePath, line: UInt = #line) throws {
             page.setupScene()
@@ -1399,7 +1442,10 @@ final class P01CameraIntegrationTests: XCTestCase {
                 XCTAssertLessThan(simd_distance(shot.shot.aim, SIMD3(expected.x, expected.y, expected.z)), 0.00001)
                 XCTAssertEqual(shot.shot.cue, cue.simdPosition)
                 XCTAssertEqual(node.simdPosition, shot.pose.eye)
-                XCTAssertTrue(vm.scene.closeupCuePath.isEmpty)
+                // liveBoardFixture enables continuous prediction. Its contract
+                // keeps the last complete physical preview during aim updates;
+                // only hidden assists suppress that route (same as on release).
+                XCTAssertEqual(vm.scene.closeupCuePath.isEmpty, hidden)
                 XCTAssertTrue(vm.isComputing || vm.livePreviewShot != nil,
                               "P01 table aim keeps the physical route preview active")
                 XCTAssertEqual(vm.scene.rootNode.childNode(withName: "freeAimPreview", recursively: false) != nil, !hidden)

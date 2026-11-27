@@ -2,11 +2,13 @@ import Foundation
 
 /// Business identity is independent of the camera. Legacy routes remain readable.
 enum TrainingProject: String, Codable, CaseIterable {
-    case angle, aimPoint, accuracy, separation, twoBall, threeBall, multiBall, kBall, kick, bank, defense
+    case masse, jump, angle, aimPoint, accuracy, separation, twoBall, threeBall, multiBall, kBall, kick, bank, defense
     static let ordinaryRoundCount = 15
     var roundCount: Int { self == .multiBall ? 3 : Self.ordinaryRoundCount }
     var title: String {
         switch self {
+        case .masse: "扎杆练习"
+        case .jump: "跳球练习"
         case .angle: "角度练习"
         case .aimPoint: "瞄准点练习"
         case .accuracy: "准度练习"
@@ -27,6 +29,8 @@ enum TrainingProject: String, Codable, CaseIterable {
 
     var page2D: TablePreferencePage {
         switch self {
+        case .masse: .massePractice
+        case .jump: .jumpPractice
         case .angle: .sceneAiming2D
         case .aimPoint: .aimPointScene2D
         case .accuracy: .accuracy2D
@@ -42,6 +46,8 @@ enum TrainingProject: String, Codable, CaseIterable {
     }
     var page3D: TablePreferencePage {
         switch self {
+        case .masse: .massePractice
+        case .jump: .jumpPractice
         case .angle: .sceneAiming3D
         case .aimPoint: .aimPointScene3D
         case .accuracy: .accuracy3D
@@ -56,6 +62,8 @@ enum TrainingProject: String, Codable, CaseIterable {
         }
     }
     static func from(route: String) -> Self? {
+        if route == "massePractice" { return .masse }
+        if route == "jumpPractice" { return .jump }
         if route.hasPrefix("scene") { return .angle }
         if route.hasPrefix("aimPointScene") || ["aimPoint2D", "aimPoint3D"].contains(route) { return .aimPoint }
         if route.hasPrefix("accuracy") { return .accuracy }

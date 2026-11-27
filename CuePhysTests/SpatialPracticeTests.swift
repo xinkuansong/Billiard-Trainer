@@ -744,6 +744,55 @@ private extension SpatialPracticeRecord.Shot {
 
 final class SpatialPracticePreviewTests:XCTestCase {
     @MainActor
+    func testThirdPersonEyeFollowsRenderedRestingShaftAndFreezesDuringStroke() throws {
+        let suite = "spatial-eye-lift-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let vm = SpatialPracticeViewModel(defaults: defaults, ownerContext: CurrentOwnerContext(defaults: defaults))
+        vm.setupScene()
+        defer { vm.suspendTeachingActivity() }
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
+        vm.clear()
+        let y = vm.scene.surfaceY + BallPhysics.radius
+        vm.place(PositionPlayBall.cueKey, at: SCNVector3(-0.35, y, 0))
+        vm.place("_1", at: SCNVector3(0.5, y, 0.12))
+        vm.selectTarget(key: "_1")
+        vm.updateInput { $0.elevation = 5 }
+        XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true))
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = vm.scene; renderer.pointOfView = vm.scene.cameraNode
+        renderer.delegate = vm.scene.contactOcclusion
+        var previousEyeY: Float = -.infinity
+        for degrees in [5.0, 45, 75] {
+            vm.updateInput { $0.elevation = degrees }
+            let snapshot = try XCTUnwrap(rig.p01Snapshot)
+            let stick = try XCTUnwrap(vm.scene.cueStick)
+            XCTAssertEqual(snapshot.state.followsCueElevation, true)
+            XCTAssertEqual(snapshot.shot.elevation, -stick.rootNode.eulerAngles.x, accuracy: 0.00001)
+            let butt = stick.rootNode.convertPosition(SCNVector3(0, 0, stick.addressButtOffset), to: nil)
+            XCTAssertEqual(snapshot.pose.eye.y - (vm.scene.surfaceY + snapshot.state.height),
+                           butt.y - stick.rootNode.worldPosition.y, accuracy: 0.00001)
+            XCTAssertGreaterThan(snapshot.pose.eye.y, previousEyeY)
+            XCTAssertLessThan(simd_distance(vm.scene.cameraNode.simdPosition, snapshot.pose.eye), 0.00001)
+            previousEyeY = snapshot.pose.eye.y
+            SCNTransaction.flush()
+            let image = XCTAttachment(image: renderer.snapshot(atTime: 0, with: CGSize(width: 874, height: 402), antialiasingMode: .none))
+            image.name = "third-person-elevation-\(Int(degrees))"; image.lifetime = .keepAlways; add(image)
+            let facts = XCTAttachment(data: try JSONEncoder().encode(snapshot), uniformTypeIdentifier: "public.json")
+            facts.name = "third-person-elevation-\(Int(degrees))-pose"; facts.lifetime = .keepAlways; add(facts)
+            // Pullback is render-only; the resting address and camera must not move.
+            let eye = vm.scene.cameraNode.simdPosition
+            stick.update(cueBallPosition: stick.rootNode.position, aimDirection: SCNVector3(snapshot.shot.aim),
+                         pullBack: 0.12, elevation: snapshot.shot.elevation)
+            XCTAssertEqual(vm.scene.cameraNode.simdPosition, eye)
+        }
+        vm.updateInput { $0.elevation = 5 }
+        let lowered = try XCTUnwrap(rig.p01Snapshot)
+        XCTAssertLessThan(lowered.pose.eye.y, previousEyeY)
+    }
+
+    @MainActor
     func testSelectionResolvesElevationAndCueMovePreservesReachableManualAngle() throws {
         let suite="spatial-selection-"+UUID().uuidString
         let defaults=try XCTUnwrap(UserDefaults(suiteName:suite))
@@ -836,6 +885,9 @@ final class SpatialPracticePreviewTests:XCTestCase {
         vm.updateInput { $0.elevation = -20 };XCTAssertEqual(vm.input.preferredElevation ?? vm.input.elevation,0);XCTAssertTrue(vm.canStrike)
         vm.updateInput { $0.elevation = 100 };XCTAssertEqual(vm.input.elevation,75)
         vm.retry();XCTAssertEqual(vm.input.elevation,75);XCTAssertNotNil(vm.message)
+        vm.toggleLastRoute()
+        assertRecordedRouteColor(vm.scene,names:["spatialLastShotRoute"],historical:true)
+        vm.toggleLastRoute()
         for _ in 0..<500 where vm.archiveForTesting.pendingHistory { try await Task.sleep(for:.milliseconds(10)) }
         XCTAssertFalse(vm.archiveForTesting.pendingHistory)
         let preserved=try PropertyListDecoder().decode(R.self,from:XCTUnwrap(defaults.data(forKey:key)))
@@ -942,6 +994,58 @@ final class SpatialPracticePreviewTests:XCTestCase {
         let a=try XCTUnwrap(SpatialPracticeRecord.firstCueContact(events))
         let b=try XCTUnwrap(SpatialPracticeRecord.firstCueContact(events.reversed()))
         XCTAssertEqual(a.time,1);XCTAssertEqual(a.keys,["_1","_2","_3"]);XCTAssertEqual(a.keys,b.keys)
+    }
+    @MainActor
+    func testSharedSpatialRouteStylesUseContactSplitColorsAndRealDashGaps() throws {
+        typealias R=SpatialPracticeRecord
+        let scene=AngleTrainingScene(),cue=PositionPlayBall.cueKey
+        let y=scene.surfaceY+BallPhysics.radius+0.1
+        let samples=(0...2).map { i in R.Sample(time:Float(i),
+            position:.init(SCNVector3(Float(i)*0.096,y,0)),rotation:[0,0,0,1],hidden:false) }
+        let paths=Dictionary(uniqueKeysWithValues:([cue]+[1,6,8,9,14].map { "_\($0)" }).map { ($0,samples) })
+        var shot=R.Shot(firstContactTime:1,firstContactKeys:["_1"],id:UUID(),geometryVersion:SpatialPracticeGeometry.version,
+            input:.init(),before:[:],after:[:],paths:paths,duration:2,maximumHeight:0.1,landing:nil)
+        let segments=SpatialShotRendering.segments(shot,key:cue,detail:.full)
+        XCTAssertEqual(segments.map(\.dashed),[false,true])
+        XCTAssertEqual(segments[0].points.last!.x,0.096,accuracy:1e-6)
+        XCTAssertEqual(segments[1].points.first!.x,0.096,accuracy:1e-6)
+        XCTAssertEqual(segments[1].points.last!.y,y,accuracy:1e-6)
+        XCTAssertEqual(SpatialShotRendering.segments(shot,key:cue,detail:.minimal).map(\.dashed),[false])
+        XCTAssertTrue(SpatialShotRendering.segments(shot,key:"_8",detail:.core).isEmpty)
+        let parent=SCNNode()
+        XCTAssertTrue(SpatialShotRendering.appendBallRoute(shot,key:cue,detail:.full,to:parent,scene:scene))
+        let solid=try XCTUnwrap(parent.childNodes.first?.childNodes.first?.geometry)
+        let dashed=try XCTUnwrap(parent.childNodes.last?.childNodes.first?.geometry)
+        XCTAssertEqual(solid.sources(for:.vertex).first?.vectorCount,12)
+        // 96mm path: three 20mm dashes separated by 12mm gaps. Inspect mesh,
+        // not just style labels, so changing dashed:false cannot pass this test.
+        let source=try XCTUnwrap(dashed.sources(for:.vertex).first)
+        XCTAssertEqual(source.vectorCount,36)
+        let xs:[Float]=source.data.withUnsafeBytes { bytes in
+            (0..<source.vectorCount).map { bytes.loadUnaligned(fromByteOffset:source.dataOffset+$0*source.dataStride,as:Float.self) }
+        }
+        for x in xs {
+            XCTAssertTrue([Float(0.096),0.116,0.128,0.148,0.160,0.180].contains { abs(x-$0)<1e-6 },"Unexpected dash endpoint \(x)")
+        }
+        XCTAssertEqual(solid.firstMaterial?.diffuse.contents as? UIColor,TrajectoryStyle.aimColor)
+        for number in [1,6,8,9,14] {
+            let root=SCNNode(),key="_\(number)"
+            XCTAssertTrue(SpatialShotRendering.appendBallRoute(shot,key:key,detail:.full,to:root,scene:scene))
+            XCTAssertEqual(root.childNodes.map(\.name),["spatialRoute.dashed"])
+            XCTAssertEqual(root.childNodes.first?.childNodes.first?.geometry?.firstMaterial?.diffuse.contents as? UIColor,
+                TrajectoryStyle.potColor(for:key))
+        }
+        let history=SCNNode()
+        XCTAssertTrue(SpatialShotRendering.appendBallRoute(shot,key:cue,detail:.full,to:history,scene:scene,presentation:.historical))
+        XCTAssertEqual(history.childNodes.map(\.name),parent.childNodes.map(\.name))
+        for (a,b) in zip(history.childNodes,parent.childNodes) {
+            XCTAssertEqual(a.childNodes.first?.geometry?.sources(for:.vertex).first?.data,
+                           b.childNodes.first?.geometry?.sources(for:.vertex).first?.data)
+            XCTAssertEqual(a.childNodes.first?.geometry?.firstMaterial?.diffuse.contents as? UIColor,
+                           TrajectoryStyle.TrainingAssist.routeReference)
+        }
+        shot.firstContactTime=nil
+        XCTAssertEqual(SpatialShotRendering.segments(shot,key:cue,detail:.full).map(\.dashed),[false],"Preserve free-page no-contact behavior")
     }
     func testSpaceRoutesKeepHeightAndHonorFirstContactCutoff() throws {
         typealias R=SpatialPracticeRecord
@@ -1183,5 +1287,25 @@ final class SpatialPracticeBreakTests:XCTestCase {
         restored.setupScene();defer { restored.suspendTeachingActivity() }
         XCTAssertTrue(restored.isBreakMode);XCTAssertEqual(restored.record.board,before)
         XCTAssertEqual(restored.record.lastShot?.id,shot.id)
+    }
+}
+
+/// Check rendered material payloads, including nested spatial meshes.
+@MainActor
+func assertRecordedRouteColor(_ scene: AngleTrainingScene, names: [String], historical: Bool,
+                              file: StaticString = #filePath, line: UInt = #line) {
+    var colors: [UIColor] = []
+    for root in scene.rootNode.childNodes where names.contains(root.name ?? "") {
+        func collect(_ node: SCNNode) {
+            colors += node.geometry?.materials.compactMap { $0.diffuse.contents as? UIColor } ?? []
+            node.childNodes.forEach(collect)
+        }
+        collect(root)
+    }
+    XCTAssertFalse(colors.isEmpty, "Expected visible recorded route", file: file, line: line)
+    if historical {
+        XCTAssertTrue(colors.allSatisfy { $0 == TrajectoryStyle.TrainingAssist.routeReference }, "Every retained route must be gray", file: file, line: line)
+    } else {
+        XCTAssertTrue(colors.contains { $0 != TrajectoryStyle.TrainingAssist.routeReference }, "Active shot must keep its original colors", file: file, line: line)
     }
 }

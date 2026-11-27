@@ -259,7 +259,7 @@ struct BatchAuthoringView: View {
     @ObservedObject var context: BatchAuthoringContext
     @Environment(\.dismiss) private var dismiss
 
-    @StateObject private var composer = PositionPlayViewModel()
+    @StateObject private var composer = PositionPlayViewModel(trajectoryWidths: .interactiveTable)
     @StateObject private var solver = BatchShotSolver()
 
     @Environment(\.scenePhase) private var scenePhase

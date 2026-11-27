@@ -32,6 +32,9 @@ enum CoverArtKey: String, CaseIterable, Equatable, Sendable {
     case coverPracticeAimingMethods
     case coverPracticeAimingCorrection
     case coverPracticeSpinAndEnglish
+    case coverPracticeMasseJump
+    case coverPracticeMasseExercise
+    case coverPracticeJumpExercise
     case coverPracticeAngleDynamic
     case coverPracticeSeparationAtlas
     case coverPracticeCushionEnglish
@@ -179,7 +182,10 @@ enum AtmosphereCatalog {
         case .aimingPrinciple: return .coverPracticeAimingPrinciple
         case .aimingMethods: return .coverPracticeAimingMethods
         case .aimingCorrection: return .coverPracticeAimingCorrection
-        case .masseJump, .spinAndEnglish: return .coverPracticeSpinAndEnglish
+        case .masseJump: return .coverPracticeMasseJump
+        case .massePractice: return .coverPracticeMasseExercise
+        case .jumpPractice: return .coverPracticeJumpExercise
+        case .spinAndEnglish: return .coverPracticeSpinAndEnglish
         case .pocketTolerance: return .coverTemplate11
         case .angleDynamic: return .coverPracticeAngleDynamic
         case .separationAngleAtlas: return .coverPracticeSeparationAtlas
@@ -228,7 +234,7 @@ enum AtmosphereCatalog {
         case .aimingPrinciple: multicolor.aimingPrinciple
         case .aimingMethods: multicolor.aimingMethods
         case .aimingCorrection: multicolor.aimingCorrection
-        case .masseJump, .spinAndEnglish: multicolor.spinAndEnglish
+        case .massePractice, .jumpPractice, .masseJump, .spinAndEnglish: multicolor.spinAndEnglish
         case .separationAngleAtlas: multicolor.separationAngleAtlas
         case .cushionEnglishAtlas: multicolor.cushionEnglishAtlas
         case .pocketTolerance, .angleDynamic: multicolor.angleDynamic

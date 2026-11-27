@@ -74,6 +74,7 @@ final class DefensePracticeUITests: XCTestCase {
         XCTAssertFalse(node("defense.targetLegend").exists)
         ready(app.buttons["defense.retry"]);app.buttons["defense.retry"].tap();phase("aiming")
         XCTAssertEqual(probe()["question"] as? String,question)
+        capture("defense-historical-route-retry")
         app.buttons["defense.strike"].tap();phase("result")
         XCTAssertEqual(probe()["attempts"] as? Int,1)
         app.buttons["defense.strike"].tap();phase("aiming")

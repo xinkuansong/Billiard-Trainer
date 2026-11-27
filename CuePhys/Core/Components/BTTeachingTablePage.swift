@@ -398,7 +398,10 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             ZStack(alignment: .topLeading) {
             template(size: size, safe: max(geo.safeAreaInsets.leading, geo.safeAreaInsets.trailing))
                 .frame(width: geo.size.width + geo.safeAreaInsets.trailing, alignment: .leading)
-                .padding(.top, extraTop).padding(.bottom, extraBottom)
+                // iPad window chrome can stop propagating SwiftUI's safe inset
+                // after maximize. Keep HUD avoidance semantic so the shared 3D
+                // background's ignoresSafeArea still fills the physical window.
+                .safeAreaPadding(.top, extraTop).safeAreaPadding(.bottom, extraBottom)
                 .offset(x: -geo.safeAreaInsets.leading)
                 .ignoresSafeArea(.container, edges: .trailing)
                 if let draggingKey {
@@ -1159,6 +1162,8 @@ struct BTTeachingPrimaryActionColumn<Actions: View>: View {
         }
         .frame(width: layout.columnWidth)
         .overlay(alignment: .bottom) { actions() }
+        // Expose the real action children as one container, not an empty ledger element.
+        .accessibilityElement(children: .contain)
     }
 }
 

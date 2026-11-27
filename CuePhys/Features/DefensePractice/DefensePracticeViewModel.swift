@@ -16,7 +16,7 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
     enum Phase { case loading, settings, aiming, preparing, playing, result, saveFailed, summary }
     var is3D: Bool { cameraMode == .perspective3D }
     private let initialView3D: Bool
-    let scene = AngleTrainingScene()
+    let scene = AngleTrainingScene(trajectoryWidths: .interactiveTable)
     let limiter: AngleUsageLimiter
     @Published private(set) var record: DefensePracticeRecord?
     @Published private(set) var phase: Phase = .loading {
@@ -29,6 +29,7 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
     lazy var geometryReference = GeometricReferenceTool(scene: scene) { [weak self] in
         self?.objectWillChange.send(); self?.prepareReference(); self?.scheduleSave()
     }
+    @Published private(set) var actualRoutePresentation: TrajectoryStyle.Presentation = .current
     @Published var message: String?
     @Published private(set) var notice: TrainingPracticeNotice?
     @Published var cameraMode: AngleTrainingScene.CameraMode
@@ -317,7 +318,7 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
         topDownContentRevision += 1
         clearActual()
         if record?.showingResult == true { showFinal(); drawActual(); phase = .result }
-        else { phase = .aiming; drawActual(visible: false); redrawCue() }
+        else { phase = .aiming; drawActual(visible: false, presentation: .historical); redrawCue() }
         refreshObservationCameraContext()
         scene.discardSavedPerspectiveView()
         if is3D { requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true) }
@@ -361,7 +362,7 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
         centerReferenceLine?.name = "defense.centerReferenceLine"
         aimLine = scene.addLine(from: cue.position,
             to: .init(Float(resolved.lineEnd.x), cue.position.y, Float(resolved.lineEnd.y)),
-            color: TrajectoryStyle.TrainingAssist.aimLine, placement: .table)
+            color: TrajectoryStyle.TrainingAssist.aimLine, radius: scene.trajectoryWidths.mainRadius, placement: .table)
         aimLine?.name = "defense.aim"
     }
     private func points(_ line: [SeparationTrajectory.Point]) -> [SCNVector3] {
@@ -394,7 +395,8 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
         objectNodes.forEach { $0.removeFromParentNode() }; objectNodes = []
         drawAimingGuides()
     }
-    private func drawActual(visible: Bool = true) {
+    private func drawActual(visible: Bool = true, presentation: TrajectoryStyle.Presentation = .current) {
+        actualRoutePresentation = presentation
         clearActual(); prepareReference(); topDownContentRevision += 1
         guard visible || record?.configuration.mode != .trajectory, let shot = record?.latestShot else { return }
         let prediction = shot.prediction()
@@ -413,9 +415,9 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
                     let contact = contactTime.flatMap { time in
                         line.indices.min { abs(line[$0].time - time) < abs(line[$1].time - time) }
                     }.map { path[$0] }
-                    scene.addCueTrajectory(path, contact: contact, into: &actualNodes)
+                    scene.addCueTrajectory(path, contact: contact, presentation: presentation, into: &actualNodes)
                 } else {
-                    scene.addObjectTrajectory(path, ballKey: name, into: &actualNodes)
+                    scene.addObjectTrajectory(path, ballKey: name, presentation: presentation, into: &actualNodes)
                 }
                 if actualNodes.count > count { actualRouteKeys.append(name) }
             } catch {
@@ -583,7 +585,7 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
         guard canRetry, permitted(), let shot = record?.latestShot else { return }
         invalidate(); record?.draftInput = shot.input; record?.draftDirection = shot.direction; record?.showingResult = false
         phase = .aiming
-        seatBalls(); drawActual(visible: false)
+        seatBalls(); drawActual(visible: false, presentation: .historical)
         if let shotCamera { scene.restorePerspectiveView(shotCamera) }
         else if let saved = record?.shotBookmark, let cue = scene.cueBallNode?.position {
             scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: shot.direction.vector)
@@ -646,7 +648,7 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
         let displayed = demonstrationInput
         invalidate()
         demonstrationInput = displayed
-        if phase == .aiming { drawActual(visible: false); redrawCue() }
+        if phase == .aiming { drawActual(visible: false, presentation: .historical); redrawCue() }
         else if phase == .result { drawActual() }
     }
     private func restoreReplay() {
@@ -654,7 +656,7 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
         for (node, name) in physicalNodes { state.1[name]?.restore(node) }
         replayCamera.finish(in: scene); phase = state.0; activeSince = Date(); record?.showingResult = state.0 == .result
         replayReturn = nil; isReplaying = false
-        if phase == .aiming { drawActual(visible: false) }
+        if phase == .aiming { drawActual(visible: false, presentation: .historical) }
     }
     private var nextQuestionKey: NextQuestionKey? {
         guard let record, let question = record.current, let repository,
@@ -923,7 +925,7 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
         if wasPlaying { phase = .result; record?.showingResult = true; showFinal(); drawActual() }
         else if phase == .preparing {
             phase = record?.showingResult == true ? .result : .aiming
-            if phase == .aiming { seatBalls(); drawActual(visible: false); record?.showingResult = false }
+            if phase == .aiming { seatBalls(); drawActual(visible: false, presentation: .historical); record?.showingResult = false }
             else { showFinal(); drawActual() }
         }
         _ = save(); activeSince = nil

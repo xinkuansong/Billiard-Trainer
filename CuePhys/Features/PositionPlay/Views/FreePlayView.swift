@@ -199,21 +199,21 @@ struct FreePlayView: View {
     init(entryMode: FreePlayEntryMode = .standard) {
         self.entryMode = entryMode
         self.editor = nil
-        self._vm = StateObject(wrappedValue: PositionPlayViewModel())
+        self._vm = StateObject(wrappedValue: PositionPlayViewModel(trajectoryWidths: .interactiveTable))
     }
 
     init(multiBallConfiguration: MultiBallConfiguration, is3D: Bool = false) {
         self.multiBallIs3D = is3D
         self.entryMode = .multiBallPractice
         self.editor = nil
-        self._vm = StateObject(wrappedValue: PositionPlayViewModel())
+        self._vm = StateObject(wrappedValue: PositionPlayViewModel(trajectoryWidths: .interactiveTable))
         self._multiBallController = StateObject(wrappedValue: MultiBallPracticeController(configuration: multiBallConfiguration, is3D: is3D))
     }
 
     init(snakeConfiguration: SnakePracticeConfiguration) {
         self.entryMode = .snakePractice
         self.editor = nil
-        self._vm = StateObject(wrappedValue: PositionPlayViewModel())
+        self._vm = StateObject(wrappedValue: PositionPlayViewModel(trajectoryWidths: .interactiveTable))
         self._snakeController = StateObject(wrappedValue: SnakePracticeController(configuration: snakeConfiguration))
     }
 

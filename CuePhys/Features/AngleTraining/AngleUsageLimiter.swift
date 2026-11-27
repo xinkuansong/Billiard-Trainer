@@ -22,6 +22,17 @@ final class AngleUsageLimiter: ObservableObject {
     static let separationTraining = AngleUsageLimiter(namespace: "separationPractice2D", limit: TrainingProject.ordinaryRoundCount)
     static let threeBallTraining = AngleUsageLimiter(namespace: "threeBallPractice2D", limit: TrainingProject.ordinaryRoundCount)
     static let defenseTraining = AngleUsageLimiter(namespace: "defensePractice2D", limit: 15)
+    static let masseTraining = spatialLimiter("massePractice")
+    static let jumpTraining = spatialLimiter("jumpPractice")
+    private static func spatialLimiter(_ namespace: String) -> AngleUsageLimiter {
+        #if DEBUG
+        if let session = ProcessInfo.processInfo.environment["SPATIAL_TEST_SESSION"],
+           let isolated = UserDefaults(suiteName: "spatialQuiz.tests." + session) {
+            return AngleUsageLimiter(defaults: isolated, namespace: namespace, limit: 15)
+        }
+        #endif
+        return AngleUsageLimiter(namespace: namespace, limit: 15)
+    }
     static let bankTraining = AngleUsageLimiter(namespace: "bankPractice2D", limit: 15)
     static let kickTraining = AngleUsageLimiter(namespace: "kickPractice2D", limit: 15)
     static let kBallTraining = AngleUsageLimiter(namespace: "kBallPractice2D", limit: 15)
@@ -29,6 +40,8 @@ final class AngleUsageLimiter: ObservableObject {
     static let multiBallTraining = AngleUsageLimiter(namespace: "multiBallPractice2D", limit: 3)
     let limit: Int
     static func training(route: String) -> AngleUsageLimiter {
+        if route == "massePractice" { return masseTraining }
+        if route == "jumpPractice" { return jumpTraining }
         if route.hasPrefix("multiBall") { return multiBallTraining }
         if route.hasPrefix("threeBallPractice") { return threeBallTraining }
         if route.hasPrefix("defensePractice") { return defenseTraining }

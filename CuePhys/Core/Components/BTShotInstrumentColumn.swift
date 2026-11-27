@@ -353,6 +353,7 @@ struct ShotPlayerCameraButtons: View {
             .disabled(temporaryTopDownActive || observationOnly || !firstPersonAvailable)
             .accessibilityHint(observationOnly || !firstPersonAvailable ? "当前没有可用的沿杆机位" : "")
         }
+        .accessibilityElement(children: .contain)
     }
 
     private func cameraButton<Icon: View>(label: String, id: String, selected: Bool,

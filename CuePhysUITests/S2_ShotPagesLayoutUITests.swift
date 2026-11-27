@@ -1973,6 +1973,38 @@ final class CameraV682PageContractUITests: XCTestCase {
         XCTAssertEqual(third.value as? String, "已选中")
     }
 
+    func testV74FormalTeachingCameraReturn() throws {
+        open(section: "准度", card: "角度与瞄准")
+        perspective("angleDynamic")
+        verifyCameraColumn(); settled()
+        let before = try probe()
+        let first = app.buttons["shotCamera.firstPerson"]
+        ready(first); first.tap(); settled()
+        XCTAssertTrue(zip(before.camera, try probe().camera).contains { abs($0 - $1) > 0.01 })
+        app.buttons["shotCamera.thirdPerson"].tap(); settled()
+        let after = try probe()
+        XCTAssertEqual(before.balls.map(\.world), after.balls.map(\.world))
+        for (a,b) in zip(before.camera,after.camera) { XCTAssertEqual(a,b,accuracy:0.001) }
+        capture("v74-formal-teaching-return")
+    }
+
+    func testV74FormalPublicTargetCameraReturn() throws {
+        open(section: "基础", card: "进球容错角")
+        perspective("pocketTolerance")
+        verifyCameraColumn(); settled()
+        XCTAssertFalse(app.buttons["shotCamera.firstPerson"].isEnabled)
+        let before = try probe()
+        try sweepEmptyTable(from: before); settled()
+        let observed = try probe()
+        XCTAssertGreaterThan(observed.panCount,before.panCount)
+        XCTAssertTrue(zip(before.camera,observed.camera).contains { abs($0 - $1) > 0.01 })
+        app.buttons["shotCamera.thirdPerson"].tap(); settled()
+        let after = try probe()
+        XCTAssertEqual(before.balls.map(\.world),after.balls.map(\.world))
+        for (a,b) in zip(before.camera,after.camera) { XCTAssertEqual(a,b,accuracy:0.001) }
+        capture("v74-formal-public-target-return")
+    }
+
     func testTeachingAtlasCameraColumnAndReturn() throws {
         for (route, prefix) in [("angleDynamic", "angleDynamic"), ("separation", "separationAngleAtlas"),
                                 ("cushion", "cushionEnglishAtlas")] {

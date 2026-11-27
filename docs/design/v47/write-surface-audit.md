@@ -281,3 +281,10 @@ ProfileView 路由签名仅因同步/游客合并说明加入自定义球形而�
 `P8_ProfileSettingsUITests.swift`新增RealServiceDeviceUITests，必须显式设置`TEST_RUNNER_CUEPHYS_REAL_SERVICE_VALIDATION=1`并逐方法选择；不得整类批跑。Apple本人授权前向XCTest Runner沙盒Documents写`apple-authorization.png`，同名复跑会覆盖，原轮证据须先复制到本机独立private目录；其他截图及AX进入本轮xcresult。截图含个人材料，本机目录0700，不提交Git或公开上传，保留失败轮，不自动删除证据。
 
 此类测试正常启动真实App，无内存/重置夹具，会改变当前账号登录态、云同步选项、系统通知权限和提醒时间；只有本人完成Apple/年龄授权。标记训练记录仅创建/删除`CuePhys验收-20261125-REAL01`，执行前核不存在；同步会正常上传已有队列并下载真实账号记录，游客拒绝合并。通过后恢复云同步关闭、提醒19:00/关闭及原通知权限；保留原数据，不回写备份覆盖正常同步。原Library备份、原内容摘要及最终ID集合对照见REAL-SERVICES-20261125。宿主API测试另隔离通知中心，防止模拟401影响真实凭据。真实账号注销和正式付款不在此类自动化中执行。
+
+
+2026-11-26 v73.3：SpatialQuizBankTests和SpatialQuizSessionTests仅在temporaryDirectory/UUID写损坏题包、未审核manifest与隔离records.json；defer清理各自目录。Bundle只读，正式数据/研究源/截图基线不写。全库及DTO/运行事实通过XCTAttachment进入受管xcresult；本地导出位于tasks/spatial-v73/evidence。与受管测试work分开保留，清理失败不冒称完成。
+
+## 2026-11-26 v73.4 空间答题特写取证
+
+SpatialQuizUITests仅以FileHandle.standardOutput.write输出真实方向手势保持阶段标记，文件扫描因此登记；PNG与诊断仍由XCTAttachment保存在本轮xcresult。外部feedback-r1/run.py在持有目标设备租约时按标记截取simctl原图到output/local-test-runs/f5bfed55156343e0b43b776e8c04f50a/evidence/<批次>-holds，批次目录禁止覆盖，逐图记录返回码。无生产内容/设计基线写入；App训练库与额度使用测试隔离会话，页内显示偏好属于租用模拟器。只清理本轮受管work，原始失败和截图保留。

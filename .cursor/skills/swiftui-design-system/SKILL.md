@@ -1884,3 +1884,12 @@ Changelog：2026-11-12。FreePlay共享宿主以整段力度／方向手势＋�
 ### DR-436 r4 · 重打再次提示原目标袋（2026-11-16）
 
 用户新决定覆盖DR-436的“同题重打不续时”：成功重打后短亮目标袋即时重新亮3秒；其他同题重绘/回放仍不续时。`AngleTrainingScene.remindTargetPocket(at:)`仅接受现有`.target`，无额外触感；不改变常亮角色袋、自由瞄准或空目标。独立准度/分离角/瞄准点及PositionPlay在成功恢复末尾调用，多球自主从存档重打的控制器备用路径同样接入；不挂在重绘/恢复通用入口。现行TP14与范围证据见`tasks/table-page-adaptation/RETRY-POCKET-20261116.md`。
+
+### DR-470 · 空间页面抬杆（2026-11-26）
+
+自由扎杆与跳球及两答题页复用`BTSpatialElevationWheel(value:enabled:width:onNudge:identifier:)`。横尺下方显示角度，内部沿BTAimWheel连续0.20°/pt；调用方提供可编辑阶段、实际可达角度和页面标识。布局身份`shot.elevation`沿TP28；默认位置在回放右侧，不能重写用户模板或把参考图中的3°当默认值。真实球杆可达性消费`SpatialCueElevation`，实际空间路线消费`SpatialShotRendering`；抽取不改变原算法。
+
+
+### DR-471 · iPad真实缩窗回程的背景安全区（2026-11-26）
+
+BTTeachingTablePage对UIWindow与SwiftUI GeometryReader之间的额外安全区差值使用safeAreaPadding，保留HUD避让，同时让ignoresSafeArea的球房/SceneKit背景填满窗口。普通padding会在最大化后留下32点顶部黑边。验收同时核系统窗口、内容尺寸和真实SCNView，允许系统合法改变外层content安全区，禁止以其变化替代渲染区验证。v73 b5-close-r3双答题页及旧自由页实际缩窗→最大化3项UI通过；共用相机77项单元通过。原失败FL-288及原图保留于tasks/spatial-v73/evidence/B5-close-r1；最终证据B5-close-r3。

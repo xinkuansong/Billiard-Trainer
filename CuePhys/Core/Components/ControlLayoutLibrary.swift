@@ -3,6 +3,8 @@ import SwiftUI
 extension TablePreferencePage {
     var layoutTitle: String {
         switch self {
+        case .massePractice: return "扎杆练习"
+        case .jumpPractice: return "跳球练习"
         case .masseJump: return "扎杆与跳球"
         case .dailyClearance: return "每日清台"
         case .freePlay: return "自由击球"

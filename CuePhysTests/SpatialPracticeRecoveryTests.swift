@@ -230,10 +230,22 @@ final class SpatialPracticeRecoveryTests:XCTestCase {
         renderer.scene=restored.scene;renderer.pointOfView=restored.scene.cameraNode
         restored.replay()
         let replayStart=CACurrentMediaTime()
+        var observedReplay = false
         while restored.busy && CACurrentMediaTime()-replayStart<60 {
             _=renderer.snapshot(atTime:CACurrentMediaTime(),with:CGSize(width:64,height:64),antialiasingMode:.none)
+            if !observedReplay, restored.scene.cueBallNode?.hasActions == true {
+                XCTAssertTrue(restored.requestPlayerView(.thirdPerson,animated:false))
+                let beforeObservation = try XCTUnwrap(restoredRig.p01Snapshot).pose
+                restored.beginCameraObservation();restoredRig.handleHorizontalSwipe(delta:48)
+                XCTAssertNotEqual(try XCTUnwrap(restoredRig.p01Snapshot).pose,beforeObservation)
+                restored.endCameraObservation()
+                XCTAssertEqual(restored.input,input)
+                XCTAssertEqual(restored.record.lastShot?.after,shot.after)
+                observedReplay = true
+            }
             try await Task.sleep(for:.milliseconds(16))
         }
+        XCTAssertTrue(observedReplay,"Free spatial replay must permit read-only camera observation")
         XCTAssertFalse(restored.busy);restoredRig.update(deltaTime:1/60)
         XCTAssertEqual(restored.record.board,draft);XCTAssertEqual(restored.input,input)
         XCTAssertEqual(restored.record.lastShot?.after,shot.after)

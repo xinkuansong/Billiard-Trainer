@@ -6,7 +6,7 @@ import Combine
 final class SpatialPracticeViewModel: TeachingTableHost {
     typealias Record = SpatialPracticeRecord
     enum Phase { case ready, calculating, playing, replaying }
-    let scene=AngleTrainingScene()
+    let scene=AngleTrainingScene(trajectoryWidths: .interactiveTable)
     @Published var cameraMode: AngleTrainingScene.CameraMode = .perspective3D
     @Published var cameraTransitionBusy=false
     @Published var temporaryTopDownActive=false
@@ -55,8 +55,10 @@ final class SpatialPracticeViewModel: TeachingTableHost {
     @Published private(set) var completedSolves=0
     private(set) var startedSolves=0
     var hasActiveCurrentPrediction:Bool { activeKey==currentKey && cancellation?.isCancelled == false }
+    private let lifetime=SpatialRuntimeProbe.Token("freeVM")
     private var timingInputStart:Double?
     var timingProbeJSON:String { scene.interactionTimingProbe?.json ?? "[]" }
+    var inputTimingJSON:String { scene.inputPresentationTimingProbe?.json ?? "[]" }
     var previewShot:Record.Shot? { preview?.shot }
     var previewProbeJSON:String {
         let value:[String:Any] = ["ready":preview?.key==currentKey,"solves":completedSolves,
@@ -128,6 +130,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
         if ProcessInfo.processInfo.arguments.contains("-masseJump.timing") {
             scene.interactionTimingProbe=TableInteractionTimingProbe()
         }
+        if SpatialRuntimeProbe.enabled { scene.inputPresentationTimingProbe=TableInteractionTimingProbe() }
         #endif
         scene.isolatesTemporaryTopDownMaterials = true
         scene.configureReferenceTableRendering();scene.configureShotAwareCamera()
@@ -149,6 +152,14 @@ final class SpatialPracticeViewModel: TeachingTableHost {
             record=Record(board:[:],input:.init());loadExample(0)
             input = .init();recommendTarget();save()
         }
+        #if DEBUG
+        if let raw=ProcessInfo.processInfo.environment["SPATIAL_BENCHMARK_MODE"],
+           let mode=SpatialQuizMode(rawValue:raw), let question=try? SpatialQuizBank.load(mode).questions.first {
+            input=question.reference.spatialInput
+            record=Record(selectedTargetKey:question.board.targetName,board:SpatialQuizInstance(question).board,input:input)
+            apply(record.board);resolveElevation()
+        }
+        #endif
         scene.isPaused=false;refreshAim()
     }
     func save() {
@@ -162,6 +173,8 @@ final class SpatialPracticeViewModel: TeachingTableHost {
         guard next != input else { return }
         #if DEBUG
         timingInputStart=TableInteractionTimingProbe.now
+        let inputFrameID=UUID()
+        scene.inputPresentationTimingProbe?.beginPreview(id:inputFrameID,start:timingInputStart!,balls:record.board.count)
         #endif
         if let runner=breakRunner {
             if next.yaw != input.yaw { runner.nudgeAim(byDegrees:Float((next.yaw-input.yaw)*180 / .pi)) }
@@ -174,6 +187,9 @@ final class SpatialPracticeViewModel: TeachingTableHost {
         if geometryChanged { resolveElevation() }
         syncPreparedBreak()
         showsLastRoute=false;cancelCalculation();refreshAim()
+        #if DEBUG
+        scene.inputPresentationTimingProbe?.routesReady(id:inputFrameID)
+        #endif
         saveTask?.cancel()
         saveTask=Task { [weak self] in
             try? await Task.sleep(for:.milliseconds(300))
@@ -190,12 +206,19 @@ final class SpatialPracticeViewModel: TeachingTableHost {
         }
     }
     func nudgeAim(_ degrees:Float) {
-        let previous = input.yaw
-        updateInput { $0.yaw += Double(degrees) * .pi / 180 }
-        guard input.yaw != previous, let cue = scene.cueBallNode, !cue.isHidden else { return }
-        let strike = strikePose?.pivot ?? CueStroke.strikePosition(
-            cue:cue.position, aim:input.aim, spinX:input.spinX, spinY:input.spinY)
-        scene.cameraRig?.followSimpleAim(cue:cue.position, strike:strike, aim:input.aim)
+        guard canTune else { return }
+        let update = { self.updateInput { $0.yaw += Double(degrees) * .pi / 180 } }
+        guard let rig=scene.cameraRig,rig.usesP01Camera else { update();return }
+        if rig.overviewControlSelected, let cue = scene.cueBallNode {
+            rig.followP01TableAim(cue:cue.position,
+                aim:SpatialQuizPhysics.Input(yaw:input.yaw + Double(degrees) * .pi / 180,
+                    speed:input.speed,spinX:input.spinX,spinY:input.spinY,elevation:input.elevation).aim,
+                fallbackStrike:{ cue.position },updateCue:update)
+            return
+        }
+        _ = rig.updateP01TargetCue(resolved:true,align:true,
+            preservePose:rig.twoViewOwnerIsManual && rig.playerView == .thirdPerson,
+            animated:false,update:update)
     }
     /// Reuse preparation only. This host never calls the runner's planar breakNow.
     func prepareBreak(ballCount:Int? = nil,seed:UInt64? = nil) {
@@ -336,6 +359,10 @@ final class SpatialPracticeViewModel: TeachingTableHost {
             timing?.mark("solveStart",id:next.generation)
             #endif
             let outcome=await Task.detached(priority:.userInitiated) {
+                #if DEBUG
+                let observation=SpatialRuntimeProbe.Token("freeWorker")
+                defer { observation.finish() }
+                #endif
                 let before=key.board,frozen=key.input
                 guard let cue=before[PositionPlayBall.cueKey]?.position.scene else { return (nil as Record.Shot?,nil as String?) }
                 let balls=before.keys.sorted().filter { !PositionPlayBall.isCue($0) && before[$0]?.disposition != "pocket" && before[$0]?.disposition != "escaped" }.compactMap { name in
@@ -441,7 +468,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
             }
             scene.hideCueStick()
         }
-        beginTeachingRollingCamera(aim: shot.input.aim, replaying: replay)
+        beginTeachingRollingCamera(aim: shot.input.aim, replaying: replay, allowsReplayObservation: true)
         scene.setFreeAimPreviewLine(nil)
         let speed=replay ? playbackSpeed : 1
         #if DEBUG
@@ -595,85 +622,11 @@ final class SpatialPracticeViewModel: TeachingTableHost {
         defer { scene.interactionTimingProbe?.routesReady(id:generation) }
         #endif
         for key in shot.paths.keys.sorted() {
-            let points=Record.visibleRoute(shot,key:key,detail:showsLastRoute ? .full : trajectoryDetail)
-            guard points.count>1 else { continue }
-            let material=SCNMaterial();material.lightingModel = .constant
-            material.diffuse.contents=PositionPlayBall.isCue(key) ? TrajectoryStyle.aimColor : TrajectoryStyle.potColor(for:key)
-            let node=SCNNode();node.castsShadow=false;node.name=showsLastRoute ? "spatialLastShotRoute" : "spatialPreviewRoute"
-            let cue=PositionPlayBall.isCue(key)
-            let prefixCount=cue ? Record.visibleRoute(shot,key:key,detail:.minimal).count : 0
-            let split=min(points.count,max(0,prefixCount))
-            if split>1 { appendRoute(Array(points.prefix(split)), dashed:false, material:material, to:node) }
-            let remaining=cue ? Array(points.dropFirst(max(0,split-1))) : points
-            if remaining.count>1 { appendRoute(remaining, dashed:true, material:material, to:node) }
+            let node=SCNNode();node.name=showsLastRoute ? "spatialLastShotRoute" : "spatialPreviewRoute"
+            guard SpatialShotRendering.appendBallRoute(shot,key:key,detail:showsLastRoute ? .full : trajectoryDetail,
+                to:node,scene:scene,presentation:showsLastRoute ? .historical : .current) else { continue }
             scene.rootNode.addChildNode(node);routeNodes.append(node)
         }
-    }
-    private func appendRoute(_ samples:[SCNVector3], dashed:Bool, material:SCNMaterial, to parent:SCNNode) {
-        let points=Record.reducedRoute(samples)
-        guard points.count>1, let color=material.diffuse.contents as? UIColor else { return }
-        let restingY=scene.surfaceY+BallPhysics.radius
-        let clothY=scene.tableRouteHeight
-        func onCloth(_ point:SCNVector3)->Bool { abs(point.y-restingY)<0.00005 }
-        var start=0
-        while start<points.count-1 {
-            let ground=onCloth(points[start]) && onCloth(points[start+1])
-            var end=start+1
-            while end+1<points.count, (onCloth(points[end]) && onCloth(points[end+1])) == ground { end+=1 }
-            let run=Array(points[start...end])
-            if ground {
-                var nodes:[SCNNode]=[]
-                if dashed {
-                    scene.addDashedPolyline(run,color:color,placement:.table,into:&nodes)
-                } else {
-                    scene.addTablePolyline(run,color:color,radius:TrajectoryStyle.aimRadius,into:&nodes)
-                }
-                for node in nodes { parent.addChildNode(node) }
-            } else {
-                let path=run.map { SCNVector3($0.x,clothY+($0.y-restingY),$0.z) }
-                parent.addChildNode(Self.routeMesh(path,dashed:dashed,material:material))
-            }
-            start=end
-        }
-    }
-    /// One batched XYZ tube per stroke style; uses the common radii/dash language.
-    /// No .table projection, and no SceneKit node per 240 Hz playback sample.
-    private static func routeMesh(_ points:[SCNVector3],dashed:Bool,material:SCNMaterial)->SCNNode {
-        var vertices:[SCNVector3]=[],indices:[Int32]=[]
-        let radius=TrajectoryStyle.lineMain,period=TrajectoryStyle.mainDash+TrajectoryStyle.mainGap
-        var arc:Float=0
-        func append(_ a:SIMD3<Float>,_ b:SIMD3<Float>) {
-            let delta=b-a
-            guard simd_length_squared(delta)>1e-12 else { return }
-            let tangent=simd_normalize(delta)
-            let axis:SIMD3<Float>=abs(tangent.y)<0.9 ? SIMD3(0,1,0) : SIMD3(1,0,0)
-            let u=simd_normalize(simd_cross(tangent,axis))*radius,v=simd_cross(tangent,u)
-            let base=Int32(vertices.count)
-            for end in [a,b] { for i in 0..<6 {
-                let angle=Float(i)*(.pi/3),p=end+u*cosf(angle)+v*sinf(angle)
-                vertices.append(SCNVector3(p.x,p.y,p.z))
-            } }
-            for i in 0..<6 { let j=(i+1)%6,a=base+Int32(i),b=base+Int32(j)
-                indices += [a,b,a+6,b,b+6,a+6]
-            }
-        }
-        for i in 1..<points.count {
-            let a=SIMD3(points[i-1].x,points[i-1].y,points[i-1].z),b=SIMD3(points[i].x,points[i].y,points[i].z)
-            let length=simd_distance(a,b)
-            guard length>1e-6 else { continue }
-            if dashed {
-                let first=Int(floor(arc/period)),last=Int(floor((arc+length)/period))
-                for k in first...last {
-                    let start=max(arc,Float(k)*period),end=min(arc+length,Float(k)*period+TrajectoryStyle.mainDash)
-                    if end>start { append(a+(b-a)*((start-arc)/length),a+(b-a)*((end-arc)/length)) }
-                }
-            } else { append(a,b) }
-            arc += length
-        }
-        let geometry=SCNGeometry(sources:[SCNGeometrySource(vertices:vertices)],elements:[SCNGeometryElement(indices:indices,primitiveType:.triangles)])
-        geometry.materials=[material]
-        let node=SCNNode(geometry:geometry);node.castsShadow=false
-        return node
     }
     /// Choose a free-practice starting target from the settled table. No pocket is committed.
     private func recommendTarget(preserveAim:Bool = false) {
@@ -705,37 +658,7 @@ final class SpatialPracticeViewModel: TeachingTableHost {
     }
 
     private func resolveElevation(forNewTarget: Bool = false) {
-        let requested = forNewTarget ? Double(CueStick.minElevationRadians) * 180 / .pi
-                                     : input.preferredElevation ?? input.elevation
-        guard requested.isFinite, var geometry = access else { return }
-        let maximum = Record.Input.maximumPracticeElevation
-        func clears(at degrees: Double) -> Bool {
-            geometry.fixedElevation = Float(degrees * .pi / 180)
-            return geometry.isAvailable(spinX: input.spinX, spinY: input.spinY)
-        }
-        // Test the exact requested pose first. The automatic shared solver uses a
-        // different cue envelope, so validate every candidate with the actual fixed pose.
-        func firstClearAngle(toward limit: Double) -> Double? {
-            let step = limit > requested ? 0.5 : -0.5
-            var blocked = requested
-            while blocked != limit {
-                var clear = step > 0 ? min(limit, blocked + step) : max(limit, blocked + step)
-                if clears(at: clear) {
-                    while abs(clear - blocked) > 0.01 {
-                        let middle = (clear + blocked) / 2
-                        if clears(at: middle) { clear = middle } else { blocked = middle }
-                    }
-                    return clear
-                }
-                blocked = clear
-            }
-            return nil
-        }
-        let effective = clears(at: requested) ? requested
-            : firstClearAngle(toward: maximum) ?? firstClearAngle(toward: 0) ?? requested
-        var resolved = input
-        resolved.elevation = effective
-        resolved.preferredElevation = effective == requested ? nil : requested
+        let resolved = SpatialCueElevation.resolve(input,access:access,forNewTarget:forNewTarget)
         if resolved != input { input = resolved }
     }
     func selectPocket(at index:Int) {}

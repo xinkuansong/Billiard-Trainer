@@ -763,9 +763,14 @@ final class SeparationPracticeTests: XCTestCase {
                 XCTAssertEqual(vm.phase, .result)
                 XCTAssertFalse(visible(vm, "reference"), "A legacy retention preference must not restore the first-shot baseline"); XCTAssertTrue(visible(vm, "actual"))
                 let firstShot = vm.record?.latestShot?.id
+                assertRecordedRouteColor(vm.scene,names:["separation.actual"],historical:false)
                 vm.retry(); XCTAssertEqual(vm.phase, .aiming)
+                assertRecordedRouteColor(vm.scene,names:["separation.actual"],historical:true)
                 XCTAssertTrue(visible(vm, "actual")); XCTAssertFalse(visible(vm, "reference"), "A legacy retention preference must not restore the first-shot baseline")
-                vm.replayLastShot(); vm.stopPlayback()
+                vm.replayLastShot()
+                assertRecordedRouteColor(vm.scene,names:["separation.actual"],historical:false)
+                vm.stopPlayback()
+                assertRecordedRouteColor(vm.scene,names:["separation.actual"],historical:true)
                 XCTAssertEqual(vm.phase, .aiming); XCTAssertTrue(visible(vm, "actual"))
                 XCTAssertFalse(visible(vm, "reference"), "A legacy retention preference must not restore the first-shot baseline")
                 vm.replayLastShot(); vm.suspendTeachingActivity(); vm.resumeTeachingActivity()
@@ -776,6 +781,7 @@ final class SeparationPracticeTests: XCTestCase {
                 defer { restored.suspendTeachingActivity() }
                 restored.attach(repository: repo); restored.setupScene()
                 XCTAssertEqual(restored.phase, .aiming); XCTAssertTrue(visible(restored, "actual"))
+                assertRecordedRouteColor(restored.scene,names:["separation.actual"],historical:true)
                 XCTAssertFalse(visible(restored, "reference"))
                 // A replacement appears only after a successful save; its route replaces the previous one.
                 restored.velocity = 2.8; restored.strike()

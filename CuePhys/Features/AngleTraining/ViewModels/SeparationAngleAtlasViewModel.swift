@@ -10,7 +10,7 @@ import SwiftUI
 @MainActor
 final class SeparationAngleAtlasViewModel: TeachingTableHost {
 
-    let scene = AngleTrainingScene()
+    let scene = AngleTrainingScene(trajectoryWidths: .interactiveTable)
     private var pocketMarkers: [SCNNode] = []
     private var trajectoryNodes: [SCNNode] = []
 
@@ -509,7 +509,7 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
             guard path.count >= 2 else { continue }
             scene.addDashedPolyline(path,
                 color: SeparationAngleAtlasGeometry.trackColor(at: index),
-                radius: TrajectoryStyle.lineMain,
+                radius: scene.trajectoryWidths.mainRadius,
                 placement: .table, into: &trajectoryNodes)
         }
     }

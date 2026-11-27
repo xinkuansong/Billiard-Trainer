@@ -45,10 +45,7 @@ struct SpatialPracticeView: View {
             menuItems:menu,refreshTrajectory:{ vm.refreshAim() },applyPreferences:{ vm.applyPreferences($0) },
             onLayoutEditingChanged:{ layoutEditing=$0 },layoutEditingBlocked:vm.busy || vm.phase == .calculating,
             onAimNudged:{ vm.nudgeAim($0) },
-            resolveP01AimPan:{
-                guard enabled, !missingCue else { return nil }
-                return { vm.nudgeAim($0) }
-            },showsAimCloseupSetting:false,showsTrajectorySetting:true,showsSeparationSetting:false,
+            resolveP01AimPan:nil,showsAimCloseupSetting:false,showsTrajectorySetting:true,showsSeparationSetting:false,
             onSpinChange:{ vm.setSpin($0,$1) },
             overlay:{ projector,_ in
                 #if DEBUG
@@ -120,7 +117,7 @@ struct SpatialPracticeView: View {
                             .disabled(!enabled || vm.record.lastShot == nil).accessibilityIdentifier("masseJump.replay").freeControlItem("shot.replay",name:"回放")
                     }
                     .overlay(alignment:.bottomTrailing) {
-                        SpatialElevationWheel(value:vm.displayedInput.elevation,enabled:enabled,
+                        BTSpatialElevationWheel(value:vm.displayedInput.elevation,enabled:enabled,
                             width:max(96,min(144,layout.rulerLength)),onNudge:vm.nudgeElevation)
                             .alignmentGuide(.trailing) { _ in -layout.groupSpacing }
                     }
@@ -150,6 +147,8 @@ struct SpatialPracticeView: View {
                 TimelineView(.periodic(from:.now,by:0.25)) { _ in
                     Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
                         .accessibilityIdentifier("masseJump.timingProbe").accessibilityValue(vm.timingProbeJSON)
+                    Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
+                        .accessibilityIdentifier("masseJump.poseTimingProbe").accessibilityValue(vm.inputTimingJSON)
                 }
             }
             if ProcessInfo.processInfo.arguments.contains("-masseJump.probe") {
@@ -163,6 +162,9 @@ struct SpatialPracticeView: View {
                 TimelineView(.animation(minimumInterval:0.1,paused:!vm.busy)) { _ in
                     Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
                         .accessibilityIdentifier("masseJump.previewProbe").accessibilityValue(vm.previewProbeJSON)
+                    Color.clear.frame(width:1,height:1).accessibilityElement()
+                        .accessibilityIdentifier("masseJump.discOpacity")
+                        .accessibilityValue(String(1-preferences.snapshot(for:.masseJump)[.transparency]))
                     let height=vm.scene.cueBallNode?.presentation.position.y ?? 0
                     Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
                         .accessibilityIdentifier("masseJump.probe")
@@ -176,28 +178,6 @@ struct SpatialPracticeView: View {
     private func labels(_ keys:[String])->String { keys.isEmpty ? "无" : keys.map { PositionPlayBall.isCue($0) ? "母球" : PositionPlayBall.shortLabel(for:$0)+"号" }.joined(separator:"、") }
 }
 
-private struct SpatialElevationWheel:View {
-    @Environment(\.teachingInstrumentActivity) private var reportActivity
-    let value:Double
-    let enabled:Bool
-    let width:CGFloat
-    let onNudge:(Float)->Void
-    var body:some View {
-        VStack(spacing:0) {
-            BTAimWheel(onNudge:onNudge,degreesPerPoint:0.20,degreeHapticEnabled:false,travelHapticEnabled:true,
-                onDragActiveChanged:{ reportActivity?($0) },visibleWidth:18,showsDirectionLabel:false)
-                .frame(width:32,height:width)
-                .rotationEffect(.degrees(90))
-                .frame(width:width,height:32)
-                .accessibilityLabel("抬杆角度").accessibilityValue("\(Int(value.rounded()))度")
-                .accessibilityHint("右划增大抬杆角度，左划减小抬杆角度")
-                .accessibilityIdentifier("masseJump.elevation")
-            Text("抬杆 \(Int(value.rounded()))°").font(.btMicro).monospacedDigit().foregroundStyle(.white)
-        }
-            .frame(width:width).disabled(!enabled).opacity(enabled ? 1 : 0.3)
-            .freeControlItem("shot.elevation",name:"抬杆角度")
-    }
-}
 
 #if DEBUG
 private struct SpatialPlacementProbe:View {

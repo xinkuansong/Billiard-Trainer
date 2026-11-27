@@ -59,6 +59,8 @@ CuePhysTests/SixPocketV4RefineTests.swift
 CuePhysTests/SixPocketV4Round2ProbeTests.swift
 CuePhysTests/SixPocketV5VideoTests.swift
 CuePhysTests/SpatialPracticeRecoveryTests.swift
+CuePhysTests/SpatialQuizBankTests.swift
+CuePhysTests/SpatialQuizSessionTests.swift
 CuePhysTests/SpinExportParityTests.swift
 CuePhysTests/SpinRenderEvidenceTests.swift
 CuePhysTests/StatisticsViewModelTests.swift
@@ -126,6 +128,7 @@ CuePhysUITests/SeparationPracticeUITests.swift
 CuePhysUITests/ShotAudioPreviewUITests.swift
 CuePhysUITests/SixTrainingUnifiedUITests.swift
 CuePhysUITests/SnakePracticeUITests.swift
+CuePhysUITests/SpatialQuizUITests.swift
 CuePhysUITests/SpinAndEnglishZ4UITests.swift
 CuePhysUITests/TrainingAtmosphereUITests.swift
 CuePhysUITests/V19_CueAimLineUITests.swift

@@ -45,7 +45,7 @@ struct PositionPlayComposerView: View {
         self.onBack = onBack
     }
 
-    @StateObject private var vm = PositionPlayViewModel()
+    @StateObject private var vm = PositionPlayViewModel(trajectoryWidths: .interactiveTable)
     @ObservedObject private var memoryOwner = CurrentOwnerContext.shared
     @Environment(\.dismiss) private var dismiss
     @State private var tryoutBoard: BoardSnapshot?

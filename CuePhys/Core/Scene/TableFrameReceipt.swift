@@ -105,3 +105,47 @@ final class TableInteractionTimingProbe: @unchecked Sendable {
     }
 }
 #endif
+
+#if DEBUG
+import Darwin
+
+/// Opt-in native acceptance evidence. No scheduling, physics, entitlement or camera decisions.
+final class SpatialRuntimeProbe {
+    static let enabled = ProcessInfo.processInfo.arguments.contains("-spatialQuiz.metrics")
+    private static let lock=NSLock()
+    private static var live:[UUID:(String,Double)] = [:]
+    private static var finished:[[String:Any]] = []
+    final class Token {
+        private let id=UUID()
+        init(_ kind:String) {
+            guard SpatialRuntimeProbe.enabled else { return }
+            lock.lock();live[id]=(kind,ProcessInfo.processInfo.systemUptime);lock.unlock()
+        }
+        func finish() {
+            guard SpatialRuntimeProbe.enabled else { return }
+            lock.lock();defer { lock.unlock() }
+            if let (kind,start)=live.removeValue(forKey:id) {
+                finished.append(["kind":kind,"seconds":ProcessInfo.processInfo.systemUptime-start])
+                if finished.count>200 { finished.removeFirst(finished.count-200) }
+            }
+        }
+        deinit { finish() }
+    }
+    static var json:String {
+        var usage=rusage();getrusage(RUSAGE_SELF,&usage)
+        let cpu=Double(usage.ru_utime.tv_sec+usage.ru_stime.tv_sec)+Double(usage.ru_utime.tv_usec+usage.ru_stime.tv_usec)/1_000_000
+        var info=mach_task_basic_info()
+        var count=mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
+        let status=withUnsafeMutablePointer(to:&info) { pointer in
+            pointer.withMemoryRebound(to:integer_t.self,capacity:Int(count)) {
+                task_info(mach_task_self_,task_flavor_t(MACH_TASK_BASIC_INFO),$0,&count)
+            }
+        }
+        lock.lock();let kinds=live.values.map { $0.0 },history=finished;lock.unlock()
+        let value:[String:Any] = ["uptime":ProcessInfo.processInfo.systemUptime,"cpuSeconds":cpu,
+            "residentBytes":status == KERN_SUCCESS ? info.resident_size:0,
+            "live":kinds,"finished":history,"layout":DailyLayoutProbe.snapshot()]
+        return (try? JSONSerialization.data(withJSONObject:value,options:.sortedKeys)).map { String(decoding:$0,as:UTF8.self) } ?? "{}"
+    }
+}
+#endif

@@ -319,6 +319,33 @@ final class KBallPracticeTests: XCTestCase {
         XCTAssertThrowsError(try repository.resumable(is3D: false))
         XCTAssertEqual(HistoryViewModel.assembleKBallSessions(sessions: sessions).unreadableCount, 1)
     }
+    @MainActor func testHistoricalRouteRetryReplayAndRestoration() throws {
+        let suite="KBallHistory."+UUID().uuidString,defaults=try XCTUnwrap(UserDefaults(suiteName:suite))
+        defer { defaults.removePersistentDomain(forName:suite) }
+        let limiter=AngleUsageLimiter(defaults:defaults,namespace:suite);limiter.isPremium=true
+        let prepared=try KBallQuestionPreparer.prepare(.init(),seed:31),q=prepared.question
+        let prediction=try KBallQuestionPreparer.solve(layout:q.layout,question:q.source,input:.init(),
+            surfaceY:BTTablePhysics.surfaceY,profile:AccuracyTipSelector.renderedProfile(),reference:true)
+        let shot=try KBallShot(question:q,input:.init(),prediction:prediction,surfaceY:BTTablePhysics.surfaceY)
+        let repo=MemoryKBallRepository()
+        var record=KBallPracticeRecord(ownerKey:repo.ownerKey,is3D:false,configuration:.init(),prepared:prepared)
+        record.accept(shot);record.showingResult=true;try repo.save(record)
+        let vm=KBallPracticeViewModel(is3D:false,limiter:limiter,defaults:defaults)
+        vm.attach(repository:repo);vm.setupScene();defer { vm.suspendTeachingActivity() }
+        assertRecordedRouteColor(vm.scene,names:["kBall.actual"],historical:false)
+        vm.retry()
+        assertRecordedRouteColor(vm.scene,names:["kBall.actual"],historical:true)
+        vm.replayLastShot()
+        assertRecordedRouteColor(vm.scene,names:["kBall.actual"],historical:false)
+        vm.stopPlayback()
+        assertRecordedRouteColor(vm.scene,names:["kBall.actual"],historical:true)
+        vm.suspendTeachingActivity()
+        let restored=KBallPracticeViewModel(is3D:false,limiter:limiter,defaults:defaults)
+        restored.attach(repository:repo);restored.setupScene();defer { restored.suspendTeachingActivity() }
+        assertRecordedRouteColor(restored.scene,names:["kBall.actual"],historical:true)
+        XCTAssertEqual(restored.record?.attempts.count,1)
+    }
+
     private func shot(_ question: KBallQuestion, succeeds: Bool) throws -> KBallShot {
         var prediction = ShotPrediction()
         prediction.termination = .settled; prediction.recorder = TrajectoryRecorder()
