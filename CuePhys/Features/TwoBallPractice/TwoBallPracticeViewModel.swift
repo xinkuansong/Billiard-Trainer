@@ -7,7 +7,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
     enum Phase { case loading, settings, aiming, preparing, playing, result, saveFailed, summary }
     var is3D: Bool { cameraMode == .perspective3D }
     private let initialView3D: Bool
-    let scene = AngleTrainingScene()
+    let scene = AngleTrainingScene(trajectoryWidths: .interactiveTable)
     let limiter: AngleUsageLimiter
     @Published private(set) var record: TwoBallPracticeRecord?
     @Published private(set) var phase: Phase = .loading {
@@ -18,6 +18,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         }
     }
     lazy var geometryReference = GeometricReferenceTool(scene: scene) { [weak self] in self?.objectWillChange.send(); self?.scheduleSave() }
+    @Published private(set) var actualRoutePresentation: TrajectoryStyle.Presentation = .current
     @Published var message: String?
     @Published private(set) var notice: TrainingPracticeNotice?
     @Published var cameraMode: AngleTrainingScene.CameraMode
@@ -348,7 +349,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         topDownContentRevision += 1
         drawTarget(); clearActual(); prepareReference()
         if record?.showingResult == true { showFinal(); drawActual(); phase = .result }
-        else { phase = .aiming; drawActual(showsObjectRoute: false); redrawCue() }
+        else { phase = .aiming; drawActual(showsObjectRoute: false, presentation: .historical); redrawCue() }
         refreshObservationCameraContext()
         scene.discardSavedPerspectiveView()
         if is3D { requestPlayerView(.thirdPerson, animated: false, resetThirdPerson: true) }
@@ -413,7 +414,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
                 guard let self, !Task.isCancelled, self.record?.current?.id == question.id,
                       self.shouldShowReference, self.referenceQuestionID == question.id else { return }
                 self.referenceTrajectory = line
-                self.scene.addDashedPolyline(self.points(line), color: SeparationRouteStyle.reference,
+                self.scene.addDashedPolyline(self.points(line), color: SeparationRouteStyle.reference, radius: self.scene.trajectoryWidths.hintRadius,
                     placement: .table, into: &self.referenceNodes)
                 self.referenceNodes.forEach {
                     $0.name = "twoBall.reference"
@@ -447,18 +448,19 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         objectNodes.forEach { $0.removeFromParentNode() }; objectNodes = []
         drawAimingGuides()
     }
-    private func drawActual(showsObjectRoute: Bool = true) {
+    private func drawActual(showsObjectRoute: Bool = true, presentation: TrajectoryStyle.Presentation = .current) {
+        actualRoutePresentation = presentation
         prepareReference()
         clearActual()
         topDownContentRevision += 1
         guard record?.latestShot != nil else { return }
-        scene.addDashedPolyline(points(record?.latestShot?.trajectory ?? []), color: SeparationRouteStyle.actual,
+        scene.addDashedPolyline(points(record?.latestShot?.trajectory ?? []), color: presentation.color(SeparationRouteStyle.actual),
             placement: .table, into: &actualNodes)
         actualNodes.forEach { $0.name = "twoBall.actual" }
         guard showsObjectRoute else { return }
         scene.pocketLineNode?.isHidden = true
         scene.addDashedPolyline(points(record?.latestShot?.objectTrajectory ?? []),
-            color: TrajectoryStyle.potColor(forNumber: record?.current?.ballNumber ?? 1),
+            color: presentation.color(TrajectoryStyle.potColor(forNumber: record?.current?.ballNumber ?? 1)),
             placement: .table, into: &objectNodes)
         objectNodes.forEach { $0.name = "twoBall.objectActual" }
     }
@@ -633,7 +635,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         guard canRetry, permitted(), let shot = record?.latestShot else { return }
         invalidate(); record?.draftInput = shot.input; record?.showingResult = false; record?.retryOverride = true
         solvedAim = shot.direction.vector; phase = .aiming
-        seatBalls(); drawActual(showsObjectRoute: false)
+        seatBalls(); drawActual(showsObjectRoute: false, presentation: .historical)
         if let shotCamera { scene.restorePerspectiveView(shotCamera) }
         else if let saved = record?.shotBookmark, let cue = scene.cueBallNode?.position {
             scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: shot.direction.vector)
@@ -679,14 +681,14 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         let displayed = demonstrationInput
         invalidate()
         demonstrationInput = displayed
-        if phase == .aiming { drawActual(showsObjectRoute: false); redrawCue() }
+        if phase == .aiming { drawActual(showsObjectRoute: false, presentation: .historical); redrawCue() }
     }
     private func restoreReplay() {
         guard let state = replayReturn else { return }
         state.1.restore(scene.cueBallNode); state.2.restore(targetNode); state.4.restore(secondNode)
         replayCamera.finish(in: scene); phase = state.0; activeSince = Date(); record?.showingResult = state.0 == .result
         replayReturn = nil; isReplaying = false
-        if phase == .aiming { drawActual(showsObjectRoute: false) }
+        if phase == .aiming { drawActual(showsObjectRoute: false, presentation: .historical) }
     }
     private var nextQuestionKey: NextQuestionKey? {
         guard let record, let question = record.current, let repository,
@@ -977,7 +979,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         if wasPlaying { phase = .result; record?.showingResult = true; showFinal() }
         else if phase == .preparing {
             phase = record?.showingResult == true ? .result : .aiming
-            if phase == .aiming { seatBalls(); drawActual(showsObjectRoute: false); record?.showingResult = false }
+            if phase == .aiming { seatBalls(); drawActual(showsObjectRoute: false, presentation: .historical); record?.showingResult = false }
             else { showFinal(); drawActual() }
         }
         _ = save(); activeSince = nil

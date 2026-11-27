@@ -2140,11 +2140,11 @@ final class CameraV67PilotUITests: XCTestCase {
         shot.name = name; shot.lifetime = .keepAlways; add(shot)
     }
 
-    private func launchFormal(traceTouches: Bool = false, lightCapture: Bool = false) throws -> XCUIApplication {
+    private func launchFormal(traceTouches: Bool = false, lightCapture: Bool = false, cameraTiming: Bool = false) throws -> XCUIApplication {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         let diagnostics = lightCapture ? [] : ["-dailyLayout.probe", "-3dDrag.probe", "-v63.cameraDiagnostics", "-v67.cameraBaseline"]
-        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"] + diagnostics)
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"] + diagnostics + (cameraTiming ? ["-v74.cameraTiming"] : []))
         // Each case starts from the real default board, not the previous case's saved edits.
         app.terminate()
         app.launchEnvironment["BOARD_MEMORY_TEST_DOMAIN"] = UUID().uuidString
@@ -2449,6 +2449,85 @@ final class CameraV67PilotUITests: XCTestCase {
         }
         XCTAssertGreaterThan(separation(original, close), 0.05)
         XCTAssertLessThan(separation(original, returned), 0.002)
+    }
+
+    /// Real table touches. The trace proves whether the drag interrupted a moving
+    /// camera; waiting for XCTest actions alone does not establish that condition.
+    func testV74InterruptedReturnTiming() throws {
+        let app = try launchFormal(cameraTiming: true)
+        defer { app.terminate() }
+        let stage = node(app, "table.scene")
+        let third = app.buttons["shotCamera.thirdPerson"]
+        let initial = try capture(app, "v74-before")
+        func safeStart() throws -> XCUICoordinate {
+            let balls = try XCTUnwrap(try rawScene(app)["balls"] as? [[String: Any]])
+            let points = try balls.map { try XCTUnwrap($0["screen"] as? [Double]) }
+            let f = stage.frame
+            let candidates = [CGPoint(x: 0.35, y: 0.20), CGPoint(x: 0.35, y: 0.30),
+                              CGPoint(x: 0.40, y: 0.23), CGPoint(x: 0.40, y: 0.36)]
+            func clearance(_ p: CGPoint) -> CGFloat {
+                points.map { hypot(p.x * f.width - $0[0], p.y * f.height - $0[1]) }.min() ?? .infinity
+            }
+            let p = try XCTUnwrap(candidates.max { clearance($0) < clearance($1) })
+            XCTAssertGreaterThan(clearance(p), 60)
+            return stage.coordinate(withNormalizedOffset: .init(dx: p.x, dy: p.y))
+        }
+        // Four real observation swipes establish about 77 degrees of travel.
+        // A short first/third switch finishes before XCTest can deliver the drag.
+        for _ in 0..<4 {
+            let start = try safeStart()
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(.init(dx: 250, dy: 0)),
+                        withVelocity: .fast, thenHoldForDuration: 0.05)
+        }
+        _ = try capture(app, "v74-side-before-selection")
+        let start = try safeStart()
+        let balls = try XCTUnwrap(try rawScene(app)["balls"] as? [[String: Any]])
+        let selected = try XCTUnwrap(balls.first { $0["key"] as? String == "_1" })
+        let point = try XCTUnwrap(selected["screen"] as? [Double])
+        XCTAssertTrue(CGRect(origin: .zero, size: stage.frame.size).insetBy(dx: 65, dy: 26)
+            .contains(.init(x: point[0], y: point[1])))
+        stage.coordinate(withNormalizedOffset: .zero).withOffset(.init(dx: point[0], dy: point[1])).tap()
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(.init(dx: 150, dy: 35)),
+                    withVelocity: .fast, thenHoldForDuration: 0.05)
+        let held = try capture(app, "v74-interrupted")
+        third.tap()
+        third.tap() // Same destination while moving must retain the first arrival.
+        let returned = try capture(app, "v74-returned")
+        let trace = try XCTUnwrap(returned["v74Timing"] as? [[String: Any]])
+        let interrupted = trace.contains { row in
+            guard row["event"] as? String == "before-beginObservation",
+                  let snap = row["snapshot"] as? [String: Any] else { return false }
+            guard let motion = snap["motion"] as? [String: Any],
+                  let ramp = motion["rampSeconds"] as? Double else { return false }
+            return abs(ramp - 0.16) < 0.00001
+        }
+        XCTAssertTrue(interrupted, "The native drag must interrupt an active transition")
+        XCTAssertEqual(initial["aim"] as? [Double], held["aim"] as? [Double])
+        XCTAssertEqual(initial["business"] as? String, held["business"] as? String)
+        XCTAssertEqual(initial["aim"] as? [Double], returned["aim"] as? [Double])
+        let camera = try XCTUnwrap(returned["p01"] as? [String: Any])
+        let state = try XCTUnwrap(camera["state"] as? [String: Any])
+        XCTAssertEqual(state["observationYaw"] as? Double, 0)
+        XCTAssertNil(camera["motion"])
+        XCTAssertEqual(state["generalTiming"] as? String,"selectionMatchedV1")
+        let returns = trace.compactMap { row -> [String:Any]? in
+            guard row["event"] as? String == "selected-thirdPerson",
+                  let snap=row["snapshot"] as? [String:Any] else { return nil }
+            return snap["motion"] as? [String:Any]
+        }
+        XCTAssertGreaterThanOrEqual(returns.count,2)
+        let firstReturn=returns[returns.count-2], repeatReturn=returns[returns.count-1]
+        XCTAssertEqual(firstReturn["start"] as? Double,repeatReturn["start"] as? Double)
+        XCTAssertEqual(firstReturn["duration"] as? Double,repeatReturn["duration"] as? Double)
+        XCTAssertNotNil(firstReturn["channelTimes"])
+        XCTAssertLessThan(try XCTUnwrap(firstReturn["duration"] as? Double),0.9)
+        let selections=trace.compactMap { row -> [String:Any]? in
+            guard row["event"] as? String == "target",
+                  let snap=row["snapshot"] as? [String:Any] else { return nil }
+            return snap["motion"] as? [String:Any]
+        }
+        let selection=try XCTUnwrap(selections.last)
+        XCTAssertEqual(try XCTUnwrap(selection["duration"] as? Double),0.80458,accuracy:0.02)
     }
 
     func testFormalSelectionSwitchAndModeSwipes() throws {
@@ -2948,7 +3027,10 @@ final class CameraV67LegacyIsolationUITests: XCTestCase {
             let shot=XCTAttachment(screenshot:XCUIScreen.main.screenshot());shot.name=prefix+suffix;shot.lifetime = .keepAlways;add(shot)
             return row
         }
-        for id in ["shotCamera.firstPerson","shotCamera.thirdPerson","dailyClearance.observeTable"] {
+        // TP17 removed the global-observation button from the shared column;
+        // legacy isolation concerns the camera policy, not the retired UI entry.
+        XCTAssertFalse(app.buttons["dailyClearance.observeTable"].exists)
+        for id in ["shotCamera.firstPerson","shotCamera.thirdPerson"] {
             let button=app.buttons[id];XCTAssertTrue(button.waitForExistence(timeout:5));button.tap();_ = try capture("-"+id)
         }
         let before=try capture("-before-overlay")

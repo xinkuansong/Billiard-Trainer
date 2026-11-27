@@ -5,6 +5,9 @@ final class SpatialPracticeUITests:XCTestCase {
     private var app:XCUIApplication!
     override func setUp() { continueAfterFailure=false }
     override func tearDown() { app?.terminate();XCUIDevice.shared.orientation = .portrait }
+    private func launchSpatial(extraArgs:[String])->XCUIApplication {
+        XCUIApplication.launchClean(extraArgs:extraArgs,environment:["SPATIAL_TEST_SESSION":UUID().uuidString])
+    }
     private func element(_ id:String)->XCUIElement { app.descendants(matching:.any).matching(identifier:id).firstMatch }
     private func ready(_ e:XCUIElement) {
         XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate(format:"exists == true AND hittable == true AND enabled == true"),object:e)],timeout:90),.completed,e.debugDescription)
@@ -45,6 +48,13 @@ final class SpatialPracticeUITests:XCTestCase {
     }
     private func revealMenu(_ id:String)->XCUIElement {
         let item=element(id),scroll=app.scrollViews["dailyClearance.menuScroll"]
+        if !scroll.waitForExistence(timeout:3) {
+            // Layout dismissal may leave AX's synthesized activation stale.
+            // Use the settled visible button center, then require the menu.
+            let more=element("masseJump.more");stable(more)
+            more.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.5)).tap()
+        }
+        XCTAssertTrue(scroll.waitForExistence(timeout:10))
         for _ in 0..<6 {
             if item.isHittable { break }
             scroll.swipeUp()
@@ -108,6 +118,39 @@ final class SpatialPracticeUITests:XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: rackCamera, object: camera)],
                                       timeout: 40), .completed)
         capture("rack-shared-aim-only")
+    }
+
+    func testThirdPersonEyeRisesAndFallsWithElevationWheel() throws {
+        app=launchSpatial(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
+        app.switchTab(.angle)
+        let advanced=app.buttons["angleHomeTab_进阶"];ready(advanced);advanced.tap()
+        let entry=app.buttons["扎杆与跳球"];ready(entry);entry.tap()
+        let wheel=element("masseJump.elevation");ready(wheel);settledTable()
+        let third=element("shotCamera.thirdPerson");ready(third);third.tap();ready(wheel)
+        let before=previewProbe()
+        let beforeAngle=try XCTUnwrap(before["displayedElevation"] as? Double)
+        let beforeEye=try XCTUnwrap(before["camera"] as? [Double])
+        XCTAssertEqual(before["view"] as? String,"thirdPerson")
+        capture("third-person-wheel-before")
+        wheel.coordinate(withNormalizedOffset:.init(dx:0.15,dy:0.5)).press(forDuration:0.1,
+            thenDragTo:wheel.coordinate(withNormalizedOffset:.init(dx:0.85,dy:0.5)))
+        XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
+            (self.previewProbe()["displayedElevation"] as? Double ?? 0)>beforeAngle
+        },object:app)],timeout:15),.completed)
+        let raised=try XCTUnwrap(previewProbe()["camera"] as? [Double])
+        XCTAssertGreaterThan(raised[1],beforeEye[1]+0.01)
+        XCTAssertEqual(raised[0],beforeEye[0],accuracy:0.002)
+        XCTAssertEqual(raised[2],beforeEye[2],accuracy:0.002)
+        capture("third-person-wheel-raised")
+        let raisedAngle=try XCTUnwrap(previewProbe()["displayedElevation"] as? Double)
+        wheel.coordinate(withNormalizedOffset:.init(dx:0.85,dy:0.5)).press(forDuration:0.1,
+            thenDragTo:wheel.coordinate(withNormalizedOffset:.init(dx:0.15,dy:0.5)))
+        XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
+            (self.previewProbe()["displayedElevation"] as? Double ?? 90)<raisedAngle
+        },object:app)],timeout:15),.completed)
+        let lowered=try XCTUnwrap(previewProbe()["camera"] as? [Double])
+        XCTAssertLessThan(lowered[1],raised[1]-0.01)
+        capture("third-person-wheel-lowered")
     }
     func testMovingCueRaisesElevationAndRestoresWheelSetting() throws {
         app = XCUIApplication()
@@ -210,7 +253,7 @@ final class SpatialPracticeUITests:XCTestCase {
         }
     }
     func testLegacyDailyAndFormationContinueAfterSpatialVisit() throws {
-        app=XCUIApplication.launchClean(extraArgs:["-forcePremium","-freeLayout.ephemeral","-3dDrag.probe","-masseJump.probe",
+        app=launchSpatial(extraArgs:["-forcePremium","-freeLayout.ephemeral","-3dDrag.probe","-masseJump.probe",
             "-v50.inMemoryStore","-v54.todayState=freeCompleted","-dailyClearance.resetHomeState"])
         func open(_ custom:Bool) {
             if custom {
@@ -248,9 +291,14 @@ final class SpatialPracticeUITests:XCTestCase {
         }
     }
     func testLegacyAccuracyContinuesAfterSpatialVisit() throws {
-        app=XCUIApplication.launchClean(extraArgs:["-forcePremium","-freeLayout.ephemeral","-trainingMerge.probe","-masseJump.probe","-v50.inMemoryStore"])
+        app=launchSpatial(extraArgs:["-forcePremium","-freeLayout.ephemeral","-trainingMerge.probe","-masseJump.probe","-v50.inMemoryStore"])
         func open() {
-            openPractice("准度练习");ready(element("accuracy.start"));element("accuracy.start").tap()
+            openPractice("准度练习")
+            let start=element("accuracy.start"),strike=element("accuracy.strike")
+            XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate { _,_ in
+                start.exists || strike.exists
+            },object:app)],timeout:30),.completed)
+            if start.exists { ready(start);start.tap() }
             stable(element("accuracy.strike"))
         }
         func state() throws -> [String:Any] {
@@ -275,7 +323,7 @@ final class SpatialPracticeUITests:XCTestCase {
     }
     func testIPadHighElevationAndRealWindowResizeReturns() throws {
         XCTAssertEqual(UIDevice.current.userInterfaceIdiom,.pad)
-        app=XCUIApplication.launchClean(extraArgs:["-forcePremium","-freeLayout.ephemeral","-masseJump.probe"])
+        app=launchSpatial(extraArgs:["-forcePremium","-freeLayout.ephemeral","-masseJump.probe","-3dDrag.probe"])
         app.maximizeTrainingTestWindow();openPractice("扎杆与跳球")
         ready(element("masseJump.elevation"));settledTable()
         let wheel=element("masseJump.elevation")
@@ -294,6 +342,12 @@ final class SpatialPracticeUITests:XCTestCase {
             XCTAssertEqual(values.count,2);return values
         }
         let originalContent=try viewport()
+        func renderedViewport() throws -> [Double] {
+            let text=try XCTUnwrap(element("table.scene").value as? String)
+            let value=try XCTUnwrap(JSONSerialization.jsonObject(with:Data(text.utf8)) as? [String:Any])
+            return try XCTUnwrap(value["displayedViewport"] as? [Double])
+        }
+        let originalRender=try renderedViewport()
         let start=app.coordinate(withNormalizedOffset:CGVector(dx:0.985,dy:0.99))
         start.press(forDuration:1,thenDragTo:app.coordinate(withNormalizedOffset:CGVector(dx:0.62,dy:0.72)),
             withVelocity:.slow,thenHoldForDuration:0.5)
@@ -309,8 +363,13 @@ final class SpatialPracticeUITests:XCTestCase {
         XCTAssertEqual(previewProbe()["cueWorld"] as? [Double],before["cueWorld"] as? [Double])
         for id in visibleControlIDs { XCTAssertTrue(window.frame.contains(element(id).frame),id) }
         app.maximizeTrainingTestWindow();ready(wheel);settledTable()
-        let restored=try viewport()
-        for axis in 0..<2 { XCTAssertEqual(restored[axis],originalContent[axis],accuracy:1) }
+        let restored=try renderedViewport()
+        XCTAssertEqual(window.frame.width,original.width,accuracy:1)
+        XCTAssertEqual(window.frame.height,original.height,accuracy:1)
+        // The OS status-bar inset may change; require the actual 3D table,
+        // including its origin, to return to precisely the same full viewport.
+        XCTAssertEqual(restored.count,originalRender.count)
+        for axis in originalRender.indices { XCTAssertEqual(restored[axis],originalRender[axis],accuracy:1) }
         XCTAssertEqual(previewProbe()["cueWorld"] as? [Double],before["cueWorld"] as? [Double])
         capture("v66-r6-pad-maximized-return")
         element("masseJump.back").tap()
@@ -318,7 +377,7 @@ final class SpatialPracticeUITests:XCTestCase {
     /// Measures App receipt -> rendered preview / actual cue presentation motion.
     /// XCTest dispatch and accessibility polling time are deliberately excluded.
     func testNativePreviewAndCachedStrokeLatency() throws {
-        app=XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium",
+        app=launchSpatial(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium",
             "-masseJump.probe","-masseJump.timing"])
         app.switchTab(.angle)
         let advanced=app.buttons["angleHomeTab_进阶"];ready(advanced);advanced.tap()
@@ -379,7 +438,7 @@ final class SpatialPracticeUITests:XCTestCase {
         element("masseJump.back").tap()
     }
     func testSpatialTrajectorySettingsUseSamePrediction() {
-        app=XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
+        app=launchSpatial(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
         app.switchTab(.angle)
         let advanced=app.buttons["angleHomeTab_进阶"];ready(advanced);advanced.tap()
         let entry=app.buttons["扎杆与跳球"];ready(entry);entry.tap()
@@ -405,8 +464,20 @@ final class SpatialPracticeUITests:XCTestCase {
         element("masseJump.dismissMenu").tap()
         element("masseJump.back").tap()
     }
+    func testHistoricalRouteAfterRetry() {
+        app=launchSpatial(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
+        openPractice("扎杆与跳球")
+        ready(element("masseJump.elevation"));settledTable()
+        let strike=element("masseJump.strike");ready(strike);strike.tap()
+        let retry=element("masseJump.retry");ready(retry);retry.tap();ready(strike)
+        element("masseJump.more").tap();revealMenu("masseJump.lastShot").tap()
+        let route=element("masseJump.route");ready(route);route.tap()
+        element("masseJump.dismissMenu").tap();ready(strike)
+        capture("masseJump-historical-route-retry")
+    }
+
     func testAdvancedEntryControlsStrikeRetryReplayAndReturn() {
-        app=XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
+        app=launchSpatial(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
         app.switchTab(.angle)
         let advanced=app.buttons["angleHomeTab_进阶"];ready(advanced);advanced.tap()
         capture("v66-advanced-entry")
@@ -518,7 +589,7 @@ final class SpatialPracticeUITests:XCTestCase {
         capture("v66-legacy-bank-settings")
     }
     func testSpatialBreakDeliversRestoresInputsRetriesAndRemembersGame() {
-        app=XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
+        app=launchSpatial(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
         app.switchTab(.angle)
         let advanced=app.buttons["angleHomeTab_进阶"];ready(advanced);advanced.tap()
         let entry=app.buttons["扎杆与跳球"];ready(entry);entry.tap()
@@ -563,7 +634,7 @@ final class SpatialPracticeUITests:XCTestCase {
         element("masseJump.back").tap()
     }
     func testNativeFlyoutRecoversAfterShotAndReplaysOriginalAfterReentry() {
-        app=XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
+        app=launchSpatial(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
         app.switchTab(.angle)
         let advanced=app.buttons["angleHomeTab_进阶"];ready(advanced);advanced.tap()
         let entry=app.buttons["扎杆与跳球"];ready(entry);entry.tap()
@@ -686,8 +757,8 @@ final class SpatialPracticeUITests:XCTestCase {
         XCTAssertEqual(previewProbe()["phase"] as? String,"ready")
         element("masseJump.back").tap()
     }
-    func testZSpatialEmptyTableMenuAndIndependentLayout() {
-        app=XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
+    func testZSpatialEmptyTableMenuAndIndependentLayout() throws {
+        app=launchSpatial(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-masseJump.probe"])
         app.switchTab(.angle)
         let advanced=app.buttons["angleHomeTab_进阶"];ready(advanced);advanced.tap()
         let entry=app.buttons["扎杆与跳球"];ready(entry);entry.tap()
@@ -774,14 +845,24 @@ final class SpatialPracticeUITests:XCTestCase {
             element("masseJump.more").tap();revealMenu("masseJump.transparency").tap()
             let slider=app.sliders["dailyClearance.spinTransparencySlider"];ready(slider)
             slider.adjust(toNormalizedSliderPosition:value)
-            XCTAssertEqual(slider.value as? String,"\(Int(value*100))%")
+            let observed=Double(slider.normalizedSliderPosition)
+            if value == 0 || value == 1 {
+                XCTAssertEqual(slider.value as? String,"\(Int(value*100))%")
+            } else {
+                // The OS drag target is approximate. Verify a real intermediate
+                // setting against the value consumed by the shared spin disc.
+                XCTAssertGreaterThan(observed,0);XCTAssertLessThan(observed,1)
+            }
+            let opacity=try XCTUnwrap(Double(element("masseJump.discOpacity").value as? String ?? ""))
+            XCTAssertEqual(1-opacity,observed,accuracy:0.0051,"AX percentage rounds to 1%; actual disc binding must agree")
             capture("v66-spin-transparency-\(Int(value*100))")
             element("dailyClearance.spinTransparencyDone").tap()
             ready(app.buttons["回中"]);app.buttons["回中"].tap()
             XCTAssertEqual(previewProbe()["spinX"] as? Double,0)
             XCTAssertEqual(previewProbe()["spinY"] as? Double,0)
             app.buttons["chevron.up"].tap()
-            XCTAssertEqual(previewProbe()["spinY"] as? Double ?? -1,0.01,accuracy:0.00001)
+            // Shared SpinPadMath.step is 1% of the 0.5 effective contact range.
+            XCTAssertEqual(previewProbe()["spinY"] as? Double ?? -1,0.005,accuracy:0.00001)
             app.buttons["回中"].tap()
             app.buttons["关闭打点"].coordinate(withNormalizedOffset:CGVector(dx:0.05,dy:0.05)).tap()
         }

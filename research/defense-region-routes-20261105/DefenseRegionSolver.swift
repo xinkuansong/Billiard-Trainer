@@ -1,0 +1,222 @@
+import Foundation
+import SceneKit
+
+// Research-only specialization. Actual table pockets and all three balls remain physical.
+struct DefenseRegionBlock {
+    let id:Int, region:SolveRegion, centre:SIMD2<Double>, area:Double, cells:Int
+}
+struct DefenseRegionMap {
+    let nx=150,nz=75
+    let hx=Double(AngleSceneCalculator.innerLength/2-AngleSceneCalculator.ballRadius)
+    let hz=Double(AngleSceneCalculator.innerWidth/2-AngleSceneCalculator.ballRadius)
+    var scores=[Double](repeating:-1,count:150*75)
+    var membership=[Int](repeating:-1,count:150*75)
+    var blocks=[DefenseRegionBlock]()
+    init(scan:[String:Any],threshold:Double) {
+        let dx=2*hx/Double(nx),dz=2*hz/Double(nz)
+        for row in scan["rows"] as! [[String:Any]] {
+            guard let score=row["score"] as? Double else {continue}
+            let b=row["bounds"] as! [Double]
+            let x0=Int(((b[0]+hx)/dx).rounded()),x1=Int(((b[2]+hx)/dx).rounded())
+            let z0=Int(((b[1]+hz)/dz).rounded()),z1=Int(((b[3]+hz)/dz).rounded())
+            for z in z0..<z1 {for x in x0..<x1 {scores[z*nx+x]=score}}
+        }
+        for start in scores.indices where scores[start]>=threshold && membership[start]<0 {
+            // Connected regions split into ~35 cm tiles, so a large region has multiple goals.
+            let tx=(start%nx)/21,tz=(start/nx)/21,id=blocks.count
+            var queue=[start],cursor=0;membership[start]=id
+            while cursor<queue.count {
+                let k=queue[cursor];cursor+=1;let x=k%nx,z=k/nx
+                for (xx,zz) in [(x-1,z),(x+1,z),(x,z-1),(x,z+1)] {
+                    guard (0..<nx).contains(xx),(0..<nz).contains(zz),xx/21==tx,zz/21==tz else{continue}
+                    let j=zz*nx+xx
+                    if membership[j]<0 && scores[j]>=threshold {membership[j]=id;queue.append(j)}
+                }
+            }
+            let polygons:[[SIMD2<Double>]]=queue.map { k in
+                let x = -hx+Double(k%nx)*dx,z = -hz+Double(k/nx)*dz
+                return [SIMD2(x,z),SIMD2(x+dx,z),SIMD2(x+dx,z+dz),SIMD2(x,z+dz)]
+            }
+            let mesh=SampledSolveRegion(polygons:polygons)!
+            let region=SolveRegion.sampled(mesh)
+            let centres=queue.map{SIMD2(-hx+(Double($0%nx)+0.5)*dx,-hz+(Double($0/nx)+0.5)*dz)}
+            let centre=centres.min {mesh.signedDistance($0)<mesh.signedDistance($1)}!
+            blocks.append(.init(id:id,region:region,centre:centre,area:Double(queue.count)*dx*dz,cells:queue.count))
+        }
+    }
+    func block(at p:SCNVector3)->Int? {
+        let x=Int(floor((Double(p.x)+hx)/(2*hx)*Double(nx))),z=Int(floor((Double(p.z)+hz)/(2*hz)*Double(nz)))
+        guard (0..<nx).contains(x),(0..<nz).contains(z),membership[z*nx+x]>=0 else{return nil}
+        return membership[z*nx+x]
+    }
+    var json:[[String:Any]] {blocks.map{b in
+        let shape: [[SIMD2<Double>]];if case let .sampled(m)=b.region {shape=m.boundaryLoops}else{shape=[]}
+        return ["id":b.id,"area":b.area,"sample":[b.centre.x,b.centre.y],"cells":b.cells,
+                "loops":shape.map{$0.map{[$0.x,$0.y]}}]
+    }}
+}
+struct DefenseRegionStroke {
+    let cut:Int,side:Int,angle:Double,speed:Double,spinX:Double,spinY:Double
+    var direction:SCNVector3 {SCNVector3(Float(cos(angle)),0,Float(sin(angle)))}
+    var key:String {"\(cut):\(side):\(speed):\(spinX):\(spinY)"}
+    var json:[String:Any] {["cutDegrees":cut,"side":side,"angle":angle,"speed":speed,"spinX":spinX,"spinY":spinY,"direction":[Double(direction.x),Double(direction.z)]]}
+}
+struct DefenseRegionCandidate {
+    let stroke:DefenseRegionStroke,prediction:ShotPrediction,block:Int,base:DefenseEffect,effect:DefenseEffect,measuredCut:Double
+    let margin:Double
+}
+func defensePoint(_ p:SCNVector3)->[Double] {[Double(p.x),Double(p.z)]}
+func defenseDistance(_ a:SCNVector3,_ b:SCNVector3)->Double {hypot(Double(a.x-b.x),Double(a.z-b.z))}
+func defenseEncode<T:Encodable>(_ v:T)throws->Any {try JSONSerialization.jsonObject(with:JSONEncoder().encode(v))}
+
+extension PositionPlaySolver {
+ static func solveDefenseResearch(question q:DefenseBankQuestion,map:DefenseRegionMap,profile:[CueSection],output:URL) throws -> [String:Any] {
+    let started=ProcessInfo.processInfo.systemUptime,surface=BTTablePhysics.surfaceY,r=Double(BallPhysics.radius),cueKey=ShotInput.cueBallName
+    func vec(_ p:[Double])->SCNVector3 {SCNVector3(Float(p[0]),surface+BallPhysics.radius,Float(p[1]))}
+    let cue=vec(q.cue),own=vec(q.balls.first{$0.number==8}!.position),enemy=vec(q.balls.first{$0.number==9}!.position)
+    let balls=q.balls.map{ObstacleBall(name:"_\($0.number)",position:vec($0.position))}
+    let d=defenseDistance(cue,own),baseAngle=atan2(Double(own.z-cue.z),Double(own.x-cue.x))
+    let params=SearchParams.standard
+    var windows=DefenseAttackAssessment();for i in 0..<6 {_=windows.window(.init(Double(enemy.x),Double(enemy.z)),i)}
+    var counts=[String:Int](),visited=Set<String>(),dedup=[String:DefenseRegionCandidate]()
+    var seeds=[String:(Double,DefenseRegionStroke)]()
+    let sampleBlocks=Array(map.blocks.sorted{$0.area>$1.area}.prefix(12))
+    func fail(_ reason:String) {counts[reason,default:0]+=1}
+    func stroke(_ cut:Int,_ side:Int,_ speed:Double,_ sx:Double,_ sy:Double)->DefenseRegionStroke {
+        let desired=baseAngle+Double(side)*asin(2*r*sin(Double(cut)*Double.pi/180)/d)
+        let v=CueBallStrike.executeStrike(aimDirection:SCNVector3(Float(cos(desired)),0,Float(sin(desired))),velocity:Float(speed),spinX:Float(sx),spinY:Float(sy),elevation:0).velocity
+        let delta=atan2(Double(v.z),Double(v.x))-desired
+        return .init(cut:cut,side:side,angle:desired-atan2(sin(delta),cos(delta)),speed:speed,spinX:sx,spinY:sy)
+    }
+    func simulate(_ s:DefenseRegionStroke,_ presentation:Bool=false)->ShotPrediction {
+        ShotPredictor.simulateFree(cueBall:cue,aimDir:s.direction,velocity:Float(s.speed),spinX:Float(s.spinX),spinY:Float(s.spinY),surfaceY:surface,balls:balls,maxEvents:1500,maxTime:60,includePresentation:presentation,recordedStrikeDirection:s.direction)
+    }
+    func invalid(_ p:ShotPrediction)->String? {
+        if !p.hasFinalTableState {return "incomplete"}
+        if let reason=DefenseEffect.failure(q,p) {return reason}
+        if !p.pocketedBalls.isEmpty{return "any-ball-potted"}
+        if p.events.contains(where:{if case let .ballBall(a,b)=$0.kind{return a=="_9" || b=="_9"};return false}) {return "opponent-contact"}
+        guard let e=p.finalPositions["_9"],defenseDistance(e,enemy)<1e-6 else{return "opponent-moved"}
+        for (i,k) in [cueKey,"_8","_9"].enumerated() {
+            guard let v=p.finalPositions[k],v.x.isFinite,v.z.isFinite else{return "bad-final"}
+            for k2 in [cueKey,"_8","_9"].dropFirst(i+1) {guard let v2=p.finalPositions[k2],defenseDistance(v,v2)>=2*r-1e-5 else{return "overlap"}}
+        }
+        return nil
+    }
+    func cutAngle(_ p:ShotPrediction)->Double? {
+        guard let event=p.events.first(where:{if case .ballBall=$0.kind{return true};return false}),
+              let frames=p.recorder?.framesByBallName[cueKey],
+              let hit=frames.first(where:{$0.time>=event.time-1e-6}),
+              let before=frames.last(where:{$0.time<event.time-1e-6}) else{return nil}
+        let normal=own-hit.position,vel=before.velocity
+        let len=hypot(Double(normal.x),Double(normal.z))*hypot(Double(vel.x),Double(vel.z))
+        guard len>1e-10 else{return nil}
+        return acos(max(-1,min(1,(Double(normal.x)*Double(vel.x)+Double(normal.z)*Double(vel.z))/len)))*180/Double.pi
+    }
+    func signature(_ p:ShotPrediction,_ block:Int)->String {
+        let events=p.events.map {event->String in
+            switch event.kind {
+            case let .ballBall(a,b):return "B:"+[a,b].sorted().joined(separator:",")
+            case let .ballCushion(b):return "C:\(b):\(event.cushionIndex ?? -1)"
+            case let .pocket(b,k):return "P:\(b):\(k)"
+            }
+        }.joined(separator:"/")
+        let c=p.finalPositions[cueKey]!,b=p.finalPositions["_8"]!
+        return "\(block)|\(events)|\(Int(floor(Double(c.x)/0.08))):\(Int(floor(Double(c.z)/0.08)))|\(Int(floor(Double(b.x)/0.1))):\(Int(floor(Double(b.z)/0.1)))"
+    }
+    func evaluate(_ s:DefenseRegionStroke)throws {
+        guard visited.insert(s.key).inserted else{return}
+        counts["parameters",default:0]+=1
+        let access=CueStrikeAccess(cue:cue,aim:s.direction,obstacles:balls.map(\.position),surfaceY:surface,profile:profile)
+        guard access.isAvailable(spinX:s.spinX,spinY:s.spinY),(access.resolvedPose(spinX:s.spinX,spinY:s.spinY)?.elevation ?? 100)<=CueStick.minElevationRadians+1e-6 else{fail("cue-access");return}
+        let p=autoreleasepool{simulate(s)};counts["physics",default:0]+=1
+        if let reason=invalid(p){fail(reason);return}
+        guard let measured=cutAngle(p),abs(measured-Double(s.cut))<=0.5 else{fail("cut-angle-outside-0.5deg");return}
+        let stop=p.finalPositions[cueKey]!
+        for block in sampleBlocks {
+            let distance=Double(block.region.signedDistanceMeters(fromScene:stop,surfaceY:surface))
+            let key="\(block.id):\(s.cut):\(s.side):\(s.spinX)"
+            if seeds[key]==nil || distance<seeds[key]!.0 {seeds[key]=(distance,s)}
+        }
+        guard let block=map.block(at:stop) else{fail("outside-high-region");return}
+        let base=try DefenseEffect.regionState(cue:stop,target:enemy,blockers:[],windows:windows)
+        guard let score=base.score,score>=90 else{fail("exact-base-below-90");return}
+        let effect=try DefenseEffect.regionState(cue:stop,target:enemy,blockers:[p.finalPositions["_8"]!],windows:windows)
+        guard let total=effect.score,total>=90 else{fail("exact-final-below-90");return}
+        let margin = -Double(map.blocks[block].region.signedDistanceMeters(fromScene:stop,surfaceY:surface))
+        let candidate=DefenseRegionCandidate(stroke:s,prediction:p,block:block,base:base,effect:effect,measuredCut:measured,margin:margin)
+        counts["qualifiedBeforeDedup",default:0]+=1
+        let key=signature(p,block)
+        if dedup[key]==nil || margin>dedup[key]!.margin {dedup[key]=candidate}
+    }
+    for sx in [0.0,-0.3,0.3] {
+        if sx != 0 && !dedup.isEmpty {break}
+        for cut in [15,30,45,60] {for side in [-1,1] {for sy in params.spinYValues {
+            for i in 0...Int(((params.velocityMax-params.velocityMin)/params.velocityStep).rounded()) {
+                try evaluate(stroke(cut,side,params.velocityMin+Double(i)*params.velocityStep,sx,sy))
+            }
+        }}}
+        print("SEARCH \(q.sampleID) sx=\(sx) parameters=\(visited.count) unique=\(dedup.count)");fflush(stdout)
+        // Bounded speed refinement guided by distances to sampled region blocks.
+        let starts=seeds.values.sorted{$0.0<$1.0}.prefix(24).map{$0.1}
+        for seed in starts {for step in [params.velocityStep/4,params.velocityStep/16] {
+            for offset in [-2.0,-1,0,1,2] {
+                let v=seed.speed+offset*step
+                if v>=params.velocityMin && v<=params.velocityMax {try evaluate(stroke(seed.cut,seed.side,v,seed.spinX,seed.spinY))}
+            }
+        }}
+    }
+    let ordered=dedup.values.sorted {a,b in
+        if a.margin != b.margin{return a.margin>b.margin}
+        return DifficultyModel.executionEffort(spinX:a.stroke.spinX,spinY:a.stroke.spinY,velocity:a.stroke.speed)<DifficultyModel.executionEffort(spinX:b.stroke.spinX,spinY:b.stroke.spinY,velocity:b.stroke.speed)
+    }
+    // First cover distinct region/cut/side combinations; then fill diverse physical routes.
+    var selected=[DefenseRegionCandidate](),used=Set<String>()
+    for c in ordered {
+        let key="\(c.block):\(c.stroke.cut):\(c.stroke.side)"
+        if used.insert(key).inserted {selected.append(c)}
+        if selected.count==12 {break}
+    }
+    var records=[[String:Any]]()
+    for (i,c) in selected.enumerated() {
+        let p=simulate(c.stroke,true)
+        guard invalid(p)==nil,let stop=p.finalPositions[cueKey],map.block(at:stop)==c.block else{throw NSError(domain:"final-replay-failed",code:i)}
+        guard defenseDistance(stop,c.prediction.finalPositions[cueKey]!)<1e-5,defenseDistance(p.finalPositions["_8"]!,c.prediction.finalPositions["_8"]!)<1e-5 else{throw NSError(domain:"replay-drift",code:i)}
+        let final=try DefenseEffect.evaluate(question:q,prediction:p,usePrecomputedWindows:false)
+        guard let score=final.score,score>=90,abs(score-c.effect.score!)<1e-7 else{throw NSError(domain:"production-score-parity",code:i)}
+        var probes=[[String:Any]]()
+        for (da,factor) in [(-0.1,1.0),(0.1,1.0),(0.0,0.95),(0.0,1.05)] {
+            let s=DefenseRegionStroke(cut:c.stroke.cut,side:c.stroke.side,angle:c.stroke.angle+da*Double.pi/180,speed:c.stroke.speed*factor,spinX:c.stroke.spinX,spinY:c.stroke.spinY)
+            let pp=simulate(s);var rec:[String:Any]=["angleDelta":da,"speedScale":factor,"passes":false]
+            if let reason=invalid(pp){rec["reason"]=reason}
+            else {
+                let end=pp.finalPositions[cueKey]!
+                let e=try DefenseEffect.regionState(cue:end,target:enemy,blockers:[pp.finalPositions["_8"]!],windows:windows)
+                let b=try DefenseEffect.regionState(cue:end,target:enemy,blockers:[],windows:windows)
+                rec["score"]=e.score!;rec["baseScore"]=b.score!;rec["passes"]=(e.score!>=90 && b.score!>=90 && map.block(at:end) != nil)
+            }
+            probes.append(rec)
+        }
+        let paths=p.recorder!.framesByBallName.mapValues{$0.map{[Double($0.time),Double($0.position.x),Double($0.position.z)]}}
+        let ev=p.events.map {e->[String:Any] in
+            switch e.kind {
+            case let .ballBall(a,b):return ["time":Double(e.time),"kind":"ballBall","balls":[a,b]]
+            case let .ballCushion(b):return ["time":Double(e.time),"kind":"cushion","ball":b,"index":e.cushionIndex ?? -1]
+            case let .pocket(b,k):return ["time":Double(e.time),"kind":"pocket","ball":b,"pocket":k]
+            }
+        }
+        let end=stop,target=enemy
+        var tags=[String]();if defenseDistance(end,target)>=1.2 {tags.append("长台")}
+        if let route=final.pipeRoute {
+            let aim=route.aim,u=SIMD2(aim[0]-Double(target.x),aim[1]-Double(target.z));let length=sqrt(u.x*u.x+u.y*u.y)
+            let n=u/length,ghost=SIMD2(Double(target.x),Double(target.z))-n*(2*r),v=ghost-SIMD2(Double(end.x),Double(end.z))
+            let cut=acos(max(-1,min(1,(v.x*n.x+v.y*n.y)/sqrt(v.x*v.x+v.y*v.y))))*180/Double.pi
+            if cut>=45 {tags.append("大角度")}
+        }
+        if min(Double(AngleSceneCalculator.innerLength/2)-abs(Double(end.x)),Double(AngleSceneCalculator.innerWidth/2)-abs(Double(end.z)))-r<0.08 {tags.append("母球近库")}
+        if final.fullDirectBlock || final.potContactsBlocked==true {tags.append("线路封锁")}
+        records.append(["id":i+1,"block":c.block,"shot":c.stroke.json,"measuredCutDegrees":c.measuredCut,"baseScore":c.base.score!,"effect":try defenseEncode(final),"regionMarginMeters":c.margin,"finalPositions":p.finalPositions.mapValues{defensePoint($0)},"events":ev,"tracks":paths,"tags":tags,"probes":probes,"probePasses":probes.filter{$0["passes"] as! Bool}.count,"replayVerified":true,"signature":signature(p,c.block)])
+    }
+    return ["questionID":q.id,"counts":counts,"deduplicatedCount":dedup.count,"retainedCount":records.count,"routes":records,"seconds":ProcessInfo.processInfo.systemUptime-started,"scope":"Research specialization of PositionPlaySolver; actual pockets unchanged, no target ball removal; bounded search, no solution is not proof of impossibility."]
+ }
+}

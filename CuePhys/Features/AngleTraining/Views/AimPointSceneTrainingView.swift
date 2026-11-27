@@ -48,7 +48,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     var selectedPocketIndex: Int { question?.pocketIndex ?? -1 }
     var currentPlayerAim: SCNVector3? { question == nil ? nil : aimDir }
     var permitsFirstPersonAddress: Bool { question != nil && scene.cueStick?.rootNode.isHidden == false }
-    let scene = AngleTrainingScene()
+    let scene = AngleTrainingScene(trajectoryWidths: .interactiveTable)
     let limiter: AngleUsageLimiter
     /// "aimPoint2D" / "aimPoint3D"
     var quizTypeLabel = "aimPoint2D"
@@ -416,7 +416,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         lineNodes.append(scene.addDashedLine(
             from: SCNVector3(target.position.x, y, target.position.z),
             to: SCNVector3(aimPoint.x, y, aimPoint.z),
-            color: TrajectoryStyle.TrainingAssist.potColor(forNumber: targetBallNumber), placement: .table
+            color: TrajectoryStyle.TrainingAssist.potColor(forNumber: targetBallNumber), radius: scene.trajectoryWidths.mainRadius, placement: .table
         ))
 
         // 辅助线（G1）：过目标球心、垂直于**用户瞄准线**，随瞄准旋转，白色细虚线。
@@ -426,7 +426,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         lineNodes.append(scene.addDashedLine(
             from: SCNVector3(target.position.x - n.x * auxHalf, y, target.position.z - n.z * auxHalf),
             to: SCNVector3(target.position.x + n.x * auxHalf, y, target.position.z + n.z * auxHalf),
-            color: TrajectoryStyle.hintColor, radius: 0.0016, dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap, placement: .table
+            color: TrajectoryStyle.hintColor, radius: scene.trajectoryWidths.hintRadius, dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap, placement: .table
         ))
 
         // 用户瞄准线（Q7.1）：白色实线。未接触目标球 → 延伸库边；接触（垂距 < R）→ 停在
@@ -435,7 +435,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         lineNodes.append(scene.addLine(
             from: SCNVector3(cue.position.x, y, cue.position.z),
             to: scenePoint(userRes.lineEnd, y: y),
-            color: TrajectoryStyle.TrainingAssist.aimLine, placement: .table
+            color: TrajectoryStyle.TrainingAssist.aimLine, radius: scene.trajectoryWidths.mainRadius, placement: .table
         ))
         if userRes.touchesBall {
             lineNodes.append(scene.addAimPointMarker(at: scenePoint(userRes.aimPoint, y: y),

@@ -70,6 +70,16 @@ struct CuePhysApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .overlay(alignment:.topLeading) {
+                    #if DEBUG
+                    if SpatialRuntimeProbe.enabled {
+                        TimelineView(.periodic(from:.now,by:0.5)) { _ in
+                            Color.clear.frame(width:1,height:1).accessibilityElement().allowsHitTesting(false)
+                                .accessibilityIdentifier("spatial.runtime").accessibilityValue(SpatialRuntimeProbe.json)
+                        }
+                    }
+                    #endif
+                }
                 .environmentObject(firstRunProfile)
                 .environmentObject(authState)
                 .environmentObject(ownerContext)

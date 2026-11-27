@@ -210,7 +210,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
 
     // MARK: - Scene
 
-    let scene = AngleTrainingScene()
+    let scene = AngleTrainingScene(trajectoryWidths: .interactiveTable)
     private var pathNodes: [SCNNode] = []
     private var pocketMarkers: [SCNNode] = []
 
@@ -1045,7 +1045,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
         }
         freeAimNodes.append(scene.addLine(from: cue.position, to: end,
                                           color: TrajectoryStyle.aimColor,
-                                          radius: TrajectoryStyle.aimRadius, placement: .table))
+                                          radius: scene.trajectoryWidths.mainRadius, placement: .table))
         if let contact {
             if let ghost = scene.ghostBallNode {
                 ghost.position = end
@@ -1094,7 +1094,7 @@ final class BankShotViewModel: ObservableObject, BoardMemoryHosting {
         for i in 0..<(path.count - 1) {
             referenceNodes.append(scene.addDashedLine(
                 from: path[i], to: path[i + 1],
-                color: TrajectoryStyle.hintColor, radius: TrajectoryStyle.lineHint,
+                color: TrajectoryStyle.hintColor, radius: scene.trajectoryWidths.hintRadius,
                 dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap, placement: .table
             ))
         }

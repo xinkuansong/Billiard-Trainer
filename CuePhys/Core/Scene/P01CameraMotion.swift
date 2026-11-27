@@ -83,7 +83,10 @@ struct P01CameraMotion {
                          (1 - local.y / (depth*t))/2)
         }
     }
+    enum GeneralTiming: String, Codable { case selectionMatchedV1 }
     struct State: Codable, Equatable {
+        // nil decodes old recordings with their original timing.
+        var generalTiming: GeneralTiming? = nil
         // Missing from first-generation Codable snapshots. Keep their recorded geometry and gains.
         var fixedAxisOrbit: Bool? = true
         // Missing from snapshots made before transitions were composed around an anchor.
@@ -93,6 +96,8 @@ struct P01CameraMotion {
         var lastAimView: View = .thirdPerson
         var distance: Float = P01CameraMotion.thirdPersonPresetDistance
         var height: Float = 0.65
+        // Missing in older recordings: preserve their original third-person eye.
+        var followsCueElevation: Bool? = nil
         var observationYaw: Float = 0
         var headYaw: Float = 0
         var gazeYawOffset: Float = 0
@@ -116,6 +121,15 @@ struct P01CameraMotion {
         func shaftSetback(for shot: Shot) -> Float { baseShaftSetback(for: shot) - (firstPersonDolly ?? 0) }
         var firstPersonClearanceLift: Float = 0
         var focusPoint: SIMD3<Float>? = nil
+
+        func thirdPersonElevationLift(for shot: Shot) -> Float {
+            guard followsCueElevation == true, view == .thirdPerson,
+                  fixedAxisOrbit == true, watchingBreak != true,
+                  shot.observationOnlyAddress != true else { return 0 }
+            // Resting butt rise relative to a level shaft. Dolly and stroke travel
+            // do not participate; height remains the user's independent offset.
+            return max(0, baseShaftSetback(for: shot)) * max(0, sin(shot.elevation))
+        }
 
     }
     struct Snapshot: Codable {
@@ -168,6 +182,14 @@ struct P01CameraMotion {
         var inputs: [Input]
         var samples: [Sample] = []
     }
+    struct Destination: Codable, Equatable {
+        var context: UUID
+        var state: State
+        var shot: Shot
+        var layout: Layout
+        var target: Pose
+        var resetThirdPerson: Bool?
+    }
     struct Transition: Codable {
         var origin: Pose
         var start: Double
@@ -179,8 +201,26 @@ struct P01CameraMotion {
         var framing: FramingPath? = nil
 
         var rampSeconds: Double? = nil
+        // Cumulative channel time at uniformly sampled path parameters. Stored in
+        // snapshots so restoration and replay never depend on render cadence.
+        var channelTimes: [Double]? = nil
+        var destination: Destination? = nil
 
         func blend(at time: Double) -> Float {
+            let distance = timeBlend(at: time)
+            guard let times = channelTimes, times.count > 1, let total = times.last,
+                  total > 0, distance > 0, distance < 1 else { return distance }
+            let wanted = Double(distance) * total
+            var low = 0, high = times.count - 1
+            while high - low > 1 {
+                let mid = (low + high) / 2
+                if times[mid] < wanted { low = mid } else { high = mid }
+            }
+            let span = times[high] - times[low]
+            let local = span > 0 ? (wanted - times[low]) / span : 1
+            return Float((Double(low) + local) / Double(times.count - 1))
+        }
+        private func timeBlend(at time: Double) -> Float {
             if let ramp = rampSeconds, ramp > 0, duration >= 2 * ramp {
                 let elapsed = min(duration, max(0, time - start))
                 // Integrate a half-cosine velocity ramp on each end of the cruise.
@@ -215,8 +255,10 @@ struct P01CameraMotion {
     var hasPendingMotion: Bool { transition != nil }
 
     init?(shot: Shot, layout: Layout, context: UUID = UUID(), anchoredTransitions: Bool = false,
-          firstPersonSetback: Float? = nil) {
-        let initial = State(anchoredTransitions: anchoredTransitions ? true : nil,
+          firstPersonSetback: Float? = nil, generalTiming: GeneralTiming? = nil,
+          followsCueElevation: Bool = false) {
+        let initial = State(generalTiming: generalTiming, anchoredTransitions: anchoredTransitions ? true : nil,
+                            followsCueElevation: followsCueElevation ? true : nil,
                             boundedThirdPersonZoom: anchoredTransitions ? true : nil,
                             firstPersonSetback: firstPersonSetback)
         guard let evaluated = Self.evaluate(state: initial, shot: shot, layout: layout) else { return nil }
@@ -398,7 +440,9 @@ struct P01CameraMotion {
                 referenceDepth = min(thirdPersonPresetDistance + offset.x, depthLimit)
             }
             let displacement = along * back + offset.y * side
-            eye = .init(shot.cue.x + displacement.x, layout.surfaceY + state.height,
+            let requestedY = layout.surfaceY + state.height + state.thirdPersonElevationLift(for: shot)
+            let eyeY = state.followsCueElevation == true ? min(layout.ceilingY - 0.2, requestedY) : requestedY
+            eye = .init(shot.cue.x + displacement.x, eyeY,
                         shot.cue.z + displacement.y)
             let legacyAspect = state.observationHorizontalFOV == nil ? (layout.thirdPersonLensAspect ?? layout.aspect) : layout.aspect
             let lensAspect = layout.aimLensAspect ?? legacyAspect
@@ -517,6 +561,10 @@ struct P01CameraMotion {
             next=fitted
         }
         _ = accept(next, animated:false)
+        // A layout revision invalidates request identity even when a later resize
+        // returns to the same dimensions. The visible motion may continue, but a
+        // subsequent explicit reset must be rebuilt for that revised viewport.
+        transition?.destination = nil
         if state.view == .firstPerson, headBase != nil {
             var base=state;base.headYaw=0
             headBase=Self.evaluate(state:base,shot:shot,layout:layout)
@@ -527,6 +575,9 @@ struct P01CameraMotion {
         guard value.valid else { diagnostic="invalid-shot"; return }
         guard value != shot || manuallyAimed else { return }
         let old=shot
+        // A live solver/board revision can retarget an existing transition without
+        // restarting it. An earlier explicit request no longer owns that motion.
+        if value != old { transition?.destination = nil }
         let detached=Self.evaluate(state:state,shot:old,layout:layout).map {
             simd_distance($0.eye,pose.eye)>0.001 || simd_distance($0.forward,pose.forward)>0.001
         } ?? true
@@ -564,7 +615,7 @@ struct P01CameraMotion {
         next.headYaw = 0
         next.focusPoint = nil
         if !animated { transition = nil }
-        if accept(next, animated: animated) {
+        if accept(next, animated: animated, generalTimingAllowed: false) {
             headBase = nil
             // Older recordings use the original distance-based timing.
             if let duration, duration.isFinite, duration > 0 { transition?.duration = duration }
@@ -611,7 +662,7 @@ struct P01CameraMotion {
         shot = newShot ?? shot
         let oldTransition = transition
         if !animated { transition=nil }
-        let result=accept(next,animated:animated,clear:clear,framing: framing, turnPace: turnPace)
+        let result=accept(next,animated:animated,clear:clear,framing: framing, turnPace: turnPace, resetThirdPerson: resetThirdPerson)
         if result { headBase=nil } else { transition=usesFraming ? oldTransition : nil;shot=oldShot }
         return result
     }
@@ -628,12 +679,13 @@ struct P01CameraMotion {
         let aimView = state.view == .overview ? state.lastAimView : state.view
         return select(aimView, animated: animated, shot: newShot, turnPace: turnPace, clear: clear)
     }
-    mutating func focus(on point: SIMD3<Float>) {
+    mutating func focus(on point: SIMD3<Float>, animated: Bool = true) {
         guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { return }
         if state.watchingBreak == true { beginObservation() }
         var next=state; next.focusPoint=point
         if next.view == .overview { next.view=next.lastAimView; next.observationYaw=0 }
-        if accept(next,animated:true) { headBase=nil }
+        if !animated { transition=nil }
+        if accept(next,animated:animated) { headBase=nil }
     }
     mutating func beginObservation() {
         let wasWatchingBreak = state.watchingBreak == true
@@ -657,7 +709,7 @@ struct P01CameraMotion {
             let along = sqrt(max(0, radial * radial - offset.y * offset.y))
             state.distance = along - offset.x
             state.observationYaw = Self.angleDelta(shot.bearing, yaw - atan2(offset.y, along))
-            state.height = pose.eye.y - layout.surfaceY
+            state.height = pose.eye.y - layout.surfaceY - state.thirdPersonElevationLift(for: shot)
         } else {
             state.observationYaw=Self.angleDelta(shot.bearing,yaw)
             state.distance=hypot(delta.x,delta.z)*Self.legacyRadius(shot.bearing)/Self.legacyRadius(yaw)
@@ -695,7 +747,14 @@ struct P01CameraMotion {
             // Lens is fixed during gesture, including vertical motion. Reject infeasible eye positions.
         } else {
             next.observationYaw += delta.x*yawGain
-            next.height=Self.adjusted(next.height+delta.y*heightGain/layout.viewport.y,from:next.height,within:0.18...1.8)
+            let maximumHeight: Float = next.followsCueElevation == true ? min(1.8, max(0.18,
+                layout.ceilingY - 0.2 - layout.surfaceY - next.thirdPersonElevationLift(for: shot))) : 1.8
+            if delta.y != 0 {
+                // A newly raised shaft can reach the ceiling before manual height
+                // does. Start a reverse gesture at the visible eye, without a dead zone.
+                let current = next.followsCueElevation == true ? min(next.height, maximumHeight) : next.height
+                next.height=Self.adjusted(current+delta.y*heightGain/layout.viewport.y,from:current,within:0.18...maximumHeight)
+            }
             if next.boundedThirdPersonZoom == true, state.focusPoint == nil,
                let target = Self.evaluate(state: next, shot: shot, layout: layout),
                visibleTravel(from: pose, to: pose, roundingTolerance: 0.00001) != nil,
@@ -812,11 +871,24 @@ struct P01CameraMotion {
     }
     private mutating func accept(_ next: State, animated: Bool, duration: Double? = nil, restart: Bool = true,
                                  clear: ((SIMD3<Float>, [SIMD3<Float>]) -> Bool)? = nil, targetOverride: Pose? = nil,
-                                 framing: FramingPath? = nil, turnPace: TurnPace? = nil) -> Bool {
+                                 framing: FramingPath? = nil, turnPace: TurnPace? = nil,
+                                 resetThirdPerson: Bool? = nil, generalTimingAllowed: Bool = true) -> Bool {
         guard let target=targetOverride ?? Self.evaluate(state:next,shot:shot,layout:layout,clear:clear) else { diagnostic="no-legal-pose"; return false }
         state=next; diagnostic=nil
         if next.view == .firstPerson, clear != nil, targetOverride == nil {
             state.firstPersonClearanceLift=max(0,target.eye.y-(shot.strike.y+next.shaftSetback(for: shot)*sin(shot.elevation)+0.13))
+        }
+        let usesGeneral = next.generalTiming == .selectionMatchedV1 && generalTimingAllowed
+        let destination = Destination(context: context, state: state, shot: shot, layout: layout,
+                                      target: target, resetThirdPerson: resetThirdPerson)
+        if usesGeneral && animated && restart {
+            if transition?.destination == destination { return true }
+            if simd_distance(pose.eye, target.eye) < 0.00001,
+               abs(Self.angleDelta(pose.yaw, target.yaw)) < 0.00001,
+               abs(pose.pitch - target.pitch) < 0.00001,
+               abs(pose.verticalFOV - target.verticalFOV) < 0.0001 {
+                pose = target; transition = nil; return true
+            }
         }
         if animated {
             if restart || transition == nil || (transition?.framing != nil && framing == nil) {
@@ -827,6 +899,7 @@ struct P01CameraMotion {
                 let angle=abs(Self.angleDelta(pose.yaw,target.yaw))+abs(target.pitch-pose.pitch)+2*lift
                 var seconds=max(0.25,1.875*Double(length)/1.8,1.875*Double(angle)/(.pi/2),
                                 1.875*Double(abs(target.verticalFOV-pose.verticalFOV))/40)
+                var channelTimes: [Double]?
                 if let turnPace, let framedPath {
                     let from = pose.eye - framedPath.start
                     let to = target.eye - framedPath.end
@@ -834,13 +907,19 @@ struct P01CameraMotion {
                     // A moving cue also limits anchor translation to 3 m/s.
                     let cruiseTime = max(Double(orbitAngle) / turnPace.radiansPerSecond, Double(simd_distance(framedPath.start, framedPath.end)) / 3)
                     seconds = max(2 * turnPace.rampSeconds, cruiseTime + turnPace.rampSeconds)
+                } else if usesGeneral {
+                    channelTimes = Self.channelTimes(from: pose, to: target, framing: framedPath, layout: layout)
+                    if let total = channelTimes?.last {
+                        seconds = max(0.32, total + 0.16)
+                    }
                 } else if let framedPath {
                     seconds = max(seconds, Self.framedDuration(from: pose, to: target, along: framedPath, layout: layout))
                 }
                 transition = .init(origin:pose,start:time,duration:max(duration ?? seconds,seconds),lift:lift,
                                    targetYaw:pose.yaw+Self.angleDelta(pose.yaw,target.yaw),previousTargetYaw:target.yaw,
                                    fixedTarget:targetOverride,framing:framedPath,
-                                   rampSeconds: turnPace?.rampSeconds)
+                                   rampSeconds: turnPace?.rampSeconds ?? (channelTimes == nil ? nil : 0.16),
+                                   channelTimes: channelTimes, destination: usesGeneral ? destination : nil)
             }
         } else if transition == nil { pose=target }
         if var move=transition {
@@ -906,6 +985,45 @@ struct P01CameraMotion {
         return .looking(eye: eye, yaw: yaw, pitch: pitch, verticalFOV: fov)
     }
 
+    /// Independent channels preserve the accepted orbit speed. In particular,
+    /// tangential eye travel is not subjected to the old 1.8 m/s chord limit.
+    private static func channelTimes(from origin: Pose, to target: Pose, framing: FramingPath?,
+                                     layout: Layout) -> [Double]? {
+        let steps = 96
+        var times = [0.0]
+        var previous = origin
+        for step in 1...steps {
+            let u = Float(step) / Float(steps)
+            let current: Pose
+            var travel: Double
+            if let framing {
+                guard let p = framedPose(from: origin, to: target, along: framing, at: u, layout: layout) else { return nil }
+                current = p
+                let a = previous.eye - framing.point(at: Float(step - 1) / Float(steps))
+                let b = current.eye - framing.point(at: u)
+                let orbit = abs(angleDelta(atan2(a.z, a.x), atan2(b.z, b.x)))
+                let radial = abs(hypot(b.x, b.z) - hypot(a.x, a.z))
+                let anchor = simd_distance(framing.start, framing.end) / Float(steps)
+                travel = max(Double(orbit) / TurnPace.selection120.radiansPerSecond,
+                             Double(radial) / 3, Double(anchor) / 3)
+            } else {
+                current = .looking(eye: simd_mix(origin.eye, target.eye, SIMD3(repeating: u)),
+                    yaw: origin.yaw + angleDelta(origin.yaw, target.yaw) * u,
+                    pitch: origin.pitch + (target.pitch - origin.pitch) * u,
+                    verticalFOV: origin.verticalFOV + (target.verticalFOV - origin.verticalFOV) * u)
+                travel = Double(simd_distance(current.eye, previous.eye)) / 1.8
+            }
+            travel = max(travel,
+                Double(abs(angleDelta(previous.yaw, current.yaw))) / TurnPace.selection120.radiansPerSecond,
+                Double(abs(current.eye.y - previous.eye.y)) / 1.8,
+                Double(abs(current.pitch - previous.pitch)) / (.pi / 2),
+                Double(abs(current.verticalFOV - previous.verticalFOV)) / 40)
+            times.append(times.last! + travel)
+            previous = current
+        }
+        return times
+    }
+
     private static func framedDuration(from origin: Pose, to target: Pose, along framing: FramingPath,
                                        layout: Layout) -> Double {
         // The moving anchor and room boundary bend the path. Estimate the
@@ -961,7 +1079,10 @@ struct P01CameraMotion {
         }
         switch input.kind {
         case .restore: if let value=input.snapshot { _=restore(value,requireSameContext: !input.restoringBoard) }
-        case .focus: if let point=input.point { focus(on:point) }
+        case .focus: if let point=input.point {
+            // Historical focus inputs ignored animated; preserve those recordings.
+            focus(on:point, animated:state.generalTiming == .selectionMatchedV1 ? input.animated : true)
+        }
         case .target: if let shot=input.shot {
             selectTarget(shot: shot, preservesVisiblePose: input.preservesVisiblePose == true, animated: input.animated,
                          turnPace: input.turnPace ?? (input.pacedTargetTurn == true ? .original180 : nil))

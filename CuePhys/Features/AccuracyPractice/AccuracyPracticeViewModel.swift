@@ -45,7 +45,7 @@ struct AccuracyPreparedRound {
 final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     enum Phase { case loading, settings, aiming, computing, playing, result, saveFailed, summary }
     var is3D: Bool { cameraMode == .perspective3D }
-    let scene = AngleTrainingScene()
+    let scene = AngleTrainingScene(trajectoryWidths: .interactiveTable)
     let limiter: AngleUsageLimiter
     private let initialView3D: Bool
     @Published private(set) var record: AccuracyPracticeRecord?
@@ -346,7 +346,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         centerReferenceLine?.name = "accuracy.centerReferenceLine"
         aimLine = scene.addLine(from: SCNVector3(cue.position.x, y, cue.position.z),
             to: SCNVector3(Float(resolution.lineEnd.x), y, Float(resolution.lineEnd.y)),
-            color: TrajectoryStyle.TrainingAssist.aimLine, placement: .table)
+            color: TrajectoryStyle.TrainingAssist.aimLine, radius: scene.trajectoryWidths.mainRadius, placement: .table)
         aimLine?.name = "accuracy.aimLine"
         scene.updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: aim,
             spinX: Double(tip.x), spinY: Double(tip.y)), aimDirection: aim)

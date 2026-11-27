@@ -2666,6 +2666,7 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
         (scene as? AngleTrainingScene)?.frameReceipt.willRender()
         #if DEBUG
         (scene as? AngleTrainingScene)?.interactionTimingProbe?.willRender()
+        (scene as? AngleTrainingScene)?.inputPresentationTimingProbe?.willRender()
         #endif
     }
     private let lock = NSLock()
@@ -2708,6 +2709,7 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
         #if DEBUG
         if let table=scene as? AngleTrainingScene {
             table.interactionTimingProbe?.didRender(cue:table.cueStick?.timingMotionNode)
+            table.inputPresentationTimingProbe?.didRender(cue:table.cueStick?.timingMotionNode)
         }
         #endif
         (scene as? AngleTrainingScene)?.closeupRenderUpdates.requestUpdate()

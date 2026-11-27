@@ -429,7 +429,11 @@ final class DrillSequenceCameraTests: XCTestCase {
         XCTAssertEqual(actual.state.view, .thirdPerson)
         XCTAssertLessThan(simd_distance(shot.cue, SIMD3(cue)), 0.0001)
         XCTAssertLessThan(simd_distance(shot.aim, SIMD3(pred.aimDirection)), 0.0001)
-        let reference = try XCTUnwrap(P01CameraMotion(shot: shot, layout: layout, anchoredTransitions: true))
+        XCTAssertEqual(actual.state.followsCueElevation, true)
+        let shaftSetback = CueClearance.tipOffset + CueStroke.addressPull + CueClearance.shaftLength
+        XCTAssertEqual(actual.state.firstPersonSetback, shaftSetback)
+        let reference = try XCTUnwrap(P01CameraMotion(shot: shot, layout: layout,
+            anchoredTransitions: true, firstPersonSetback: shaftSetback, followsCueElevation: true))
         XCTAssertLessThan(simd_distance(actual.pose.eye, reference.pose.eye), 0.0001)
         XCTAssertLessThan(simd_distance(actual.pose.forward, reference.pose.forward), 0.0001)
         XCTAssertEqual(actual.pose.verticalFOV, reference.pose.verticalFOV, accuracy: 0.0001)

@@ -3326,7 +3326,13 @@ final class GuidedTryoutSequenceCameraTests: XCTestCase {
             let cue = PositionPlayShotSolver.scenePoint(authored, surfaceY: layout.surfaceY)
             XCTAssertLessThan(simd_distance(snapshot.shot.cue, SIMD3(cue)), 0.001, name)
             XCTAssertLessThan(simd_distance(snapshot.shot.aim, SIMD3(solved.aimDirection)), 0.001, name)
-            let standard = try XCTUnwrap(P01CameraMotion(shot: snapshot.shot, layout: layout, anchoredTransitions: true))
+            // Formal third-person cameras follow the resting cue elevation.
+            // Compare card and full-window framing under that same contract.
+            XCTAssertEqual(snapshot.state.followsCueElevation, true, name)
+            let shaftSetback = CueClearance.tipOffset + CueStroke.addressPull + CueClearance.shaftLength
+            XCTAssertEqual(snapshot.state.firstPersonSetback, shaftSetback, name)
+            let standard = try XCTUnwrap(P01CameraMotion(shot: snapshot.shot, layout: layout,
+                anchoredTransitions: true, firstPersonSetback: shaftSetback, followsCueElevation: true))
             XCTAssertLessThan(simd_distance(snapshot.pose.eye, standard.pose.eye), 0.001, name)
             XCTAssertLessThan(simd_distance(snapshot.pose.forward, standard.pose.forward), 0.001, name)
             let projected = try XCTUnwrap(snapshot.pose.project(snapshot.shot.cue, layout: layout))
@@ -3338,7 +3344,8 @@ final class GuidedTryoutSequenceCameraTests: XCTestCase {
             var fullWindow = layout
             fullWindow.viewport = SIMD2(874, 402)
             fullWindow.aimLensAspect = nil
-            let reference = try XCTUnwrap(P01CameraMotion(shot: snapshot.shot, layout: fullWindow, anchoredTransitions: true))
+            let reference = try XCTUnwrap(P01CameraMotion(shot: snapshot.shot, layout: fullWindow,
+                anchoredTransitions: true, firstPersonSetback: shaftSetback, followsCueElevation: true))
             XCTAssertEqual(snapshot.pose.verticalFOV, reference.pose.verticalFOV, accuracy: 0.001, name)
             XCTAssertLessThan(simd_distance(snapshot.pose.eye, reference.pose.eye), 0.001, name)
             let shaftPoint = snapshot.shot.strike - snapshot.shot.aim * 0.4

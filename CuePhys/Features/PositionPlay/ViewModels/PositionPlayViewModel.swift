@@ -26,7 +26,11 @@ final class PositionPlayViewModel: ObservableObject {
 
     // MARK: - Scene
 
-    let scene = AngleTrainingScene()
+    let scene: AngleTrainingScene
+
+    init(trajectoryWidths: TrajectoryStyle.Widths = .legacyIllustration) {
+        scene = AngleTrainingScene(trajectoryWidths: trajectoryWidths)
+    }
     // Activated only by the multi-ball practice host.
     lazy var geometryReference = GeometricReferenceTool(scene: scene) { [weak self] in self?.objectWillChange.send() }
     func prepareGeometryReference() {

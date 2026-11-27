@@ -159,7 +159,8 @@ final class ThreeBallPracticeUITests: XCTestCase {
                 capture("unplayable-expired-\(is3D)")
                 let detail = scoreDetails("threeBall.latestScore", name: "unplayable-details-\(is3D)")
                 XCTAssertTrue(detail.contains("本杆直接记0分"))
-                XCTAssertTrue(detail.contains("角度分　—"))
+                // Native two-column rows expose labels and values separately in AX.
+                XCTAssertNotNil(detail.range(of: #"角度分[\s,，]*—"#, options: .regularExpression), detail)
                 app.buttons["threeBall.retry"].tap(); phase("aiming")
                 let restored = try probe()
                 XCTAssertEqual(restored["question"] as? String, initial["question"] as? String)

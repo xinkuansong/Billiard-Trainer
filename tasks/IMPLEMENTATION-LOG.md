@@ -7014,3 +7014,42 @@ FL-271候选时序补充（2026-11-15）：app.screenshot裁切不作全屏视�
 - 修复：APIClient注入NotificationCenter，生产默认保持default；测试使用独立中心，断言本地失效通知到达且全局通知为零。训练库未因此删除；用户本人已重新授权恢复真实会话，正常冷启动1/1通过。
 - 验证：修复后APIClientProfileTests真机25/25、0跳过通过；原失败结果保留，不能算分页实现失败或Apple授权失败。
 - 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-287及UI实施规范Changelog；实际账号恢复与分页结果见[真实服务验收](launch-20261110/cuephys-rename/REAL-SERVICES-20261125.md)。
+
+### DR-470 — 三空间页共享横向抬杆控件（2026-11-26）
+
+用户要求现有自由页与扎杆/跳球答题默认同款横尺。抽出`BTSpatialElevationWheel(value:enabled:width:onNudge:identifier:)`，内部沿原BTAimWheel的0.20°/pt连续输入、横向刻度与下方角度，注册同一`shot.elevation`布局项；调用方负责当前可达范围/阶段，模板不被默认布局覆盖。`SpatialCueElevation`与`SpatialShotRendering`仅提取原空间页算法，旧页委托调用。B3双模式原生/跨尺寸、旧页输入/开球/恢复/回放与布局回归已过，细项及失败保留在实施记录。回写目标：球桌统一规范TP08及来源表、swiftui-design-system、UI-IMPLEMENTATION-SPEC；均随本条同步。
+
+
+### DR-471 · iPad真实缩窗回程的背景安全区（2026-11-26）
+
+BTTeachingTablePage对UIWindow与SwiftUI GeometryReader之间的额外安全区差值使用safeAreaPadding，保留HUD避让，同时让ignoresSafeArea的球房/SceneKit背景填满窗口。普通padding会在最大化后留下32点顶部黑边。验收同时核系统窗口、内容尺寸和真实SCNView，允许系统合法改变外层content安全区，禁止以其变化替代渲染区验证。v73 b5-close-r3双答题页及旧自由页实际缩窗→最大化3项UI通过；共用相机77项单元通过。原失败FL-288及原图保留于tasks/spatial-v73/evidence/B5-close-r1；最终证据B5-close-r3。
+
+### DR-472 · 扎杆与跳球共同反馈修订（2026-11-26）
+
+用户六项反馈覆盖v73.3：合法首碰目标后允许再碰黑八；成功仅“成功”，失败仅主原因。示范沿成功或累计三杆门控，改为原回放位共用按钮直达，玩家回放在上一杆菜单。两页复用AimLineGeometry和AimCloseupBuilder.currentAim、BTAimCloseupOverlay、页内偏好与真实触摸门控；固定3D不能成为当前瞄准特写不适用的理由。判题v2与题包严格v1入库审核分开，旧成绩不回算。当前验证及证据见tasks/spatial-v73/feedback-r1/PLAN.md。
+
+### DR-473 / FL-290 · 示范取景与出杆顺序（2026-11-26）
+
+扎杆/跳球原示范用showShot(nil)发起第三人称转场后立即出杆，且先取景后更新参考杆姿。v73.5改为初态球位→参考输入/真实杆姿→统一第三人称默认同步复位→确认无过渡/待布局→锁定出杆；失败恢复原现场，不以固定延时掩盖。个人回放仍恢复原杆镜头；示范停止/结束仍返回用户原观察视角。验证见tasks/spatial-v73/feedback-r2/PLAN.md。已应用至球桌规范TP25、table-page-adaptation的FL-290检查。
+
+### DR-475 · 第三人称随实际准备杆尾抬高眼位（2026-11-26）
+
+正式anchored P01在CameraRig入口启用followsCueElevation，可选字段缺省保持旧录制。P01CameraMotion叠加准备杆尾升高量，不改第一人称；观察接管从可见眼高反解手动基准，房间上限处支持立即下降。43项纯值与新鲜iOS构建74/74（72宿主＋2 UI）通过；6张原图已核，45°沿杆局部遮挡属已知边界，真机手感未验。已应用至：球桌统一规范TP17、变更与来源、docs/00讨论记录及UI-IMPLEMENTATION-SPEC；证据tasks/table-page-adaptation/THIRD-PERSON-ELEVATION-20261126.md。
+
+
+### DR-476 r2 · 扎杆判定放宽与实际轨迹（2026-11-27）
+
+用户确认v73.7：扎杆弧线>1mm且未跳过黑八即可，删除贴台/直线阻挡门槛；共同成功条件保持，规则v4、旧档冻结。双练习页固定播放，设置去演示组；实线路径显示于已提交播放/结果/重打，换题清空；示范/个人回放使用其真实杆，退出恢复玩家路径。数据与页面调用方局部变更，未修改共享渲染器/相机API。
+
+已应用至：UI-IMPLEMENTATION-SPEC本轮Changelog及页面卡feedback-r4；本页专属例外，未推广其他训练设置。验证状态以feedback-r4/RESULTS.md为准。
+
+
+### FL-294 · 复用画线工具不等于复用轨迹语义（2026-11-27）
+
+v73.7两答题页全部dashed:false且到滚动才画线，未沿既有自由页的首碰实/虚分段和同类提交后先显线再出杆时序。上一轮节点存在、显隐及截图验收漏掉线型，撤回其轨迹符合统一标准的结论。修复从已验证消费者提取分段/颜色入口；回归直接核实际mesh虚线端点、XYZ高度、首碰分界以及runCueStroke调度前路线，而非仅节点数量。原证据保留，当前验证见spatial-v73/feedback-r5/RESULTS.md。
+
+已应用至：table-page-adaptation技能FL-294，统一规范TP22，UI-IMPLEMENTATION-SPEC本轮Changelog。
+
+### DR-479 / FL-295 · v75交互球桌线宽（2026-11-27）
+
+显式场景Widths隔离交互4.5/4mm和旧图解；空间贴台/离台同源，旧通用原语/标记/特写不改。四批通过，图解/缩略图/导出固定输入对照和三尺寸原生证据见table-line-width-v75/RESULTS.md。UI audit揭出空白父容器，补contain并完整复测；卡片重排导致旧测试缺滚动，修正测试进场。真实失败不隐藏，未改变物理/相机或放宽断言。

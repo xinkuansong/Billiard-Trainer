@@ -13,6 +13,627 @@ import Combine
 final class ClothSupportPerformanceResearchTests: XCTestCase {
     // H13 measures the current production consumer, not the earlier cloth-only export.
     #if DEBUG
+    /// Current production baseline; destructive variants diagnose cost only.
+    func testNativeStaticClothB0() throws {
+        try runStaticClothStudy(study: "static-cloth-B0", dailyOnly: false, suppliedCandidate: false)
+    }
+
+    func testNativeStaticClothB0Daily() throws {
+        try runStaticClothStudy(study: "static-cloth-B0-daily", dailyOnly: true, suppliedCandidate: false)
+    }
+
+    /// A sealed shader input permits successive research arms on the same signed product.
+    /// The baseline is restored explicitly; no test installs anything on the user's phone.
+    func testNativeStaticClothCandidate() throws {
+        try runStaticClothStudy(study: "static-cloth-candidate", dailyOnly: false, suppliedCandidate: true)
+    }
+
+    func testNativeStaticClothIntegration() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Native material integration")
+        #else
+        guard ProcessInfo.processInfo.isiOSAppOnMac else { throw XCTSkip("Native Mac only") }
+        let device=try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        @MainActor func cloth(_ root:SCNNode) -> [SCNMaterial] {
+            var result=[SCNMaterial](),seen=Set<ObjectIdentifier>()
+            root.enumerateChildNodes { node,_ in
+                for m in node.geometry?.materials ?? [] where m.name=="TaiNi" && seen.insert(ObjectIdentifier(m)).inserted {result.append(m)}
+            }
+            return result
+        }
+        @MainActor func check(_ scene:AngleTrainingScene, optimized:Bool=true) throws {
+            let mats=cloth(scene.rootNode);try require(!mats.isEmpty,"Actual cloth materials")
+            for m in mats {
+                let source=try XCTUnwrap(m.shaderModifiers?[.surface])
+                try require((ClothResearchShaders.sha256(source)==StaticClothRailReuse.outputSHA256)==optimized,"Production source identity")
+                if !optimized {try require(!source.contains("clothStaticIrradiance"),"Unknown source retains original path")}
+            }
+        }
+        let scene=AngleTrainingScene();scene.configureDailyClearanceRendering(asynchronousReflection:false)
+        scene.setupScene(recipe:.liveReference,roomStyle:.tournament)
+        try check(scene)
+        let material=try XCTUnwrap(cloth(scene.rootNode).first)
+        let installed=try XCTUnwrap(material.shaderModifiers?[.surface])
+        let original=try XCTUnwrap(StaticClothRailReuse.restoring(in:installed))
+        try require(StaticClothRailReuse.replacing(in:original)==installed,"Reversible production candidate")
+        try require(StaticClothRailReuse.replacing(in:installed)==nil && StaticClothRailReuse.replacing(in:original+" ")==nil,
+                    "Double application and unknown source rejected")
+        try require(StaticClothRailReuse.requested(arguments:[]) && !StaticClothRailReuse.requested(arguments:[StaticClothRailReuse.disableArgument]),"Debug A/B switch")
+        let clone=material.copy() as! SCNMaterial
+        MobileRailAppearance.remove(from:clone)
+        let removed=try XCTUnwrap(clone.shaderModifiers?[.surface])
+        let expected=original.replacingOccurrences(of:MobileRailAppearance.declaration,with:"")
+            .replacingOccurrences(of:MobileRailAppearance.attenuation,with:"").replacingOccurrences(of:MobileRailAppearance.finish,with:"")
+        try require(removed==expected && clone.value(forKey:"bedRailVisibility")==nil,"Exact reflection removal")
+        try require(material.shaderModifiers?[.surface]==installed,"Clone does not modify live material")
+        let field=try XCTUnwrap(scene.staticClothIrradiance)
+        let target=try RenderTarget(device:device,scene:scene,size:CGSize(width:640,height:360))
+        for color in ClothColor.allCases {
+            try require(scene.applyClothColor(color),"Colour applied");try check(scene)
+            SCNTransaction.flush(); _ = try target.render(frames:2)
+        }
+        for style in TableStyle.allCases {try require(scene.applyTableStyle(style),"Style applied");try check(scene)}
+        for mode in [AngleTrainingScene.CameraMode.perspective3D,.topDown2D,.topDown2DRotated,.perspective3D] {
+            scene.setCameraMode(mode,animated:false);SCNTransaction.flush();_ = try target.render(frames:2);try check(scene)
+        }
+        try require(scene.staticClothIrradiance === field,"Appearance/camera retains static resources")
+        scene.showBall(key:"cueBall",scenePosition:SCNVector3(0.2,scene.surfaceY,0.1))
+        scene.allBallNodes["cueBall"]?.position.y += 0.12
+        scene.allBallNodes["cueBall"]?.opacity=0.5
+        // This synchronous offscreen test never yields to the main run loop.
+        // Commit model edits before asking SceneKit for presentation state.
+        SCNTransaction.flush()
+        _ = try target.render(frames:1)
+        try verifyStaticClothBallUniforms(scene, materials:cloth(scene.rootNode), label:"integration-first-frame")
+        let uniforms=try XCTUnwrap(material.value(forKey:"contactUniforms") as? Data)
+        try require(uniforms.count==16*16,"Original packed uniform layout")
+        let values=uniforms.withUnsafeBytes { bytes in (0..<16).map { bytes.loadUnaligned(fromByteOffset:$0*16,as:SIMD4<Float>.self) } }
+        try require(values.contains {abs($0.x-0.2)<0.00001 && abs($0.y-0.1)<0.00001
+            && abs($0.z-(AngleSceneCalculator.ballRadius+0.12))<0.00001 && abs($0.w-0.425)<0.00001},"Same-frame lifted/fading ball data")
+        let other=AngleTrainingScene();other.clothLTCRequested=false
+        other.setupScene(recipe:.liveReference,roomStyle:.tournament);try check(other,optimized:false)
+        other.showBall(key:"cueBall",scenePosition:SCNVector3(-0.4,0,-0.2));other.contactOcclusion?.updateClonedPositions()
+        try require(material.value(forKey:"contactUniforms") as? Data == uniforms,"Scenes do not share mutable ball data")
+        let overlay=scene.makeTemporaryTopDownRenderScene()
+        try require(cloth(overlay.rootNode).allSatisfy {$0.shaderModifiers?[.surface]==installed},"Temporary overlay retains candidate")
+        let probe=try XCTUnwrap(RoomReflectionProbe.prepareBake(scene:scene,style:.tournament))
+        try require(cloth(try XCTUnwrap(probe.table)).allSatisfy { !($0.shaderModifiers?[.surface]?.contains("clothStaticIrradiance") ?? true)
+            && !($0.shaderModifiers?[.surface]?.contains("bedRailVisibility") ?? true)},"Probe keeps approved original inputs")
+        scene.configureBallInstances((0..<20).map {_ in PositionPlayBall.instanceKey(number:1)})
+        try require(scene.contactOcclusion!.capacity>16,"Real capacity expansion");try check(scene,optimized:false)
+        scene.setupScene(recipe:.liveReference,roomStyle:.tournament);try check(scene)
+        attachStrictReport(["study":"static-cloth-integration","sourceSHA":StaticClothRailReuse.outputSHA256,
+            "colourCount":ClothColor.allCases.count,"styleCount":TableStyle.allCases.count,
+            "resourceBytesAdded":0,"scope":"Native materials, actual uniforms, overlay/probe/capacity/rebuild; not navigation or phone"],name:"static-cloth-integration.json")
+        #endif
+    }
+
+    /// Check the actual shader argument against the intended model state, without
+    /// manually updating the delegate or substituting model-state uniforms.
+    private func verifyStaticClothBallUniforms(_ scene:AngleTrainingScene,
+                                             materials:[SCNMaterial], label:String) throws {
+        let nodes=scene.allBallNodes.sorted {$0.key < $1.key}
+        let radius=AngleSceneCalculator.ballRadius
+        var failures=[[String:Any]]()
+        for (materialIndex,material) in materials.enumerated() {
+            let data=try XCTUnwrap(material.value(forKey:"contactUniforms") as? Data)
+            try require(data.count==nodes.count*16,"Packed ball capacity: \(label)")
+            let values=data.withUnsafeBytes { bytes in nodes.indices.map {
+                bytes.loadUnaligned(fromByteOffset:$0*16,as:SIMD4<Float>.self)
+            }}
+            for (index,pair) in nodes.enumerated() {
+                let node=pair.value,p=node.worldPosition,h=p.y-scene.surfaceY
+                let weight:Float=node.isHidden || node.parent==nil ? 0
+                    : MobileContactOcclusion.encodedOpacityScale*Float(node.opacity)*min(1,max(0,h/radius))
+                let expected=SIMD4<Float>(p.x,p.z,max(radius,h),weight),actual=values[index]
+                if (0..<4).contains(where:{abs(expected[$0]-actual[$0])>0.00001 || !actual[$0].isFinite}) {
+                    let presented=node.presentation.worldPosition
+                    failures.append(["material":materialIndex,"key":pair.key,
+                        "expected":(0..<4).map {expected[$0]},"actual":(0..<4).map {actual[$0]},
+                        "presentation":[presented.x,presented.y,presented.z],
+                        "presentationOpacity":node.presentation.opacity])
+                }
+            }
+        }
+        if !failures.isEmpty {attachStrictReport(["case":label,"failures":failures],name:"static-cloth-ball-uniform-failure.json")}
+        try require(failures.isEmpty,"Actual same-frame ball uniforms: \(label), mismatches=\(failures.count)")
+    }
+
+    /// Static world-space light geometry only. No ball, eye, normal or roughness input.
+    private struct StaticGeometryAtlas {
+        let texture: MTLTexture
+        let control: MTLTexture
+        let report: [String: Any]
+    }
+
+    private func makeStaticGeometryAtlas(device: MTLDevice, grid: Int) throws -> StaticGeometryAtlas {
+        try require(grid == 33 || grid == 65, "Predeclared static atlas grids")
+        let start = ProcessInfo.processInfo.systemUptime
+        let height = (grid + 1) / 2
+        let source = """
+        #include <metal_stdlib>
+        using namespace metal;
+        kernel void staticGeometry(texture2d<half,access::write> target [[texture(0)]],
+            constant uint4 &parameters [[buffer(0)]], uint2 id [[thread_position_in_grid]]) {
+            uint width=parameters.x,height=parameters.y;
+            if(id.x>=width*8 || id.y>=height*9)return;
+            uint sample=(id.y/height)*8+id.x/width;
+            uint panel=sample<64 ? sample/32 : (sample-64)/4;
+            uint index=sample<64 ? sample%32 : (sample-64)%4;
+            uint nx=sample<64 ? 8 : 2,nz=sample<64 ? 4 : 2;
+            uint ix=index/nz,iz=index%nz;
+            float3 p=float3(-1.27+2.54*float(id.x%width)/float(width-1),0.8,
+                -0.635+1.27*float(id.y%height)/float(height-1));
+            float3 center=float3(0,3,panel==0 ? -0.6349999904632568 : 0.6349999904632568);
+            float3 light=center+float3(2.5399999618530273,0,0)*(2*(float(ix)+0.5)/float(nx)-1)
+                +float3(0,0,0.6349999904632568)*(2*(float(iz)+0.5)/float(nz)-1);
+            float3 delta=light-p;float inverseDistance=1.0/sqrt(dot(delta,delta));
+            float4 value=parameters.z==0 ? float4(delta*inverseDistance,inverseDistance):float4(0,1,0,0.45);
+            target.write(half4(value),id);
+        }
+        """
+        let library = try device.makeLibrary(source: source, options: nil)
+        let pipeline = try device.makeComputePipelineState(function: XCTUnwrap(library.makeFunction(name:"staticGeometry")))
+        let compileMS = (ProcessInfo.processInfo.systemUptime-start)*1000
+        let queue = try XCTUnwrap(device.makeCommandQueue())
+        var gpuMS=[Double](), prepareMS=[Double](), textures=[MTLTexture]()
+        for control:UInt32 in [0,1] {
+            let begin=ProcessInfo.processInfo.systemUptime
+            let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba16Float,
+                width:grid*8,height:height*9,mipmapped:false)
+            descriptor.usage=[.shaderRead,.shaderWrite]; descriptor.storageMode = .shared
+            let texture=try XCTUnwrap(device.makeTexture(descriptor:descriptor))
+            texture.label="Static cloth geometry \(grid)x\(height) control=\(control)"
+            let command=try XCTUnwrap(queue.makeCommandBuffer()), encoder=try XCTUnwrap(command.makeComputeCommandEncoder())
+            encoder.setComputePipelineState(pipeline);encoder.setTexture(texture,index:0)
+            var parameters=SIMD4<UInt32>(UInt32(grid),UInt32(height),control,0)
+            encoder.setBytes(&parameters,length:MemoryLayout<SIMD4<UInt32>>.stride,index:0)
+            encoder.dispatchThreads(MTLSize(width:texture.width,height:texture.height,depth:1),
+                threadsPerThreadgroup:MTLSize(width:8,height:8,depth:1))
+            encoder.endEncoding();command.commit();command.waitUntilCompleted()
+            try require(command.status == .completed,"Static atlas generation: \(String(describing:command.error))")
+            gpuMS.append((command.gpuEndTime-command.gpuStartTime)*1000)
+            prepareMS.append((ProcessInfo.processInfo.systemUptime-begin)*1000);textures.append(texture)
+        }
+        // Independent CPU spot checks cover near/far, both lamps and atlas edges.
+        var maxError:Float=0
+        for sample in [0,3,31,32,63,64,67,68,71] {
+            for point in [(0,0),(grid/2,height/2),(grid-1,height-1)] {
+                let panel=sample<64 ? sample/32 : (sample-64)/4
+                let index=sample<64 ? sample%32 : (sample-64)%4
+                let nx=sample<64 ? 8 : 2,nz=sample<64 ? 4 : 2
+                let p=SIMD3<Float>(-1.27+2.54*Float(point.0)/Float(grid-1),0.8,
+                    -0.635+1.27*Float(point.1)/Float(height-1))
+                let light=SIMD3<Float>(2.54*(2*(Float(index/nz)+0.5)/Float(nx)-1),3,
+                    (panel==0 ? -0.635:0.635)+0.635*(2*(Float(index%nz)+0.5)/Float(nz)-1))
+                let delta=light-p, inv=1/simd_length(delta)
+                let expected=SIMD4<Float>(delta.x*inv,delta.y*inv,delta.z*inv,inv)
+                var bits=[UInt16](repeating:0,count:4)
+                bits.withUnsafeMutableBytes { bytes in
+                    textures[0].getBytes(bytes.baseAddress!,bytesPerRow:8,
+                        from:MTLRegionMake2D((sample%8)*grid+point.0,(sample/8)*height+point.1,1,1),mipmapLevel:0)
+                }
+                for component in 0..<4 {
+                    let actual=Float(Float16(bitPattern:bits[component]))
+                    try require(actual.isFinite,"Finite static atlas value")
+                    maxError=max(maxError,abs(actual-expected[component]))
+                }
+            }
+        }
+        try require(maxError<0.001,"Atlas axes/sample layout and FP16 storage")
+        let attachment=XCTAttachment(string:source);attachment.name="static-geometry-kernel.metal"
+        attachment.lifetime = .keepAlways;add(attachment)
+        return StaticGeometryAtlas(texture:textures[0],control:textures[1],report:[
+            "grid":[grid,height],"atlasSize":[grid*8,height*9],"samples":72,
+            "allocatedBytes":textures[0].allocatedSize,"diagnosticPeakBytes":textures.reduce(0){$0+$1.allocatedSize},
+            "compileMS":compileMS,"prepareMS":prepareMS[0],"generateGPUMS":gpuMS[0],
+            "cpuSpotCheckMaxError":maxError,"generationCount":1,"controlGenerationCount":1,
+            "scope":"Static planar light geometry; no ball/camera/material input. Control is measurement-only."])
+    }
+
+    private func makeStaticResponseAtlas(device: MTLDevice, grid: Int) throws -> StaticGeometryAtlas {
+        let env=ProcessInfo.processInfo.environment
+        try require(grid == 17 || grid == 33,"Response grids are predeclared")
+        let bytes=try XCTUnwrap(Data(base64Encoded:try XCTUnwrap(env["STATIC_CLOTH_RESPONSE_KERNEL"])))
+        let source=try XCTUnwrap(String(data:bytes,encoding:.utf8))
+        try require(ClothResearchShaders.sha256(source)==env["STATIC_CLOTH_RESPONSE_SHA"],"Response bake identity")
+        let height=(grid+1)/2,start=CACurrentMediaTime()
+        let library=try device.makeLibrary(source:source,options:nil)
+        let pipeline=try device.makeComputePipelineState(function:XCTUnwrap(library.makeFunction(name:"staticResponse")))
+        let compileMS=(CACurrentMediaTime()-start)*1000
+        let queue=try XCTUnwrap(device.makeCommandQueue())
+        var textures=[MTLTexture](),gpu=[Double](),wall=[Double]()
+        for control:UInt32 in [0,1] {
+            let begin=CACurrentMediaTime()
+            let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba16Float,width:grid*16,height:height*35,mipmapped:false)
+            d.usage=[.shaderRead,.shaderWrite];d.storageMode = .shared
+            let texture=try XCTUnwrap(device.makeTexture(descriptor:d))
+            let command=try XCTUnwrap(queue.makeCommandBuffer()),encoder=try XCTUnwrap(command.makeComputeCommandEncoder())
+            encoder.setComputePipelineState(pipeline);encoder.setTexture(texture,index:0)
+            var parameters=SIMD4<UInt32>(UInt32(grid),UInt32(height),control,0)
+            encoder.setBytes(&parameters,length:MemoryLayout<SIMD4<UInt32>>.stride,index:0)
+            encoder.dispatchThreads(MTLSize(width:texture.width,height:texture.height,depth:1),threadsPerThreadgroup:MTLSize(width:8,height:8,depth:1))
+            encoder.endEncoding();command.commit();command.waitUntilCompleted()
+            try require(command.status == .completed,"Response preparation completed")
+            gpu.append((command.gpuEndTime-command.gpuStartTime)*1000);wall.append((CACurrentMediaTime()-begin)*1000)
+            textures.append(texture)
+        }
+        let texture=textures[0]
+        try require(texture.allocatedSize <= 4*1024*1024,"Response resident budget")
+        // Independent Double evaluation at actual GPU texels, including both lamps.
+        var maximumRelative=0.0
+        for panel in 0..<2 {for sample in [(0,0,0,2),(grid/2,height/2,5,8),(grid-1,height-1,15,15)] {
+            let (x,z,az,pol)=sample
+            let p=SIMD3<Double>(-1.27+2.54*Double(x)/Double(grid-1),0.8,-0.635+1.27*Double(z)/Double(height-1))
+            let t=Double(pol)/16,nv=max(0.001,1-t*t),angle=Double(az)*2*Double.pi/16
+            let v=SIMD3<Double>(sqrt(1-nv*nv)*cos(angle),nv,sqrt(1-nv*nv)*sin(angle))
+            var actual=[UInt16](repeating:0,count:4)
+            actual.withUnsafeMutableBytes { b in texture.getBytes(b.baseAddress!,bytesPerRow:8,from:MTLRegionMake2D(az*grid+x,(panel*17+pol)*height+z,1,1),mipmapLevel:0) }
+            for (component,rough) in [0.4,0.6,0.8,1.0].enumerated() {
+                let a2=pow(rough,4);var expected=0.0
+                for ix in 0..<8 {for iz in 0..<4 {
+                    let light=SIMD3<Double>(2.54*(2*(Double(ix)+0.5)/8-1),3,(panel==0 ? -0.635:0.635)+0.635*(2*(Double(iz)+0.5)/4-1))
+                    let delta=light-p,r2=simd_dot(delta,delta),l=delta/sqrt(r2),h=simd_normalize(l+v)
+                    let nl=max(0.001,l.y),nh=max(0,h.y),vh=max(0,simd_dot(v,h)),denom=nh*nh*(a2-1)+1
+                    let D=a2/(Double.pi*denom*denom)
+                    let G=2*nv/(nv+sqrt(a2+(1-a2)*nv*nv))*2*nl/(nl+sqrt(a2+(1-a2)*nl*nl))
+                    let F=0.012+0.988*pow(1-vh,5)
+                    expected+=max(0,l.y)*max(0,l.y)/r2*6.4516/32*D*G*F/(4*nv*nl)
+                }}
+                let value=Double(Float16(bitPattern:actual[component]))
+                try require(value.isFinite && value>=0,"Finite response")
+                maximumRelative=max(maximumRelative,abs(value-expected)/max(1e-6,expected))
+            }
+        }}
+        try require(maximumRelative<0.003,"Independent response integration and atlas layout")
+        var raw=Data(count:texture.width*texture.height*8)
+        raw.withUnsafeMutableBytes {b in texture.getBytes(b.baseAddress!,bytesPerRow:texture.width*8,from:MTLRegionMake2D(0,0,texture.width,texture.height),mipmapLevel:0)}
+        let dataAttachment=XCTAttachment(data:raw,uniformTypeIdentifier:"public.data")
+        dataAttachment.name="static-response-\(grid).rgba16f";dataAttachment.lifetime = .keepAlways;add(dataAttachment)
+        let code=XCTAttachment(string:source);code.name="static-response-kernel.metal";code.lifetime = .keepAlways;add(code)
+        return StaticGeometryAtlas(texture:texture,control:textures[1],report:[
+            "kind":"preintegrated-response","grid":[grid,height],"atlasSize":[texture.width,texture.height],
+            "allocatedBytes":texture.allocatedSize,"diagnosticPeakBytes":textures.reduce(0){$0+$1.allocatedSize},
+            "compileMS":compileMS,"prepareMS":wall[0],"generateGPUMS":gpu[0],"generationCount":1,
+            "cpuSpotCheckMaxRelativeError":maximumRelative,"kernelSHA":ClothResearchShaders.sha256(source),
+            "scope":"Research GPU bake; production requires offline resource loading, current eye and live ball visibility remain dynamic"])
+    }
+
+    func testNativeStaticGeometryAtlasPreparation() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Native atlas preflight")
+        #else
+        guard ProcessInfo.processInfo.isiOSAppOnMac else {throw XCTSkip("Native Mac only")}
+        let device=try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let values=try [33,65].map {try makeStaticGeometryAtlas(device:device,grid:$0).report}
+        attachStrictReport(["grids":values],name:"static-geometry-preflight.json")
+        #endif
+    }
+
+    private func runStaticClothStudy(study: String, dailyOnly: Bool, suppliedCandidate: Bool) throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("B0 requires native GPU timestamps")
+        #else
+        guard ProcessInfo.processInfo.isiOSAppOnMac else { throw XCTSkip("Native Mac only") }
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        _ = try calibrateNativeGPU(device: device)
+        let scene = AngleTrainingScene()
+        scene.configureDailyClearanceRendering(asynchronousReflection: false)
+        scene.setupScene(recipe: .liveReference, roomStyle: .tournament)
+        try require(scene.applyClothColor(.green) && scene.applyTableStyle(.charcoal), "Current appearance")
+        try require(scene.clothLTCRequested && scene.clothLTCState == ClothSpecularLTC.identity,
+                    "Current LTC must stay installed")
+        let field = try XCTUnwrap(scene.staticClothIrradiance)
+        var mats = [SCNMaterial](), seen = Set<ObjectIdentifier>()
+        scene.rootNode.enumerateChildNodes { node, _ in
+            for m in node.geometry?.materials ?? [] where m.name == "TaiNi" && seen.insert(ObjectIdentifier(m)).inserted { mats.append(m) }
+        }
+        let installedProduction = try XCTUnwrap(mats.first?.shaderModifiers?[.surface])
+        let original = StaticClothRailReuse.restoring(in:installedProduction) ?? installedProduction
+        try require(ClothResearchShaders.sha256(installedProduction)==StaticClothRailReuse.outputSHA256,"Current default installs validated rail candidate")
+        try require(mats.allSatisfy { $0.shaderModifiers?[.surface] == installedProduction }, "Same shared cloth source")
+        try require(original.contains(MobileRailAppearance.finish) && original.contains("contactUniforms.contactBalls[")
+                    && original.contains("E=temporalFieldDiffuse"), "Current rail/C1/H9 installed")
+        for entry in [SCNShaderModifierEntryPoint.surface, .geometry, .fragment] {
+            if let source = mats.first?.shaderModifiers?[entry] {
+                let a = XCTAttachment(string: source); a.name = "b0-production-\(entry.rawValue).txt"
+                a.lifetime = .keepAlways; add(a)
+            }
+        }
+        let railAnchor = "float3 railSoftE=max(v62PanelDiffuse(p,railSoftNormal)-v62PanelDiffuse(p,n),float3(0.0));"
+        let fieldAnchor = "E=temporalFieldDiffuse(p,n,temporalField0,temporalField1)*(E/max(unoccludedE,float3(0.000001)));"
+        try require(original.components(separatedBy: railAnchor).count == 2
+                    && original.components(separatedBy: fieldAnchor).count == 2, "Exact diagnostic anchors")
+        let noRailSoft = original.replacingOccurrences(of: railAnchor, with: "float3 railSoftE=float3(0.0);")
+        let noFixedDiffuse = noRailSoft.replacingOccurrences(of: fieldAnchor,
+            with: "E=float3(1.0)*(E/max(unoccludedE,float3(0.000001)));")
+        var variants = [("AA",original), ("no-rail-soft",noRailSoft), ("no-fixed-diffuse",noFixedDiffuse)]
+        if suppliedCandidate {
+            let environment = ProcessInfo.processInfo.environment
+            try require(environment["STATIC_CLOTH_INPUT_SHA"] == ClothResearchShaders.sha256(original), "Candidate input identity")
+            let encoded = try XCTUnwrap(environment["STATIC_CLOTH_SOURCE_BASE64"])
+            let data = try XCTUnwrap(Data(base64Encoded: encoded))
+            let source = try XCTUnwrap(String(data: data, encoding: .utf8))
+            try require(environment["STATIC_CLOTH_OUTPUT_SHA"] == ClothResearchShaders.sha256(source), "Candidate output identity")
+            variants = [("AA",original), ("candidate",source)]
+            let attachment = XCTAttachment(string: source); attachment.name = "candidate.surface.txt"
+            attachment.lifetime = .keepAlways; add(attachment)
+        }
+        var geometryAtlas:StaticGeometryAtlas?
+        if suppliedCandidate, let raw=ProcessInfo.processInfo.environment["STATIC_CLOTH_GEOMETRY_GRID"] {
+            let grid=try XCTUnwrap(Int(raw));geometryAtlas=try makeStaticGeometryAtlas(device:device,grid:grid)
+            try require(variants.last!.1.contains("texture2d<float> staticGeometryAtlas;"),"Atlas candidate binding contract")
+            for m in mats {m.setValue(SCNMaterialProperty(contents:geometryAtlas!.texture),forKey:"staticGeometryAtlas")}
+        }
+        if suppliedCandidate, let raw=ProcessInfo.processInfo.environment["STATIC_CLOTH_RESPONSE_GRID"] {
+            try require(geometryAtlas == nil,"Only one research atlas representation")
+            geometryAtlas=try makeStaticResponseAtlas(device:device,grid:try XCTUnwrap(Int(raw)))
+            try require(variants.last!.1.contains("texture2d<float> staticGeometryAtlas;"),"Response texture contract")
+            for m in mats {m.setValue(SCNMaterialProperty(contents:geometryAtlas!.texture),forKey:"staticGeometryAtlas")}
+        }
+        var validationRoughness: Float?
+        @MainActor func install(_ source: String) {
+            let installed = validationRoughness.map { roughness in
+                source.replacingOccurrences(of: "#pragma body", with: "#pragma body\n_surface.roughness=\(roughness);")
+            } ?? source
+            for m in mats { var mods = m.shaderModifiers ?? [:]; mods[.surface] = installed; m.shaderModifiers = mods }
+            SCNTransaction.flush()
+        }
+        let camera = try XCTUnwrap(scene.cameraNode), size = CGSize(width: 1400, height: 800)
+        scene.cameraRig?.viewportSize = size
+        if dailyOnly || suppliedCandidate {
+            scene.cameraRig?.configurePlayerCameraControls(daily: true, policy: .p01Replayable, anchoredP01Transitions: true)
+        }
+        scene.setCameraMode(.perspective3D, animated: false)
+        if dailyOnly || suppliedCandidate {
+            let rig = try XCTUnwrap(scene.cameraRig)
+            try require(rig.enterPlayerView(.thirdPerson,
+                cue: SCNVector3(-0.9, scene.surfaceY + AngleSceneCalculator.ballRadius, -0.45),
+                aim: SCNVector3(0.6,0,0.8), duration: 0, resetThirdPerson: true), "Actual P01 entry")
+            for _ in 0..<180 { rig.update(deltaTime: 1/60) }
+            try require(rig.usesP01Camera && abs(camera.simdPosition.y-scene.surfaceY-0.65) < 0.01,
+                        "Daily P01 height contract")
+        }
+        let defaultPose = camera.simdTransform, defaultFOV = camera.camera!.fieldOfView
+        scene.hideAllBalls()
+        let keys = ["cueBall"] + (1...15).map { "_\($0)" }
+        for (i, key) in keys.enumerated() {
+            scene.showBall(key: key, scenePosition: SCNVector3(Float(i / 4)*0.6-0.9,
+                scene.surfaceY + AngleSceneCalculator.ballRadius, Float(i % 4)*0.3-0.45))
+        }
+        let target = try RenderTarget(device: device, scene: scene, size: size)
+        var rows = [[String: Any]](), qualityRows = [[String: Any]](), complete = false
+        defer {
+            validationRoughness = nil
+            install(original)
+            attachStrictReport(["study": study, "completed": complete && testRun?.totalFailureCount == 0,
+                "device": device.name, "sourceSHA": ClothResearchShaders.sha256(original),
+                "installedProductionSHA":ClothResearchShaders.sha256(installedProduction),
+                "staticFieldBytes": field.allocatedBytes, "LTCBytes": scene.clothSpecularLTC!.allocatedBytes,
+                "geometryAtlas":geometryAtlas?.report ?? [:],
+                "rows": rows, "quality": qualityRows,
+                "scope": "current complete scene; Mac offscreen times are not phone heat or displayed FPS"],
+                name: study + ".json")
+        }
+        for name in dailyOnly ? ["app-default"] : ["app-default", "low", "near", "overview"] {
+            camera.camera?.usesOrthographicProjection = false
+            if name == "app-default" { camera.simdTransform = defaultPose; camera.camera?.fieldOfView = defaultFOV }
+            else {
+                let eye: SIMD3<Float> = name == "low" ? SIMD3(0,1.05,1.8)
+                    : (name == "near" ? SIMD3(0.16,1.15,0.3) : SIMD3(1.8,2.7,2.1))
+                let d = eye - SIMD3<Float>(0, scene.surfaceY, 0)
+                let pose = TwoViewCamera.Pose.looking(eye: eye, yaw: atan2(d.z,d.x),
+                    pitch: -atan2(d.y,hypot(d.x,d.z)), fov: 50)
+                try require(simd_dot(pose.forward,simd_normalize(-d)) > 0.99999, "Correct camera direction")
+                camera.simdTransform = pose.transform; camera.camera?.fieldOfView = 50
+            }
+            SCNTransaction.flush(); install(original)
+            _ = try target.render(frames: 24); let a = try target.readback()
+            try verifyStaticClothBallUniforms(scene,materials:mats,label:name)
+            _ = try target.render(frames: 2); let aa = try target.readback()
+            try require(a.greenPixels > 1000 && a.uniqueColors > 100 && a.magentaPixels == 0, "Actual cloth rendered")
+            try require(difference(a,aa).maximum == 0, "Stable current AA pixels")
+            attach(a, "b0-\(name)-current")
+            for (variant, source) in variants {
+                install(source); _ = try target.render(frames: 8); let b = try target.readback()
+                let delta = difference(a,b)
+                if variant == "no-fixed-diffuse" { try require(delta.changedPixels > 100, "Diagnostic must affect real pixels") }
+                install(original); _ = try target.render(frames: 8)
+                try require(difference(a,try target.readback()).maximum == 0, "Restoration is exact")
+                if variant != "AA" { attach(b, "b0-\(name)-\(variant)") }
+                if name == "app-default", variant == "candidate", let atlas=geometryAtlas {
+                    install(source)
+                    for m in mats {m.setValue(SCNMaterialProperty(contents:atlas.control),forKey:"staticGeometryAtlas")}
+                    SCNTransaction.flush()
+                    _ = try target.render(frames:8);let control=try target.readback()
+                    attach(control,"static-geometry-consumer-control")
+                    try require(difference(b,control).changedPixels>100,"Actual fragment consumes bound static atlas")
+                    for m in mats {m.setValue(SCNMaterialProperty(contents:atlas.texture),forKey:"staticGeometryAtlas")}
+                    SCNTransaction.flush()
+                    _ = try target.render(frames:8)
+                    try require(difference(b,try target.readback()).maximum==0,"Static atlas control restores exactly")
+                }
+                var times = [[String: Any]]()
+                for cycle in 0..<6 {
+                    for arm in cycle % 2 == 0 ? [false,true,true,false] : [true,false,false,true] {
+                        install(arm ? source : original)
+                        _ = try target.render(frames: 24)
+                        let measurement = try target.render(frames: 32, includeNativeTiming: true)
+                        times.append(["cycle": cycle, "arm": arm ? "B" : "A", "frames": measurement.perFrameTiming,
+                                      "thermal": ProcessInfo.processInfo.thermalState.rawValue])
+                    }
+                }
+                rows.append(["pose": name, "variant": variant, "maximum": delta.maximum,
+                    "changedPixels": delta.changedPixels, "times": times,
+                    "eye": [camera.simdPosition.x,camera.simdPosition.y,camera.simdPosition.z],
+                    "down": camera.simdTransform.columns.2.y, "fov": camera.camera!.fieldOfView])
+            }
+        }
+        if suppliedCandidate, ProcessInfo.processInfo.environment["STATIC_CLOTH_QUALITY"] == "1" {
+            let candidate = try XCTUnwrap(variants.last?.1)
+            // Both arms receive the same actual material roughness and scene state.
+            // Adjacent samples straddle LTC height/roughness gates without widening them.
+            for (caseIndex, height) in [Float(0.2499),0.2501,0.4999,0.5001].enumerated() {
+                let eye = SIMD3<Float>(0.16,scene.surfaceY+height,0.3), d = eye-SIMD3<Float>(0,scene.surfaceY,0)
+                let pose = TwoViewCamera.Pose.looking(eye: eye, yaw: atan2(d.z,d.x),
+                    pitch: -atan2(d.y,hypot(d.x,d.z)), fov: 50)
+                camera.simdTransform = pose.transform; camera.camera?.fieldOfView = 50
+                for roughness: Float in [0.3999,0.4,0.4001] {
+                    validationRoughness = roughness
+                    for state in ["empty","edge-mixed"] {
+                        scene.hideAllBalls()
+                        if state == "edge-mixed" {
+                            for (i,key) in keys.enumerated() {
+                                let x: Float = i < 8 ? -1.23 : 1.23
+                                scene.showBall(key: key, scenePosition: SCNVector3(x,
+                                    scene.surfaceY+AngleSceneCalculator.ballRadius+(i == 3 ? 0.12 : 0),
+                                    Float(i % 8)*0.17-0.595))
+                                if i == 3 { scene.allBallNodes[key]?.position.y += 0.12 }
+                                try require(abs((scene.allBallNodes[key]?.position.y ?? 0)-scene.surfaceY-AngleSceneCalculator.ballRadius-(i == 3 ? 0.12 : 0)) < 0.00001,
+                                            "Boundary actual ball height")
+                                scene.allBallNodes[key]?.opacity = i == 5 ? 0.5 : 1
+                            }
+                        }
+                        SCNTransaction.flush()
+                        install(original); _ = try target.render(frames: 8); let a = try target.readback()
+                        try verifyStaticClothBallUniforms(scene,materials:mats,label:"boundary-\(caseIndex)-\(roughness)-\(state)")
+                        install(candidate); _ = try target.render(frames: 8); let b = try target.readback()
+                        let delta = difference(a,b)
+                        install(original); _ = try target.render(frames: 8)
+                        try require(difference(a,try target.readback()).maximum == 0, "Boundary restore exact")
+                        let label = "boundary-\(caseIndex)-\(roughness)-\(state)"
+                        attach(a,label+"-A"); attach(b,label+"-B")
+                        qualityRows.append(["case": label,"height":height,"roughness":roughness,"balls":state,
+                            "maximum":delta.maximum,"changedPixels":delta.changedPixels])
+                    }
+                }
+            }
+            validationRoughness = nil
+        }
+        if suppliedCandidate, ProcessInfo.processInfo.environment["STATIC_CLOTH_EXTENDED"] == "1" {
+            let candidate = try XCTUnwrap(variants.last?.1)
+            let originalFieldIDs = field.fields.map { ObjectIdentifier($0) }
+            @MainActor func pointCamera(_ eye: SIMD3<Float>, at center: SIMD3<Float>) throws {
+                let d = eye-center
+                let pose = TwoViewCamera.Pose.looking(eye:eye,yaw:atan2(d.z,d.x),
+                    pitch:-atan2(d.y,hypot(d.x,d.z)),fov:50)
+                try require(simd_dot(pose.forward,simd_normalize(-d))>0.99999,"Extended camera direction")
+                camera.camera?.usesOrthographicProjection=false
+                camera.camera?.fieldOfView=50; camera.simdTransform=pose.transform
+            }
+            @MainActor func compareState(_ label: String) throws {
+                SCNTransaction.flush()
+                install(original); _ = try target.render(frames:1)
+                try verifyStaticClothBallUniforms(scene,materials:mats,label:label+"-first-frame")
+                _ = try target.render(frames:3); let a = try target.readback()
+                _ = try target.render(frames:2)
+                let aa=try target.readback(), aaDelta=difference(a,aa)
+                if aaDelta.maximum != 0 {attach(a,label+"-AA-first");attach(aa,label+"-AA-second")}
+                try require(aaDelta.maximum==0,"Extended AA exact: \(label), max=\(aaDelta.maximum)")
+                install(candidate); _ = try target.render(frames:4); let b = try target.readback()
+                install(original); _ = try target.render(frames:4)
+                let restored = try target.readback(), restoreDelta=difference(a,restored)
+                if restoreDelta.maximum != 0 {
+                    attach(a,label+"-failure-A"); attach(b,label+"-failure-B")
+                    attach(restored,label+"-failure-restored")
+                    var diagnostic=[[String:Any]]()
+                    for extra in 1...3 {
+                        _ = try target.render(frames:4)
+                        let later=try target.readback(), delta=difference(a,later)
+                        attach(later,label+"-failure-extra-\(extra)")
+                        diagnostic.append(["extraFrames":extra*4,"maximum":delta.maximum,"changedPixels":delta.changedPixels])
+                    }
+                    attachStrictReport(["case":label,"maximum":restoreDelta.maximum,
+                        "changedPixels":restoreDelta.changedPixels,"extraFrames":diagnostic],name:"static-cloth-restore-failure.json")
+                }
+                try require(restoreDelta.maximum==0,"Extended restore exact: \(label), max=\(restoreDelta.maximum), pixels=\(restoreDelta.changedPixels)")
+                let delta=difference(a,b)
+                attach(a,label+"-A"); attach(b,label+"-B")
+                qualityRows.append(["case":label,"maximum":delta.maximum,"changedPixels":delta.changedPixels])
+                try require(scene.staticClothIrradiance === field && field.fields.map { ObjectIdentifier($0) } == originalFieldIDs,
+                            "Camera/ball changes retain immutable static fields")
+            }
+            // Six actual pocket centres, shadows crossing the lip, elevation and fading.
+            for (pocketIndex,pocket) in AngleSceneCalculator.pocketPositions(surfaceY:scene.surfaceY).enumerated() {
+                let center=SIMD3<Float>(pocket.x,scene.surfaceY,pocket.z)
+                let inward=simd_normalize(SIMD3<Float>(-pocket.x,0,-pocket.z))
+                try pointCamera(center+inward*0.65+SIMD3<Float>(0,0.23,0),at:center)
+                for frame in 0..<12 {
+                    scene.hideAllBalls()
+                    let t=Float(frame)/11
+                    let position=center+inward*(0.20-0.22*t)+SIMD3<Float>(0,AngleSceneCalculator.ballRadius,0)
+                    scene.showBall(key:"cueBall",scenePosition:SCNVector3(position.x,position.y,position.z))
+                    let other=position+SIMD3<Float>(0.06,frame==5 ? 0.12 : 0,0)
+                    scene.showBall(key:"_1",scenePosition:SCNVector3(other.x,other.y,other.z))
+                    if frame == 5 { scene.allBallNodes["_1"]?.position.y += 0.12 }
+                    try require(abs((scene.allBallNodes["_1"]?.position.y ?? 0)-other.y) < 0.00001,"Pocket actual ball height")
+                    scene.allBallNodes["cueBall"]?.opacity=frame>=8 ? CGFloat(11-frame)/3 : 1
+                    scene.allBallNodes["_1"]?.isHidden=frame==11
+                    try compareState("pocket-\(pocketIndex)-\(frame)")
+                }
+            }
+            // Deterministic same-input sequence, not a physical gameplay/FPS measurement.
+            for lifted in [false,true] { for frame in 0..<72 {
+                let phase=Float(frame)*2*Float.pi/72
+                let height:Float=0.18+0.7*(0.5+0.5*sin(phase*2))
+                try pointCamera(SIMD3<Float>(2.0*cos(phase),scene.surfaceY+height,1.4*sin(phase)),
+                                at:SIMD3<Float>(0,scene.surfaceY,0))
+                scene.hideAllBalls()
+                for (i,key) in keys.enumerated() {
+                    let q=phase+Float(i)*0.39
+                    scene.showBall(key:key,scenePosition:SCNVector3(1.19*cos(q),
+                        scene.surfaceY+AngleSceneCalculator.ballRadius,0.59*sin(q)))
+                    if lifted && i==3 { scene.allBallNodes[key]?.position.y += 0.1*abs(sin(phase)) }
+                    try require(abs((scene.allBallNodes[key]?.position.y ?? 0)-scene.surfaceY-AngleSceneCalculator.ballRadius-(lifted && i==3 ? 0.1*abs(sin(phase)) : 0)) < 0.00001,
+                                "Orbit actual ball height")
+                    scene.allBallNodes[key]?.opacity=i==5 ? CGFloat(0.5+0.5*sin(phase)) : 1
+                    scene.allBallNodes[key]?.isHidden=i==7 && frame>35
+                }
+                try compareState("orbit-\(lifted ? "lifted" : "flat")-balls-\(frame)")
+            }}
+        }
+        if suppliedCandidate, ProcessInfo.processInfo.environment["STATIC_CLOTH_CAPTURE"] == "1" {
+            let capture = MTLCaptureManager.shared()
+            try require(capture.supportsDestination(.gpuTraceDocument), "GPU trace supported")
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("static-cloth-"+UUID().uuidString)
+            try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:false)
+            defer { try? FileManager.default.removeItem(at:directory) }
+            camera.simdTransform = defaultPose; camera.camera?.fieldOfView = defaultFOV
+            for (label,source) in [("A",original),("B",try XCTUnwrap(variants.last?.1))] {
+                install(source); _ = try target.render(frames: 8)
+                let descriptor = MTLCaptureDescriptor()
+                descriptor.captureObject = device; descriptor.destination = .gpuTraceDocument
+                let url = directory.appendingPathComponent(label+".gputrace")
+                descriptor.outputURL = url
+                try capture.startCapture(with:descriptor)
+                do { _ = try target.render(frames:1); capture.stopCapture() }
+                catch { capture.stopCapture(); throw error }
+                // Do not serialize NSFileWrapper: native iOS-on-Mac may render enormous
+                // AppKit document icons while creating its legacy representation.
+                let enumerator = try XCTUnwrap(FileManager.default.enumerator(at:url,
+                    includingPropertiesForKeys:[.isRegularFileKey,.isDirectoryKey,.isSymbolicLinkKey]))
+                var files = [[String:Any]]()
+                while let file = enumerator.nextObject() as? URL {
+                    let relative = String(file.path.dropFirst(url.path.count+1))
+                    let values = try file.resourceValues(forKeys:[.isRegularFileKey,.isDirectoryKey,.isSymbolicLinkKey])
+                    if values.isSymbolicLink == true {
+                        let link = try FileManager.default.destinationOfSymbolicLink(atPath:file.path)
+                        files.append(["path":relative,"link":link])
+                    } else if values.isDirectory == true { files.append(["path":relative,"directory":true]) }
+                    else if values.isRegularFile == true {
+                        let name = "static-cloth-capture-\(label)-file-\(files.count)"
+                        let attachment = XCTAttachment(contentsOfFile:file)
+                        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+                        files.append(["path":relative,"attachment":name])
+                    } else { throw NSError(domain:"Unsupported capture node",code:1) }
+                }
+                attachStrictReport(["arm":label,"files":files],name:"static-cloth-capture-\(label)-manifest.json")
+            }
+        }
+        complete = true
+        #endif
+    }
+
     private final class StageCostDelegate: FrameDelegate, @unchecked Sendable {
         private let costLock = NSLock()
         private var applied: [Double] = []

@@ -6,7 +6,7 @@ import Combine
 @MainActor
 final class CustomFormationSession: ObservableObject, Identifiable {
     let id = UUID()
-    let vm = PositionPlayViewModel()
+    let vm = PositionPlayViewModel(trajectoryWidths: .interactiveTable)
     let guide = BatchGuideLine()
     let isTemplateEditor: Bool
     let original: CustomFormationTemplate?

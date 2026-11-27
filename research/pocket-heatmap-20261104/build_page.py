@@ -1,0 +1,16 @@
+from pathlib import Path
+import json,hashlib,base64
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib.colors import to_hex
+ROOT=Path(__file__).resolve().parents[2];OUT=ROOT/'output/pocket-heatmap-20261104/r2';HERE=Path(__file__).parent
+raw=(OUT/'grid.json').read_text();grid=json.loads(raw);summary=json.loads((OUT/'plot-summary.json').read_text());lut=[to_hex(matplotlib.colormaps['viridis'](i/255)) for i in range(256)]
+style='''body{font:16px/1.7 "PingFang SC",sans-serif;background:#f7f8f4;color:#173e35;max-width:1300px;margin:24px auto;padding:0 20px}h1{font-size:28px}p{margin:.5em 0}.boards{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:940px;margin:auto}canvas{width:100%;height:auto;cursor:crosshair;border-radius:12px}.note{color:#64756b;font-size:14px}.detail{background:white;padding:16px 24px;border-radius:12px;margin:18px 0}table{border-collapse:collapse;width:100%;max-width:650px}td{border-bottom:1px solid #e0e7df;padding:5px 14px}img{width:100%;height:auto}h2{font-size:19px}summary{cursor:pointer}#scale{height:18px;max-width:940px;margin:auto;border-radius:3px}#ticks{display:flex;justify-content:space-between;max-width:940px;margin:auto}.legend{max-width:940px;margin:12px auto;display:flex;gap:16px;flex-wrap:wrap}@media(max-width:650px){.boards{gap:6px}body{padding:0 8px}h1{font-size:23px}h2{font-size:16px}}'''
+page='<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>干净进袋容错角热力图</title><style>'+style+'</style><h1>目标球位置 → 最佳袋口与容错角</h1><p>只采用干净进袋容错角：每个位置比较六袋，选最大连续窗口。点击任一球桌查看最近采样点的六袋角度。</p><p class="note">101 × 51 个位置，约 2.5 cm 间距。颜色越亮，目标球出射方向的容错越大；不是进球概率。未加入母球、其它球和碰袋角入袋。</p><div class="boards"><section><h2>最大干净进袋容错角</h2><canvas id="heat" width="450" height="840" aria-label="最大容错角热力图"></canvas></section><section><h2>最佳袋口分区</h2><canvas id="region" width="450" height="840" aria-label="最佳袋口分区"></canvas></section></div>'
+page+='<div id="scale" style="background:linear-gradient(to right,'+','.join(lut[::16]+[lut[-1]])+')"></div><div id="ticks">'+''.join(f'<span>{summary["vmax"]*f*f:.1f}°</span>' for f in [0,.25,.5,.75,1])+'</div>'
+page+='<div class="legend">灰色：未找到非零干净窗口　白点：近似并列（差≤0.001°）　白球及扇形：所选格点与最佳窗口</div><section class="detail"><p id="detail"></p><table><thead><tr><th>袋口</th><th>容错角</th><th>选择</th></tr></thead><tbody id="ranking"></tbody></table></section><details><summary>查看六个袋口各自的热力图（统一色标）</summary><img alt="六袋分别计算的热力图" src="data:image/png;base64,'+base64.b64encode((OUT/'six-pockets.png').read_bytes()).decode()+'"></details><p class="note">只覆盖按球半径内缩的矩形球心域；每袋用0.05°和0.025°两档搜索核对。零值只表示此模型和分辨率未找到非零干净窗口。临界位置以数据和后续精查为准。</p>'
+script='const DATA='+raw+';const LUT='+json.dumps(lut)+';const VMAX='+str(summary['vmax'])+';\n'+(HERE/'inspector.js').read_text()
+page+='<script>'+script+'</script></html>';(OUT/'review.html').write_text(page)
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+(OUT/'render-manifest.json').write_text(json.dumps({'gridSHA256':sha(OUT/'grid.json'),'files':{name:sha(OUT/name) for name in ['heatmap.png','heatmap.svg','six-pockets.png','review.html','plot-summary.json']},'inspectorSHA256':sha(HERE/'inspector.js')},indent=2))
+print('Single-file interactive HTML written')

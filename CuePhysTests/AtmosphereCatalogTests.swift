@@ -22,7 +22,7 @@ final class AtmosphereCatalogTests: XCTestCase {
     ]
 
     func testCoverArtInventoryAndMotifPools() {
-        XCTAssertEqual(CoverArtKey.allCases.count, 67)
+        XCTAssertEqual(CoverArtKey.allCases.count, 70)
         XCTAssertEqual(AtmosphereKey.allCases.count, 6)
         XCTAssertEqual(AtmosphereCatalog.templatePool.count, 12)
         XCTAssertEqual(
@@ -78,8 +78,9 @@ final class AtmosphereCatalogTests: XCTestCase {
             .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D, .multiBallPractice,
             .snakePractice, .customFormationPractice, .ballExtraction, .bankShot, .diamondSystem,
             .bankPractice2D, .kickPractice2D, .kBallPractice2D, .defensePractice2D,
+            .masseJump, .massePractice, .jumpPractice,
         ]
-        XCTAssertEqual(routes.count, 43)
+        XCTAssertEqual(routes.count, 46)
         var seen = Set<CoverArtKey>()
         for route in routes {
             guard let art = AtmosphereCatalog.coverArt(for: route) else {
@@ -89,7 +90,7 @@ final class AtmosphereCatalogTests: XCTestCase {
             XCTAssertNotNil(UIImage(named: art.imageName), "Missing bundled cover for \(route)")
             XCTAssertTrue(seen.insert(art).inserted, "duplicate art \(art.rawValue)")
         }
-        XCTAssertEqual(seen.count, 43)
+        XCTAssertEqual(seen.count, 46)
     }
 
     func testRepresentativeAngleRoutesHaveArtAndTheoryPalette() {

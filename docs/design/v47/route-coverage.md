@@ -90,3 +90,6 @@ FreePlay既有玩法/开球sheet保留；每日重开改成同页双操作浮层
 2026-11-07 提交前按源码核对四页。练习首页按基础、准度、控球、走位、进阶、策略分组，卡片与目的页共用路由权益。角度测验结果页调整两个链接的标题，分别进入瞄准原理与基础角度训练。拍照页可使用球形或按当前用户保存为自定义球形。走位求解从 Pro 入口进入，默认画落区，可直接拖球。CSV 已登记这四页的状态。本轮核对源码和清单，历史截图沿用原采集日期。
 
 K 球的袋角批量复验由 QJ_JAW_AUDIT、QJ_JAW_FAMILY 显式启用，在指定工作目录原子写入对应的 *-app-replay.json。复验脚本启动前移除同名旧报告并读回新文件，目录由该次复验管理。
+
+
+2026-11-26 v73.3：新增扎杆/跳球两个正式进阶入口，经AngleRoute.massePractice/jumpPractice→MainTabView→SpatialQuizView(mode:)进入独立会话，共用SpatialQuizSettings。设置为阶段内容；订阅使用现有sheet。仅AngleHomeView枚举签名变化及SpatialQuizView新sheet纳入签名；其他路由签名未变。两模式实际导航及取消/重进见B3/B5原生证据。

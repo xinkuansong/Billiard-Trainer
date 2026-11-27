@@ -108,7 +108,7 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
 
     // MARK: - Scene
 
-    let scene = AngleTrainingScene()
+    let scene = AngleTrainingScene(trajectoryWidths: .interactiveTable)
     private var pocketMarkers: [SCNNode] = []
     private var trajectoryNodes: [SCNNode] = []
     private var constraintNodes: [SCNNode] = []
@@ -1013,10 +1013,10 @@ final class SiluTrainerViewModel: TeachingTableHost, BoardMemoryHosting {
         // 瞄准线（母球→假想球，淡白实线）+ 进球线（目标球→袋口，随球色虚线）。
         selectionNodes.append(scene.addLine(from: cue.position, to: ghost,
                                             color: UIColor.white.withAlphaComponent(0.45),
-                                            radius: TrajectoryStyle.aimRadius, placement: .table))
+                                            radius: scene.trajectoryWidths.mainRadius, placement: .table))
         scene.addDashedPolyline([tn.position, pockets[selectedPocketIndex]],
                                 color: TrajectoryStyle.potColor(for: tkey, alpha: 0.55),
-                                radius: TrajectoryStyle.aimRadius, placement: .table, into: &selectionNodes)
+                                radius: scene.trajectoryWidths.mainRadius, placement: .table, into: &selectionNodes)
         if let g = scene.ghostBallNode {
             g.position = SCNVector3(ghost.x, surfaceY + AngleSceneCalculator.ballRadius, ghost.z)
             g.isHidden = false

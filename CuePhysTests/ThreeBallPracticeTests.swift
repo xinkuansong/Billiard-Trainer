@@ -186,6 +186,37 @@ final class ThreeBallPracticeTests: XCTestCase {
         XCTAssertNotEqual(TrainingPracticeNotice(text: "same"), TrainingPracticeNotice(text: "same"))
     }
 
+    func testHistoricalRouteRetryReplayAndRestoration() throws {
+        let suite="ThreeBallHistory."+UUID().uuidString,defaults=try XCTUnwrap(UserDefaults(suiteName:suite))
+        defer { defaults.removePersistentDomain(forName:suite) }
+        let limiter=AngleUsageLimiter(defaults:defaults,namespace:suite);limiter.isPremium=true
+        let (q,prediction)=try fixture()
+        let shot=try ThreeBallShot(question:q,input:.init(),prediction:prediction,surfaceY:BTTablePhysics.surfaceY)
+        let container=ModelContainerFactory.makeInMemoryContainer()
+        let repo=LocalThreeBallPracticeRepository(context:container.mainContext,enqueue:{ _,_ in })
+        var record=ThreeBallPracticeRecord(ownerKey:repo.ownerKey,is3D:false,configuration:.init(),
+            prepared:.init(fingerprint:try ThreeBallBank.currentFingerprint(),question:q))
+        record.accept(shot);try repo.save(record)
+        let vm=ThreeBallPracticeViewModel(is3D:false,limiter:limiter,defaults:defaults)
+        vm.attach(repository:repo);vm.setupScene();defer { vm.suspendTeachingActivity() }
+        // Successful first stroke automatically advances to the next stage.
+        XCTAssertEqual(vm.record?.current?.stage, 1)
+        XCTAssertEqual(vm.phase, .aiming)
+        XCTAssertTrue(vm.canRetry)
+        XCTAssertNil(vm.scene.rootNode.childNode(withName: "threeBall.actual", recursively: true))
+        vm.retry()
+        assertRecordedRouteColor(vm.scene,names:["threeBall.actual"],historical:true)
+        vm.replayLastShot()
+        assertRecordedRouteColor(vm.scene,names:["threeBall.actual"],historical:false)
+        vm.stopPlayback()
+        assertRecordedRouteColor(vm.scene,names:["threeBall.actual"],historical:true)
+        vm.suspendTeachingActivity()
+        let restored=ThreeBallPracticeViewModel(is3D:false,limiter:limiter,defaults:defaults)
+        restored.attach(repository:repo);restored.setupScene();defer { restored.suspendTeachingActivity() }
+        assertRecordedRouteColor(restored.scene,names:["threeBall.actual"],historical:true)
+        XCTAssertEqual(restored.record?.consumed.count,1)
+    }
+
     private func fixture() throws -> (ThreeBallQuestion, ShotPrediction) {
         let bank = try ThreeBallBank.load()
         for var q in bank.questions.prefix(30) {

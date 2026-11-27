@@ -116,8 +116,9 @@ extension XCUIApplication {
 
     // MARK: - Launch Helpers
 
-    static func launchClean(extraArgs: [String] = []) -> XCUIApplication {
+    static func launchClean(extraArgs: [String] = [], environment: [String:String] = [:]) -> XCUIApplication {
         let app = XCUIApplication()
+        app.launchEnvironment.merge(environment) { _, supplied in supplied }
         app.launchArguments += ["-AppleLanguages", "(zh-Hans)"]
         app.launchArguments += ["-AppleLocale", "zh_CN"]
         // 跳过 Onboarding，避免新鲜模拟器上 TabBar 尚未出现导致 switchTab 失败。

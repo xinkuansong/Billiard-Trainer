@@ -16,6 +16,7 @@ extension TablePreferencePage {
 
     var fields: Set<TablePreferenceField> {
         switch self {
+        case .massePractice, .jumpPractice: return [.grid, .transparency, .closeup]
         case .masseJump: return [.grid, .transparency, .trajectory, .shows3DTrajectory]
         case .diamondSystem: return Set(TablePreferenceField.allCases).subtracting([.closeup, .separation])
         case .multiBallPractice, .multiBallPractice3D: return Set(TablePreferenceField.allCases)
@@ -49,7 +50,7 @@ enum TablePreferenceField: String, CaseIterable, Codable {
         if page == .masseJump, self == .view3D { return 1 }
         guard self == .closeup else { return initialValue }
         switch page {
-        case .aimPointScene2D, .aimPointScene3D, .accuracy2D, .accuracy3D,
+        case .massePractice, .jumpPractice, .aimPointScene2D, .aimPointScene3D, .accuracy2D, .accuracy3D,
              .bankPractice2D, .bankPractice3D, .defensePractice2D, .defensePractice3D,
              .multiBallPractice, .multiBallPractice3D, .snakePractice, .composer,
              .customFormationPractice, .silu, .bankShot:

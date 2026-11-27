@@ -53,10 +53,12 @@ enum MobileRailAppearance {
               !source.contains("bedRailVisibility"),
               let device = MTLCreateSystemDefaultDevice() else { throw Failure.shader }
         let field = try texture(emitter: emitter, device: device)
-        modifiers[.surface] = source
+        let finished = source
             .replacingOccurrences(of: "#pragma body", with: declaration + "#pragma body")
             .replacingOccurrences(of: "_surface.emission.rgb = ", with: attenuation + "_surface.emission.rgb = ")
             .replacingOccurrences(of: "_surface.diffuse.rgb=float3(0.0);", with: finish + "_surface.diffuse.rgb=float3(0.0);")
+        modifiers[.surface] = StaticClothRailReuse.requested()
+            ? (StaticClothRailReuse.replacing(in: finished) ?? finished) : finished
         let geometry = modifiers[.geometry] ?? "#pragma body"
         if !geometry.contains(uvFinish) { modifiers[.geometry] = geometry + uvFinish }
         material.setValue(SCNMaterialProperty(contents: field), forKey: "bedRailVisibility")
@@ -67,7 +69,8 @@ enum MobileRailAppearance {
     static func remove(from material: SCNMaterial) {
         guard var modifiers = material.shaderModifiers else { return }
         if let surface = modifiers[.surface] {
-            modifiers[.surface] = surface.replacingOccurrences(of: declaration, with: "")
+            let original = StaticClothRailReuse.restoring(in: surface) ?? surface
+            modifiers[.surface] = original.replacingOccurrences(of: declaration, with: "")
                 .replacingOccurrences(of: attenuation, with: "").replacingOccurrences(of: finish, with: "")
         }
         if let geometry = modifiers[.geometry] {
@@ -100,4 +103,98 @@ enum MobileRailAppearance {
         _surface.emission.rgb*=1.0+0.16*railSide*railFoot*railDark;
     }
     """ + "\n"
+}
+
+
+/// Reuse only the verified C1 analytic fallback and skip zero-contribution rail work.
+/// Fixed model/lamp validation remains owned by MobileRailAppearance.texture.
+/// No resource, per-camera cache, ball-state storage or frame callback is added.
+enum StaticClothRailReuse {
+    static let identity = "static-cloth-rail-analytic-reuse-v1"
+    static let disableArgument = "-rendering.noStaticClothRailReuse"
+    static let inputSHA256 = "ca7cae37f1722967d73caa13f64676f8fe8ce3109303934cae22e8fa03878b04"
+    static let outputSHA256 = "8f4324d0bc1fc7f93e2aea3b0ecf94b4e2488cffce7d309cb5eb115f6767a3a1"
+
+    static func requested(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
+        #if DEBUG
+        !arguments.contains(disableArgument)
+        #else
+        true
+        #endif
+    }
+
+    static func replacing(in source: String) -> String? {
+        guard sha(source) == inputSHA256, let result = transform(source, reverse: false),
+              sha(result) == outputSHA256 else { return nil }
+        return result
+    }
+
+    /// Reflection baking removes the approved rail finish. Restore the exact original
+    /// source first so that its existing removal contract and reflection inputs survive.
+    static func restoring(in source: String) -> String? {
+        guard sha(source) == outputSHA256, let result = transform(source, reverse: true),
+              sha(result) == inputSHA256 else { return nil }
+        return result
+    }
+
+    private static func sha(_ value: String) -> String {
+        SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func transform(_ source: String, reverse: Bool) -> String? {
+        var result = source
+        let operations = reverse ? Array(replacements.reversed()) : replacements
+        for (before, after) in operations {
+            let old = reverse ? after : before, new = reverse ? before : after
+            guard result.components(separatedBy: old).count == 2 else { return nil }
+            result = result.replacingOccurrences(of: old, with: new)
+        }
+        return result
+    }
+
+    // Same complete surface as B3 research; full input/output hashes reject drift,
+    // double application and unvalidated ball capacities while preserving the old path.
+    private static let replacements: [(String, String)] = [
+        ("""
+            E=temporalFieldDiffuse(p,n,temporalField0,temporalField1)*(E/max(unoccludedE,float3(0.000001)));
+            """,
+"""
+            // S: fixed-light field evaluated with current M normal.
+                float3 clothStaticIrradiance=temporalFieldDiffuse(p,n,temporalField0,temporalField1);
+                // D: two lamps retain their original directional weights and normalization.
+                float3 clothDiffuseVisibility=E/max(unoccludedE,float3(0.000001));
+                E=clothStaticIrradiance*clothDiffuseVisibility;
+            """),
+        ("""
+            _surface.emission.rgb = (_surface.diffuse.rgb * _surface.multiply.rgb)
+            """,
+"""
+            // M: current filtered texture colour; V: nap and S remain view-dependent.
+                float3 clothAlbedo=(_surface.diffuse.rgb * _surface.multiply.rgb);
+                // C: preserve the original composition, including dynamic railDark below.
+                _surface.emission.rgb = clothAlbedo
+            """),
+        ("""
+                float3 railSoftNormal=normalize(n+float3(0,0.18,0));
+            """,
+"""
+                if(railLip>0.0) {
+                float3 railSoftNormal=normalize(n+float3(0,0.18,0));
+            """),
+        ("""
+            float3 railSoftE=max(v62PanelDiffuse(p,railSoftNormal)-v62PanelDiffuse(p,n),float3(0.0));
+            """,
+"""
+            // Only the analytic fallback is identical to the base integral here.
+                float3 railBaseE=temporalFieldEligible(p,n) ? v62PanelDiffuse(p,n) : clothStaticIrradiance;
+                float3 railSoftE=max(v62PanelDiffuse(p,railSoftNormal)-railBaseE,float3(0.0));
+            """),
+        ("""
+                _surface.emission.rgb+=(_surface.diffuse.rgb*_surface.multiply.rgb)*railSoftE*(0.25/3.14159265)*railLip;
+            """,
+"""
+                _surface.emission.rgb+=(_surface.diffuse.rgb*_surface.multiply.rgb)*railSoftE*(0.25/3.14159265)*railLip;
+                }
+            """)
+    ]
 }

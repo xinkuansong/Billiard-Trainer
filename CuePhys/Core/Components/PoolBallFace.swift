@@ -145,6 +145,14 @@ enum PoolBallStyle {
 /// - 接触点 = 品牌绿；瞄准点（假想球球心）= 红点
 /// 线宽只有两档：`lineMain`（瞄准/进球/球迹同粗）与 `lineHint`（释义线细一档）。
 enum TrajectoryStyle {
+    /// A retained shot is a comparison while preparing another stroke.
+    /// Geometry, dash pattern and page-specific visibility remain unchanged.
+    enum Presentation {
+        case current, historical
+        func color(_ original: UIColor) -> UIColor {
+            self == .historical ? TrainingAssist.routeReference : original
+        }
+    }
     /// Teaching overlays on rendered felt use fixed, bright colors in both appearances.
     /// Page chrome keeps its adaptive brand/warning palette.
     enum TeachingFigure {
@@ -182,6 +190,20 @@ enum TrajectoryStyle {
     static let lineMain: Float = 0.0028
     /// 释义线宽：对照线 / 90° 线 / 法线等提示层。
     static let lineHint: Float = 0.0020
+
+    /// Scene-local half widths in metres. Never change legacy constants to restyle live tables:
+    /// BTTableFigure and media exporters still consume them directly.
+    enum Widths {
+        case legacyIllustration, interactiveTable
+
+        var mainRadius: Float {
+            switch self {
+            case .legacyIllustration: return TrajectoryStyle.lineMain
+            case .interactiveTable: return 0.00225
+            }
+        }
+        var hintRadius: Float { TrajectoryStyle.lineHint }
+    }
 
     /// 瞄准线（母球轨迹）半径 = `lineMain`（保留旧名兼容既有调用点）。
     static let aimRadius: Float = lineMain

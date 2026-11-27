@@ -346,7 +346,7 @@ final class PlanThreeViewModel: TeachingTableHost, BoardMemoryHosting {
 
     // MARK: - Scene
 
-    let scene = AngleTrainingScene()
+    let scene = AngleTrainingScene(trajectoryWidths: .interactiveTable)
     private var pocketMarkers: [SCNNode] = []
     private var trajectoryNodes: [SCNNode] = []
     private var constraintNodes: [SCNNode] = []
@@ -1368,11 +1368,11 @@ extension PlanThreeViewModel {
             targetBall: tn.position, pocket: aim, ballRadius: AngleSceneCalculator.ballRadius)
         selectionNodes.append(scene.addLine(from: cue.position, to: ghost,
                                             color: UIColor.white.withAlphaComponent(0.45),
-                                            radius: TrajectoryStyle.aimRadius, placement: .table))
+                                            radius: scene.trajectoryWidths.mainRadius, placement: .table))
         // 进球线预览：本色虚线（线语言 v2）。
         scene.addDashedPolyline([tn.position, pockets[pocket1Index]],
                                 color: TrajectoryStyle.potColor(for: tkey, alpha: 0.55),
-                                radius: TrajectoryStyle.aimRadius, placement: .table, into: &selectionNodes)
+                                radius: scene.trajectoryWidths.mainRadius, placement: .table, into: &selectionNodes)
         if let g = scene.ghostBallNode {
             g.position = SCNVector3(ghost.x, surfaceY + AngleSceneCalculator.ballRadius, ghost.z)
             g.isHidden = false

@@ -14,7 +14,10 @@ final class ClothAppearanceTests: XCTestCase {
             table.enumerateChildNodes { node, _ in
                 for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
                     count += 1
-                    let surface = m.shaderModifiers?[.surface] ?? ""
+                    let installedSource = m.shaderModifiers?[.surface] ?? ""
+                    // The verified optimization changes the finish's spelling, not its
+                    // lifecycle contract. Reverse only its exact output identity.
+                    let surface = StaticClothRailReuse.restoring(in: installedSource) ?? installedSource
                     let geometry = m.shaderModifiers?[.geometry] ?? ""
                     XCTAssertEqual(surface.components(separatedBy: MobileRailAppearance.attenuation).count - 1, installed ? 1 : 0)
                     XCTAssertEqual(surface.components(separatedBy: MobileRailAppearance.finish).count - 1, installed ? 1 : 0)

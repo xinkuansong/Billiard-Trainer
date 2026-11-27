@@ -370,7 +370,16 @@ final class BankPracticeTests: XCTestCase {
         XCTAssertEqual(vm.record?.successCount, 1); XCTAssertEqual(limiter.questionsUsedToday, 1)
         XCTAssertFalse(vm.shouldShowReference)
         let first = try XCTUnwrap(vm.record?.currentAttempt?.id)
-        vm.retry(); vm.velocity = 0.5; vm.strike(); try await wait { vm.phase == .result }
+        assertRecordedRouteColor(vm.scene,names:["bank.objectActual"],historical:false)
+        vm.retry()
+        assertRecordedRouteColor(vm.scene,names:["bank.objectActual"],historical:true)
+        XCTAssertNil(vm.scene.rootNode.childNode(withName:"bank.actual",recursively:false))
+        vm.replayLastShot()
+        assertRecordedRouteColor(vm.scene,names:["bank.objectActual"],historical:false)
+        vm.stopPlayback()
+        assertRecordedRouteColor(vm.scene,names:["bank.objectActual"],historical:true)
+        vm.velocity = 0.5; vm.strike(); try await wait { vm.phase == .result }
+        assertRecordedRouteColor(vm.scene,names:["bank.actual"],historical:false)
         XCTAssertEqual(vm.record?.currentAttempt?.id, first)
         XCTAssertEqual(vm.record?.successCount, 1); XCTAssertEqual(limiter.questionsUsedToday, 1)
         XCTAssertNil(vm.referenceTrajectory)

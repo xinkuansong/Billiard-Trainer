@@ -1,3 +1,7 @@
+<!-- Changelog 2026-11-27 DR-479/v75：TrajectoryStyle.Widths新增legacyIllustration/interactiveTable；AngleTrainingScene与PositionPlayViewModel可显式传trajectoryWidths，默认legacy；交互主4.5/辅4mm，SpatialShotRendering贴台/离台同源；图解/导出和特写屏幕pt保持。FL-295两共享按钮列补contain无障碍容器，无布局/API动作变化。验收见table-line-width-v75/RESULTS.md。 -->
+<!-- Changelog 2026-11-27 DR-477：TrajectoryStyle.Presentation新增current/historical；AngleTrainingScene.addCueTrajectory/addObjectTrajectory及SpatialShotRendering.appendBallRoute新增默认current的presentation参数。消费者在重打/恢复瞄准及主动上一杆路线时显式传historical；图例同步，现行TP22为准。 -->
+<!-- Changelog 2026-11-27 DR-476 r3/FL-294：SpatialShotRendering新增共用segments/appendBallRoute，三页继承首碰实/虚与本色；双答题先显已提交路线再出杆。v73.7轨迹标准验收撤回，见spatial-v73/feedback-r5。 -->
+<!-- Changelog 2026-11-27 DR-476 r2：v73.7双答题页固定击球过程、设置去演示；提交后的真实空间轨迹自动显示，示范轨迹退出恢复玩家杆。扎杆技术放宽，详spatial-v73/feedback-r4。共用组件API未变。 -->
 <!-- Changelog 2026-11-25 DR-469：本月概览改为当前账号的全部已记录活动，模拟练习沿用历史有效载荷/已提交条件；草稿排除、周目标和准确率不变。沿用 ProfileMonthlyOverviewCard API、三色及长时长布局；证据见 cuephys-rename/MONTHLY-OVERVIEW-20261125。 -->
 <!-- Changelog 2026-11-25 FL-287：模拟鉴权失效通知使用独立中心，生产默认不变；宿主真机25/25通过，用户登录恢复独立核验。 -->
 <!-- Changelog 2026-11-25 FL-286：全量同步逐页成功后才显示完成，500条截断已修复，云端1281条逐个ID真机核对通过；未改页面布局。 -->
@@ -3650,3 +3654,26 @@ Changelog（2026-11-16 / DR-467续）：全App自绘按钮显式消费plain或�
 Changelog（2026-11-17 / FL-277）：v67相机基线录制按实时投影避开48pt抓球区，逐态核球位与抓取计数；完整测试类／方法与实际执行数分别核验。仅采集夹具修订，App相机／页面合同未变；证据见tasks/camera-v67/B0-BASELINE.md。
 
 Changelog（2026-11-19 / FL-280）：沿杆相机的贴库切镜验收增加原盘与合法盘、隐杆与已有杆姿对照；台面横滑分别核实实际触点与机位。适用范围及设备见[相机推广记录](camera-v68/RESULTS.md)。
+
+Changelog（2026-11-26 / DR-470）：自由扎杆与跳球、扎杆答题、跳球答题统一消费BTSpatialElevationWheel；value/enabled/width/onNudge/identifier由页面传入，横向0.20°/pt、下方角度、shot.elevation模板身份保持。默认横尺及独立模板B3原生通过，最终矩阵见tasks/spatial-v73/IMPLEMENTATION.md。
+
+
+### DR-471 · iPad真实缩窗回程的背景安全区（2026-11-26）
+
+BTTeachingTablePage对UIWindow与SwiftUI GeometryReader之间的额外安全区差值使用safeAreaPadding，保留HUD避让，同时让ignoresSafeArea的球房/SceneKit背景填满窗口。普通padding会在最大化后留下32点顶部黑边。验收同时核系统窗口、内容尺寸和真实SCNView，允许系统合法改变外层content安全区，禁止以其变化替代渲染区验证。v73 b5-close-r3双答题页及旧自由页实际缩窗→最大化3项UI通过；共用相机77项单元通过。原失败FL-288及原图保留于tasks/spatial-v73/evidence/B5-close-r1；最终证据B5-close-r3。
+
+### DR-472 · 扎杆与跳球共同反馈修订（2026-11-26）
+
+用户六项反馈覆盖v73.3：合法首碰目标后允许再碰黑八；成功仅“成功”，失败仅主原因。示范沿成功或累计三杆门控，改为原回放位共用按钮直达，玩家回放在上一杆菜单。两页复用AimLineGeometry和AimCloseupBuilder.currentAim、BTAimCloseupOverlay、页内偏好与真实触摸门控；固定3D不能成为当前瞄准特写不适用的理由。判题v2与题包严格v1入库审核分开，旧成绩不回算。当前验证及证据见tasks/spatial-v73/feedback-r1/PLAN.md。
+
+### DR-473 / FL-290 · 示范取景与出杆顺序（2026-11-26）
+
+扎杆/跳球原示范用showShot(nil)发起第三人称转场后立即出杆，且先取景后更新参考杆姿。v73.5改为初态球位→参考输入/真实杆姿→统一第三人称默认同步复位→确认无过渡/待布局→锁定出杆；失败恢复原现场，不以固定延时掩盖。个人回放仍恢复原杆镜头；示范停止/结束仍返回用户原观察视角。验证见tasks/spatial-v73/feedback-r2/PLAN.md。已应用至球桌规范TP25、table-page-adaptation的FL-290检查。
+
+### DR-474 · 普通切镜计时与请求衔接（2026-11-26）
+
+CameraRig.prepareP01为anchored P01启用selectionMatchedV1；普通select/focus/复位共用计时，TurnPace.selection120选球曲线保留。一般转场按绕锚点/径向/竖向/俯仰/FOV累计耗时，起停各0.16秒；同有效目的地保持原到达时间，观察与新目标从当前可见姿态接管。P01 enterPlayerView的duration<=0同步，正值仅允许动画；专用开球1.5秒、空间示范同步复位、旧记录解释及legacy路径独立。无新UI或速度设置项。依据与证据：问题集合_v74.md、tasks/camera-v74/B1.md、B2.md；原生和真机认可分别登记。
+
+### DR-475 · 第三人称准备杆姿眼高（2026-11-26）
+
+P01CameraMotion初始化新增followsCueElevation参数，默认false；正式anchored P01由CameraRig启用。只影响第三人称眼高，叠加实际准备杆尾相对水平杆的升高量，继续用原俯仰；手动高度独立保存，观察接管／快照恢复扣除补偿。第一人称、无杆观察、开球专用镜头和旧记录保持。验证与边界见table-page-adaptation/THIRD-PERSON-ELEVATION-20261126.md。

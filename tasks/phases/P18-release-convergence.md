@@ -411,3 +411,11 @@ A1初扫的±0.05°是待评估候选，贴库中／大角度有限搜索显示�
 ### ADR-P18-PocketTolerance · 目标球窗口共享（2026-11-05）
 
 新增学页与防守评分共用不可变查表。将DefensePipeTable从防守评分文件原样迁至Core/Scene，保持类名/数据格式/评分调用，避免教学依赖防守状态模型；新typed边界查询消费同源几何精算。未新增SDK、数据同步或持久化schema。窗口覆盖缺口仍单独处理。页面卡：`tasks/table-page-adaptation/POCKET-TOLERANCE-20261105.md`。
+
+### ADR-P18-13 — 双空间答题共用壳、独立会话与冻结判定（2026-11-26）
+
+- 来源：用户批准v73.3双模式逐批实施。
+- 决策：新增SpatialQuiz共享题目/判题/事务层，模式保持独立kind、额度与偏好。BTTeachingTablePage、TeachingCameraHost/CameraRig/P01、AngleSceneView及liveReference/reflection沿现有规范；只抽取空间横尺、可达角和真实轨迹显示，不创建另一相机/渲染算法，不持有自由页VM。
+- 物理：玩家、参考与示范统一显式spatialPractice；回放用存档XYZ/姿态，appDefault保持原状。研究筛选资格不作为玩家评分额外门槛。
+- 数据：SQ01压缩payload借用TrainingSession现有字段，首次有效结果保存成功后接受幂等计额凭证；复练/回放/示范不改首答。不改schema与既有同步同意、仅插入恢复和删除协议。旧成绩结构校验与活动兼容分开，旧规则不回算，未知/坏记录原样保留并提示。
+- 验证：B0–B3及B4分项结果见`tasks/spatial-v73/IMPLEMENTATION.md`。全库与最终矩阵/性能需B5，模拟器不证明真机温升或用户接受。

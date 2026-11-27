@@ -208,7 +208,7 @@ struct SeparationPracticeView: View {
                         .accessibilityValue("中杆中力，无高低杆、无左右塞，杆速2.0")
                 }
                 if vm.record?.latestShot != nil {
-                    routeLegend("实际", color: Color(SeparationRouteStyle.actual), dash: SeparationRouteStyle.legendDash)
+                    routeLegend("实际", color: Color(vm.actualRoutePresentation.color(SeparationRouteStyle.actual)), dash: SeparationRouteStyle.legendDash)
                         .accessibilityIdentifier("separation.actualLegend")
                 }
             }

@@ -241,7 +241,7 @@ struct DefensePracticeView: View {
         let color = target ? DefenseRouteStyle.target(for: key)
             : cue ? TrajectoryStyle.aimColor : TrajectoryStyle.potColor(for: key)
         return HStack(spacing: Spacing.xs) {
-            routeSample(color)
+            routeSample(target ? color : vm.actualRoutePresentation.color(color))
             Text(role + (cue ? "母" : "\(PositionPlayBall.number(for: key) ?? 0)"))
         }
         .accessibilityElement(children: .ignore)

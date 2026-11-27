@@ -127,8 +127,8 @@ extension TeachingCameraHost {
         settleTeachingCamera(frameRecommendedTarget: false)
     }
 
-    func beginTeachingRollingCamera(aim: SCNVector3, replaying: Bool) {
-        guard !replaying, let rig = scene.cameraRig, rig.p01ShotFrozen,
+    func beginTeachingRollingCamera(aim: SCNVector3, replaying: Bool, allowsReplayObservation: Bool = false) {
+        guard (!replaying || allowsReplayObservation), let rig = scene.cameraRig, rig.p01ShotFrozen,
               let cue = scene.cueBallNode, !cue.isHidden else { return }
         rig.beginP01RollingShot(cue: cue.position, aim: aim)
         // Contact does not change the page's playing phase. Notify the layout

@@ -79,6 +79,7 @@ targets:
           - "Resources/Drills/**"
           - "Resources/defense-trajectories.bank"
           - "Resources/TwoBallBank/**"
+          - "Resources/SpatialQuizBank/**"
           - "Resources/KBallBank/**"
           - "Resources/ThreeBallBank/**"
           - "Resources/MultiBallBank/**"
@@ -111,6 +112,9 @@ targets:
         type: folder
         buildPhase: resources
       - path: CuePhys/Resources/ThreeBallBank
+        type: folder
+        buildPhase: resources
+      - path: CuePhys/Resources/SpatialQuizBank
         type: folder
         buildPhase: resources
       - path: CuePhys/Resources/TwoBallBank

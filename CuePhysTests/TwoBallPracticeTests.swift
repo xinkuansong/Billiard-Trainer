@@ -454,7 +454,13 @@ extension TwoBallPracticeTests {
         XCTAssertEqual(vm.phase,.saveFailed);XCTAssertEqual(limiter.questionsUsedToday,14)
         repo.failSubmissions=false;vm.retrySave()
         XCTAssertEqual(vm.phase,.result);XCTAssertEqual(limiter.questionsUsedToday,15)
+        assertRecordedRouteColor(vm.scene,names:["twoBall.actual"],historical:false)
         vm.retry();XCTAssertEqual(vm.phase,.aiming);XCTAssertEqual(vm.primaryTitle,"提交")
+        assertRecordedRouteColor(vm.scene,names:["twoBall.actual"],historical:true)
+        vm.replayLastShot()
+        assertRecordedRouteColor(vm.scene,names:["twoBall.actual"],historical:false)
+        vm.stopPlayback()
+        assertRecordedRouteColor(vm.scene,names:["twoBall.actual"],historical:true)
         vm.strike()
         for _ in 0..<1000 where vm.phase == .preparing { try await Task.sleep(for:.milliseconds(10)) }
         XCTAssertEqual(vm.phase,.result);XCTAssertEqual(limiter.questionsUsedToday,15)

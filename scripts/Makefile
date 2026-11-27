@@ -195,8 +195,7 @@ _test:
 	@mkdir -p $(DERIVED_DATA)
 	@status=0; pretty_status=0; \
 	  $(SIM_TEST_GUARD) xcodebuild \
-	    $(PROJECT_FLAG) \
-	    -scheme $(SCHEME) \
+	    $(if $(strip $(TEST_XCTESTRUN)),-xctestrun '$(TEST_XCTESTRUN)',$(PROJECT_FLAG) -scheme $(SCHEME)) \
 	    -configuration $(TEST_CONFIGURATION) \
 	    -derivedDataPath $(DERIVED_DATA) \
 	    -destination '$(TEST_DESTINATION)' \

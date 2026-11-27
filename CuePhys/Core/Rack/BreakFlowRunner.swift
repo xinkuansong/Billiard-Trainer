@@ -346,13 +346,13 @@ final class BreakFlowRunner: ObservableObject {
         }
         aimNodes.append(scene.addLine(from: cue.position, to: forward,
                                       color: TrajectoryStyle.TrainingAssist.aimLine,
-                                      radius: TrajectoryStyle.lineHint, placement: .table))
+                                      radius: scene.trajectoryWidths.mainRadius, placement: .table))
         let tail = SCNVector3(cue.position.x - dir.x * AngleSceneCalculator.ballRadius * 2,
                               cue.position.y,
                               cue.position.z - dir.z * AngleSceneCalculator.ballRadius * 2)
         aimNodes.append(scene.addLine(from: tail, to: cue.position,
                                       color: TrajectoryStyle.contactColor.withAlphaComponent(0.85),
-                                      radius: TrajectoryStyle.lineMain))
+                                      radius: scene.trajectoryWidths.mainRadius))
     }
 
     // MARK: - Break

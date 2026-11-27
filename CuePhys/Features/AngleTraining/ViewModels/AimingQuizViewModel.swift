@@ -48,7 +48,7 @@ final class AimingQuizViewModel: TeachingCameraHost {
 
     // MARK: - Scene
 
-    let scene = AngleTrainingScene()
+    let scene = AngleTrainingScene(trajectoryWidths: .interactiveTable)
     @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2D
     @Published var cameraTransitionBusy = false
     @Published var temporaryTopDownActive = false

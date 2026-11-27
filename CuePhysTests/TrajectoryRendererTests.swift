@@ -1,7 +1,181 @@
 import XCTest
 import SceneKit
 import AVFoundation
+import SwiftUI
 @testable import CuePhys
+
+@MainActor
+final class V75WidthTests: XCTestCase {
+    func testSceneProfilesReachActualGeometryAndSurviveCameraAndRebuild() throws {
+        for profile in [TrajectoryStyle.Widths.legacyIllustration, .interactiveTable] {
+            let scene = AngleTrainingScene(trajectoryWidths: profile)
+            scene.setupScene(recipe: .plainLegacy)
+            let expected: Float = profile == .interactiveTable ? 0.0045 : 0.0056
+            for mode in [AngleTrainingScene.CameraMode.topDown2D, .perspective3D, .topDown2D] {
+                scene.setCameraMode(mode, animated: false)
+                let y = scene.surfaceY + BallPhysics.radius
+                var nodes: [SCNNode] = []
+                scene.addCueTrajectory([.init(-0.5,y,0), .init(0.5,y,0)], contact: nil, into: &nodes)
+                XCTAssertEqual(try XCTUnwrap(nodes.first).boundingBox.max.z - nodes[0].boundingBox.min.z,
+                               expected, accuracy: 0.000001)
+                nodes.forEach { $0.removeFromParentNode() }; nodes.removeAll()
+                scene.addObjectTrajectory([.init(-0.5,y,0), .init(0.5,y,0)], ballKey: "_1", into: &nodes)
+                XCTAssertEqual(try XCTUnwrap(nodes.first).boundingBox.max.z - nodes[0].boundingBox.min.z,
+                               expected, accuracy: 0.000001)
+                nodes.forEach { $0.removeFromParentNode() }
+            }
+            scene.setupScene(recipe: .plainLegacy)
+            var rebuilt: [SCNNode] = []
+            let y = scene.surfaceY + BallPhysics.radius
+            scene.addDashedPolyline([.init(-0.5,y,0), .init(0.5,y,0)], color: .white,
+                                    placement: .table, into: &rebuilt)
+            XCTAssertEqual(try XCTUnwrap(rebuilt.first).boundingBox.max.z - rebuilt[0].boundingBox.min.z,
+                           expected, accuracy: 0.000001)
+        }
+    }
+
+    func testPrimitiveAndExplicitFineWidthsRemainCompatible() throws {
+        for scene in [AngleTrainingScene(), AngleTrainingScene(trajectoryWidths: .interactiveTable)] {
+            let a = SCNVector3(-0.5, 1, 0), b = SCNVector3(0.5, 1, 0)
+            let legacyPrimitive = scene.addLine(from: a, to: b, color: .white)
+            XCTAssertEqual(try XCTUnwrap(legacyPrimitive.geometry as? SCNCylinder).radius, 0.003, accuracy: 1e-7)
+            let fine = scene.addLine(from: a, to: b, color: .white, radius: 0.001)
+            XCTAssertEqual(try XCTUnwrap(fine.geometry as? SCNCylinder).radius, 0.001, accuracy: 1e-7)
+            XCTAssertEqual(SceneStroke.lineRadius, 0.0022, accuracy: 1e-7)
+        }
+    }
+
+    func testInteractiveVMDoesNotChangeIndependentFigureProjection() throws {
+        let vm = PositionPlayViewModel(trajectoryWidths: .interactiveTable)
+        XCTAssertEqual(vm.scene.trajectoryWidths.mainRadius, 0.00225, accuracy: 1e-7)
+        let backdrop = try XCTUnwrap(TableFigureRenderer.backdrop(orientation: .landscape, aspect: 2))
+        let projection = TableFigureProjection(backdrop: backdrop, size: CGSize(width: 667, height: 320))
+        XCTAssertEqual(projection.lineMainWidth, min(max(1.6, projection.length(0.0056)), 3.2), accuracy: 1e-6)
+        XCTAssertEqual(AngleTrainingScene().trajectoryWidths.mainRadius, 0.0028, accuracy: 1e-7)
+    }
+}
+
+@MainActor
+final class V75SpatialWidthTests: XCTestCase {
+    func testGroundAirAndLandingShareProfileWithoutChangingHeight() throws {
+        for profile in [TrajectoryStyle.Widths.legacyIllustration, .interactiveTable] {
+            let scene = AngleTrainingScene(trajectoryWidths: profile)
+            scene.setupScene(recipe: .plainLegacy)
+            let y = scene.surfaceY + BallPhysics.radius
+            let samples: [SCNVector3] = [.init(-0.5,y,0), .init(-0.3,y,0),
+                .init(0,y+0.12,0), .init(0.3,y,0), .init(0.5,y,0)]
+            for dashed in [false,true] {
+                let parent = SCNNode(), material = SCNMaterial(); material.diffuse.contents = UIColor.white
+                SpatialShotRendering.appendRoute(samples,dashed:dashed,material:material,to:parent,scene:scene)
+                XCTAssertEqual(parent.childNodes.count,3)
+                for node in parent.childNodes {
+                    XCTAssertEqual(node.boundingBox.max.z-node.boundingBox.min.z,
+                                   profile == .interactiveTable ? 0.0045 : 0.0056,accuracy:1e-6)
+                }
+                XCTAssertGreaterThan(parent.childNodes[1].boundingBox.max.y,scene.tableRouteHeight+0.11)
+                XCTAssertEqual(samples[2].y,y+0.12,accuracy:1e-6)
+            }
+        }
+    }
+    func testRealMasseAndJumpFrozenRecordsAtThreeViews() throws {
+        for mode in [SpatialQuizMode.masse, .jump] {
+            let q = try XCTUnwrap(try SpatialQuizBank.load(mode).questions.first)
+            let solved = SpatialQuizPhysics.solve(board:q.board,input:q.reference)
+            XCTAssertTrue(solved.outcome.succeeded)
+            let shot = try XCTUnwrap(SpatialPracticeRecord.freeze(prediction:solved.prediction,
+                input:q.reference.spatialInput,before:SpatialQuizInstance(q).board))
+            let original = try JSONEncoder().encode(shot)
+            let scene = AngleTrainingScene(trajectoryWidths:.interactiveTable)
+            scene.setupScene(recipe:.liveReference); scene.hideAllBalls(); scene.hideAllVisualization()
+            for (key,pose) in shot.before { scene.showBall(key:key,scenePosition:pose.position.scene) }
+            scene.configureBallInstances([q.board.targetName,"_8"])
+            let holder = SCNNode(); scene.rootNode.addChildNode(holder)
+            for key in shot.paths.keys.sorted() {
+                SpatialShotRendering.appendBallRoute(shot,key:key,detail:.full,to:holder,scene:scene)
+            }
+            let camera = SCNNode(); camera.camera = SCNCamera(); camera.camera?.zNear=0.01
+            scene.rootNode.addChildNode(camera)
+            let renderer = SCNRenderer(device:MTLCreateSystemDefaultDevice(),options:nil)
+            renderer.scene=scene; renderer.pointOfView=camera; renderer.delegate=scene.contactOcclusion
+            let focus=SCNVector3(q.board.obstacle.x,scene.surfaceY+0.07,q.board.obstacle.z)
+            let dx=q.board.target.x-q.board.cue.x,dz=q.board.target.z-q.board.cue.z
+            let len=hypotf(dx,dz), ux=dx/len, uz=dz/len
+            for view in ["top","third","side"] {
+                camera.camera?.usesOrthographicProjection = view == "top"
+                camera.camera?.orthographicScale=0.85; camera.camera?.fieldOfView=50
+                if view == "top" {
+                    camera.position=SCNVector3(0,scene.surfaceY+5,0);camera.eulerAngles=SCNVector3(-Float.pi/2,0,0)
+                } else if view == "side" {
+                    camera.position=SCNVector3(focus.x-ux*0.22+uz*0.92,scene.surfaceY+0.38,focus.z-uz*0.22-ux*0.92)
+                    camera.look(at:focus)
+                } else {
+                    camera.position=SCNVector3(q.board.cue.x-ux*0.85,scene.surfaceY+0.85,q.board.cue.z-uz*0.85)
+                    camera.look(at:focus)
+                }
+                SCNTransaction.flush()
+                _=renderer.snapshot(atTime:0,with:CGSize(width:1334,height:750),antialiasingMode:.multisampling4X)
+                let image=renderer.snapshot(atTime:1,with:CGSize(width:1334,height:750),antialiasingMode:.multisampling4X)
+                let attachment=XCTAttachment(image:image);attachment.name="v75-\(mode)-\(view)"
+                attachment.lifetime = .keepAlways;add(attachment)
+            }
+            // The same frozen samples/contact event feed all views; rendering never re-solves.
+            let encoder=JSONEncoder();encoder.outputFormatting = .sortedKeys
+            let restored=try JSONDecoder().decode(SpatialPracticeRecord.Shot.self,from:original)
+            XCTAssertEqual(try encoder.encode(shot),try encoder.encode(restored))
+            let record=XCTAttachment(data:try encoder.encode(shot),uniformTypeIdentifier:"public.json")
+            record.name="v75-\(mode)-frozen";record.lifetime = .keepAlways;add(record)
+        }
+    }
+}
+
+/// Fixed, unscaled native evidence for the illustration/export compatibility boundary.
+@MainActor
+final class V75LegacyCaptureTests: XCTestCase {
+    func testLegacyFigureAndSharedScene() async throws {
+        let figure = BTTableFigure(orientation: .landscape) { projection in
+            Canvas { context, _ in
+                var line = Path()
+                line.move(to: projection.point(x: -0.6, z: 0))
+                line.addLine(to: projection.point(x: 0.6, z: 0))
+                context.stroke(line, with: .color(.white), lineWidth: projection.lineMainWidth)
+            }
+        }.frame(width: 667, height: 320)
+        let host = UIHostingController(rootView: figure)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 667, height: 320))
+        window.rootViewController = host
+        window.isHidden = false
+        defer { window.isHidden = true }
+        host.view.frame = window.bounds
+        host.view.layoutIfNeeded()
+        try await Task.sleep(for: .seconds(3))
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        let figureImage = UIGraphicsImageRenderer(size: window.bounds.size, format: format).image { _ in
+            host.view.drawHierarchy(in: host.view.bounds, afterScreenUpdates: true)
+        }
+        let figureAttachment = XCTAttachment(image: figureImage)
+        figureAttachment.name = "v75-legacy-figure"; figureAttachment.lifetime = .keepAlways; add(figureAttachment)
+
+        let scene = AngleTrainingScene(); scene.setupScene(recipe: .plainLegacy)
+        scene.hideAllBalls(); scene.hideAllVisualization()
+        let y = scene.surfaceY + BallPhysics.radius
+        var nodes: [SCNNode] = []
+        scene.addCueTrajectory([.init(-0.6,y,0), .init(0,y,0), .init(0.5,y,0.3)],
+                               contact: .init(0,y,0), into: &nodes)
+        scene.addObjectTrajectory([.init(0,y,0), .init(0.7,y,-0.3)], ballKey: "_1", into: &nodes)
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        camera.camera?.usesOrthographicProjection = true; camera.camera?.orthographicScale = 0.85
+        camera.position = .init(0, scene.surfaceY + 5, 0); camera.eulerAngles = .init(-Float.pi / 2, 0, 0)
+        scene.rootNode.addChildNode(camera)
+        let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
+        renderer.scene = scene; renderer.pointOfView = camera
+        SCNTransaction.flush()
+        _ = renderer.snapshot(atTime: 0, with: CGSize(width: 1334, height: 750), antialiasingMode: .multisampling4X)
+        let image = renderer.snapshot(atTime: 1, with: CGSize(width: 1334, height: 750), antialiasingMode: .multisampling4X)
+        let attachment = XCTAttachment(image: image)
+        attachment.name = "v75-legacy-scene"; attachment.lifetime = .keepAlways; add(attachment)
+        XCTAssertFalse(nodes.isEmpty)
+    }
+}
 
 /// W8 helpers: TrajectoryRenderer options, SceneStroke constants, pulse/spin/palette.
 final class TrajectoryRendererTests: XCTestCase {
@@ -4890,5 +5064,31 @@ extension TrajectoryRendererTests {
                 print("[W17 six-pocket] \(pocket.id) residents=\(number) frames=\(frames + 1) fallImages=\(captures)")
             }
         }
+    }
+}
+
+@MainActor
+final class V75ExportCompatibilityTests: XCTestCase {
+    func testFixedThumbnailAndExportFrames() async throws {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id:"drill_c001")
+        let drill = try XCTUnwrap(loaded)
+        let thumbnail = try XCTUnwrap(DrillThumbnailRenderer.render(drill:drill))
+        let thumb = XCTAttachment(image:thumbnail);thumb.name="v75-thumbnail";thumb.lifetime = .keepAlways;add(thumb)
+        let root=URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let dir=root.appendingPathComponent("content/position_play/sequences")
+        let url=try XCTUnwrap(FileManager.default.contentsOfDirectory(at:dir,includingPropertiesForKeys:nil)
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            .first { $0.lastPathComponent.hasPrefix("drill_c001__") && $0.pathExtension == "json" })
+        let decoder=JSONDecoder();decoder.dateDecodingStrategy = .iso8601
+        let sequence=try decoder.decode(PositionPlaySequence.self,from:Data(contentsOf:url))
+        var options=SequenceVideoExporter.Options.teaching();options.size=CGSize(width:360,height:640)
+        let frames=SequenceVideoExporter.renderStills(sequence:sequence,options:options)
+        for name in ["s01_still","final"] {
+            let frame=try XCTUnwrap(frames.first { $0.name == name })
+            let a=XCTAttachment(image:UIImage(cgImage:frame.image));a.name="v75-export-"+name;a.lifetime = .keepAlways;add(a)
+        }
+        XCTAssertFalse(frames.isEmpty)
+        let input=XCTAttachment(data:try Data(contentsOf:url),uniformTypeIdentifier:"public.json")
+        input.name="v75-export-input";input.lifetime = .keepAlways;add(input)
     }
 }
